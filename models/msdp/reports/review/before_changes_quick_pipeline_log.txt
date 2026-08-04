@@ -1,0 +1,17 @@
+MSDP initial quick pipeline run
+Date: 2026-07-20 (Asia/Saigon)
+Command: .\.venv\Scripts\python.exe scripts\run_all.py --config configs\quick.yaml --data data\raw\VNINDEX_Daily.csv
+Process exit code: 0
+Wall-clock: 14.97 seconds
+
+Final-test metrics before changes:
+h5: MAE=2.247632, pinball=0.749565, Brier=0.245140, raw coverage=0.811957, calibrated coverage=0.922826
+h20: MAE=4.214259, pinball=1.533538, Brier=0.238439, raw coverage=0.564130, calibrated coverage=0.893478
+h60: MAE=6.600095, pinball=2.617994, Brier=0.232069, raw coverage=0.434783, calibrated coverage=0.964130
+
+Warnings/errors printed: none.
+
+Interpretation caveat: these numbers are from the prototype quick run and must not be
+used as upgraded-model evidence. The prototype selected no hyperparameters through
+Optuna, trained one seed, and did not execute the advertised ablations or bootstrap.
+

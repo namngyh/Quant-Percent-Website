@@ -1,0 +1,1211 @@
+{
+  "model": {
+    "name": "DynamicGraph",
+    "version": "0.1.0",
+    "schema_version": "1.0.0",
+    "generated_at": "2026-07-25T20:29:38+00:00",
+    "as_of_date": "2026-07-24",
+    "data_source": "local_database",
+    "data_freshness_days": 2,
+    "run_id": "20260725T174740Z",
+    "git_commit": null,
+    "config_fingerprint": "5a6468edfbd1b8d7",
+    "graph_layer": "partial_correlation",
+    "graph_window": 60,
+    "graph_return_type": "residual"
+  },
+  "universe": {
+    "index": "VN30",
+    "node_count": 30,
+    "tickers": [
+      "ACB",
+      "BCM",
+      "BID",
+      "BVH",
+      "CTG",
+      "FPT",
+      "GAS",
+      "GVR",
+      "HDB",
+      "HPG",
+      "LPB",
+      "MBB",
+      "MSN",
+      "MWG",
+      "PLX",
+      "SAB",
+      "SHB",
+      "SSB",
+      "SSI",
+      "STB",
+      "TCB",
+      "TPB",
+      "VCB",
+      "VHM",
+      "VIB",
+      "VIC",
+      "VJC",
+      "VNM",
+      "VPB",
+      "VRE"
+    ],
+    "missing_tickers": [],
+    "survivorship_bias_warning": true,
+    "universe_method": "static_list"
+  },
+  "network_state": {
+    "label": "high_stress",
+    "stress_score": 84.62,
+    "stress_raw": 0.8524,
+    "historical_percentile": 0.9282,
+    "change_1d": 3.91,
+    "change_5d": 1.12,
+    "change_20d": -0.25,
+    "main_contributors": [
+      {
+        "metric": "market_mode_share",
+        "contribution": 0.3,
+        "share": 0.1807,
+        "direction": "raises_stress"
+      },
+      {
+        "metric": "spectral_radius",
+        "contribution": 0.3,
+        "share": 0.1807,
+        "direction": "raises_stress"
+      },
+      {
+        "metric": "centrality_concentration",
+        "contribution": -0.3,
+        "share": 0.1807,
+        "direction": "lowers_stress"
+      },
+      {
+        "metric": "negative_diversification",
+        "contribution": 0.3,
+        "share": 0.1807,
+        "direction": "raises_stress"
+      },
+      {
+        "metric": "community_compression",
+        "contribution": 0.1391,
+        "share": 0.0838,
+        "direction": "raises_stress"
+      },
+      {
+        "metric": "edge_turnover",
+        "contribution": 0.0839,
+        "share": 0.0505,
+        "direction": "raises_stress"
+      }
+    ],
+    "warning_flags": []
+  },
+  "stress_probabilities": {
+    "5d": {
+      "probability": 0.18205,
+      "calibrated": true,
+      "calibration_method": "sigmoid",
+      "model_name": "random_forest",
+      "feature_set": "combined",
+      "label_definition": "VN30 forward 5-day drawdown at or below the training 10th percentile (-0.0374)",
+      "oos_brier_score": 0.11405877947353427,
+      "oos_auprc": 0.15822284850694351,
+      "oos_brier_skill_score": -0.12162563158530593,
+      "sample_size": 1323,
+      "last_retraining_date": "2026-05-25",
+      "decision_threshold": 0.1428,
+      "confidence_warning": "This horizon's model did not beat a constant base-rate forecast out of sample. Treat the probability as uninformative."
+    },
+    "10d": {
+      "probability": 0.13183,
+      "calibrated": true,
+      "calibration_method": "sigmoid",
+      "model_name": "hist_gradient_boosting",
+      "feature_set": "graph",
+      "label_definition": "VN30 forward 10-day drawdown at or below the training 10th percentile (-0.0581)",
+      "oos_brier_score": 0.1354418714955748,
+      "oos_auprc": 0.11334883980512678,
+      "oos_brier_skill_score": -0.3552464213037394,
+      "sample_size": 1323,
+      "last_retraining_date": "2026-05-18",
+      "decision_threshold": 0.1529,
+      "confidence_warning": "This horizon's model did not beat a constant base-rate forecast out of sample. Treat the probability as uninformative."
+    },
+    "20d": {
+      "probability": 0.08426,
+      "calibrated": true,
+      "calibration_method": "sigmoid",
+      "model_name": "hist_gradient_boosting",
+      "feature_set": "graph",
+      "label_definition": "VN30 forward 20-day drawdown at or below the training 10th percentile (-0.0869)",
+      "oos_brier_score": 0.15633864442493528,
+      "oos_auprc": 0.11880864054570303,
+      "oos_brier_skill_score": -0.34905031087078897,
+      "sample_size": 1323,
+      "last_retraining_date": "2026-05-04",
+      "decision_threshold": 0.1649,
+      "confidence_warning": "This horizon's model did not beat a constant base-rate forecast out of sample. Treat the probability as uninformative."
+    },
+    "40d": {
+      "probability": 0.25397,
+      "calibrated": true,
+      "calibration_method": "isotonic",
+      "model_name": "random_forest",
+      "feature_set": "graph",
+      "label_definition": "VN30 forward 40-day drawdown at or below the training 10th percentile (-0.1187)",
+      "oos_brier_score": 0.21471740078210103,
+      "oos_auprc": 0.17249094988722885,
+      "oos_brier_skill_score": -0.49499221684845907,
+      "sample_size": 1323,
+      "last_retraining_date": "2026-04-01",
+      "decision_threshold": 0.254,
+      "confidence_warning": "This horizon's model did not beat a constant base-rate forecast out of sample. Treat the probability as uninformative."
+    }
+  },
+  "graph_metrics": {
+    "layer": "partial_correlation",
+    "window": 60.0,
+    "return_type": "residual",
+    "number_of_nodes": 30.0,
+    "number_of_edges": 81.0,
+    "graph_density": 0.18620689655172415,
+    "alpha": 0.02,
+    "n_excluded_nodes": 0.0,
+    "average_degree": 5.4,
+    "average_strength": 0.8298260569572449,
+    "median_strength": 0.7677637934684753,
+    "maximum_strength": 1.8312017917633057,
+    "edge_weight_mean": 0.1536714881658554,
+    "edge_weight_std": 0.0630764439702034,
+    "average_absolute_weight": 0.02861468866467476,
+    "average_signed_weight": -0.0005404124385677278,
+    "positive_edge_ratio": 0.4567901234567901,
+    "negative_edge_ratio": 0.5432098765432098,
+    "centrality_concentration": 0.03970548138022423,
+    "avg_abs_partial_correlation": 0.02861468866467476,
+    "average_partial_correlation": -0.0005404124385677278,
+    "average_clustering": 0.08043806319833,
+    "global_transitivity": 0.26823529411764707,
+    "assortativity": 0.042410307387272646,
+    "largest_cc_share": 1.0,
+    "n_connected_components": 1.0,
+    "spectral_radius": 1.0215941667556763,
+    "algebraic_connectivity": 0.13072192668914795,
+    "laplacian_entropy": 3.185558795928955,
+    "spectral_gap": 0.22608798742294312,
+    "eigenvalue_concentration": 0.05397091805934906,
+    "modularity": 0.3812269888104449,
+    "number_of_communities": 6.0,
+    "largest_community_share": 0.26666666666666666,
+    "community_size_herfindahl": 0.18444444444444447,
+    "community_method": "greedy",
+    "sector_purity": 0.5333333333333333,
+    "community_compression": 0.8275862068965517,
+    "market_mode_share": 0.18329215049743652,
+    "correlation_eigenvalue_concentration": 0.06802752614021301,
+    "negative_diversification": 0.29846632515851435,
+    "mst_length": 1.140572560244593,
+    "mst_total_length": 33.0766042470932,
+    "mst_max_degree": 6.0,
+    "mst_mean_degree": 1.9333333333333333,
+    "mst_diameter": 10.0,
+    "network_fragility": 0.40863745931064943,
+    "edge_turnover": 0.23333333333333328,
+    "community_ari": 0.6241520672095887,
+    "community_nmi": 0.7762798530509227,
+    "community_jaccard": 0.785,
+    "community_turnover": 0.22372014694907727
+  },
+  "leading_influence_nodes": [
+    {
+      "id": "VIC",
+      "label": "VIC",
+      "sector": "Real Estate",
+      "community": 0,
+      "strength": 1.8312,
+      "eigenvector_centrality": 0.4057,
+      "pagerank": 0.0655,
+      "betweenness_centrality": 0.1749,
+      "centrality_change_20d": -0.1494,
+      "volatility_20d": 0.4097,
+      "return_20d": -0.0676,
+      "current_drawdown": -0.0755,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "FPT",
+      "label": "FPT",
+      "sector": "Technology",
+      "community": 0,
+      "strength": 1.467,
+      "eigenvector_centrality": 0.319,
+      "pagerank": 0.0539,
+      "betweenness_centrality": 0.0911,
+      "centrality_change_20d": 0.5346,
+      "volatility_20d": 0.2993,
+      "return_20d": -0.1183,
+      "current_drawdown": -0.5158,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "VHM",
+      "label": "VHM",
+      "sector": "Real Estate",
+      "community": 5,
+      "strength": 1.2239,
+      "eigenvector_centrality": 0.2716,
+      "pagerank": 0.0459,
+      "betweenness_centrality": 0.1108,
+      "centrality_change_20d": -0.6658,
+      "volatility_20d": 0.4331,
+      "return_20d": -0.1823,
+      "current_drawdown": -0.1768,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "LPB",
+      "label": "LPB",
+      "sector": "Banks",
+      "community": 1,
+      "strength": 1.3719,
+      "eigenvector_centrality": 0.2736,
+      "pagerank": 0.0516,
+      "betweenness_centrality": 0.0591,
+      "centrality_change_20d": 0.2284,
+      "volatility_20d": 0.3296,
+      "return_20d": -0.0114,
+      "current_drawdown": -0.0643,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "VRE",
+      "label": "VRE",
+      "sector": "Real Estate",
+      "community": 5,
+      "strength": 1.1831,
+      "eigenvector_centrality": 0.2647,
+      "pagerank": 0.0441,
+      "betweenness_centrality": 0.1207,
+      "centrality_change_20d": 0.1279,
+      "volatility_20d": 0.2938,
+      "return_20d": -0.2799,
+      "current_drawdown": -0.5309,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "PLX",
+      "label": "PLX",
+      "sector": "Oil & Gas",
+      "community": 2,
+      "strength": 1.3246,
+      "eigenvector_centrality": 0.2158,
+      "pagerank": 0.0491,
+      "betweenness_centrality": 0.0788,
+      "centrality_change_20d": -0.0216,
+      "volatility_20d": 0.3342,
+      "return_20d": -0.085,
+      "current_drawdown": -0.5137,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "GVR",
+      "label": "GVR",
+      "sector": "Chemicals",
+      "community": 2,
+      "strength": 1.0721,
+      "eigenvector_centrality": 0.2375,
+      "pagerank": 0.0397,
+      "betweenness_centrality": 0.1478,
+      "centrality_change_20d": -0.0161,
+      "volatility_20d": 0.3706,
+      "return_20d": -0.2031,
+      "current_drawdown": -0.4273,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "HPG",
+      "label": "HPG",
+      "sector": "Basic Resources",
+      "community": 0,
+      "strength": 1.0589,
+      "eigenvector_centrality": 0.2474,
+      "pagerank": 0.0403,
+      "betweenness_centrality": 0.0567,
+      "centrality_change_20d": 0.4102,
+      "volatility_20d": 0.2403,
+      "return_20d": -0.122,
+      "current_drawdown": -0.2983,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "BID",
+      "label": "BID",
+      "sector": "Banks",
+      "community": 3,
+      "strength": 0.9491,
+      "eigenvector_centrality": 0.1051,
+      "pagerank": 0.0388,
+      "betweenness_centrality": 0.0788,
+      "centrality_change_20d": 0.0263,
+      "volatility_20d": 0.2474,
+      "return_20d": -0.1355,
+      "current_drawdown": -0.3379,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    },
+    {
+      "id": "SHB",
+      "label": "SHB",
+      "sector": "Banks",
+      "community": 4,
+      "strength": 0.9138,
+      "eigenvector_centrality": 0.1837,
+      "pagerank": 0.0358,
+      "betweenness_centrality": 0.0394,
+      "centrality_change_20d": 0.3371,
+      "volatility_20d": 0.3275,
+      "return_20d": -0.1456,
+      "current_drawdown": -0.3721,
+      "role": "high_influence_node",
+      "interpretation": "Sits at the centre of the estimated dependence structure. This is not a view on the stock's future return."
+    }
+  ],
+  "risk_transmitters": [],
+  "risk_receivers": [],
+  "vulnerable_nodes": [
+    {
+      "id": "HDB",
+      "label": "HDB",
+      "sector": "Banks",
+      "vulnerability_score": 0.8333,
+      "current_drawdown": -0.1296,
+      "downside_volatility_20d": 0.1872,
+      "avg_neighbor_risk": 0.2655,
+      "strength": 0.6581,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "ACB",
+      "label": "ACB",
+      "sector": "Banks",
+      "vulnerability_score": 0.8,
+      "current_drawdown": -0.114,
+      "downside_volatility_20d": 0.1604,
+      "avg_neighbor_risk": 0.2958,
+      "strength": 0.7493,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "LPB",
+      "label": "LPB",
+      "sector": "Banks",
+      "vulnerability_score": 0.8,
+      "current_drawdown": -0.0643,
+      "downside_volatility_20d": 0.2134,
+      "avg_neighbor_risk": 0.2865,
+      "strength": 1.3719,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "STB",
+      "label": "STB",
+      "sector": "Banks",
+      "vulnerability_score": 0.7889,
+      "current_drawdown": -0.043,
+      "downside_volatility_20d": 0.1626,
+      "avg_neighbor_risk": 0.3112,
+      "strength": 0.8606,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "VCB",
+      "label": "VCB",
+      "sector": "Banks",
+      "vulnerability_score": 0.7778,
+      "current_drawdown": -0.2829,
+      "downside_volatility_20d": 0.2256,
+      "avg_neighbor_risk": 0.2504,
+      "strength": 0.5264,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "VPB",
+      "label": "VPB",
+      "sector": "Banks",
+      "vulnerability_score": 0.7222,
+      "current_drawdown": -0.343,
+      "downside_volatility_20d": 0.1977,
+      "avg_neighbor_risk": 0.2579,
+      "strength": 0.2491,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "CTG",
+      "label": "CTG",
+      "sector": "Banks",
+      "vulnerability_score": 0.7111,
+      "current_drawdown": -0.2905,
+      "downside_volatility_20d": 0.2451,
+      "avg_neighbor_risk": 0.2535,
+      "strength": 0.6028,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "VNM",
+      "label": "VNM",
+      "sector": "Food & Beverage",
+      "vulnerability_score": 0.7,
+      "current_drawdown": -0.4075,
+      "downside_volatility_20d": 0.1473,
+      "avg_neighbor_risk": 0.2608,
+      "strength": 0.2811,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "VJC",
+      "label": "VJC",
+      "sector": "Travel & Leisure",
+      "vulnerability_score": 0.6889,
+      "current_drawdown": -0.244,
+      "downside_volatility_20d": 0.2043,
+      "avg_neighbor_risk": 0.2983,
+      "strength": 0.5718,
+      "role": "vulnerable_node"
+    },
+    {
+      "id": "VIB",
+      "label": "VIB",
+      "sector": "Banks",
+      "vulnerability_score": 0.6333,
+      "current_drawdown": -0.3564,
+      "downside_volatility_20d": 0.2369,
+      "avg_neighbor_risk": 0.2597,
+      "strength": 0.8244,
+      "role": "vulnerable_node"
+    }
+  ],
+  "communities": [
+    {
+      "community_id": 0,
+      "size": 8,
+      "members": [
+        "FPT",
+        "HDB",
+        "HPG",
+        "MBB",
+        "MSN",
+        "MWG",
+        "STB",
+        "VIC"
+      ],
+      "dominant_sector": "Banks",
+      "dominant_sector_share": 0.375,
+      "sector_composition": {
+        "Banks": 3,
+        "Technology": 1,
+        "Basic Resources": 1,
+        "Food & Beverage": 1,
+        "Retail": 1,
+        "Real Estate": 1
+      },
+      "cohesion": 0.474,
+      "internal_weight": 2.5493,
+      "external_weight": 2.8287,
+      "overall_sector_purity": 0.5333
+    },
+    {
+      "community_id": 1,
+      "size": 6,
+      "members": [
+        "ACB",
+        "LPB",
+        "TPB",
+        "VIB",
+        "VJC",
+        "VPB"
+      ],
+      "dominant_sector": "Banks",
+      "dominant_sector_share": 0.833,
+      "sector_composition": {
+        "Banks": 5,
+        "Travel & Leisure": 1
+      },
+      "cohesion": 0.3567,
+      "internal_weight": 1.1794,
+      "external_weight": 2.1266,
+      "overall_sector_purity": 0.5333
+    },
+    {
+      "community_id": 2,
+      "size": 5,
+      "members": [
+        "BCM",
+        "GAS",
+        "GVR",
+        "PLX",
+        "SSB"
+      ],
+      "dominant_sector": "Real Estate",
+      "dominant_sector_share": 0.2,
+      "sector_composition": {
+        "Real Estate": 1,
+        "Utilities": 1,
+        "Chemicals": 1,
+        "Oil & Gas": 1,
+        "Banks": 1
+      },
+      "cohesion": 0.5234,
+      "internal_weight": 1.5623,
+      "external_weight": 1.4226,
+      "overall_sector_purity": 0.5333
+    },
+    {
+      "community_id": 3,
+      "size": 4,
+      "members": [
+        "BID",
+        "BVH",
+        "CTG",
+        "VCB"
+      ],
+      "dominant_sector": "Banks",
+      "dominant_sector_share": 0.75,
+      "sector_composition": {
+        "Banks": 3,
+        "Insurance": 1
+      },
+      "cohesion": 0.4776,
+      "internal_weight": 0.8662,
+      "external_weight": 0.9475,
+      "overall_sector_purity": 0.5333
+    },
+    {
+      "community_id": 4,
+      "size": 4,
+      "members": [
+        "SAB",
+        "SHB",
+        "SSI",
+        "VNM"
+      ],
+      "dominant_sector": "Food & Beverage",
+      "dominant_sector_share": 0.5,
+      "sector_composition": {
+        "Food & Beverage": 2,
+        "Banks": 1,
+        "Financial Services": 1
+      },
+      "cohesion": 0.3417,
+      "internal_weight": 0.6218,
+      "external_weight": 1.1979,
+      "overall_sector_purity": 0.5333
+    },
+    {
+      "community_id": 5,
+      "size": 3,
+      "members": [
+        "TCB",
+        "VHM",
+        "VRE"
+      ],
+      "dominant_sector": "Real Estate",
+      "dominant_sector_share": 0.667,
+      "sector_composition": {
+        "Real Estate": 2,
+        "Banks": 1
+      },
+      "cohesion": 0.201,
+      "internal_weight": 0.4708,
+      "external_weight": 1.8719,
+      "overall_sector_purity": 0.5333
+    }
+  ],
+  "top_edges": [
+    {
+      "source": "GAS",
+      "target": "PLX",
+      "weight": 0.571,
+      "signed_weight": 0.571,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "GVR",
+      "target": "PLX",
+      "weight": 0.2952,
+      "signed_weight": 0.2952,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "VHM",
+      "target": "VRE",
+      "weight": 0.2873,
+      "signed_weight": 0.2873,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HPG",
+      "target": "VIC",
+      "weight": 0.2574,
+      "signed_weight": -0.2574,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "STB",
+      "target": "VIC",
+      "weight": 0.2475,
+      "signed_weight": -0.2475,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BID",
+      "target": "VCB",
+      "weight": 0.2381,
+      "signed_weight": 0.2381,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "VHM",
+      "target": "VIC",
+      "weight": 0.2229,
+      "signed_weight": 0.2229,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "GVR",
+      "target": "VRE",
+      "weight": 0.2043,
+      "signed_weight": 0.2043,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "VIC",
+      "weight": 0.2013,
+      "signed_weight": -0.2013,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SHB",
+      "target": "SSI",
+      "weight": 0.2,
+      "signed_weight": 0.2,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BID",
+      "target": "CTG",
+      "weight": 0.1925,
+      "signed_weight": 0.1925,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "MBB",
+      "target": "VIC",
+      "weight": 0.1895,
+      "signed_weight": -0.1895,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "GAS",
+      "target": "SSB",
+      "weight": 0.1868,
+      "signed_weight": -0.1868,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BCM",
+      "target": "GAS",
+      "weight": 0.1858,
+      "signed_weight": 0.1858,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "TCB",
+      "target": "VHM",
+      "weight": 0.1835,
+      "signed_weight": -0.1835,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BCM",
+      "target": "GVR",
+      "weight": 0.1823,
+      "signed_weight": 0.1823,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "MWG",
+      "target": "VIC",
+      "weight": 0.1817,
+      "signed_weight": -0.1817,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "MSN",
+      "target": "VIC",
+      "weight": 0.1781,
+      "signed_weight": -0.1781,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "VRE",
+      "weight": 0.1777,
+      "signed_weight": -0.1777,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "CTG",
+      "target": "VCB",
+      "weight": 0.1765,
+      "signed_weight": 0.1765,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "TPB",
+      "weight": 0.172,
+      "signed_weight": -0.172,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "GVR",
+      "target": "VHM",
+      "weight": 0.1681,
+      "signed_weight": -0.1681,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "TPB",
+      "target": "VJC",
+      "weight": 0.1652,
+      "signed_weight": 0.1652,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SAB",
+      "target": "VNM",
+      "weight": 0.164,
+      "signed_weight": 0.164,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "VJC",
+      "weight": 0.1628,
+      "signed_weight": -0.1628,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "LPB",
+      "weight": 0.1585,
+      "signed_weight": -0.1585,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HPG",
+      "target": "MSN",
+      "weight": 0.1569,
+      "signed_weight": 0.1569,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "ACB",
+      "target": "VIB",
+      "weight": 0.1552,
+      "signed_weight": 0.1552,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "HDB",
+      "weight": 0.152,
+      "signed_weight": -0.152,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HDB",
+      "target": "VRE",
+      "weight": 0.1485,
+      "signed_weight": -0.1485,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BID",
+      "target": "BVH",
+      "weight": 0.1473,
+      "signed_weight": 0.1473,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "VIB",
+      "weight": 0.1454,
+      "signed_weight": -0.1454,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "MBB",
+      "target": "STB",
+      "weight": 0.1452,
+      "signed_weight": -0.1452,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BCM",
+      "target": "BID",
+      "weight": 0.1424,
+      "signed_weight": 0.1424,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HPG",
+      "target": "SHB",
+      "weight": 0.1421,
+      "signed_weight": 0.1421,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HPG",
+      "target": "SSI",
+      "weight": 0.1416,
+      "signed_weight": 0.1416,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BCM",
+      "target": "PLX",
+      "weight": 0.1412,
+      "signed_weight": 0.1412,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SAB",
+      "target": "SSI",
+      "weight": 0.1407,
+      "signed_weight": 0.1407,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "VIC",
+      "weight": 0.1406,
+      "signed_weight": -0.1406,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "HDB",
+      "target": "HPG",
+      "weight": 0.1403,
+      "signed_weight": -0.1403,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "MSN",
+      "weight": 0.1374,
+      "signed_weight": -0.1374,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "ACB",
+      "target": "VJC",
+      "weight": 0.1366,
+      "signed_weight": -0.1366,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "MWG",
+      "weight": 0.1354,
+      "signed_weight": -0.1354,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "STB",
+      "weight": 0.1331,
+      "signed_weight": -0.1331,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SHB",
+      "target": "VRE",
+      "weight": 0.1325,
+      "signed_weight": -0.1325,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SAB",
+      "target": "VIB",
+      "weight": 0.1321,
+      "signed_weight": 0.1321,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "MWG",
+      "target": "VHM",
+      "weight": 0.1314,
+      "signed_weight": -0.1314,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "ACB",
+      "target": "LPB",
+      "weight": 0.1313,
+      "signed_weight": -0.1313,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "TPB",
+      "target": "VIB",
+      "weight": 0.131,
+      "signed_weight": 0.131,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "SSB",
+      "target": "VIB",
+      "weight": 0.1305,
+      "signed_weight": 0.1305,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BCM",
+      "target": "VIB",
+      "weight": 0.1302,
+      "signed_weight": 0.1302,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "VRE",
+      "weight": 0.1302,
+      "signed_weight": -0.1302,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "LPB",
+      "target": "MSN",
+      "weight": 0.1294,
+      "signed_weight": -0.1294,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "SHB",
+      "weight": 0.1273,
+      "signed_weight": -0.1273,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "BID",
+      "target": "MWG",
+      "weight": 0.1259,
+      "signed_weight": -0.1259,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "TPB",
+      "target": "VHM",
+      "weight": 0.1254,
+      "signed_weight": -0.1254,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "TPB",
+      "target": "VPB",
+      "weight": 0.1253,
+      "signed_weight": 0.1253,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "STB",
+      "target": "VPB",
+      "weight": 0.1238,
+      "signed_weight": -0.1238,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "ACB",
+      "target": "MBB",
+      "weight": 0.1206,
+      "signed_weight": 0.1206,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    },
+    {
+      "source": "FPT",
+      "target": "HPG",
+      "weight": 0.1177,
+      "signed_weight": -0.1177,
+      "edge_type": "partial_correlation",
+      "window": 60,
+      "stability": null
+    }
+  ],
+  "model_quality": {
+    "evaluation_type": "walk_forward_oos",
+    "brier_score": 0.15633864442493528,
+    "brier_skill_score": -0.34905031087078897,
+    "auroc": 0.4166025773754942,
+    "auprc": 0.11880864054570303,
+    "mcc": -0.07944291305051562,
+    "recall_stress": 0.1807909604519774,
+    "precision_stress": 0.0893854748603352,
+    "false_alarms_per_year": 62.095238095238095,
+    "calibration_error": 0.1510160936204263,
+    "calibration_slope": -0.1441171155331436,
+    "n_oos_observations": 1323,
+    "n_folds": 21,
+    "graph_incremental_value": "mixed",
+    "model": "hist_gradient_boosting",
+    "feature_set": "graph"
+  },
+  "warnings": [
+    "SURVIVORSHIP BIAS: the universe is a current-membership snapshot applied to history. Network statistics and model performance are optimistically biased.",
+    "1 ticker(s) have sector = UNKNOWN. Sectors are never guessed from the company name; add them to config/sector_map.csv if you need sector features.",
+    "SURVIVORSHIP BIAS: the universe file has no effective dates, so today's VN30 membership is applied to the whole history. Stocks that were removed from the index are absent and current members are present before they joined. Network statistics and any model trained on them are optimistically biased. Use `data.universe_method: liquidity_proxy` for a point-in-time alternative, or add effective dates to config/vn30_universe.csv.",
+    "4 row(s) violate low <= {open, close} <= high.",
+    "19 ticker(s) have a run of >= 5 identical consecutive closes.",
+    "496 date(s) have fewer than half of the tickers reporting - sources may not share a trading calendar."
+  ],
+  "disclaimers": [
+    "DynamicGraph describes the dependence structure between VN30 stocks. It does not forecast the level of the VN30 index.",
+    "Network edges are statistical associations (correlation / partial correlation). They are not causal links between companies.",
+    "Centrality identifies stocks at the centre of the estimated dependence structure. It does not identify stocks that will rise or fall.",
+    "Stress probabilities are out-of-sample calibrated estimates with material uncertainty. They are not predictions of certainty and must not be read as investment advice."
+  ],
+  "directed_layer": {
+    "available": true,
+    "layer": "lead_lag",
+    "disclaimer": "Directional labels come from lagged-correlation or VAR forecast-error decompositions. They are predictive associations under an assumed model, not identified causal effects."
+  }
+}

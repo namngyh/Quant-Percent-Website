@@ -1,0 +1,1389 @@
+<title>DynamicGraph · Bảng điều khiển nghiên cứu VN30</title>
+
+<style>
+/* =======================================================================
+   HỆ MÀU — ĐƠN SẮC HOÀN TOÀN
+   Không có màu sắc nào. Mọi thông tin vốn được mã hoá bằng màu đều
+   chuyển sang mã hoá bằng HÌNH THỨC: nét liền / nét đứt cho dấu của
+   tương quan, ô đặc / ô rỗng cho phán quyết, tam giác lên / xuống cho
+   chiều tốt xấu. Cách này đọc được trên máy in đen trắng và với người
+   mù màu, điều mà bảng màu không làm được.
+   ==================================================================== */
+:root {
+  --ink:      #000000;
+  --panel:    #080808;
+  --panel-2:  #111111;
+  --rule:     #262626;
+  --rule-hi:  #3D3D3D;
+  --text:     #D2D2D2;
+  --text-hi:  #FFFFFF;
+  --muted:    #8A8A8A;
+  --faint:    #565656;
+  --grid:     #1A1A1A;
+  --ink-on:   #000000;   /* chữ đặt trên nền sáng */
+
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", "Menlo",
+          "DejaVu Sans Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink:#FFFFFF; --panel:#FFFFFF; --panel-2:#F4F4F4; --rule:#D9D9D9;
+    --rule-hi:#BDBDBD; --text:#1C1C1C; --text-hi:#000000; --muted:#666666;
+    --faint:#9C9C9C; --grid:#EAEAEA; --ink-on:#FFFFFF;
+  }
+}
+:root[data-theme="light"] {
+  --ink:#FFFFFF; --panel:#FFFFFF; --panel-2:#F4F4F4; --rule:#D9D9D9;
+  --rule-hi:#BDBDBD; --text:#1C1C1C; --text-hi:#000000; --muted:#666666;
+  --faint:#9C9C9C; --grid:#EAEAEA; --ink-on:#FFFFFF;
+}
+:root[data-theme="dark"] {
+  --ink:#000000; --panel:#080808; --panel-2:#111111; --rule:#262626;
+  --rule-hi:#3D3D3D; --text:#D2D2D2; --text-hi:#FFFFFF; --muted:#8A8A8A;
+  --faint:#565656; --grid:#1A1A1A; --ink-on:#000000;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0; background: var(--ink); color: var(--text);
+  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1460px; margin: 0 auto; padding: 0 var(--s5) var(--s7); }
+
+/* ---- thanh tiêu đề ---------------------------------------------------
+   Nền đặc, không dùng backdrop-filter: bộ lọc nền buộc trình duyệt hợp
+   thành lại toàn khung mỗi khi cuộn, và đó chính là nguyên nhân giật.  */
+.masthead {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--ink); border-bottom: 1px solid var(--rule);
+}
+.masthead-inner {
+  max-width: 1460px; margin: 0 auto; padding: var(--s3) var(--s5);
+  display: flex; align-items: baseline; gap: var(--s5); flex-wrap: wrap;
+}
+.brand {
+  font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-hi); white-space: nowrap;
+}
+.brand em { font-style: normal; color: var(--muted); font-weight: 400; }
+.runstrip {
+  display: flex; gap: var(--s4); flex-wrap: wrap;
+  font-size: 11px; color: var(--muted); margin-left: auto;
+}
+.runstrip b { color: var(--text); font-weight: 500; }
+.themetoggle {
+  font: inherit; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--rule); border-radius: 0; padding: 3px 10px; cursor: pointer;
+}
+.themetoggle:hover { color: var(--text-hi); border-color: var(--rule-hi); }
+.themetoggle:focus-visible { outline: 2px solid var(--text-hi); outline-offset: 2px; }
+
+/* ---- thẻ điều hướng --------------------------------------------------- */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--rule);
+  margin: 0 0 var(--s5); overflow-x: auto;
+}
+.tab {
+  font: inherit; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: var(--s3) var(--s4); cursor: pointer; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text-hi); border-bottom-color: var(--text-hi); }
+.tab:focus-visible { outline: 2px solid var(--text-hi); outline-offset: -2px; }
+
+/* ---- luận điểm -------------------------------------------------------- */
+.claims {
+  display: grid; gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin: var(--s5) 0;
+}
+.claim { border: 1px solid var(--rule); background: var(--panel); padding: var(--s4); }
+.claim[data-state="pass"]    { border-left: 3px solid var(--text-hi); }
+.claim[data-state="fail"]    { border-left: 3px dashed var(--faint); }
+.claim[data-state="partial"] { border-left: 3px double var(--muted); }
+.claim-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--s3); margin-bottom: var(--s3);
+}
+.claim-kicker {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+}
+.stamp {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid currentColor; padding: 2px 8px; white-space: nowrap;
+}
+.claim[data-state="pass"] .stamp    { color: var(--ink); background: var(--text-hi); border-color: var(--text-hi); }
+.claim[data-state="fail"] .stamp    { color: var(--muted); border-style: dashed; }
+.claim[data-state="partial"] .stamp { color: var(--text); }
+.claim-q {
+  font-size: 15px; color: var(--text-hi); font-weight: 600;
+  letter-spacing: -0.005em; margin: 0 0 var(--s2); text-wrap: balance;
+}
+.claim[data-state="fail"] .claim-q {
+  text-decoration: line-through; text-decoration-thickness: 2px;
+  color: var(--muted);
+}
+.claim-ev {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted); margin: 0;
+}
+.claim-fig {
+  margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--rule);
+  display: flex; gap: var(--s5); flex-wrap: wrap;
+}
+.fig { display: flex; flex-direction: column; gap: 1px; }
+.fig-v { font-size: 20px; font-weight: 600; color: var(--text-hi); letter-spacing: -0.02em; }
+.fig-v.q { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.fig-l { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+
+/* ---- khối ------------------------------------------------------------- */
+.grid { display: grid; gap: var(--s3); }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); }
+.panel { border: 1px solid var(--rule); background: var(--panel); min-width: 0; }
+.panel-hd {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3);
+  padding: var(--s3) var(--s4); border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+}
+.panel-t { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-hi); }
+.panel-s { font-size: 11px; color: var(--faint); }
+.panel-bd { padding: var(--s4); }
+.panel-bd.flush { padding: 0; }
+
+.note {
+  font-family: var(--sans); font-size: 13px; line-height: 1.65; color: var(--muted);
+  margin: 0; max-width: 70ch;
+}
+.note + .note { margin-top: var(--s3); }
+.note b, .note strong { color: var(--text-hi); font-weight: 600; }
+.note code {
+  font-family: var(--mono); font-size: 11.5px; background: var(--panel-2);
+  border: 1px solid var(--rule); padding: 0 4px; color: var(--text);
+}
+
+/* ---- bảng ------------------------------------------------------------- */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td {
+  text-align: right; padding: 6px var(--s3); white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+}
+th:first-child, td:first-child { text-align: left; }
+th {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  font-weight: 500; position: sticky; top: 0; background: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--rule);
+}
+td { color: var(--text); }
+tbody tr:hover td { background: var(--panel-2); }
+tbody tr.hi td { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--text-hi); }
+td.k { color: var(--text-hi); }
+td.dim { color: var(--faint); }
+td.up::before { content: "▲ "; color: var(--muted); }
+td.down::before { content: "▼ "; color: var(--text-hi); }
+
+.chip {
+  display: inline-block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 1px 7px; border: 1px solid currentColor;
+}
+.chip.yes { color: var(--ink); background: var(--text-hi); border-color: var(--text-hi); }
+.chip.no  { color: var(--faint); border-style: dashed; }
+
+canvas { display: block; width: 100%; }
+.legend {
+  display: flex; gap: var(--s4); flex-wrap: wrap;
+  font-size: 11px; color: var(--muted); padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--rule);
+}
+.legend i { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 6px; }
+.legend i.solid  { border-top: 2px solid var(--text-hi); }
+.legend i.dashed { border-top: 2px dashed var(--muted); }
+.legend i.sq { width: 9px; height: 9px; border: 1px solid var(--text); }
+
+.ctl { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.ctl select {
+  font: inherit; font-size: 11px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--rule); border-radius: 0; padding: 3px 8px; cursor: pointer;
+}
+.ctl select:focus-visible { outline: 2px solid var(--text-hi); outline-offset: 1px; }
+
+.bar { position: relative; height: 5px; background: var(--grid); min-width: 70px; }
+.bar > i { position: absolute; inset: 0 auto 0 0; background: var(--text); }
+.bar > i.q { background: var(--text-hi); }
+
+.ci { position: relative; height: 15px; min-width: 140px; }
+.ci .zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--rule-hi); }
+.ci .rng  { position: absolute; top: 6px; height: 3px; background: var(--muted); }
+.ci .rng.sig { background: var(--text-hi); }
+.ci .pt   { position: absolute; top: 2px; width: 3px; height: 11px; background: var(--text-hi); }
+
+.sect-rule {
+  display: flex; align-items: center; gap: var(--s3);
+  margin: var(--s6) 0 var(--s4); color: var(--muted);
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.sect-rule::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+.hidden { display: none; }
+
+.caveat { border: 1px dashed var(--rule-hi); background: var(--panel-2); padding: var(--s3) var(--s4); margin-top: var(--s4); }
+.caveat p { margin: 0; font-family: var(--sans); font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+.caveat p + p { margin-top: var(--s2); }
+.caveat b { color: var(--text-hi); }
+.caveat-t {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--text); margin-bottom: var(--s2);
+}
+
+footer {
+  margin-top: var(--s7); padding-top: var(--s4); border-top: 1px solid var(--rule);
+  font-size: 11px; color: var(--faint); display: flex; gap: var(--s5); flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 720px) {
+  .wrap { padding: 0 var(--s3) var(--s6); }
+  .masthead-inner { padding: var(--s3); }
+  .runstrip { margin-left: 0; }
+}
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">DYNAMICGRAPH <em>· VN30</em></div>
+    <div class="runstrip" id="runstrip"></div>
+    <button class="themetoggle" id="themebtn" type="button">Đổi nền</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="Khung nhìn">
+    <button class="tab" role="tab" data-view="overview"   aria-selected="true">Tổng quan</button>
+    <button class="tab" role="tab" data-view="network"    aria-selected="false">Mạng lưới</button>
+    <button class="tab" role="tab" data-view="forecast"   aria-selected="false">Dự báo</button>
+    <button class="tab" role="tab" data-view="allocation" aria-selected="false">Phân bổ vốn</button>
+  </nav>
+
+  <!-- ================= TỔNG QUAN ================= -->
+  <section id="view-overview" role="tabpanel">
+    <div class="claims" id="claims"></div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd"><span class="panel-t">Ba luận điểm được kiểm chứng riêng biệt</span></div>
+        <div class="panel-bd">
+          <p class="note">Ba luận điểm được đánh giá tách rời, bởi vì chúng thành công và
+          thất bại độc lập với nhau. Gộp chúng lại là cách dễ nhất để thổi phồng giá trị
+          của một mô hình mạng lưới.</p>
+          <p class="note"><b>Cấu trúc</b> là mô tả hiện tại: mã nào biến động cùng mã nào sau
+          khi đã khử ảnh hưởng của chỉ số thị trường và của mọi mã còn lại. Nó hữu ích mà
+          không cần dự báo gì, và không bị chấm điểm theo tương lai.</p>
+          <p class="note"><b>Dự báo</b> là tuyên bố về mô men bậc nhất — chỉ số có căng thẳng
+          sau <i>h</i> ngày hay không. Nó được so với một mốc chỉ đếm tần suất lịch sử, và
+          nó thua ở mọi tầm dự báo.</p>
+          <p class="note"><b>Phân bổ vốn</b> là tuyên bố về mô men bậc hai — hiệp phương sai
+          ước lượng có đủ tốt để định cỡ vị thế hay không. Đây là bài toán dễ hơn hẳn: cấu
+          trúc tương quan bền vững qua nhiều tháng, trong khi tỷ lệ tín hiệu trên nhiễu của
+          lợi suất kỳ vọng gần bằng không.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Xuất xứ của lần chạy</span>
+          <span class="panel-s" id="prov-sub"></span>
+        </div>
+        <div class="panel-bd flush"><div class="tablewrap"><table id="prov-table"></table></div></div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Trạng thái mạng lưới hiện tại</div>
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Chỉ số tập trung cấu trúc</span>
+          <span class="panel-s" id="stress-asof"></span>
+        </div>
+        <div class="panel-bd">
+          <div class="claim-fig" id="stress-figs" style="border-top:none;padding-top:0;margin-top:0"></div>
+          <div class="caveat">
+            <div class="caveat-t">Đọc đây là cấu trúc, không phải tình trạng thị trường</div>
+            <p>Trong mã nguồn chỉ số này mang tên “stress score”, và cái tên đó gây hiểu nhầm.
+            Nó là một tổ hợp đã chuẩn hoá của các thước đo tập trung trong đồ thị. Thực tế
+            nó <b>cao vào năm 2018 và 2026 khi VN30 ở vùng đỉnh</b>, và <b>thấp suốt cú sụp
+            tháng 3/2020</b> khi VN30 giảm khoảng 45%. Nó đo mức độ tập trung của cấu trúc
+            phụ thuộc, không đo mức độ xấu của thị trường.</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Lịch sử chỉ số mạng lưới</span>
+          <div class="ctl"><select id="hist-metric" aria-label="Chọn chỉ số"></select></div>
+        </div>
+        <div class="panel-bd flush"><canvas id="hist-canvas" data-h="268"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MẠNG LƯỚI ================= -->
+  <section id="view-network" role="tabpanel" class="hidden">
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Mạng tương quan riêng phần</span>
+          <span class="panel-s" id="net-sub"></span>
+        </div>
+        <div class="panel-bd flush">
+          <canvas id="net-canvas" data-h="530"></canvas>
+          <div class="legend">
+            <span><i class="solid"></i>liên hệ đồng biến</span>
+            <span><i class="dashed"></i>liên hệ nghịch biến</span>
+            <span><i class="sq"></i>độ đậm nhạt = cụm</span>
+            <span>kích thước = độ mạnh · rê chuột để tách riêng</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Danh sách mã theo độ mạnh</span>
+          <span class="panel-s">bấm một dòng để tách riêng</span>
+        </div>
+        <div class="panel-bd flush">
+          <div class="tablewrap" style="max-height:572px;overflow-y:auto"><table id="node-table"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Độ bền vững của thứ hạng</div>
+    <div class="panel"><div class="panel-bd">
+      <p class="note">Thứ hạng centrality <b>phụ thuộc vào lựa chọn cách dựng đồ thị</b>, nó
+      không phải một thuộc tính của thị trường. Trong 40 cặp biến thể mà quy trình đã so sánh —
+      tương quan so với tương quan riêng phần, lợi suất thô so với phần dư, cửa sổ từ 20 đến
+      252 ngày — chỉ <b>3 cặp</b> vượt mức đồng thuận Spearman 0,7, và vài cặp còn
+      <b>tương quan âm</b>: tương quan riêng phần trên phần dư 20 ngày xếp hạng gần như ngược
+      lại so với tương quan trên lợi suất thô 60 ngày (−0,42).</p>
+      <p class="note">Một điểm nữa nằm ở hệ số phạt. Từ α = 0,002 đến α = 0,02 đồ thị
+      <b>giống hệt nhau đến từng con số</b> — 261 cạnh, mật độ 0,600, cùng năm mã trung tâm —
+      bởi vì trần mật độ ràng buộc trước khi hệ số phạt kịp ràng buộc. Giá trị đang dùng
+      α = 0,02 nằm ngay mép vùng đó, nên độ thưa của mạng công bố đến từ <b>bộ lọc phân vị
+      cạnh</b> chứ không từ graphical lasso. Chỉ từ α ≥ 0,05 hệ số phạt mới thực sự tác động,
+      và khi đó danh sách mã trung tâm thay đổi đáng kể (mức trùng lặp top 5 rơi xuống 0,4).</p>
+    </div></div>
+
+    <div class="sect-rule">Các cụm</div>
+    <div class="panel"><div class="panel-bd flush">
+      <div class="tablewrap"><table id="comm-table"></table></div>
+    </div></div>
+  </section>
+
+  <!-- ================= DỰ BÁO ================= -->
+  <section id="view-forecast" role="tabpanel" class="hidden">
+    <div class="panel">
+      <div class="panel-hd"><span class="panel-t">Kết quả</span></div>
+      <div class="panel-bd">
+        <p class="note"><b id="bss-headline">Không cấu hình nào đạt điểm kỹ năng Brier dương.</b>
+        Điểm kỹ năng âm nghĩa là mô hình tệ hơn một dự báo hằng số đặt tại tần suất thực tế —
+        bảng dưới đây xếp hạng mức độ thua, không phải mức độ hữu dụng.</p>
+        <p class="note">Ở mọi tầm dự báo, đứng đầu bảng là <code>naive_frequency</code>, một
+        mô hình mà toàn bộ nội dung là tần suất căng thẳng trong lịch sử. Các mô hình học máy
+        với 660 đặc trưng đồ thị và 36 đặc trưng thị trường không thắng nổi phép đếm.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:var(--s3)">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Điểm kỹ năng Brier</span>
+          <span class="panel-s">số 0 = mốc naive</span>
+        </div>
+        <div class="panel-bd flush"><canvas id="bss-canvas" data-h="340"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Chỉ số ngoài mẫu</span>
+          <div class="ctl"><select id="oos-h" aria-label="Tầm dự báo"></select></div>
+        </div>
+        <div class="panel-bd flush">
+          <div class="tablewrap" style="max-height:348px;overflow-y:auto"><table id="oos-table"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Xếp hạng chéo giữa các mã</div>
+    <div class="panel"><div class="panel-bd">
+      <div class="claim-fig" id="ic-figs" style="border-top:none;padding-top:0;margin-top:0"></div>
+      <p class="note" style="margin-top:var(--s4)">Xếp hạng các mã bằng đặc trưng của chính
+      chúng thì <b>có tác dụng</b> (IC 0,103; <i>t</i> hiệu chỉnh = 4,93). Nhưng
+      <b>thêm đặc trưng mạng lưới lại làm xấu đi</b>: thêm centrality kéo IC xuống 0,060,
+      thêm tổng hợp từ hàng xóm xuống 0,049. Centrality mô tả vị trí cấu trúc, không mô tả
+      lợi suất kỳ vọng.</p>
+      <div class="caveat">
+        <div class="caveat-t">Thống kê t ban đầu bị thổi phồng gấp ba lần</div>
+        <p>Lợi suất 20 ngày tính hằng ngày chồng lấn nhau 19 ngày, nên hai quan sát IC liên
+        tiếp có tự tương quan 0,86. Coi 1.323 quan sát chồng lấn như độc lập cho ra
+        <i>t</i> = 15,4. Sai số chuẩn Newey–West cho <i>t</i> = 4,93. Kết quả sống sót qua
+        hiệu chỉnh; con số ban đầu thì không.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ================= PHÂN BỔ VỐN ================= -->
+  <section id="view-allocation" role="tabpanel" class="hidden">
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="panel-t">Phán quyết</span>
+        <span class="panel-s"><code>covariance_helps_graph_does_not</code></span>
+      </div>
+      <div class="panel-bd">
+        <p class="note">Phân bổ có tính đến hiệp phương sai <b>thắng rõ rệt so với chia đều</b>:
+        biến động thực hiện giảm từ <b id="v-eqw">–</b> xuống <b id="v-best">–</b>, tức
+        <b id="v-diff">–</b>. Cả mười danh mục đều có ý nghĩa thống kê dưới bootstrap khối
+        ghép cặp.</p>
+        <p class="note">Nhưng <b>hiệp phương sai thưa từ graphical lasso không thắng được
+        hiệp phương sai mẫu</b> khi giữ nguyên quy tắc trọng số. Ở phương sai tối thiểu,
+        chênh lệch là <b id="v-gl">–</b> với khoảng tin cậy cắt qua số 0.</p>
+        <p class="note">Phân hoạch cụm — đầu vào duy nhất mà chỉ đồ thị mới cung cấp được —
+        <b>cho kết quả kém hơn</b>: risk parity theo cụm đạt <b id="v-comm">–</b> so với
+        <b id="v-rp">–</b> của risk parity thường, trong khi vòng quay cao hơn nhiều.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:var(--s3)">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Rủi ro và lợi suất thực hiện</span>
+          <span class="panel-s">ngoài mẫu, đã trừ 15 điểm cơ bản mỗi chiều</span>
+        </div>
+        <div class="panel-bd flush"><canvas id="rr-canvas" data-h="368"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Biến động thực hiện trượt</span>
+          <span class="panel-s">cửa sổ 126 ngày</span>
+        </div>
+        <div class="panel-bd flush">
+          <canvas id="rv-canvas" data-h="368"></canvas>
+          <div class="legend" id="rv-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Toàn bộ danh mục</div>
+    <div class="panel"><div class="panel-bd flush">
+      <div class="tablewrap"><table id="alloc-table"></table></div>
+    </div></div>
+
+    <div class="sect-rule">Phép thử cô lập: graphical lasso so với hiệp phương sai mẫu</div>
+    <div class="panel">
+      <div class="panel-bd flush"><div class="tablewrap"><table id="est-table"></table></div></div>
+      <div class="panel-bd" style="border-top:1px solid var(--rule)">
+        <p class="note">Cùng quy tắc trọng số, cùng cửa sổ, cùng mức trần — chỉ thay bộ ước
+        lượng hiệp phương sai. Khoảng tin cậy cắt qua số 0 nghĩa là hai bộ ước lượng không
+        phân biệt được. <b id="est-count">Không có phép so sánh nào cho thấy giảm rủi ro có
+        ý nghĩa.</b></p>
+      </div>
+    </div>
+
+    <div class="sect-rule">Trọng số tại kỳ tái cân bằng gần nhất</div>
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="panel-t">Trọng số vị thế</span>
+        <div class="ctl"><select id="w-key" aria-label="Chọn danh mục"></select></div>
+      </div>
+      <div class="panel-bd flush"><canvas id="w-canvas" data-h="312"></canvas></div>
+    </div>
+
+    <div class="caveat">
+      <div class="caveat-t">Cột “số cược hiệu dụng” không so sánh được giữa các bộ ước lượng</div>
+      <p>Nó được tính dưới ma trận hiệp phương sai <b>của chính bộ ước lượng đó</b>. Bộ
+      <code>diagonal</code> giả định tương quan bằng 0, nên theo đúng giả định ấy nó báo
+      khoảng 20 cược độc lập trong khi hiệp phương sai mẫu báo 5. Cột đó
+      <b>chỉ dùng để so sánh giữa các quy tắc trọng số</b>, không dùng để so giữa các bộ
+      ước lượng.</p>
+    </div>
+    <div class="caveat">
+      <div class="caveat-t">Những gì mô phỏng này bỏ qua</div>
+      <p>Tác động giá khi khớp lệnh — chi phí ở đây tuyến tính theo giá trị giao dịch, còn
+      tác động thật thì lồi, nên các quy tắc vòng quay cao đang được đối xử quá nhẹ tay.
+      Ngoài ra: giới hạn sở hữu nước ngoài, quy mô lô, khả năng vay mượn chứng khoán, và
+      những lần thay đổi thành phần rổ VN30 trong suốt giai đoạn.</p>
+      <p>Rổ cổ phiếu là VN30 <b>hiện tại</b> giữ cố định từ 2012 — sai lệch sống sót có mặt,
+      nó ưu ái mọi quy tắc ở đây như nhau, nhưng nó ưu ái tất cả. Đây là các phép so sánh mô
+      hình rủi ro, <b>không phải một chiến lược giao dịch</b>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span id="foot-run"></span>
+    <span>Nguồn dữ liệu chỉ đọc · không sửa dữ liệu gốc</span>
+    <span>Trọng số lập tại <i>t</i> chỉ áp vào lợi suất sau <i>t</i></span>
+  </footer>
+</div>
+
+<script type="application/json" id="payload">{"allocation_summary":[{"key":"minimum_variance__ledoit_wolf","rule":"minimum_variance","estimator":"ledoit_wolf","annual_volatility":0.164431,"annual_return":0.144081,"sharpe":0.876242,"sortino":0.826838,"max_drawdown":-0.413104,"calmar":0.348778,"var_95_daily":-0.014613,"cvar_95_daily":-0.025479,"hit_rate":0.544097,"mean_effective_n_bets":5.962679,"mean_effective_n_weights":7.479297,"mean_diversification_ratio":2.105845,"mean_max_weight":0.19668,"mean_turnover_traded":0.51467,"annual_cost_drag":0.009727,"realized_over_ex_ante_volatility":1.409981,"mean_condition_number":79.950313,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"minimum_variance__glasso","rule":"minimum_variance","estimator":"glasso","annual_volatility":0.16456,"annual_return":0.142038,"sharpe":0.86314,"sortino":0.821674,"max_drawdown":-0.42225,"calmar":0.336383,"var_95_daily":-0.014606,"cvar_95_daily":-0.025345,"hit_rate":0.538462,"mean_effective_n_bets":5.347607,"mean_effective_n_weights":6.908378,"mean_diversification_ratio":1.983624,"mean_max_weight":0.198836,"mean_turnover_traded":0.540461,"annual_cost_drag":0.010215,"realized_over_ex_ante_volatility":1.337976,"mean_condition_number":126.392886,"mean_off_diagonal_zeros":0.226607,"n_days":3549.0,"n_rebalances":178.0},{"key":"minimum_variance__sample","rule":"minimum_variance","estimator":"sample","annual_volatility":0.164953,"annual_return":0.144514,"sharpe":0.876091,"sortino":0.833406,"max_drawdown":-0.417152,"calmar":0.34643,"var_95_daily":-0.014577,"cvar_95_daily":-0.025356,"hit_rate":0.540152,"mean_effective_n_bets":5.146837,"mean_effective_n_weights":6.795576,"mean_diversification_ratio":1.99218,"mean_max_weight":0.199198,"mean_turnover_traded":0.555235,"annual_cost_drag":0.010494,"realized_over_ex_ante_volatility":1.340577,"mean_condition_number":325.373874,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"minimum_variance__diagonal","rule":"minimum_variance","estimator":"diagonal","annual_volatility":0.184994,"annual_return":0.162624,"sharpe":0.879074,"sortino":0.808729,"max_drawdown":-0.437625,"calmar":0.371605,"var_95_daily":-0.016807,"cvar_95_daily":-0.030228,"hit_rate":0.551141,"mean_effective_n_bets":20.427938,"mean_effective_n_weights":17.438739,"mean_diversification_ratio":4.641925,"mean_max_weight":0.130246,"mean_turnover_traded":0.243356,"annual_cost_drag":0.004599,"realized_over_ex_ante_volatility":3.218485,"mean_condition_number":11.774118,"mean_off_diagonal_zeros":1.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"risk_parity__sample","rule":"risk_parity","estimator":"sample","annual_volatility":0.185299,"annual_return":0.161922,"sharpe":0.873846,"sortino":0.796964,"max_drawdown":-0.414795,"calmar":0.390368,"var_95_daily":-0.017118,"cvar_95_daily":-0.030229,"hit_rate":0.557904,"mean_effective_n_bets":1.756259,"mean_effective_n_weights":19.535433,"mean_diversification_ratio":1.859436,"mean_max_weight":0.11251,"mean_turnover_traded":0.198937,"annual_cost_drag":0.00376,"realized_over_ex_ante_volatility":1.143,"mean_condition_number":325.373874,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"risk_parity__glasso","rule":"risk_parity","estimator":"glasso","annual_volatility":0.185359,"annual_return":0.161471,"sharpe":0.871123,"sortino":0.794094,"max_drawdown":-0.415742,"calmar":0.388392,"var_95_daily":-0.017119,"cvar_95_daily":-0.030242,"hit_rate":0.558185,"mean_effective_n_bets":1.75951,"mean_effective_n_weights":19.573632,"mean_diversification_ratio":1.869269,"mean_max_weight":0.112004,"mean_turnover_traded":0.197785,"annual_cost_drag":0.003738,"realized_over_ex_ante_volatility":1.149469,"mean_condition_number":126.392886,"mean_off_diagonal_zeros":0.226607,"n_days":3549.0,"n_rebalances":178.0},{"key":"risk_parity__ledoit_wolf","rule":"risk_parity","estimator":"ledoit_wolf","annual_volatility":0.185856,"annual_return":0.161266,"sharpe":0.867695,"sortino":0.79196,"max_drawdown":-0.415826,"calmar":0.387821,"var_95_daily":-0.017223,"cvar_95_daily":-0.030325,"hit_rate":0.556777,"mean_effective_n_bets":1.976268,"mean_effective_n_weights":19.902951,"mean_diversification_ratio":2.045014,"mean_max_weight":0.107699,"mean_turnover_traded":0.187656,"annual_cost_drag":0.003547,"realized_over_ex_ante_volatility":1.245294,"mean_condition_number":79.950313,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"inverse_volatility__sample","rule":"inverse_volatility","estimator":"sample","annual_volatility":0.193375,"annual_return":0.161522,"sharpe":0.835275,"sortino":0.762577,"max_drawdown":-0.435767,"calmar":0.37066,"var_95_daily":-0.017827,"cvar_95_daily":-0.031718,"hit_rate":0.554804,"mean_effective_n_bets":1.439527,"mean_effective_n_weights":21.865463,"mean_diversification_ratio":1.708447,"mean_max_weight":0.085028,"mean_turnover_traded":0.14404,"annual_cost_drag":0.002722,"realized_over_ex_ante_volatility":1.10288,"mean_condition_number":325.373874,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"risk_parity__diagonal","rule":"risk_parity","estimator":"diagonal","annual_volatility":0.193375,"annual_return":0.161522,"sharpe":0.835275,"sortino":0.762577,"max_drawdown":-0.435767,"calmar":0.37066,"var_95_daily":-0.017827,"cvar_95_daily":-0.031718,"hit_rate":0.554804,"mean_effective_n_bets":23.831461,"mean_effective_n_weights":21.865463,"mean_diversification_ratio":4.825894,"mean_max_weight":0.085028,"mean_turnover_traded":0.14404,"annual_cost_drag":0.002722,"realized_over_ex_ante_volatility":3.229147,"mean_condition_number":11.774118,"mean_off_diagonal_zeros":1.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"community_risk_parity__sample","rule":"community_risk_parity","estimator":"sample","annual_volatility":0.195275,"annual_return":0.155368,"sharpe":0.795637,"sortino":0.729429,"max_drawdown":-0.479718,"calmar":0.323874,"var_95_daily":-0.017969,"cvar_95_daily":-0.031813,"hit_rate":0.55255,"mean_effective_n_bets":1.624589,"mean_effective_n_weights":17.614263,"mean_diversification_ratio":1.682565,"mean_max_weight":0.13672,"mean_turnover_traded":0.463918,"annual_cost_drag":0.008768,"realized_over_ex_ante_volatility":1.096562,"mean_condition_number":325.373874,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0},{"key":"equal_weight__sample","rule":"equal_weight","estimator":"sample","annual_volatility":0.203447,"annual_return":0.161214,"sharpe":0.792412,"sortino":0.722609,"max_drawdown":-0.425561,"calmar":0.378826,"var_95_daily":-0.019337,"cvar_95_daily":-0.0333,"hit_rate":0.555931,"mean_effective_n_bets":1.241501,"mean_effective_n_weights":23.831461,"mean_diversification_ratio":1.704929,"mean_max_weight":0.046419,"mean_turnover_traded":0.064665,"annual_cost_drag":0.001222,"realized_over_ex_ante_volatility":1.069226,"mean_condition_number":325.373874,"mean_off_diagonal_zeros":0.0,"n_days":3549.0,"n_rebalances":178.0}],"estimator_tests":[{"rule":"minimum_variance","estimator":"ledoit_wolf","baseline_estimator":"sample","volatility":0.164431,"baseline_volatility":0.164953,"volatility_difference":-0.000522,"ci_lower":-0.001206,"ci_upper":0.000135,"p_value":0.066,"significant_reduction":false,"n":3549.0},{"rule":"minimum_variance","estimator":"glasso","baseline_estimator":"sample","volatility":0.16456,"baseline_volatility":0.164953,"volatility_difference":-0.000394,"ci_lower":-0.000819,"ci_upper":5.1e-05,"p_value":0.042,"significant_reduction":false,"n":3549.0},{"rule":"minimum_variance","estimator":"diagonal","baseline_estimator":"sample","volatility":0.184994,"baseline_volatility":0.164953,"volatility_difference":0.020041,"ci_lower":0.014846,"ci_upper":0.024672,"p_value":1.0,"significant_reduction":false,"n":3549.0},{"rule":"risk_parity","estimator":"ledoit_wolf","baseline_estimator":"sample","volatility":0.185856,"baseline_volatility":0.185299,"volatility_difference":0.000557,"ci_lower":0.000355,"ci_upper":0.000762,"p_value":1.0,"significant_reduction":false,"n":3549.0},{"rule":"risk_parity","estimator":"glasso","baseline_estimator":"sample","volatility":0.185359,"baseline_volatility":0.185299,"volatility_difference":6.1e-05,"ci_lower":6e-06,"ci_upper":0.000119,"p_value":0.982,"significant_reduction":false,"n":3549.0},{"rule":"risk_parity","estimator":"diagonal","baseline_estimator":"sample","volatility":0.193375,"baseline_volatility":0.185299,"volatility_difference":0.008077,"ci_lower":0.00634,"ci_upper":0.009843,"p_value":1.0,"significant_reduction":false,"n":3549.0}],"benchmark_tests":[{"portfolio":"inverse_volatility__sample","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.193375,"benchmark_value":0.203447,"difference":-0.010072,"ci_lower":-0.011296,"ci_upper":-0.008595,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"inverse_volatility__sample","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.835275,"benchmark_value":0.792412,"difference":0.042863,"ci_lower":-0.01877,"ci_upper":0.106341,"p_value":0.082,"significant":false,"n":3549.0},{"portfolio":"inverse_volatility__sample","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.161522,"benchmark_value":0.161214,"difference":0.000308,"ci_lower":-0.014411,"ci_upper":0.013853,"p_value":0.506,"significant":false,"n":3549.0},{"portfolio":"inverse_volatility__sample","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.435767,"benchmark_value":-0.425561,"difference":-0.010206,"ci_lower":-0.006215,"ci_upper":0.048446,"p_value":0.08,"significant":false,"n":3549.0},{"portfolio":"community_risk_parity__sample","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.195275,"benchmark_value":0.203447,"difference":-0.008172,"ci_lower":-0.010081,"ci_upper":-0.005436,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"community_risk_parity__sample","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.795637,"benchmark_value":0.792412,"difference":0.003225,"ci_lower":-0.12418,"ci_upper":0.10841,"p_value":0.524,"significant":false,"n":3549.0},{"portfolio":"community_risk_parity__sample","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.155368,"benchmark_value":0.161214,"difference":-0.005846,"ci_lower":-0.032665,"ci_upper":0.014935,"p_value":0.726,"significant":false,"n":3549.0},{"portfolio":"community_risk_parity__sample","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.479718,"benchmark_value":-0.425561,"difference":-0.054156,"ci_lower":-0.037699,"ci_upper":0.057634,"p_value":0.396,"significant":false,"n":3549.0},{"portfolio":"risk_parity__sample","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.185299,"benchmark_value":0.203447,"difference":-0.018148,"ci_lower":-0.020496,"ci_upper":-0.015556,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"risk_parity__sample","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.873846,"benchmark_value":0.792412,"difference":0.081434,"ci_lower":-0.011563,"ci_upper":0.183335,"p_value":0.046,"significant":false,"n":3549.0},{"portfolio":"risk_parity__sample","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.161922,"benchmark_value":0.161214,"difference":0.000709,"ci_lower":-0.024301,"ci_upper":0.021591,"p_value":0.512,"significant":false,"n":3549.0},{"portfolio":"risk_parity__sample","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.414795,"benchmark_value":-0.425561,"difference":0.010766,"ci_lower":-0.00172,"ci_upper":0.09188,"p_value":0.032,"significant":false,"n":3549.0},{"portfolio":"risk_parity__ledoit_wolf","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.185856,"benchmark_value":0.203447,"difference":-0.017591,"ci_lower":-0.019902,"ci_upper":-0.015059,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"risk_parity__ledoit_wolf","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.867695,"benchmark_value":0.792412,"difference":0.075283,"ci_lower":-0.014706,"ci_upper":0.169111,"p_value":0.05,"significant":false,"n":3549.0},{"portfolio":"risk_parity__ledoit_wolf","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.161266,"benchmark_value":0.161214,"difference":5.2e-05,"ci_lower":-0.023261,"ci_upper":0.019918,"p_value":0.534,"significant":false,"n":3549.0},{"portfolio":"risk_parity__ledoit_wolf","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.415826,"benchmark_value":-0.425561,"difference":0.009736,"ci_lower":5.2e-05,"ci_upper":0.084602,"p_value":0.026,"significant":true,"n":3549.0},{"portfolio":"risk_parity__glasso","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.185359,"benchmark_value":0.203447,"difference":-0.018088,"ci_lower":-0.020435,"ci_upper":-0.01548,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"risk_parity__glasso","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.871123,"benchmark_value":0.792412,"difference":0.078711,"ci_lower":-0.013149,"ci_upper":0.178299,"p_value":0.05,"significant":false,"n":3549.0},{"portfolio":"risk_parity__glasso","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.161471,"benchmark_value":0.161214,"difference":0.000257,"ci_lower":-0.024533,"ci_upper":0.021026,"p_value":0.528,"significant":false,"n":3549.0},{"portfolio":"risk_parity__glasso","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.415742,"benchmark_value":-0.425561,"difference":0.00982,"ci_lower":-0.001748,"ci_upper":0.089491,"p_value":0.036,"significant":false,"n":3549.0},{"portfolio":"risk_parity__diagonal","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.193375,"benchmark_value":0.203447,"difference":-0.010072,"ci_lower":-0.011296,"ci_upper":-0.008595,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"risk_parity__diagonal","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.835275,"benchmark_value":0.792412,"difference":0.042863,"ci_lower":-0.01877,"ci_upper":0.106341,"p_value":0.082,"significant":false,"n":3549.0},{"portfolio":"risk_parity__diagonal","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.161522,"benchmark_value":0.161214,"difference":0.000308,"ci_lower":-0.014411,"ci_upper":0.013853,"p_value":0.506,"significant":false,"n":3549.0},{"portfolio":"risk_parity__diagonal","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.435767,"benchmark_value":-0.425561,"difference":-0.010206,"ci_lower":-0.006215,"ci_upper":0.048446,"p_value":0.08,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__sample","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.164953,"benchmark_value":0.203447,"difference":-0.038494,"ci_lower":-0.044437,"ci_upper":-0.031067,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"minimum_variance__sample","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.876091,"benchmark_value":0.792412,"difference":0.083679,"ci_lower":-0.260936,"ci_upper":0.401743,"p_value":0.342,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__sample","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.144514,"benchmark_value":0.161214,"difference":-0.0167,"ci_lower":-0.090051,"ci_upper":0.044895,"p_value":0.706,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__sample","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.417152,"benchmark_value":-0.425561,"difference":0.008409,"ci_lower":-0.038974,"ci_upper":0.214339,"p_value":0.088,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__ledoit_wolf","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.164431,"benchmark_value":0.203447,"difference":-0.039016,"ci_lower":-0.044741,"ci_upper":-0.031907,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"minimum_variance__ledoit_wolf","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.876242,"benchmark_value":0.792412,"difference":0.08383,"ci_lower":-0.26163,"ci_upper":0.396178,"p_value":0.326,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__ledoit_wolf","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.144081,"benchmark_value":0.161214,"difference":-0.017133,"ci_lower":-0.087364,"ci_upper":0.041319,"p_value":0.716,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__ledoit_wolf","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.413104,"benchmark_value":-0.425561,"difference":0.012458,"ci_lower":-0.034781,"ci_upper":0.207029,"p_value":0.086,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__glasso","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.16456,"benchmark_value":0.203447,"difference":-0.038887,"ci_lower":-0.04475,"ci_upper":-0.031445,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"minimum_variance__glasso","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.86314,"benchmark_value":0.792412,"difference":0.070727,"ci_lower":-0.284823,"ci_upper":0.3879,"p_value":0.356,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__glasso","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.142038,"benchmark_value":0.161214,"difference":-0.019176,"ci_lower":-0.092783,"ci_upper":0.041729,"p_value":0.726,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__glasso","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.42225,"benchmark_value":-0.425561,"difference":0.003311,"ci_lower":-0.04297,"ci_upper":0.209912,"p_value":0.094,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__diagonal","benchmark":"equal_weight__sample","metric":"annual_volatility","portfolio_value":0.184994,"benchmark_value":0.203447,"difference":-0.018453,"ci_lower":-0.02089,"ci_upper":-0.015522,"p_value":0.0,"significant":true,"n":3549.0},{"portfolio":"minimum_variance__diagonal","benchmark":"equal_weight__sample","metric":"sharpe","portfolio_value":0.879074,"benchmark_value":0.792412,"difference":0.086662,"ci_lower":-0.041022,"ci_upper":0.205125,"p_value":0.09,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__diagonal","benchmark":"equal_weight__sample","metric":"annual_return","portfolio_value":0.162624,"benchmark_value":0.161214,"difference":0.00141,"ci_lower":-0.026823,"ci_upper":0.02716,"p_value":0.472,"significant":false,"n":3549.0},{"portfolio":"minimum_variance__diagonal","benchmark":"equal_weight__sample","metric":"max_drawdown","portfolio_value":-0.437625,"benchmark_value":-0.425561,"difference":-0.012064,"ci_lower":-0.010761,"ci_upper":0.095764,"p_value":0.07,"significant":false,"n":3549.0}],"equity":{"dates":["2012-05","2012-06","2012-07","2012-08","2012-09","2012-10","2012-11","2012-12","2013-01","2013-02","2013-03","2013-04","2013-05","2013-06","2013-07","2013-08","2013-09","2013-10","2013-11","2013-12","2014-01","2014-02","2014-03","2014-04","2014-05","2014-06","2014-07","2014-08","2014-09","2014-10","2014-11","2014-12","2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12","2019-01","2019-02","2019-03","2019-04","2019-05","2019-06","2019-07","2019-08","2019-09","2019-10","2019-11","2019-12","2020-01","2020-02","2020-03","2020-04","2020-05","2020-06","2020-07","2020-08","2020-09","2020-10","2020-11","2020-12","2021-01","2021-02","2021-03","2021-04","2021-05","2021-06","2021-07","2021-08","2021-09","2021-10","2021-11","2021-12","2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07"],"series":{"equal_weight__sample":[0.9452,0.9178,0.9048,0.8229,0.8026,0.7808,0.7582,0.8579,1.0021,0.9763,0.9813,0.9633,1.0551,0.9862,0.9937,0.9684,1.0145,1.0329,1.0569,1.0439,1.1698,1.2661,1.2969,1.2403,1.2274,1.2509,1.2782,1.3501,1.2839,1.2865,1.225,1.2166,1.3223,1.3697,1.2685,1.2956,1.3325,1.418,1.5199,1.394,1.3822,1.4878,1.3893,1.4177,1.3441,1.3827,1.3616,1.4443,1.4967,1.5424,1.5911,1.6221,1.6431,1.6101,1.5684,1.5678,1.6806,1.6971,1.7799,1.7735,1.8731,2.0034,2.0429,2.0574,2.1439,2.1921,2.5347,2.6497,3.2164,3.3398,3.5114,3.1182,2.8516,2.7664,2.7423,2.8794,3.023,2.7507,2.7442,2.6748,2.6991,2.833,2.901,2.8744,2.8154,2.8049,2.9401,2.9602,3.0264,3.0387,2.9211,2.8927,2.8393,2.8422,2.0943,2.5287,2.8472,2.7334,2.6454,3.0369,3.2307,3.3557,3.716,4.1964,4.011,4.5408,4.7166,4.9006,5.5241,5.8317,5.4964,5.473,5.5436,5.8737,6.0069,6.1095,6.2734,6.2627,6.1757,5.7204,5.3729,5.0142,5.1819,5.4875,4.8301,4.3961,4.6894,4.605,5.1851,4.76,5.0155,4.8937,4.9742,5.2085,5.6915,5.7355,5.4084,4.828,5.0804,5.3041,5.4849,5.8974,6.0327,5.7341,6.0117,5.9808,6.1446,6.3458,6.414,6.2912,6.1853,6.3154,6.3326,6.5266,6.5595,6.1875,6.6444,6.916,7.6278,8.7284,8.4512,8.4339,8.4947,8.8309,9.5791,9.6502,8.5993,9.0605,9.1615,9.1557,8.2069],"inverse_volatility__sample":[0.9512,0.9311,0.9204,0.85,0.8291,0.809,0.7883,0.8799,1.019,0.9915,1.0032,0.9869,1.0788,1.0204,1.0276,1.0056,1.0461,1.0587,1.0815,1.07,1.188,1.2848,1.3041,1.2487,1.2345,1.2496,1.28,1.3397,1.2843,1.2888,1.2405,1.233,1.3489,1.3918,1.2997,1.3303,1.3629,1.4625,1.5634,1.4482,1.4351,1.541,1.452,1.484,1.4189,1.4553,1.4332,1.5108,1.5604,1.602,1.6507,1.6835,1.6977,1.6742,1.6164,1.6162,1.7273,1.7507,1.8325,1.8172,1.9216,2.0549,2.0999,2.1272,2.2403,2.2856,2.6633,2.791,3.3943,3.5246,3.7097,3.3054,3.0317,2.9618,2.9298,3.0695,3.1982,2.8951,2.9059,2.8227,2.8423,2.9793,3.039,3.0173,2.9591,2.9386,3.0721,3.0908,3.1774,3.1984,3.0754,3.0498,2.9826,2.9442,2.1658,2.5976,2.9316,2.8127,2.722,3.1132,3.2973,3.4307,3.7997,4.2404,4.067,4.5854,4.7237,4.889,5.4333,5.763,5.4187,5.4076,5.4934,5.7978,5.9284,6.005,6.1425,6.149,6.1168,5.6939,5.3554,5.0369,5.1446,5.4157,4.7888,4.4168,4.6711,4.5897,5.1101,4.7366,4.9188,4.7834,4.8252,5.0319,5.4747,5.5106,5.2478,4.7229,4.9412,5.1504,5.3565,5.7537,5.8595,5.5954,5.8468,5.8122,5.9732,6.1718,6.2604,6.1632,6.0664,6.1834,6.2085,6.3616,6.4689,6.0784,6.4803,6.7412,7.4451,8.5678,8.2644,8.2759,8.3048,8.5975,9.5524,9.5539,8.6596,9.0103,9.0753,9.1294,8.2376],"community_risk_parity__sample":[0.9512,0.9325,0.9261,0.8872,0.869,0.8654,0.8512,0.9432,1.0955,1.0795,1.0976,1.0769,1.177,1.1247,1.13,1.1183,1.1574,1.1667,1.1897,1.1766,1.3266,1.452,1.4707,1.4089,1.3856,1.4176,1.4552,1.5136,1.4609,1.486,1.4078,1.3944,1.5089,1.5569,1.4656,1.5019,1.5481,1.6644,1.7463,1.6009,1.6028,1.7332,1.638,1.6677,1.5847,1.6373,1.6047,1.6781,1.7355,1.752,1.8277,1.8668,1.8443,1.8146,1.7549,1.7371,1.8609,1.9002,1.9786,1.9588,2.0986,2.2208,2.2084,2.2685,2.3959,2.4544,2.8647,3.0246,3.7673,3.8024,3.9845,3.559,3.2781,3.1946,3.0842,3.2216,3.3645,2.9899,2.9907,2.8884,2.9426,3.0765,3.1473,3.1233,3.0766,3.0394,3.1711,3.1902,3.2521,3.2706,3.136,3.1172,3.0322,2.9604,2.1606,2.5626,2.9041,2.7776,2.6938,3.0679,3.2494,3.382,3.7756,4.2406,4.0907,4.6768,4.8599,5.0712,5.8109,6.1553,5.8098,5.787,5.8738,6.2016,6.37,6.383,6.5251,6.5263,6.4674,5.8728,5.3475,5.0595,5.1394,5.4198,4.7969,4.5298,4.8007,4.7723,5.3175,4.9003,5.0516,4.9365,5.019,5.2427,5.6914,5.6951,5.3991,4.8495,5.0806,5.2534,5.455,5.8384,5.9699,5.7267,6.0683,6.0451,6.2019,6.4202,6.5026,6.3556,6.2507,6.3824,6.4013,6.4969,6.5673,6.163,6.5555,6.8252,7.4108,8.4004,8.0879,8.1078,8.1403,8.3415,9.077,9.0475,8.0998,8.3789,8.4203,8.345,7.6438],"risk_parity__sample":[0.9531,0.933,0.9224,0.8538,0.8381,0.8156,0.7908,0.8806,1.016,0.9903,1.002,0.9867,1.0743,1.0184,1.0231,1.0052,1.0445,1.0453,1.068,1.0597,1.1646,1.2563,1.2722,1.2245,1.2106,1.2229,1.2511,1.302,1.2424,1.2467,1.1979,1.2019,1.3172,1.3629,1.2645,1.2963,1.3186,1.4095,1.4987,1.3943,1.3713,1.4756,1.3899,1.4272,1.3705,1.3953,1.3895,1.468,1.516,1.5705,1.6092,1.6491,1.6555,1.6335,1.5768,1.5826,1.6791,1.7076,1.7813,1.7759,1.871,2.0022,2.0617,2.119,2.2463,2.2995,2.677,2.8042,3.4044,3.5036,3.6903,3.2948,3.0491,3.0105,2.9584,3.0351,3.1569,2.9242,2.9692,2.9171,2.9157,3.0548,3.1429,3.1038,3.0663,3.0612,3.1982,3.2225,3.2833,3.3011,3.1603,3.1452,3.0398,2.9487,2.2103,2.6607,2.9871,2.8577,2.7601,3.1533,3.3517,3.4839,3.863,4.2316,4.155,4.6497,4.7808,4.9286,5.4147,5.7242,5.347,5.3982,5.4782,5.7812,5.8855,5.9218,6.0142,5.9895,5.9505,5.5915,5.3323,5.0473,5.1366,5.3851,4.8009,4.4771,4.7269,4.6116,5.1074,4.7726,4.9266,4.779,4.7921,4.9646,5.3885,5.4108,5.141,4.6372,4.8089,5.0107,5.1902,5.5501,5.6418,5.3925,5.6177,5.5841,5.7429,5.9465,5.9606,5.8681,5.7906,5.9005,5.9358,6.0819,6.1845,5.829,6.2342,6.4501,7.1066,8.1118,7.887,7.9539,8.0504,8.372,9.3237,9.3648,8.3988,8.8322,8.9701,9.0985,8.2777],"risk_parity__ledoit_wolf":[0.9529,0.9328,0.9222,0.8535,0.8373,0.8149,0.7903,0.8803,1.0163,0.9904,1.0022,0.9869,1.0747,1.0186,1.0235,1.0051,1.0443,1.0464,1.0689,1.0594,1.1665,1.2599,1.2768,1.2282,1.2141,1.2264,1.2549,1.3071,1.2492,1.2534,1.2049,1.2065,1.322,1.3675,1.2693,1.3012,1.3242,1.4159,1.5063,1.4009,1.3787,1.4835,1.3974,1.4342,1.377,1.4033,1.3956,1.4738,1.5223,1.5738,1.6143,1.6532,1.6605,1.6381,1.5817,1.5865,1.685,1.713,1.7888,1.7804,1.8784,2.0093,2.0627,2.1096,2.2346,2.2861,2.6609,2.7884,3.3849,3.4842,3.6698,3.2764,3.0291,2.992,2.9414,3.0208,3.1421,2.8989,2.9414,2.8878,2.888,3.0259,3.1095,3.0723,3.0328,3.0266,3.162,3.1859,3.2507,3.2694,3.1341,3.1149,3.0162,2.932,2.1952,2.6417,2.966,2.8376,2.7411,3.1315,3.3283,3.4596,3.8329,4.2132,4.1156,4.6094,4.7398,4.8868,5.371,5.6785,5.3078,5.3537,5.4343,5.7354,5.8417,5.883,5.9757,5.9565,5.9179,5.5585,5.2935,5.01,5.099,5.3466,4.7645,4.4406,4.6884,4.5746,5.0666,4.733,4.8864,4.7402,4.7542,4.9277,5.351,5.3769,5.1108,4.6101,4.7832,4.9839,5.163,5.5223,5.6146,5.366,5.5908,5.5574,5.7153,5.9175,5.9361,5.8437,5.7655,5.8751,5.9098,6.0545,6.1585,5.8011,6.2046,6.421,7.0767,8.0853,7.8538,7.9176,8.0105,8.3285,9.2763,9.3099,8.3567,8.7819,8.9157,9.035,8.2121],"risk_parity__glasso":[0.9529,0.9331,0.9224,0.854,0.8383,0.816,0.7912,0.8808,1.0162,0.9904,1.0021,0.9868,1.0745,1.0186,1.0232,1.0053,1.0446,1.0455,1.0682,1.0597,1.165,1.2574,1.2733,1.2254,1.2114,1.2236,1.2518,1.3028,1.2434,1.2477,1.1987,1.2021,1.3175,1.3632,1.2649,1.2967,1.319,1.4098,1.4993,1.3948,1.3716,1.476,1.3905,1.4279,1.3711,1.3961,1.3899,1.4682,1.5163,1.5704,1.6092,1.6492,1.6557,1.6337,1.577,1.5825,1.6792,1.708,1.7818,1.777,1.8726,2.0032,2.0603,2.1155,2.2421,2.2948,2.6715,2.7985,3.3964,3.4954,3.6821,3.2874,3.042,3.0024,2.9504,3.0278,3.1493,2.9149,2.9594,2.9072,2.9057,3.0448,3.1321,3.0932,3.0546,3.0498,3.1865,3.2111,3.272,3.2901,3.1497,3.134,3.0301,2.9393,2.2018,2.6506,2.9758,2.8467,2.7496,3.141,3.3385,3.4703,3.8477,4.2185,4.1377,4.6308,4.7614,4.9083,5.3934,5.7002,5.3269,5.3802,5.4592,5.7624,5.8673,5.903,5.9962,5.973,5.9345,5.5752,5.3154,5.0308,5.12,5.3673,4.7845,4.4613,4.7109,4.5971,5.0915,4.7578,4.9116,4.7643,4.777,4.9492,5.3719,5.3936,5.1248,4.6223,4.7931,4.9942,5.1724,5.5306,5.6235,5.375,5.5992,5.5668,5.7256,5.9278,5.9432,5.8511,5.7743,5.884,5.9195,6.065,6.1634,5.8037,6.2061,6.4206,7.0751,8.075,7.851,7.9169,8.0132,8.3326,9.2778,9.3171,8.3549,8.7861,8.9221,9.0474,8.2325],"risk_parity__diagonal":[0.9512,0.9311,0.9204,0.85,0.8291,0.809,0.7883,0.8799,1.019,0.9915,1.0032,0.9869,1.0788,1.0204,1.0276,1.0056,1.0461,1.0587,1.0815,1.07,1.188,1.2848,1.3041,1.2487,1.2345,1.2496,1.28,1.3397,1.2843,1.2888,1.2405,1.233,1.3489,1.3918,1.2997,1.3303,1.3629,1.4625,1.5634,1.4482,1.4351,1.541,1.452,1.484,1.4189,1.4553,1.4332,1.5108,1.5604,1.602,1.6507,1.6835,1.6977,1.6742,1.6164,1.6162,1.7273,1.7507,1.8325,1.8172,1.9216,2.0549,2.0999,2.1272,2.2403,2.2856,2.6633,2.791,3.3943,3.5246,3.7097,3.3054,3.0317,2.9618,2.9298,3.0695,3.1982,2.8951,2.9059,2.8227,2.8423,2.9793,3.039,3.0173,2.9591,2.9386,3.0721,3.0908,3.1774,3.1984,3.0754,3.0498,2.9826,2.9442,2.1658,2.5976,2.9316,2.8127,2.722,3.1132,3.2973,3.4307,3.7997,4.2404,4.067,4.5854,4.7237,4.889,5.4333,5.763,5.4187,5.4076,5.4934,5.7978,5.9284,6.005,6.1425,6.149,6.1168,5.6939,5.3554,5.0369,5.1446,5.4157,4.7888,4.4168,4.6711,4.5897,5.1101,4.7366,4.9188,4.7834,4.8252,5.0319,5.4747,5.5106,5.2478,4.7229,4.9412,5.1504,5.3565,5.7537,5.8595,5.5954,5.8468,5.8122,5.9732,6.1718,6.2604,6.1632,6.0664,6.1834,6.2085,6.3616,6.4689,6.0784,6.4803,6.7412,7.4451,8.5678,8.2644,8.2759,8.3048,8.5975,9.5524,9.5539,8.6596,9.0103,9.0753,9.1294,8.2376],"minimum_variance__sample":[0.98,0.9705,0.959,0.9053,0.9269,0.9019,0.8693,0.937,1.0645,1.0418,1.0608,1.0645,1.1653,1.1422,1.1547,1.1324,1.1682,1.1771,1.1998,1.1916,1.2824,1.3806,1.3837,1.3694,1.3415,1.3246,1.3811,1.4158,1.3524,1.3637,1.319,1.3411,1.4977,1.5452,1.4619,1.5097,1.5165,1.6719,1.7386,1.6624,1.6399,1.7791,1.7344,1.7516,1.7252,1.727,1.7343,1.8013,1.8495,1.9095,1.9159,2.0074,1.9866,1.9589,1.9028,1.8623,1.9976,2.0667,2.127,2.1201,2.2321,2.3925,2.4731,2.5586,2.7629,2.8374,3.3274,3.4998,4.4143,4.4996,4.7469,4.2278,3.9013,4.1272,3.8953,3.8419,3.889,3.58,3.6952,3.5261,3.6316,3.7426,3.8653,3.7945,3.8622,3.8781,4.0934,4.1167,4.1726,4.2002,3.9919,3.9484,3.7712,3.539,2.8069,3.2459,3.5337,3.3605,3.2201,3.5559,3.7043,3.8254,4.2988,4.4942,4.4988,4.8564,4.7627,4.6977,4.6244,4.924,4.5073,4.4825,4.5478,4.6719,4.7965,4.7435,4.6961,4.7024,4.8116,4.6402,4.4821,4.4354,4.3074,4.41,3.9883,3.991,4.0192,3.9091,4.1372,3.9216,3.9046,3.751,3.6799,3.7654,4.031,4.0291,3.9384,3.6051,3.6229,3.7602,3.9367,4.1578,4.137,4.0005,4.1001,4.097,4.2528,4.5172,4.4489,4.4433,4.4142,4.437,4.4625,4.4736,4.8111,4.4354,4.6262,4.6811,5.1062,5.6676,5.569,5.7239,5.8748,6.0517,7.0921,7.1412,6.504,6.8009,6.9919,7.1695,6.6924],"minimum_variance__ledoit_wolf":[0.9773,0.9679,0.9569,0.8979,0.9033,0.8778,0.8458,0.9121,1.0366,1.0132,1.0329,1.0361,1.1327,1.1093,1.12,1.1004,1.1339,1.1414,1.1622,1.1525,1.2468,1.3389,1.3454,1.319,1.2864,1.2717,1.3248,1.3563,1.301,1.3148,1.272,1.2916,1.4462,1.4887,1.4077,1.4543,1.4629,1.6071,1.6744,1.599,1.5776,1.7116,1.6674,1.6909,1.6684,1.6728,1.6785,1.7462,1.7912,1.8424,1.8622,1.9377,1.9204,1.9005,1.8398,1.814,1.9437,2.0042,2.0766,2.0694,2.1815,2.3328,2.409,2.4854,2.6795,2.7441,3.2212,3.3812,4.2147,4.2624,4.5155,4.0423,3.7499,3.9403,3.7258,3.6807,3.7249,3.4391,3.5528,3.3974,3.4786,3.5969,3.694,3.6381,3.6849,3.6969,3.9061,3.9395,4.0081,4.0418,3.8538,3.824,3.6563,3.4333,2.6977,3.1305,3.4154,3.253,3.1151,3.4431,3.5903,3.7162,4.1562,4.3459,4.3637,4.6934,4.6054,4.5322,4.4684,4.7636,4.3965,4.3912,4.4628,4.6013,4.7048,4.6426,4.6008,4.6039,4.7263,4.5598,4.3907,4.3503,4.2298,4.3296,3.924,3.9125,3.9475,3.84,4.0647,3.8525,3.8312,3.6791,3.6107,3.694,3.9687,3.9668,3.8707,3.5581,3.5858,3.718,3.8911,4.1043,4.0885,3.9584,4.0599,4.0569,4.2164,4.4772,4.4309,4.423,4.3888,4.4132,4.4451,4.4578,4.7369,4.3684,4.5555,4.606,5.036,5.671,5.543,5.6947,5.8336,5.9985,7.0424,7.0503,6.4605,6.7275,6.9496,7.127,6.6568],"minimum_variance__glasso":[0.9764,0.968,0.9566,0.903,0.9241,0.8982,0.8651,0.931,1.0579,1.036,1.0575,1.0614,1.1617,1.1384,1.1498,1.1291,1.1642,1.1723,1.1942,1.1858,1.2775,1.3787,1.3827,1.3685,1.3388,1.3224,1.3784,1.413,1.3508,1.3636,1.3183,1.3381,1.4956,1.5429,1.4608,1.5089,1.5188,1.6689,1.7369,1.6611,1.6382,1.7782,1.7354,1.7567,1.7316,1.7328,1.7359,1.8021,1.8493,1.9053,1.9122,2.0051,1.9823,1.9542,1.8945,1.8588,1.989,2.0564,2.1143,2.1149,2.2267,2.3852,2.465,2.5483,2.7457,2.82,3.3103,3.4834,4.3705,4.4468,4.7098,4.2063,3.8894,4.0883,3.8694,3.8214,3.8683,3.5685,3.677,3.5099,3.5982,3.7253,3.8417,3.7731,3.8318,3.8536,4.0685,4.0894,4.144,4.1699,3.9626,3.9224,3.7399,3.5005,2.7695,3.2218,3.5078,3.3354,3.1952,3.5303,3.6812,3.7945,4.2682,4.4625,4.4653,4.8129,4.7198,4.6367,4.5714,4.8694,4.4754,4.4637,4.533,4.6542,4.782,4.7032,4.6578,4.6671,4.7895,4.6208,4.4533,4.4044,4.2761,4.3762,3.9636,3.9646,4.0039,3.9113,4.1385,3.9235,3.8998,3.7453,3.6741,3.7591,4.0227,4.0173,3.9264,3.5956,3.6124,3.7497,3.9114,4.1297,4.1157,3.9834,4.061,4.0602,4.2173,4.4775,4.4152,4.4101,4.376,4.3933,4.42,4.4314,4.7088,4.325,4.499,4.5395,4.9717,5.5363,5.4275,5.5667,5.7143,5.8975,6.9017,6.921,6.3019,6.5779,6.7853,6.9475,6.4913],"minimum_variance__diagonal":[0.9564,0.9413,0.9314,0.8731,0.8507,0.8304,0.8109,0.8946,1.029,1.0012,1.0166,1.0023,1.0941,1.045,1.0513,1.0313,1.0667,1.0735,1.0939,1.0836,1.1922,1.2825,1.2904,1.2357,1.2195,1.2263,1.2584,1.3069,1.2606,1.2689,1.2267,1.2222,1.3467,1.3844,1.3031,1.3387,1.3663,1.4786,1.575,1.4767,1.4635,1.5713,1.4925,1.5281,1.4717,1.5053,1.4801,1.553,1.5998,1.6339,1.6806,1.7156,1.7255,1.7066,1.6467,1.6437,1.7535,1.7859,1.867,1.848,1.9538,2.0874,2.1351,2.1689,2.3101,2.3547,2.776,2.9144,3.5508,3.6847,3.8782,3.4693,3.1923,3.1398,3.095,3.2286,3.3423,3.0107,3.0541,2.9746,2.974,3.1114,3.1623,3.1446,3.0892,3.065,3.2057,3.2272,3.3272,3.358,3.2289,3.2026,3.1201,3.0451,2.2478,2.6822,3.0317,2.9061,2.8119,3.2022,3.3767,3.5186,3.8976,4.3014,4.1362,4.6434,4.745,4.8873,5.3551,5.7073,5.36,5.3669,5.4675,5.7425,5.8665,5.9154,6.0175,6.0347,6.0645,5.674,5.3356,5.0619,5.0876,5.3143,4.7197,4.4225,4.6295,4.5643,5.0195,4.6893,4.7953,4.6482,4.6563,4.8389,5.247,5.269,5.0607,4.5868,4.7771,4.9703,5.1999,5.5821,5.6615,5.4452,5.6737,5.6306,5.7792,5.9847,6.0918,6.0136,5.9277,6.0234,6.051,6.1604,6.3297,5.9226,6.277,6.5227,7.2043,8.3469,8.0233,8.0735,8.0881,8.3936,9.523,9.4784,8.7408,8.9923,9.0397,9.1734,8.3484]}},"rolling_vol":{"dates":["2012-07","2012-08","2012-09","2012-10","2012-11","2012-12","2013-01","2013-02","2013-03","2013-04","2013-05","2013-06","2013-07","2013-08","2013-09","2013-10","2013-11","2013-12","2014-01","2014-02","2014-03","2014-04","2014-05","2014-06","2014-07","2014-08","2014-09","2014-10","2014-11","2014-12","2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12","2019-01","2019-02","2019-03","2019-04","2019-05","2019-06","2019-07","2019-08","2019-09","2019-10","2019-11","2019-12","2020-01","2020-02","2020-03","2020-04","2020-05","2020-06","2020-07","2020-08","2020-09","2020-10","2020-11","2020-12","2021-01","2021-02","2021-03","2021-04","2021-05","2021-06","2021-07","2021-08","2021-09","2021-10","2021-11","2021-12","2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07"],"series":{"equal_weight__sample":[0.19302,0.23183,0.23202,0.2175,0.20452,0.20722,0.23171,0.22135,0.20432,0.22093,0.21786,0.22619,0.21109,0.18091,0.17276,0.13841,0.12795,0.11041,0.11969,0.13483,0.13817,0.16183,0.21627,0.21968,0.21512,0.20475,0.19545,0.179,0.12026,0.14072,0.1549,0.17057,0.16991,0.16905,0.18504,0.17802,0.18179,0.21264,0.21565,0.2126,0.20639,0.19898,0.21889,0.1867,0.17176,0.17463,0.17368,0.16705,0.13608,0.13403,0.13607,0.13337,0.1366,0.13606,0.13048,0.12268,0.12161,0.12057,0.11907,0.1071,0.11307,0.12077,0.11486,0.11266,0.12077,0.13987,0.16135,0.21296,0.22648,0.26893,0.31832,0.32931,0.34368,0.30618,0.30325,0.28796,0.2397,0.21442,0.18599,0.18784,0.18819,0.15893,0.13972,0.12937,0.12335,0.11363,0.10388,0.09951,0.0978,0.09604,0.12394,0.14722,0.24844,0.28896,0.30057,0.3179,0.33634,0.33171,0.25505,0.22549,0.21596,0.19386,0.2096,0.24294,0.24966,0.26088,0.25864,0.26575,0.28379,0.22761,0.22021,0.20851,0.2039,0.19289,0.17103,0.16281,0.16567,0.19723,0.25463,0.26776,0.26186,0.25496,0.26226,0.29159,0.28352,0.29101,0.29535,0.30496,0.30317,0.25835,0.21595,0.17359,0.14448,0.13433,0.14241,0.17141,0.19189,0.19322,0.19265,0.18118,0.17599,0.18417,0.15181,0.15396,0.15555,0.16905,0.16015,0.13192,0.1277,0.12588,0.1274,0.09966,0.09521,0.20853,0.21142,0.21047,0.22235,0.24274,0.25066,0.19866,0.20411,0.21647,0.20996,0.20014,0.2312,0.21943,0.20957,0.19884,0.20211],"inverse_volatility__sample":[0.1686,0.21824,0.21951,0.20496,0.19442,0.19726,0.22103,0.20695,0.18672,0.20311,0.19898,0.20666,0.19135,0.16195,0.15503,0.12209,0.11303,0.09702,0.10516,0.11749,0.12325,0.1441,0.19966,0.20235,0.19867,0.19107,0.18158,0.16678,0.10631,0.12693,0.14466,0.16049,0.16021,0.16178,0.17652,0.17166,0.17312,0.20123,0.20402,0.2008,0.19516,0.18707,0.20658,0.17579,0.16141,0.1641,0.16138,0.15686,0.12516,0.12314,0.12551,0.12158,0.1247,0.12286,0.1209,0.11452,0.11362,0.11334,0.11311,0.1036,0.10333,0.10889,0.10407,0.10311,0.11274,0.13486,0.16049,0.21373,0.22689,0.26561,0.31245,0.32315,0.33402,0.29429,0.29111,0.27695,0.22881,0.2032,0.17803,0.18093,0.18166,0.15313,0.13572,0.12641,0.12187,0.11217,0.10276,0.0982,0.0969,0.09404,0.11931,0.14055,0.24187,0.28102,0.29298,0.31046,0.32963,0.32624,0.25066,0.22254,0.2128,0.19078,0.20665,0.23815,0.24374,0.25453,0.25219,0.25622,0.27123,0.2141,0.20691,0.19464,0.19098,0.1824,0.15917,0.15074,0.15403,0.18699,0.24247,0.252,0.24784,0.24246,0.24892,0.2749,0.26214,0.26769,0.27132,0.27851,0.27541,0.23169,0.19214,0.15412,0.12882,0.12501,0.13309,0.16018,0.18083,0.18219,0.18212,0.1719,0.16834,0.17401,0.14384,0.14606,0.14673,0.15814,0.14906,0.12485,0.12081,0.11864,0.12027,0.09433,0.09065,0.20411,0.20665,0.20592,0.2186,0.23956,0.2471,0.19221,0.19526,0.2064,0.20203,0.19117,0.22155,0.20998,0.2037,0.19374,0.19419],"community_risk_parity__sample":[0.16765,0.22274,0.22559,0.21099,0.2009,0.20199,0.2235,0.21163,0.1866,0.20157,0.19614,0.20335,0.18987,0.15816,0.15139,0.1192,0.11066,0.09876,0.10998,0.12306,0.12808,0.14576,0.20294,0.20569,0.20167,0.19028,0.18037,0.16817,0.10775,0.12685,0.13842,0.14922,0.14957,0.1506,0.1667,0.16129,0.16003,0.19925,0.20298,0.19882,0.19264,0.18684,0.20726,0.17563,0.15985,0.16163,0.15798,0.1574,0.13048,0.12826,0.13444,0.13243,0.13731,0.13116,0.13108,0.12602,0.1234,0.11924,0.12408,0.1115,0.10864,0.11345,0.10725,0.11053,0.11561,0.1341,0.16704,0.22653,0.24129,0.27547,0.3184,0.33307,0.34318,0.29501,0.29085,0.2817,0.2375,0.20871,0.1838,0.18719,0.1882,0.16043,0.13969,0.13043,0.12499,0.11418,0.10522,0.10116,0.10001,0.0959,0.11946,0.1396,0.24244,0.28197,0.29628,0.31454,0.33426,0.33142,0.25543,0.22656,0.2147,0.1916,0.20747,0.23876,0.24443,0.25359,0.25338,0.25982,0.27643,0.22094,0.21439,0.20507,0.19754,0.18696,0.15819,0.15138,0.15333,0.19039,0.24192,0.25102,0.24715,0.2416,0.24766,0.27797,0.26955,0.2764,0.28143,0.28866,0.28455,0.23451,0.1943,0.15475,0.12667,0.12338,0.13366,0.16234,0.1819,0.18257,0.1823,0.17146,0.16894,0.17322,0.14318,0.14568,0.14673,0.15884,0.14823,0.126,0.12181,0.12088,0.12324,0.09677,0.09373,0.2025,0.2059,0.20428,0.21352,0.23176,0.23937,0.186,0.1881,0.1997,0.19711,0.19131,0.22259,0.21141,0.20561,0.19486,0.19456],"risk_parity__sample":[0.16109,0.20928,0.20911,0.19519,0.18556,0.18886,0.21308,0.19932,0.18332,0.20072,0.19639,0.20382,0.18869,0.1577,0.15088,0.11623,0.10762,0.09074,0.10057,0.11198,0.11928,0.13894,0.19454,0.19719,0.19321,0.18728,0.17793,0.16427,0.10497,0.12287,0.14046,0.15732,0.15842,0.15958,0.17379,0.16898,0.17091,0.19605,0.19868,0.19594,0.19007,0.18413,0.2025,0.17318,0.1588,0.16411,0.1614,0.1571,0.12524,0.12396,0.12657,0.1185,0.12099,0.11945,0.11741,0.11071,0.11003,0.11082,0.10927,0.09942,0.09583,0.10241,0.09818,0.09563,0.10863,0.13061,0.15294,0.20419,0.21478,0.25144,0.29302,0.303,0.31052,0.27145,0.26831,0.25339,0.20988,0.18166,0.16108,0.16651,0.16819,0.14041,0.12841,0.1231,0.1191,0.10979,0.10181,0.09622,0.09356,0.08958,0.11299,0.13698,0.23276,0.27376,0.28608,0.30337,0.32112,0.3186,0.2475,0.21729,0.20815,0.18333,0.19962,0.23261,0.23863,0.24927,0.24667,0.25018,0.2585,0.19637,0.18781,0.17531,0.17252,0.16993,0.15541,0.1497,0.15138,0.17815,0.22581,0.23348,0.22765,0.22224,0.22927,0.25396,0.24266,0.2466,0.25024,0.25693,0.25341,0.21372,0.17832,0.14478,0.12127,0.11842,0.12595,0.15196,0.17307,0.17466,0.17442,0.16522,0.16256,0.16806,0.1391,0.14147,0.14208,0.15413,0.1469,0.12436,0.11986,0.11714,0.11818,0.09231,0.08688,0.19358,0.19684,0.1962,0.20943,0.22948,0.23664,0.18759,0.19022,0.20177,0.19804,0.18827,0.21995,0.20923,0.20277,0.19276,0.19181],"risk_parity__ledoit_wolf":[0.16149,0.20994,0.20993,0.19595,0.18627,0.18953,0.21377,0.20003,0.1836,0.20093,0.19661,0.20408,0.18886,0.15807,0.15117,0.11661,0.10798,0.09128,0.10096,0.11291,0.12022,0.14001,0.19539,0.19801,0.19407,0.18766,0.17827,0.16431,0.1048,0.12332,0.14094,0.15771,0.15861,0.16004,0.17422,0.16928,0.17103,0.19641,0.19905,0.19627,0.19044,0.18425,0.20283,0.17338,0.15899,0.16384,0.16109,0.15685,0.12504,0.12363,0.12623,0.11895,0.12165,0.12013,0.11803,0.11141,0.11062,0.11093,0.10969,0.09979,0.09743,0.10326,0.09899,0.09697,0.10909,0.13097,0.15338,0.20508,0.21584,0.25247,0.29434,0.30433,0.31165,0.27233,0.26917,0.25469,0.21085,0.18298,0.16241,0.16771,0.16932,0.14116,0.12851,0.12292,0.11895,0.10965,0.10168,0.0963,0.09396,0.0902,0.11403,0.13677,0.23312,0.27393,0.28616,0.30343,0.3214,0.31894,0.24754,0.21745,0.20829,0.18405,0.20031,0.23316,0.23916,0.24977,0.24712,0.2504,0.25946,0.19762,0.18911,0.17666,0.17385,0.17085,0.15553,0.14957,0.15149,0.17891,0.22702,0.23469,0.22895,0.22354,0.23046,0.25491,0.24325,0.24721,0.25085,0.25754,0.25401,0.21411,0.17861,0.14501,0.12157,0.1191,0.12685,0.1529,0.17391,0.17546,0.17518,0.16572,0.16288,0.16836,0.13936,0.14172,0.14235,0.15436,0.14697,0.12432,0.11985,0.11716,0.11824,0.09233,0.08704,0.19586,0.19905,0.19842,0.21158,0.23166,0.23882,0.18809,0.19071,0.20222,0.19841,0.1885,0.22007,0.20929,0.20284,0.19283,0.19199],"risk_parity__glasso":[0.16102,0.20933,0.20916,0.19521,0.18561,0.18887,0.213,0.19921,0.18323,0.20066,0.19636,0.20378,0.18869,0.15775,0.15093,0.11632,0.10771,0.09097,0.10074,0.11228,0.11952,0.13921,0.19479,0.19744,0.19346,0.18743,0.17807,0.16429,0.10491,0.12293,0.14062,0.15745,0.15856,0.15982,0.17394,0.16904,0.17082,0.19601,0.19863,0.19585,0.19002,0.1841,0.20246,0.1731,0.15874,0.16397,0.16128,0.15699,0.12516,0.12389,0.12658,0.11872,0.12124,0.1197,0.11764,0.11093,0.1102,0.11086,0.10933,0.09939,0.09614,0.10248,0.09819,0.09571,0.10867,0.13065,0.1529,0.20436,0.21498,0.2515,0.29298,0.30297,0.31054,0.27134,0.2682,0.25364,0.2103,0.18216,0.1616,0.167,0.16864,0.14059,0.12847,0.12313,0.11914,0.10979,0.10182,0.09615,0.09351,0.0895,0.11291,0.13675,0.23277,0.27377,0.2861,0.30339,0.32116,0.31866,0.24744,0.21726,0.20813,0.1834,0.19976,0.23274,0.23875,0.24936,0.24674,0.25026,0.25867,0.1965,0.18795,0.17548,0.17266,0.16992,0.15528,0.14962,0.15128,0.17809,0.22579,0.23346,0.22764,0.22227,0.2293,0.25407,0.24282,0.24682,0.25045,0.25714,0.2536,0.21388,0.17839,0.14479,0.12126,0.1184,0.12591,0.1519,0.17304,0.17464,0.17439,0.16519,0.16255,0.16804,0.13906,0.14142,0.14203,0.15405,0.14678,0.12427,0.11978,0.11704,0.1181,0.09226,0.0868,0.19416,0.19741,0.19678,0.20997,0.23,0.23712,0.1875,0.19013,0.20166,0.19792,0.18811,0.21988,0.20921,0.20277,0.19279,0.19184],"risk_parity__diagonal":[0.1686,0.21824,0.21951,0.20496,0.19442,0.19726,0.22103,0.20695,0.18672,0.20311,0.19898,0.20666,0.19135,0.16195,0.15503,0.12209,0.11303,0.09702,0.10516,0.11749,0.12325,0.1441,0.19966,0.20235,0.19867,0.19107,0.18158,0.16678,0.10631,0.12693,0.14466,0.16049,0.16021,0.16178,0.17652,0.17166,0.17312,0.20123,0.20402,0.2008,0.19516,0.18707,0.20658,0.17579,0.16141,0.1641,0.16138,0.15686,0.12516,0.12314,0.12551,0.12158,0.1247,0.12286,0.1209,0.11452,0.11362,0.11334,0.11311,0.1036,0.10333,0.10889,0.10407,0.10311,0.11274,0.13486,0.16049,0.21373,0.22689,0.26561,0.31245,0.32315,0.33402,0.29429,0.29111,0.27695,0.22881,0.2032,0.17803,0.18093,0.18166,0.15313,0.13572,0.12641,0.12187,0.11217,0.10276,0.0982,0.0969,0.09404,0.11931,0.14055,0.24187,0.28102,0.29298,0.31046,0.32963,0.32624,0.25066,0.22254,0.2128,0.19078,0.20665,0.23815,0.24374,0.25453,0.25219,0.25622,0.27123,0.2141,0.20691,0.19464,0.19098,0.1824,0.15917,0.15074,0.15403,0.18699,0.24247,0.252,0.24784,0.24246,0.24892,0.2749,0.26214,0.26769,0.27132,0.27851,0.27541,0.23169,0.19214,0.15412,0.12882,0.12501,0.13309,0.16018,0.18083,0.18219,0.18212,0.1719,0.16834,0.17401,0.14384,0.14606,0.14673,0.15814,0.14906,0.12485,0.12081,0.11864,0.12027,0.09433,0.09065,0.20411,0.20665,0.20592,0.2186,0.23956,0.2471,0.19221,0.19526,0.2064,0.20203,0.19117,0.22155,0.20998,0.2037,0.19374,0.19419],"minimum_variance__sample":[0.12063,0.17851,0.17598,0.16252,0.15902,0.16333,0.18287,0.16302,0.15194,0.17505,0.17278,0.17802,0.16313,0.14381,0.13834,0.10321,0.09406,0.08219,0.09638,0.10545,0.11366,0.12435,0.17567,0.17601,0.17034,0.16595,0.15684,0.15028,0.0953,0.10941,0.13167,0.14616,0.14838,0.15198,0.16194,0.16269,0.15874,0.17424,0.177,0.17442,0.16877,0.16348,0.17839,0.1589,0.14591,0.14894,0.14206,0.14192,0.11189,0.11165,0.11535,0.10664,0.11325,0.11421,0.12028,0.11718,0.11516,0.11766,0.11452,0.10112,0.0913,0.09404,0.09461,0.09385,0.11142,0.13595,0.15994,0.2069,0.2116,0.24189,0.27713,0.28846,0.27907,0.24067,0.23933,0.22124,0.18079,0.14848,0.14401,0.15122,0.15024,0.12775,0.12402,0.1179,0.11849,0.10834,0.10476,0.09375,0.08979,0.08546,0.10209,0.12869,0.21115,0.24651,0.25693,0.27295,0.28591,0.28304,0.2266,0.19626,0.19172,0.16975,0.19342,0.22174,0.22143,0.22599,0.22508,0.22252,0.21992,0.16168,0.1561,0.15013,0.15051,0.15334,0.13465,0.12693,0.13151,0.15596,0.17959,0.17828,0.17666,0.1778,0.17984,0.19115,0.17578,0.17455,0.17562,0.17637,0.16828,0.13787,0.11637,0.10611,0.09765,0.10504,0.11016,0.1314,0.14926,0.1512,0.15057,0.1415,0.14142,0.14423,0.12553,0.12926,0.12803,0.13952,0.13655,0.11923,0.11248,0.10507,0.10614,0.08561,0.08342,0.18878,0.19331,0.19412,0.20602,0.22066,0.22398,0.16352,0.16198,0.18009,0.1918,0.18403,0.20923,0.20137,0.20182,0.18688,0.16825],"minimum_variance__ledoit_wolf":[0.12128,0.18291,0.18101,0.16695,0.16314,0.16749,0.18741,0.16787,0.15334,0.17546,0.17275,0.17763,0.16257,0.14164,0.13565,0.10085,0.09208,0.07895,0.09152,0.10138,0.1116,0.12348,0.17549,0.17618,0.17195,0.16719,0.15707,0.14971,0.09351,0.10764,0.13195,0.14653,0.14897,0.15269,0.16213,0.16302,0.15801,0.1734,0.17604,0.17334,0.16899,0.16402,0.17894,0.15858,0.1458,0.14883,0.14157,0.14074,0.11009,0.10962,0.11345,0.10481,0.10988,0.11062,0.11772,0.11458,0.11246,0.11414,0.11159,0.09966,0.08892,0.09138,0.09147,0.09129,0.10693,0.13069,0.1558,0.20477,0.20972,0.23854,0.27356,0.28464,0.27577,0.23594,0.23439,0.21843,0.17853,0.14771,0.14328,0.15096,0.14977,0.12498,0.12002,0.11452,0.11542,0.10437,0.1014,0.09264,0.08962,0.08467,0.10267,0.12621,0.21203,0.24667,0.25748,0.27353,0.28693,0.28495,0.22612,0.19688,0.19189,0.16966,0.19209,0.21991,0.2198,0.22412,0.22305,0.2208,0.21862,0.16075,0.15494,0.149,0.14965,0.15287,0.13515,0.12761,0.13237,0.15712,0.18147,0.17913,0.17688,0.17788,0.17982,0.19354,0.17824,0.17728,0.17844,0.17957,0.17183,0.13868,0.11695,0.10637,0.09731,0.10455,0.11063,0.13103,0.14843,0.15033,0.15024,0.14098,0.1404,0.1426,0.12452,0.12807,0.12687,0.13821,0.13509,0.11864,0.11185,0.10419,0.10508,0.08422,0.08072,0.18937,0.19309,0.19365,0.20643,0.22232,0.22627,0.16442,0.16349,0.18109,0.19332,0.18459,0.2092,0.20074,0.2013,0.18698,0.16764],"minimum_variance__glasso":[0.12152,0.17885,0.17625,0.16262,0.1589,0.16313,0.18262,0.16305,0.15216,0.17518,0.17288,0.17803,0.16314,0.14364,0.13801,0.10287,0.09365,0.08169,0.09534,0.10496,0.11353,0.12436,0.17626,0.17665,0.17147,0.16659,0.15727,0.15046,0.0944,0.1086,0.13127,0.14515,0.1475,0.15137,0.16119,0.16165,0.15677,0.17305,0.17593,0.17319,0.16823,0.16316,0.17813,0.15863,0.14564,0.14868,0.14153,0.14116,0.11102,0.11116,0.11492,0.10629,0.11219,0.11327,0.119,0.11594,0.1138,0.11582,0.11295,0.09989,0.09047,0.09276,0.09271,0.09227,0.10992,0.13437,0.15864,0.20622,0.21108,0.24027,0.27415,0.28448,0.275,0.2356,0.23425,0.21785,0.17867,0.14888,0.1444,0.15238,0.15115,0.12735,0.12393,0.11772,0.11858,0.10755,0.10402,0.09345,0.08936,0.08544,0.1023,0.12801,0.21264,0.24819,0.25901,0.2747,0.28705,0.28436,0.22618,0.1956,0.19085,0.16891,0.19381,0.22207,0.22157,0.22611,0.22474,0.2222,0.21976,0.1615,0.15598,0.15004,0.15068,0.15294,0.13358,0.12621,0.13064,0.15476,0.17826,0.17684,0.17553,0.17649,0.17834,0.19288,0.17807,0.1763,0.17725,0.17805,0.17005,0.13698,0.11473,0.10538,0.09672,0.10427,0.10989,0.13094,0.14888,0.15102,0.15027,0.14148,0.14122,0.14341,0.12455,0.12817,0.12722,0.13854,0.13562,0.11918,0.11215,0.10451,0.10538,0.08442,0.08019,0.18768,0.19254,0.19336,0.20578,0.2208,0.22479,0.16368,0.16197,0.18008,0.19206,0.1841,0.20976,0.20207,0.20277,0.18815,0.1691],"minimum_variance__diagonal":[0.15188,0.20929,0.2112,0.19661,0.18814,0.19138,0.21408,0.19828,0.17565,0.19169,0.18695,0.19359,0.17734,0.14809,0.14192,0.1099,0.10143,0.08676,0.09416,0.10504,0.11263,0.1305,0.18785,0.18996,0.18681,0.18073,0.17123,0.15941,0.09749,0.11679,0.13884,0.15419,0.15414,0.15706,0.17007,0.16742,0.16581,0.19217,0.1948,0.19154,0.18688,0.1792,0.1979,0.16829,0.15494,0.15688,0.15221,0.14957,0.117,0.11486,0.11721,0.11312,0.1171,0.11526,0.11711,0.11259,0.11215,0.11244,0.11227,0.10335,0.09794,0.10091,0.0974,0.09683,0.10803,0.13271,0.16105,0.21539,0.22782,0.26218,0.30582,0.316,0.32292,0.28061,0.27732,0.26427,0.21638,0.18934,0.16767,0.17187,0.17284,0.14501,0.13057,0.12392,0.12084,0.11115,0.10228,0.09742,0.09596,0.09159,0.11348,0.13322,0.23477,0.27318,0.28559,0.30329,0.32319,0.32073,0.24661,0.2193,0.20947,0.1877,0.20409,0.2338,0.23845,0.24875,0.24637,0.24765,0.25955,0.20147,0.19445,0.18153,0.17894,0.17258,0.14811,0.13935,0.14341,0.17806,0.23095,0.23582,0.23353,0.23004,0.23542,0.25875,0.24163,0.24626,0.24875,0.25353,0.24873,0.20542,0.16825,0.13535,0.11398,0.1165,0.12524,0.151,0.17177,0.17306,0.17346,0.16459,0.16203,0.16459,0.13606,0.13936,0.13903,0.14823,0.13924,0.11933,0.11575,0.11179,0.11324,0.08904,0.08624,0.20021,0.20272,0.20227,0.21564,0.23685,0.24384,0.18488,0.18547,0.19741,0.19656,0.18469,0.21383,0.20319,0.20136,0.19051,0.1868]}},"latest_weights":{"community_risk_parity__sample":{"ACB":0.02287,"BCM":0.03077,"BID":0.02939,"BVH":0.02433,"CTG":0.04634,"FPT":0.02546,"GAS":0.01912,"GVR":0.02106,"HDB":0.03505,"HPG":0.03793,"LPB":0.01784,"MBB":0.0374,"MSN":0.03206,"MWG":0.02285,"PLX":0.01852,"SAB":0.03058,"SHB":0.03283,"SSB":0.03781,"SSI":0.02693,"STB":0.01887,"TCB":0.03928,"TPB":0.03085,"VCB":0.03432,"VHM":0.01607,"VIB":0.02965,"VIC":0.01514,"VJC":0.01947,"VNM":0.2,"VPB":0.02986,"VRE":0.01738},"equal_weight__sample":{"ACB":0.03333,"BCM":0.03333,"BID":0.03333,"BVH":0.03333,"CTG":0.03333,"FPT":0.03333,"GAS":0.03333,"GVR":0.03333,"HDB":0.03333,"HPG":0.03333,"LPB":0.03333,"MBB":0.03333,"MSN":0.03333,"MWG":0.03333,"PLX":0.03333,"SAB":0.03333,"SHB":0.03333,"SSB":0.03333,"SSI":0.03333,"STB":0.03333,"TCB":0.03333,"TPB":0.03333,"VCB":0.03333,"VHM":0.03333,"VIB":0.03333,"VIC":0.03333,"VJC":0.03333,"VNM":0.03333,"VPB":0.03333,"VRE":0.03333},"inverse_volatility__sample":{"ACB":0.0323,"BCM":0.0297,"BID":0.03179,"BVH":0.02631,"CTG":0.05012,"FPT":0.0309,"GAS":0.01846,"GVR":0.02033,"HDB":0.0379,"HPG":0.04604,"LPB":0.02165,"MBB":0.05283,"MSN":0.03892,"MWG":0.02774,"PLX":0.01788,"SAB":0.03308,"SHB":0.04638,"SSB":0.0365,"SSI":0.03805,"STB":0.02291,"TCB":0.03792,"TPB":0.04358,"VCB":0.03712,"VHM":0.01551,"VIB":0.04188,"VIC":0.01838,"VJC":0.02751,"VNM":0.06531,"VPB":0.03625,"VRE":0.01678},"minimum_variance__diagonal":{"ACB":0.02811,"BCM":0.02356,"BID":0.0272,"BVH":0.01827,"CTG":0.06761,"FPT":0.02564,"GAS":0.00919,"GVR":0.01078,"HDB":0.03821,"HPG":0.05645,"LPB":0.0126,"MBB":0.07555,"MSN":0.04018,"MWG":0.02033,"PLX":0.00841,"SAB":0.02947,"SHB":0.05732,"SSB":0.03558,"SSI":0.03848,"STB":0.01426,"TCB":0.03823,"TPB":0.05031,"VCB":0.03672,"VHM":0.00642,"VIB":0.04639,"VIC":0.00911,"VJC":0.01998,"VNM":0.11302,"VPB":0.03512,"VRE":0.00752},"minimum_variance__glasso":{"BVH":0.01721,"FPT":0.05575,"GAS":0.03624,"HPG":0.05962,"LPB":0.05269,"MBB":0.13705,"MSN":0.01166,"PLX":0.0274,"SAB":0.12269,"SHB":0.07739,"SSB":0.07117,"STB":0.02163,"TCB":0.01174,"TPB":0.00191,"VHM":0.04672,"VIC":0.01127,"VJC":0.03785,"VNM":0.2},"minimum_variance__ledoit_wolf":{"BVH":0.02653,"FPT":0.05057,"GAS":0.02562,"HDB":0.00428,"HPG":0.05573,"LPB":0.04563,"MBB":0.12714,"MSN":0.02945,"MWG":0.00213,"PLX":0.02994,"SAB":0.1033,"SHB":0.07733,"SSB":0.06172,"STB":0.02185,"TCB":0.02557,"TPB":0.02887,"VCB":0.00042,"VHM":0.03392,"VIC":0.02063,"VJC":0.02937,"VNM":0.2},"minimum_variance__sample":{"BVH":0.01746,"FPT":0.05874,"GAS":0.0248,"HPG":0.02812,"LPB":0.05663,"MBB":0.13897,"MSN":0.02149,"MWG":0.00371,"PLX":0.04135,"SAB":0.12523,"SHB":0.08156,"SSB":0.07023,"STB":0.01734,"TCB":0.01628,"VHM":0.05272,"VIC":0.00333,"VJC":0.04203,"VNM":0.2},"risk_parity__diagonal":{"ACB":0.0323,"BCM":0.0297,"BID":0.03179,"BVH":0.02631,"CTG":0.05012,"FPT":0.0309,"GAS":0.01846,"GVR":0.02033,"HDB":0.0379,"HPG":0.04604,"LPB":0.02165,"MBB":0.05283,"MSN":0.03892,"MWG":0.02774,"PLX":0.01788,"SAB":0.03308,"SHB":0.04638,"SSB":0.0365,"SSI":0.03805,"STB":0.02291,"TCB":0.03792,"TPB":0.04358,"VCB":0.03712,"VHM":0.01551,"VIB":0.04188,"VIC":0.01838,"VJC":0.02751,"VNM":0.06531,"VPB":0.03625,"VRE":0.01678},"risk_parity__glasso":{"ACB":0.0303,"BCM":0.01823,"BID":0.02092,"BVH":0.02989,"CTG":0.02901,"FPT":0.03586,"GAS":0.03018,"GVR":0.0179,"HDB":0.02926,"HPG":0.03856,"LPB":0.04557,"MBB":0.04127,"MSN":0.0323,"MWG":0.02949,"PLX":0.02893,"SAB":0.0641,"SHB":0.0379,"SSB":0.04376,"SSI":0.02626,"STB":0.03191,"TCB":0.03284,"TPB":0.03119,"VCB":0.03292,"VHM":0.03747,"VIB":0.02498,"VIC":0.02994,"VJC":0.03464,"VNM":0.07048,"VPB":0.02416,"VRE":0.01978},"risk_parity__ledoit_wolf":{"ACB":0.03079,"BCM":0.01913,"BID":0.02212,"BVH":0.03019,"CTG":0.0302,"FPT":0.03561,"GAS":0.02854,"GVR":0.01836,"HDB":0.03064,"HPG":0.03911,"LPB":0.04149,"MBB":0.04266,"MSN":0.03298,"MWG":0.02979,"PLX":0.02825,"SAB":0.0596,"SHB":0.03895,"SSB":0.04392,"SSI":0.02765,"STB":0.03105,"TCB":0.03381,"TPB":0.03234,"VCB":0.03428,"VHM":0.03352,"VIB":0.02609,"VIC":0.02985,"VJC":0.0343,"VNM":0.0695,"VPB":0.02494,"VRE":0.02036},"risk_parity__sample":{"ACB":0.03026,"BCM":0.01796,"BID":0.02089,"BVH":0.0301,"CTG":0.02837,"FPT":0.03574,"GAS":0.03026,"GVR":0.01776,"HDB":0.02947,"HPG":0.03805,"LPB":0.04603,"MBB":0.04158,"MSN":0.03188,"MWG":0.03007,"PLX":0.03016,"SAB":0.06534,"SHB":0.03783,"SSB":0.0451,"SSI":0.02643,"STB":0.03139,"TCB":0.03269,"TPB":0.031,"VCB":0.03307,"VHM":0.03762,"VIB":0.02465,"VIC":0.03019,"VJC":0.03509,"VNM":0.06777,"VPB":0.02362,"VRE":0.01967}},"weights_date":"2026-07-13","oos_metrics":[{"horizon":5.0,"model":"naive_frequency","feature_set":"graph","brier":0.105234,"brier_skill_score":-0.03484,"auroc":0.54389,"auprc":0.128068,"base_rate":0.11489,"mcc":-0.016046,"recall_stress":0.453947,"precision_stress":0.109524,"expected_calibration_error":0.078361,"false_alarms_per_year":106.857143,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"naive_frequency","feature_set":"market","brier":0.105242,"brier_skill_score":-0.034927,"auroc":0.54389,"auprc":0.128068,"base_rate":0.11489,"mcc":-0.016046,"recall_stress":0.453947,"precision_stress":0.109524,"expected_calibration_error":0.078382,"false_alarms_per_year":106.857143,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"naive_frequency","feature_set":"combined","brier":0.105242,"brier_skill_score":-0.034927,"auroc":0.54389,"auprc":0.128068,"base_rate":0.11489,"mcc":-0.016046,"recall_stress":0.453947,"precision_stress":0.109524,"expected_calibration_error":0.078382,"false_alarms_per_year":106.857143,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"random_forest","feature_set":"combined","brier":0.114059,"brier_skill_score":-0.121626,"auroc":0.588425,"auprc":0.158223,"base_rate":0.11489,"mcc":0.087475,"recall_stress":0.552632,"precision_stress":0.146853,"expected_calibration_error":0.090303,"false_alarms_per_year":92.952381,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"hist_gradient_boosting","feature_set":"graph","brier":0.114486,"brier_skill_score":-0.12583,"auroc":0.496784,"auprc":0.112595,"base_rate":0.11489,"mcc":-0.037974,"recall_stress":0.289474,"precision_stress":0.097996,"expected_calibration_error":0.096086,"false_alarms_per_year":77.142857,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"random_forest","feature_set":"graph","brier":0.115399,"brier_skill_score":-0.134802,"auroc":0.579596,"auprc":0.161493,"base_rate":0.11489,"mcc":0.025027,"recall_stress":0.513158,"precision_stress":0.123223,"expected_calibration_error":0.093909,"false_alarms_per_year":105.714286,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"hist_gradient_boosting","feature_set":"combined","brier":0.122829,"brier_skill_score":-0.207867,"auroc":0.392995,"auprc":0.091278,"base_rate":0.11489,"mcc":-0.091087,"recall_stress":0.184211,"precision_stress":0.070529,"expected_calibration_error":0.114825,"false_alarms_per_year":70.285714,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"random_forest","feature_set":"market","brier":0.131317,"brier_skill_score":-0.291337,"auroc":0.623503,"auprc":0.143636,"base_rate":0.11489,"mcc":0.14157,"recall_stress":0.690789,"precision_stress":0.16055,"expected_calibration_error":0.104314,"false_alarms_per_year":104.571429,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_elasticnet","feature_set":"combined","brier":0.137947,"brier_skill_score":-0.356536,"auroc":0.579633,"auprc":0.166281,"base_rate":0.11489,"mcc":0.080273,"recall_stress":0.526316,"precision_stress":0.145191,"expected_calibration_error":0.096331,"false_alarms_per_year":89.714286,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_elasticnet","feature_set":"graph","brier":0.141943,"brier_skill_score":-0.395836,"auroc":0.587206,"auprc":0.134676,"base_rate":0.11489,"mcc":0.110965,"recall_stress":0.677632,"precision_stress":0.148629,"expected_calibration_error":0.096144,"false_alarms_per_year":112.380952,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"hist_gradient_boosting","feature_set":"market","brier":0.145019,"brier_skill_score":-0.426084,"auroc":0.475611,"auprc":0.113374,"base_rate":0.11489,"mcc":0.014116,"recall_stress":0.559211,"precision_stress":0.119048,"expected_calibration_error":0.131214,"false_alarms_per_year":119.809524,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_l2","feature_set":"combined","brier":0.1453,"brier_skill_score":-0.428845,"auroc":0.581509,"auprc":0.175707,"base_rate":0.11489,"mcc":0.10877,"recall_stress":0.460526,"precision_stress":0.165485,"expected_calibration_error":0.104725,"false_alarms_per_year":67.238095,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_elasticnet","feature_set":"market","brier":0.155759,"brier_skill_score":-0.531698,"auroc":0.578565,"auprc":0.133708,"base_rate":0.11489,"mcc":0.071769,"recall_stress":0.605263,"precision_stress":0.137519,"expected_calibration_error":0.133996,"false_alarms_per_year":109.904762,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_l2","feature_set":"market","brier":0.158366,"brier_skill_score":-0.557332,"auroc":0.564171,"auprc":0.131846,"base_rate":0.11489,"mcc":0.006486,"recall_stress":0.513158,"precision_stress":0.116942,"expected_calibration_error":0.144766,"false_alarms_per_year":112.190476,"n":1323.0,"n_folds":21.0},{"horizon":5.0,"model":"logistic_l2","feature_set":"graph","brier":0.167646,"brier_skill_score":-0.648584,"auroc":0.6096,"auprc":0.146085,"base_rate":0.11489,"mcc":0.111361,"recall_stress":0.690789,"precision_stress":0.147887,"expected_calibration_error":0.124135,"false_alarms_per_year":115.238095,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"naive_frequency","feature_set":"graph","brier":0.10993,"brier_skill_score":-0.099968,"auroc":0.485594,"auprc":0.11358,"base_rate":0.112623,"mcc":-0.018902,"recall_stress":0.261745,"precision_stress":0.103175,"expected_calibration_error":0.0925,"false_alarms_per_year":64.571429,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"naive_frequency","feature_set":"market","brier":0.109932,"brier_skill_score":-0.099987,"auroc":0.502881,"auprc":0.116826,"base_rate":0.112623,"mcc":-0.018902,"recall_stress":0.261745,"precision_stress":0.103175,"expected_calibration_error":0.082761,"false_alarms_per_year":64.571429,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"naive_frequency","feature_set":"combined","brier":0.109932,"brier_skill_score":-0.099987,"auroc":0.502881,"auprc":0.116826,"base_rate":0.112623,"mcc":-0.018902,"recall_stress":0.261745,"precision_stress":0.103175,"expected_calibration_error":0.082761,"false_alarms_per_year":64.571429,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"hist_gradient_boosting","feature_set":"graph","brier":0.135442,"brier_skill_score":-0.355246,"auroc":0.52814,"auprc":0.113349,"base_rate":0.112623,"mcc":0.015048,"recall_stress":0.288591,"precision_stress":0.120448,"expected_calibration_error":0.10208,"false_alarms_per_year":59.809524,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_elasticnet","feature_set":"graph","brier":0.137895,"brier_skill_score":-0.379796,"auroc":0.580034,"auprc":0.249565,"base_rate":0.112623,"mcc":0.06707,"recall_stress":0.510067,"precision_stress":0.137681,"expected_calibration_error":0.126551,"false_alarms_per_year":90.666667,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"hist_gradient_boosting","feature_set":"market","brier":0.144793,"brier_skill_score":-0.448819,"auroc":0.415136,"auprc":0.100378,"base_rate":0.112623,"mcc":6.3e-05,"recall_stress":0.38255,"precision_stress":0.112648,"expected_calibration_error":0.151234,"false_alarms_per_year":85.52381,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"hist_gradient_boosting","feature_set":"combined","brier":0.148201,"brier_skill_score":-0.482917,"auroc":0.468415,"auprc":0.101412,"base_rate":0.112623,"mcc":0.014754,"recall_stress":0.375839,"precision_stress":0.118896,"expected_calibration_error":0.127179,"false_alarms_per_year":79.047619,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_elasticnet","feature_set":"combined","brier":0.149901,"brier_skill_score":-0.499928,"auroc":0.612116,"auprc":0.223399,"base_rate":0.112623,"mcc":0.140583,"recall_stress":0.61745,"precision_stress":0.16458,"expected_calibration_error":0.135063,"false_alarms_per_year":88.952381,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"random_forest","feature_set":"combined","brier":0.154662,"brier_skill_score":-0.547563,"auroc":0.504559,"auprc":0.12455,"base_rate":0.112623,"mcc":-0.010101,"recall_stress":0.248322,"precision_stress":0.107246,"expected_calibration_error":0.164395,"false_alarms_per_year":58.666667,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"random_forest","feature_set":"graph","brier":0.155952,"brier_skill_score":-0.56047,"auroc":0.530642,"auprc":0.118311,"base_rate":0.112623,"mcc":-0.016988,"recall_stress":0.288591,"precision_stress":0.104623,"expected_calibration_error":0.147235,"false_alarms_per_year":70.095238,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_l2","feature_set":"graph","brier":0.156486,"brier_skill_score":-0.565815,"auroc":0.568612,"auprc":0.180294,"base_rate":0.112623,"mcc":0.054474,"recall_stress":0.409396,"precision_stress":0.136771,"expected_calibration_error":0.149742,"false_alarms_per_year":73.333333,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_l2","feature_set":"combined","brier":0.178435,"brier_skill_score":-0.785437,"auroc":0.651287,"auprc":0.174599,"base_rate":0.112623,"mcc":0.065522,"recall_stress":0.348993,"precision_stress":0.146893,"expected_calibration_error":0.15546,"false_alarms_per_year":57.52381,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_elasticnet","feature_set":"market","brier":0.179311,"brier_skill_score":-0.794208,"auroc":0.481698,"auprc":0.114453,"base_rate":0.112623,"mcc":-0.066054,"recall_stress":0.322148,"precision_stress":0.087751,"expected_calibration_error":0.18064,"false_alarms_per_year":95.047619,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"random_forest","feature_set":"market","brier":0.179951,"brier_skill_score":-0.800614,"auroc":0.422633,"auprc":0.090858,"base_rate":0.112623,"mcc":-0.078862,"recall_stress":0.268456,"precision_stress":0.080483,"expected_calibration_error":0.192929,"false_alarms_per_year":87.047619,"n":1323.0,"n_folds":21.0},{"horizon":10.0,"model":"logistic_l2","feature_set":"market","brier":0.199498,"brier_skill_score":-0.996202,"auroc":0.437259,"auprc":0.102771,"base_rate":0.112623,"mcc":-0.100394,"recall_stress":0.281879,"precision_stress":0.075404,"expected_calibration_error":0.217945,"false_alarms_per_year":98.095238,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"naive_frequency","feature_set":"graph","brier":0.12993,"brier_skill_score":-0.121166,"auroc":0.461643,"auprc":0.128736,"base_rate":0.133787,"mcc":0.025321,"recall_stress":0.265537,"precision_stress":0.149206,"expected_calibration_error":0.124624,"false_alarms_per_year":51.047619,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"naive_frequency","feature_set":"market","brier":0.129948,"brier_skill_score":-0.121323,"auroc":0.479812,"auprc":0.131721,"base_rate":0.133787,"mcc":0.025321,"recall_stress":0.265537,"precision_stress":0.149206,"expected_calibration_error":0.125769,"false_alarms_per_year":51.047619,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"naive_frequency","feature_set":"combined","brier":0.129948,"brier_skill_score":-0.121323,"auroc":0.479812,"auprc":0.131721,"base_rate":0.133787,"mcc":0.025321,"recall_stress":0.265537,"precision_stress":0.149206,"expected_calibration_error":0.125769,"false_alarms_per_year":51.047619,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"hist_gradient_boosting","feature_set":"graph","brier":0.156339,"brier_skill_score":-0.34905,"auroc":0.416603,"auprc":0.118809,"base_rate":0.133787,"mcc":-0.079443,"recall_stress":0.180791,"precision_stress":0.089385,"expected_calibration_error":0.151016,"false_alarms_per_year":62.095238,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"random_forest","feature_set":"graph","brier":0.1651,"brier_skill_score":-0.424656,"auroc":0.538054,"auprc":0.154427,"base_rate":0.133787,"mcc":0.002284,"recall_stress":0.389831,"precision_stress":0.134766,"expected_calibration_error":0.151369,"false_alarms_per_year":84.380952,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_elasticnet","feature_set":"combined","brier":0.172557,"brier_skill_score":-0.488997,"auroc":0.530857,"auprc":0.160597,"base_rate":0.133787,"mcc":-0.014189,"recall_stress":0.276836,"precision_stress":0.126289,"expected_calibration_error":0.172699,"false_alarms_per_year":64.571429,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_l2","feature_set":"combined","brier":0.176434,"brier_skill_score":-0.522457,"auroc":0.497111,"auprc":0.164896,"base_rate":0.133787,"mcc":-0.03521,"recall_stress":0.237288,"precision_stress":0.114441,"expected_calibration_error":0.187914,"false_alarms_per_year":61.904762,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"hist_gradient_boosting","feature_set":"combined","brier":0.187392,"brier_skill_score":-0.617011,"auroc":0.417993,"auprc":0.112994,"base_rate":0.133787,"mcc":-0.038434,"recall_stress":0.361582,"precision_stress":0.118081,"expected_calibration_error":0.171415,"false_alarms_per_year":91.047619,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"random_forest","feature_set":"combined","brier":0.187527,"brier_skill_score":-0.618172,"auroc":0.497814,"auprc":0.166147,"base_rate":0.133787,"mcc":-0.016093,"recall_stress":0.418079,"precision_stress":0.127586,"expected_calibration_error":0.227207,"false_alarms_per_year":96.380952,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"hist_gradient_boosting","feature_set":"market","brier":0.188411,"brier_skill_score":-0.625805,"auroc":0.403205,"auprc":0.110861,"base_rate":0.133787,"mcc":-0.038663,"recall_stress":0.152542,"precision_stress":0.106719,"expected_calibration_error":0.187273,"false_alarms_per_year":43.047619,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_elasticnet","feature_set":"graph","brier":0.228782,"brier_skill_score":-0.974169,"auroc":0.45652,"auprc":0.149487,"base_rate":0.133787,"mcc":-0.042398,"recall_stress":0.305085,"precision_stress":0.114407,"expected_calibration_error":0.247417,"false_alarms_per_year":79.619048,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"random_forest","feature_set":"market","brier":0.232195,"brier_skill_score":-1.003619,"auroc":0.347048,"auprc":0.107419,"base_rate":0.133787,"mcc":-0.065915,"recall_stress":0.248588,"precision_stress":0.101617,"expected_calibration_error":0.268579,"false_alarms_per_year":74.095238,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_l2","feature_set":"graph","brier":0.245832,"brier_skill_score":-1.121288,"auroc":0.452599,"auprc":0.150139,"base_rate":0.133787,"mcc":-0.008463,"recall_stress":0.327684,"precision_stress":0.129754,"expected_calibration_error":0.262613,"false_alarms_per_year":74.095238,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_l2","feature_set":"market","brier":0.273903,"brier_skill_score":-1.363515,"auroc":0.305255,"auprc":0.109907,"base_rate":0.133787,"mcc":-0.168812,"recall_stress":0.19774,"precision_stress":0.064695,"expected_calibration_error":0.281747,"false_alarms_per_year":96.380952,"n":1323.0,"n_folds":21.0},{"horizon":20.0,"model":"logistic_elasticnet","feature_set":"market","brier":0.289033,"brier_skill_score":-1.494076,"auroc":0.349346,"auprc":0.101741,"base_rate":0.133787,"mcc":-0.160189,"recall_stress":0.158192,"precision_stress":0.059957,"expected_calibration_error":0.286728,"false_alarms_per_year":83.619048,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"naive_frequency","feature_set":"graph","brier":0.169583,"brier_skill_score":-0.180737,"auroc":0.40076,"auprc":0.164081,"base_rate":0.173847,"mcc":-0.153076,"recall_stress":0.026087,"precision_stress":0.031746,"expected_calibration_error":0.197509,"false_alarms_per_year":34.857143,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"naive_frequency","feature_set":"market","brier":0.169642,"brier_skill_score":-0.181152,"auroc":0.46078,"auprc":0.175445,"base_rate":0.173847,"mcc":-0.153076,"recall_stress":0.026087,"precision_stress":0.031746,"expected_calibration_error":0.187948,"false_alarms_per_year":34.857143,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"naive_frequency","feature_set":"combined","brier":0.169642,"brier_skill_score":-0.181152,"auroc":0.46078,"auprc":0.175445,"base_rate":0.173847,"mcc":-0.153076,"recall_stress":0.026087,"precision_stress":0.031746,"expected_calibration_error":0.187948,"false_alarms_per_year":34.857143,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"random_forest","feature_set":"graph","brier":0.214717,"brier_skill_score":-0.494992,"auroc":0.502045,"auprc":0.172491,"base_rate":0.173847,"mcc":-0.047008,"recall_stress":0.365217,"precision_stress":0.152727,"expected_calibration_error":0.221461,"false_alarms_per_year":88.761905,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"random_forest","feature_set":"combined","brier":0.23961,"brier_skill_score":-0.668311,"auroc":0.484801,"auprc":0.165844,"base_rate":0.173847,"mcc":-0.045044,"recall_stress":0.256522,"precision_stress":0.14787,"expected_calibration_error":0.245802,"false_alarms_per_year":64.761905,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"hist_gradient_boosting","feature_set":"graph","brier":0.243105,"brier_skill_score":-0.692642,"auroc":0.491153,"auprc":0.163295,"base_rate":0.173847,"mcc":-0.044523,"recall_stress":0.221739,"precision_stress":0.145714,"expected_calibration_error":0.242072,"false_alarms_per_year":56.952381,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_elasticnet","feature_set":"graph","brier":0.263517,"brier_skill_score":-0.834767,"auroc":0.56943,"auprc":0.1978,"base_rate":0.173847,"mcc":0.144609,"recall_stress":0.547826,"precision_stress":0.241843,"expected_calibration_error":0.249805,"false_alarms_per_year":75.238095,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_l2","feature_set":"graph","brier":0.274178,"brier_skill_score":-0.908995,"auroc":0.5972,"auprc":0.214005,"base_rate":0.173847,"mcc":0.052126,"recall_stress":0.369565,"precision_stress":0.202864,"expected_calibration_error":0.26469,"false_alarms_per_year":63.619048,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"hist_gradient_boosting","feature_set":"market","brier":0.284388,"brier_skill_score":-0.980079,"auroc":0.269088,"auprc":0.117414,"base_rate":0.173847,"mcc":-0.169769,"recall_stress":0.104348,"precision_stress":0.067606,"expected_calibration_error":0.303418,"false_alarms_per_year":63.047619,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"hist_gradient_boosting","feature_set":"combined","brier":0.301747,"brier_skill_score":-1.100943,"auroc":0.402438,"auprc":0.144994,"base_rate":0.173847,"mcc":-0.214426,"recall_stress":0.052174,"precision_stress":0.035398,"expected_calibration_error":0.303583,"false_alarms_per_year":62.285714,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"random_forest","feature_set":"market","brier":0.304623,"brier_skill_score":-1.120972,"auroc":0.299739,"auprc":0.126234,"base_rate":0.173847,"mcc":-0.061083,"recall_stress":0.234783,"precision_stress":0.138107,"expected_calibration_error":0.351177,"false_alarms_per_year":64.190476,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_l2","feature_set":"combined","brier":0.355927,"brier_skill_score":-1.478181,"auroc":0.478675,"auprc":0.174654,"base_rate":0.173847,"mcc":-0.10259,"recall_stress":0.265217,"precision_stress":0.123482,"expected_calibration_error":0.344638,"false_alarms_per_year":82.47619,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_elasticnet","feature_set":"combined","brier":0.35618,"brier_skill_score":-1.479939,"auroc":0.489317,"auprc":0.162419,"base_rate":0.173847,"mcc":-0.097054,"recall_stress":0.273913,"precision_stress":0.126506,"expected_calibration_error":0.347918,"false_alarms_per_year":82.857143,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_elasticnet","feature_set":"market","brier":0.372963,"brier_skill_score":-1.596794,"auroc":0.344799,"auprc":0.129584,"base_rate":0.173847,"mcc":-0.180956,"recall_stress":0.208696,"precision_stress":0.090226,"expected_calibration_error":0.394334,"false_alarms_per_year":92.190476,"n":1323.0,"n_folds":21.0},{"horizon":40.0,"model":"logistic_l2","feature_set":"market","brier":0.408146,"brier_skill_score":-1.841759,"auroc":0.328466,"auprc":0.123798,"base_rate":0.173847,"mcc":-0.163799,"recall_stress":0.234783,"precision_stress":0.099448,"expected_calibration_error":0.407324,"false_alarms_per_year":93.142857,"n":1323.0,"n_folds":21.0}],"run":{"verdict":{"verdict":"mixed","n_comparisons":20,"n_significant_brier":4,"n_significant_auprc":3,"mean_brier_difference":-0.025948567114373267,"absolute_skill":{"n_configurations":48,"n_with_positive_brier_skill":0,"best_brier_skill_score":-0.12162563158530593,"beats_climatology":false,"note":"No configuration beat a constant forecast at the realised base rate. Any relative improvement below is an improvement over a poorly calibrated baseline, not evidence of usable forecasting skill."},"interpretation":"Some settings improved significantly and others did not. The evidence does not support a general claim that graph features help."},"node_ranking_verdict":{"verdict":"no_improvement","baseline_ic_mean":0.10287687798855073,"baseline_ic_t_stat":15.362947045372687,"best_feature_set":"node_plus_centrality","best_ic_mean":0.05987479497131881,"best_ic_t_stat":9.25461687806872,"ic_improvements":{"node_plus_centrality":-0.04300208301723192,"node_plus_neighbor":-0.05355146144619428},"interpretation":"Network features did not improve cross-sectional ordering over per-stock features. Centrality describes structural position, not expected return.","caveat":"Rank IC and long-short spreads are evaluation devices. They demonstrate ordering ability, not a causal effect and not a tradable strategy."},"node_ranking_summary":null,"n_folds":21,"snapshots_per_key":{"partial_correlation__residual__w20":712,"partial_correlation__residual__w60":3526,"partial_correlation__residual__w120":694,"partial_correlation__residual__w252":671,"partial_correlation__raw__w20":718,"partial_correlation__raw__w60":710,"partial_correlation__raw__w120":698,"partial_correlation__raw__w252":672,"correlation__residual__w60":705,"correlation__raw__w60":710},"data":{"index_ticker":"VN30","n_rows":90023,"n_tickers":31,"date_min":"2012-02-06","date_max":"2026-07-24"}},"network_state":{"label":"high_stress","stress_score":84.62,"stress_raw":0.8524,"historical_percentile":0.9282,"change_1d":3.91,"change_5d":1.12,"change_20d":-0.25,"main_contributors":[{"metric":"market_mode_share","contribution":0.3,"share":0.1807,"direction":"raises_stress"},{"metric":"spectral_radius","contribution":0.3,"share":0.1807,"direction":"raises_stress"},{"metric":"centrality_concentration","contribution":-0.3,"share":0.1807,"direction":"lowers_stress"},{"metric":"negative_diversification","contribution":0.3,"share":0.1807,"direction":"raises_stress"},{"metric":"community_compression","contribution":0.1391,"share":0.0838,"direction":"raises_stress"},{"metric":"edge_turnover","contribution":0.0839,"share":0.0505,"direction":"raises_stress"}],"warning_flags":[]},"as_of":"2026-07-24","universe":{"index":"VN30","node_count":30,"tickers":["ACB","BCM","BID","BVH","CTG","FPT","GAS","GVR","HDB","HPG","LPB","MBB","MSN","MWG","PLX","SAB","SHB","SSB","SSI","STB","TCB","TPB","VCB","VHM","VIB","VIC","VJC","VNM","VPB","VRE"],"missing_tickers":[],"survivorship_bias_warning":true,"universe_method":"static_list"},"nodes":[{"rank":1.0,"id":"VIC","sector":"Real Estate","community":0.0,"strength":1.8312,"degree":10.0,"eigenvector_centrality":0.4057,"pagerank":0.0655,"betweenness_centrality":0.1749,"volatility_20d":0.4097},{"rank":2.0,"id":"FPT","sector":"Technology","community":0.0,"strength":1.467,"degree":10.0,"eigenvector_centrality":0.319,"pagerank":0.0539,"betweenness_centrality":0.0911,"volatility_20d":0.2993},{"rank":3.0,"id":"LPB","sector":"Banks","community":1.0,"strength":1.3719,"degree":10.0,"eigenvector_centrality":0.2736,"pagerank":0.0516,"betweenness_centrality":0.0591,"volatility_20d":0.3296},{"rank":4.0,"id":"PLX","sector":"Oil & Gas","community":2.0,"strength":1.3246,"degree":6.0,"eigenvector_centrality":0.2158,"pagerank":0.0491,"betweenness_centrality":0.0788,"volatility_20d":0.3342},{"rank":5.0,"id":"VHM","sector":"Real Estate","community":5.0,"strength":1.2239,"degree":7.0,"eigenvector_centrality":0.2716,"pagerank":0.0459,"betweenness_centrality":0.1108,"volatility_20d":0.4331},{"rank":6.0,"id":"VRE","sector":"Real Estate","community":5.0,"strength":1.1831,"degree":7.0,"eigenvector_centrality":0.2647,"pagerank":0.0441,"betweenness_centrality":0.1207,"volatility_20d":0.2938},{"rank":7.0,"id":"GVR","sector":"Chemicals","community":2.0,"strength":1.0721,"degree":6.0,"eigenvector_centrality":0.2375,"pagerank":0.0397,"betweenness_centrality":0.1478,"volatility_20d":0.3706},{"rank":8.0,"id":"HPG","sector":"Basic Resources","community":0.0,"strength":1.0589,"degree":7.0,"eigenvector_centrality":0.2474,"pagerank":0.0403,"betweenness_centrality":0.0567,"volatility_20d":0.2403},{"rank":9.0,"id":"BID","sector":"Banks","community":3.0,"strength":0.9491,"degree":6.0,"eigenvector_centrality":0.1051,"pagerank":0.0388,"betweenness_centrality":0.0788,"volatility_20d":0.2474},{"rank":10.0,"id":"GAS","sector":"Utilities","community":2.0,"strength":0.9436,"degree":3.0,"eigenvector_centrality":0.1555,"pagerank":0.0372,"betweenness_centrality":0.0296,"volatility_20d":0.4489},{"rank":11.0,"id":"SHB","sector":"Banks","community":4.0,"strength":0.9138,"degree":7.0,"eigenvector_centrality":0.1837,"pagerank":0.0358,"betweenness_centrality":0.0394,"volatility_20d":0.3275},{"rank":12.0,"id":"BCM","sector":"Real Estate","community":2.0,"strength":0.8897,"degree":6.0,"eigenvector_centrality":0.1489,"pagerank":0.0347,"betweenness_centrality":0.0542,"volatility_20d":0.3944},{"rank":13.0,"id":"STB","sector":"Banks","community":0.0,"strength":0.8606,"degree":6.0,"eigenvector_centrality":0.2115,"pagerank":0.0345,"betweenness_centrality":0.0369,"volatility_20d":0.2595},{"rank":14.0,"id":"VIB","sector":"Banks","community":1.0,"strength":0.8244,"degree":6.0,"eigenvector_centrality":0.1125,"pagerank":0.0352,"betweenness_centrality":0.1059,"volatility_20d":0.255},{"rank":15.0,"id":"MWG","sector":"Retail","community":0.0,"strength":0.7863,"degree":6.0,"eigenvector_centrality":0.2006,"pagerank":0.0304,"betweenness_centrality":0.0443,"volatility_20d":0.3563},{"rank":16.0,"id":"ACB","sector":"Banks","community":1.0,"strength":0.7493,"degree":6.0,"eigenvector_centrality":0.1318,"pagerank":0.0307,"betweenness_centrality":0.0049,"volatility_20d":0.2243},{"rank":17.0,"id":"TPB","sector":"Banks","community":1.0,"strength":0.7189,"degree":5.0,"eigenvector_centrality":0.1186,"pagerank":0.0311,"betweenness_centrality":0.0468,"volatility_20d":0.2564},{"rank":18.0,"id":"SSI","sector":"Financial Services","community":4.0,"strength":0.7072,"degree":5.0,"eigenvector_centrality":0.0958,"pagerank":0.0317,"betweenness_centrality":0.032,"volatility_20d":0.3959},{"rank":19.0,"id":"MBB","sector":"Banks","community":0.0,"strength":0.6634,"degree":5.0,"eigenvector_centrality":0.1451,"pagerank":0.0275,"betweenness_centrality":0.0074,"volatility_20d":0.2405},{"rank":20.0,"id":"HDB","sector":"Banks","community":0.0,"strength":0.6581,"degree":5.0,"eigenvector_centrality":0.1434,"pagerank":0.0269,"betweenness_centrality":0.0074,"volatility_20d":0.2674},{"rank":21.0,"id":"CTG","sector":"Banks","community":3.0,"strength":0.6028,"degree":4.0,"eigenvector_centrality":0.0809,"pagerank":0.0262,"betweenness_centrality":0.0172,"volatility_20d":0.2373},{"rank":22.0,"id":"MSN","sector":"Food & Beverage","community":0.0,"strength":0.6017,"degree":4.0,"eigenvector_centrality":0.1863,"pagerank":0.0239,"betweenness_centrality":0.0,"volatility_20d":0.2165},{"rank":23.0,"id":"BVH","sector":"Insurance","community":3.0,"strength":0.6016,"degree":5.0,"eigenvector_centrality":0.0807,"pagerank":0.0261,"betweenness_centrality":0.0074,"volatility_20d":0.2774},{"rank":24.0,"id":"VJC","sector":"Travel & Leisure","community":1.0,"strength":0.5718,"degree":4.0,"eigenvector_centrality":0.123,"pagerank":0.0243,"betweenness_centrality":0.0049,"volatility_20d":0.2294},{"rank":25.0,"id":"SAB","sector":"Food & Beverage","community":4.0,"strength":0.5394,"degree":4.0,"eigenvector_centrality":0.0576,"pagerank":0.0265,"betweenness_centrality":0.0517,"volatility_20d":0.1645},{"rank":26.0,"id":"VCB","sector":"Banks","community":3.0,"strength":0.5264,"degree":3.0,"eigenvector_centrality":0.0473,"pagerank":0.0239,"betweenness_centrality":0.0,"volatility_20d":0.2205},{"rank":27.0,"id":"TCB","sector":"Banks","community":5.0,"strength":0.4066,"degree":3.0,"eigenvector_centrality":0.0868,"pagerank":0.0185,"betweenness_centrality":0.0148,"volatility_20d":0.2648},{"rank":28.0,"id":"SSB","sector":"Banks","community":2.0,"strength":0.3173,"degree":2.0,"eigenvector_centrality":0.0428,"pagerank":0.016,"betweenness_centrality":0.0049,"volatility_20d":0.223},{"rank":29.0,"id":"VNM","sector":"Food & Beverage","community":4.0,"strength":0.2811,"degree":2.0,"eigenvector_centrality":0.0202,"pagerank":0.0163,"betweenness_centrality":0.0,"volatility_20d":0.2606},{"rank":30.0,"id":"VPB","sector":"Banks","community":1.0,"strength":0.2491,"degree":2.0,"eigenvector_centrality":0.0402,"pagerank":0.0138,"betweenness_centrality":0.0025,"volatility_20d":0.2297}],"edges":[{"s":"GAS","t":"PLX","w":0.571},{"s":"GVR","t":"PLX","w":0.2952},{"s":"VHM","t":"VRE","w":0.2873},{"s":"HPG","t":"VIC","w":-0.2574},{"s":"STB","t":"VIC","w":-0.2475},{"s":"BID","t":"VCB","w":0.2381},{"s":"VHM","t":"VIC","w":0.2229},{"s":"GVR","t":"VRE","w":0.2043},{"s":"FPT","t":"VIC","w":-0.2013},{"s":"SHB","t":"SSI","w":0.2},{"s":"BID","t":"CTG","w":0.1925},{"s":"MBB","t":"VIC","w":-0.1895},{"s":"GAS","t":"SSB","w":-0.1868},{"s":"BCM","t":"GAS","w":0.1858},{"s":"TCB","t":"VHM","w":-0.1835},{"s":"BCM","t":"GVR","w":0.1823},{"s":"MWG","t":"VIC","w":-0.1817},{"s":"MSN","t":"VIC","w":-0.1781},{"s":"FPT","t":"VRE","w":-0.1777},{"s":"CTG","t":"VCB","w":0.1765},{"s":"LPB","t":"TPB","w":-0.172},{"s":"GVR","t":"VHM","w":-0.1681},{"s":"TPB","t":"VJC","w":0.1652},{"s":"SAB","t":"VNM","w":0.164},{"s":"LPB","t":"VJC","w":-0.1628},{"s":"FPT","t":"LPB","w":-0.1585},{"s":"HPG","t":"MSN","w":0.1569},{"s":"ACB","t":"VIB","w":0.1552},{"s":"FPT","t":"HDB","w":-0.152},{"s":"HDB","t":"VRE","w":-0.1485},{"s":"BID","t":"BVH","w":0.1473},{"s":"FPT","t":"VIB","w":-0.1454},{"s":"MBB","t":"STB","w":-0.1452},{"s":"BCM","t":"BID","w":0.1424},{"s":"HPG","t":"SHB","w":0.1421},{"s":"HPG","t":"SSI","w":0.1416},{"s":"BCM","t":"PLX","w":0.1412},{"s":"SAB","t":"SSI","w":0.1407},{"s":"LPB","t":"VIC","w":-0.1406},{"s":"HDB","t":"HPG","w":-0.1403},{"s":"FPT","t":"MSN","w":-0.1374},{"s":"ACB","t":"VJC","w":-0.1366},{"s":"LPB","t":"MWG","w":-0.1354},{"s":"FPT","t":"STB","w":-0.1331},{"s":"SHB","t":"VRE","w":-0.1325},{"s":"SAB","t":"VIB","w":0.1321},{"s":"MWG","t":"VHM","w":-0.1314},{"s":"ACB","t":"LPB","w":-0.1313},{"s":"TPB","t":"VIB","w":0.131},{"s":"SSB","t":"VIB","w":0.1305},{"s":"BCM","t":"VIB","w":0.1302},{"s":"LPB","t":"VRE","w":-0.1302},{"s":"LPB","t":"MSN","w":-0.1294},{"s":"FPT","t":"SHB","w":-0.1273},{"s":"BID","t":"MWG","w":-0.1259},{"s":"TPB","t":"VHM","w":-0.1254},{"s":"TPB","t":"VPB","w":0.1253},{"s":"STB","t":"VPB","w":-0.1238},{"s":"ACB","t":"MBB","w":0.1206},{"s":"FPT","t":"HPG","w":-0.1177},{"s":"BVH","t":"GVR","w":0.1171},{"s":"CTG","t":"HDB","w":0.117},{"s":"SSI","t":"VNM","w":-0.117},{"s":"CTG","t":"FPT","w":-0.1168},{"s":"BVH","t":"TCB","w":-0.1149},{"s":"BVH","t":"VCB","w":0.1117},{"s":"BVH","t":"PLX","w":0.1106},{"s":"LPB","t":"TCB","w":0.1082},{"s":"MWG","t":"STB","w":-0.108},{"s":"MBB","t":"SSI","w":0.1078},{"s":"BCM","t":"SHB","w":0.1077},{"s":"VIC","t":"VJC","w":-0.1072},{"s":"ACB","t":"VHM","w":-0.1052},{"s":"GVR","t":"VIC","w":-0.105},{"s":"MWG","t":"PLX","w":-0.1038},{"s":"LPB","t":"SHB","w":-0.1037},{"s":"HPG","t":"STB","w":-0.103},{"s":"BID","t":"PLX","w":0.1028},{"s":"SAB","t":"VRE","w":-0.1026},{"s":"ACB","t":"SHB","w":0.1004},{"s":"HDB","t":"MBB","w":0.1003}],"communities":[{"community_id":0,"size":8,"members":["FPT","HDB","HPG","MBB","MSN","MWG","STB","VIC"],"dominant_sector":"Banks","dominant_sector_share":0.375,"sector_composition":{"Banks":3,"Technology":1,"Basic Resources":1,"Food & Beverage":1,"Retail":1,"Real Estate":1},"cohesion":0.474,"internal_weight":2.5493,"external_weight":2.8287,"overall_sector_purity":0.5333},{"community_id":1,"size":6,"members":["ACB","LPB","TPB","VIB","VJC","VPB"],"dominant_sector":"Banks","dominant_sector_share":0.833,"sector_composition":{"Banks":5,"Travel & Leisure":1},"cohesion":0.3567,"internal_weight":1.1794,"external_weight":2.1266,"overall_sector_purity":0.5333},{"community_id":2,"size":5,"members":["BCM","GAS","GVR","PLX","SSB"],"dominant_sector":"Real Estate","dominant_sector_share":0.2,"sector_composition":{"Real Estate":1,"Utilities":1,"Chemicals":1,"Oil & Gas":1,"Banks":1},"cohesion":0.5234,"internal_weight":1.5623,"external_weight":1.4226,"overall_sector_purity":0.5333},{"community_id":3,"size":4,"members":["BID","BVH","CTG","VCB"],"dominant_sector":"Banks","dominant_sector_share":0.75,"sector_composition":{"Banks":3,"Insurance":1},"cohesion":0.4776,"internal_weight":0.8662,"external_weight":0.9475,"overall_sector_purity":0.5333},{"community_id":4,"size":4,"members":["SAB","SHB","SSI","VNM"],"dominant_sector":"Food & Beverage","dominant_sector_share":0.5,"sector_composition":{"Food & Beverage":2,"Banks":1,"Financial Services":1},"cohesion":0.3417,"internal_weight":0.6218,"external_weight":1.1979,"overall_sector_purity":0.5333},{"community_id":5,"size":3,"members":["TCB","VHM","VRE"],"dominant_sector":"Real Estate","dominant_sector_share":0.667,"sector_composition":{"Real Estate":2,"Banks":1},"cohesion":0.201,"internal_weight":0.4708,"external_weight":1.8719,"overall_sector_purity":0.5333}],"history":{"dates":["2023-07-23","2023-07-30","2023-08-06","2023-08-13","2023-08-20","2023-08-27","2023-09-03","2023-09-10","2023-09-17","2023-09-24","2023-10-01","2023-10-08","2023-10-15","2023-10-22","2023-10-29","2023-11-05","2023-11-12","2023-11-19","2023-11-26","2023-12-03","2023-12-10","2023-12-17","2023-12-24","2023-12-31","2024-01-07","2024-01-14","2024-01-21","2024-01-28","2024-02-04","2024-02-11","2024-02-18","2024-02-25","2024-03-03","2024-03-10","2024-03-17","2024-03-24","2024-03-31","2024-04-07","2024-04-14","2024-04-21","2024-04-28","2024-05-05","2024-05-12","2024-05-19","2024-05-26","2024-06-02","2024-06-09","2024-06-16","2024-06-23","2024-06-30","2024-07-07","2024-07-14","2024-07-21","2024-07-28","2024-08-04","2024-08-11","2024-08-18","2024-08-25","2024-09-01","2024-09-08","2024-09-15","2024-09-22","2024-09-29","2024-10-06","2024-10-13","2024-10-20","2024-10-27","2024-11-03","2024-11-10","2024-11-17","2024-11-24","2024-12-01","2024-12-08","2024-12-15","2024-12-22","2024-12-29","2025-01-05","2025-01-12","2025-01-19","2025-01-26","2025-02-09","2025-02-16","2025-02-23","2025-03-02","2025-03-09","2025-03-16","2025-03-23","2025-03-30","2025-04-06","2025-04-13","2025-04-20","2025-04-27","2025-05-04","2025-05-11","2025-05-18","2025-05-25","2025-06-01","2025-06-08","2025-06-15","2025-06-22","2025-06-29","2025-07-06","2025-07-13","2025-07-20","2025-07-27","2025-08-03","2025-08-10","2025-08-17","2025-08-24","2025-08-31","2025-09-07","2025-09-14","2025-09-21","2025-09-28","2025-10-05","2025-10-12","2025-10-19","2025-10-26","2025-11-02","2025-11-09","2025-11-16","2025-11-23","2025-11-30","2025-12-07","2025-12-14","2025-12-21","2025-12-28","2026-01-04","2026-01-11","2026-01-18","2026-01-25","2026-02-01","2026-02-08","2026-02-15","2026-03-01","2026-03-08","2026-03-15","2026-03-22","2026-03-29","2026-04-05","2026-04-12","2026-04-19","2026-04-26","2026-05-03","2026-05-10","2026-05-17","2026-05-24","2026-05-31","2026-06-07","2026-06-14","2026-06-21","2026-06-28","2026-07-05","2026-07-12","2026-07-19","2026-07-26"],"series":{"stress_score":[35.6918,29.7781,35.2473,28.5623,33.7159,29.9043,33.2465,29.3296,38.0149,38.5854,33.7388,39.1305,37.0007,34.47,44.9526,35.4051,30.1857,33.7524,44.9961,33.7933,35.5005,33.9942,29.7236,39.3802,33.8966,40.0131,39.4404,23.4775,37.5049,51.6808,50.5861,65.085,53.0222,52.9964,52.0622,47.376,52.3718,44.0431,50.1624,52.3911,47.0281,44.7897,33.5678,38.4813,35.4693,25.7845,29.1759,38.0019,35.4928,33.462,29.097,39.9934,40.8374,36.2864,34.86,31.3625,39.6716,37.8103,35.2341,32.5637,33.8705,32.4156,26.7068,36.2016,29.4458,35.9943,48.9527,50.4869,37.0055,45.3126,42.4967,49.153,44.0225,40.9474,41.7565,44.016,38.1359,36.2422,25.7704,29.8625,30.9486,24.7157,34.2494,39.7257,24.3913,19.33,14.7522,22.0311,42.6171,48.8463,57.1482,63.5628,53.3384,45.1585,46.4942,57.9316,57.363,56.9619,75.1826,70.527,70.7203,65.7685,78.5975,76.1293,77.1471,83.3934,80.4085,64.533,62.3835,63.0645,58.8571,67.2549,69.5399,68.8064,74.1926,72.8944,72.2344,65.7619,81.7029,80.1655,88.5494,89.0705,86.0651,86.7591,86.7228,83.8392,82.4002,88.3172,86.297,84.4271,86.8962,81.5896,80.6356,80.7845,80.5355,86.8094,86.9443,85.398,83.8551,81.2234,83.4717,83.2401,80.7655,82.3246,79.729,78.3552,84.8864,87.1087,81.704,83.5916,83.0794,84.8691,83.5719,80.3695,83.4982,84.6151],"graph_density":[0.1747,0.1747,0.1747,0.1747,0.1793,0.1724,0.1862,0.1862,0.1793,0.1793,0.1839,0.1862,0.1862,0.1816,0.1747,0.1747,0.1747,0.1793,0.1793,0.1793,0.1793,0.1747,0.1747,0.1793,0.1816,0.1793,0.1885,0.1793,0.1885,0.1862,0.1885,0.1908,0.1885,0.1885,0.1908,0.1885,0.1885,0.1839,0.1862,0.1816,0.1885,0.1862,0.1885,0.1908,0.1793,0.1747,0.1701,0.177,0.1839,0.1793,0.177,0.1908,0.1793,0.1839,0.1839,0.1724,0.1839,0.1839,0.1816,0.1793,0.1747,0.177,0.1747,0.1839,0.1701,0.1839,0.1908,0.1931,0.1885,0.1885,0.1908,0.1908,0.1931,0.1908,0.1908,0.1908,0.1816,0.1793,0.1678,0.1747,0.1839,0.1747,0.1839,0.1885,0.1701,0.1655,0.1609,0.1724,0.1701,0.1724,0.1839,0.1862,0.1839,0.1839,0.1931,0.1908,0.1908,0.1885,0.1931,0.1908,0.1931,0.1816,0.1977,0.2,0.1931,0.1931,0.1977,0.1954,0.1885,0.1954,0.1954,0.1908,0.1977,0.1931,0.1885,0.1885,0.1816,0.1793,0.1908,0.1862,0.1931,0.1908,0.1885,0.1908,0.1908,0.1931,0.1908,0.1908,0.1862,0.1885,0.1862,0.1885,0.1839,0.1839,0.1839,0.1862,0.1931,0.1908,0.1885,0.1839,0.1885,0.1862,0.1931,0.1885,0.1839,0.1862,0.1954,0.2069,0.1885,0.1931,0.1931,0.1954,0.1885,0.1885,0.1885,0.1862],"spectral_radius":[0.6343,0.673,0.6928,0.6377,0.6882,0.6845,0.6989,0.692,0.6506,0.7206,0.6829,0.7027,0.6864,0.7129,0.6285,0.6314,0.704,0.7246,0.7543,0.7859,0.7511,0.7431,0.7399,0.7635,0.7696,0.7248,0.7343,0.6341,0.6539,0.7273,0.7173,0.7402,0.7372,0.7647,0.754,0.7516,0.791,0.8404,0.794,0.7649,0.8085,0.7802,0.6864,0.6604,0.6164,0.6258,0.6361,0.6256,0.6456,0.6671,0.6315,0.7022,0.7344,0.7529,0.7389,0.7107,0.7608,0.7377,0.7369,0.742,0.7316,0.7492,0.7298,0.7018,0.6452,0.7733,0.8534,0.7578,0.7405,0.82,0.8159,0.8478,0.8266,0.7849,0.7593,0.7879,0.7417,0.6983,0.6532,0.629,0.6372,0.5716,0.7047,0.72,0.5711,0.5447,0.5309,0.5876,0.5957,0.649,0.728,0.7481,0.7171,0.7497,0.7817,0.8058,0.7795,0.7742,0.8177,0.8235,0.8203,0.7985,0.857,0.8741,0.8644,0.9033,0.9207,0.8406,0.8403,0.8579,0.8358,0.8635,0.8884,0.912,0.9253,0.9487,0.929,0.8895,0.9957,0.9716,0.9987,1.044,1.0261,1.0099,0.9861,0.999,0.995,1.0074,0.9309,0.9315,0.9066,0.9552,0.9908,1.0572,1.0809,1.1166,1.1453,1.1763,1.1845,1.1564,1.1542,1.1248,1.0798,1.0574,1.0793,1.0628,1.1009,1.0899,1.0488,1.0721,1.0425,1.0337,1.0661,1.0845,1.0061,1.0216],"market_mode_share":[0.0757,0.0742,0.0783,0.0746,0.0754,0.0712,0.0721,0.0702,0.0705,0.0713,0.0759,0.0763,0.0737,0.0736,0.0703,0.0725,0.076,0.0754,0.0768,0.0798,0.0801,0.0816,0.088,0.0897,0.0907,0.0951,0.0959,0.0824,0.0845,0.1069,0.1097,0.1277,0.1173,0.1202,0.116,0.1123,0.1113,0.1129,0.1067,0.1081,0.1052,0.1041,0.0902,0.0782,0.0792,0.0809,0.081,0.0816,0.0784,0.0761,0.0706,0.0716,0.0865,0.0891,0.0767,0.0796,0.0804,0.0782,0.0762,0.0773,0.0739,0.0756,0.0779,0.0796,0.0761,0.077,0.0808,0.0803,0.0811,0.0824,0.0759,0.083,0.0802,0.0814,0.0829,0.0829,0.0766,0.0737,0.0665,0.0653,0.0619,0.0612,0.0666,0.0691,0.0629,0.0645,0.0655,0.0723,0.0925,0.1121,0.1081,0.1058,0.1003,0.0974,0.0978,0.0988,0.0993,0.1007,0.1212,0.1199,0.1215,0.1263,0.1277,0.1286,0.1354,0.1468,0.1412,0.1156,0.1081,0.1153,0.1074,0.1165,0.1148,0.119,0.1234,0.1286,0.132,0.1159,0.1382,0.135,0.151,0.1488,0.1641,0.1718,0.1767,0.174,0.1781,0.1815,0.1623,0.1765,0.1723,0.1659,0.1868,0.1969,0.1983,0.1918,0.1919,0.1927,0.1887,0.1869,0.1789,0.1678,0.1587,0.1603,0.1597,0.1527,0.1561,0.1663,0.171,0.1707,0.1767,0.1763,0.1864,0.1926,0.1888,0.1833],"number_of_communities":[3.0,4.0,5.0,6.0,4.0,6.0,4.0,5.0,5.0,4.0,5.0,4.0,4.0,6.0,3.0,5.0,5.0,5.0,4.0,6.0,5.0,5.0,5.0,4.0,5.0,4.0,4.0,6.0,5.0,4.0,5.0,3.0,5.0,6.0,4.0,5.0,5.0,5.0,4.0,4.0,5.0,5.0,5.0,6.0,5.0,6.0,5.0,4.0,5.0,4.0,5.0,6.0,6.0,7.0,6.0,6.0,5.0,4.0,5.0,5.0,4.0,5.0,6.0,4.0,6.0,5.0,3.0,4.0,5.0,4.0,4.0,3.0,5.0,6.0,4.0,4.0,4.0,4.0,6.0,5.0,5.0,5.0,5.0,4.0,5.0,6.0,6.0,5.0,6.0,7.0,5.0,5.0,6.0,5.0,5.0,4.0,4.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,6.0,5.0,5.0,7.0,5.0,6.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,5.0,4.0,5.0,5.0,5.0,6.0,6.0,6.0,6.0,4.0,3.0,4.0,5.0,5.0,6.0,4.0,4.0,6.0,5.0,5.0,5.0,6.0,7.0,6.0,6.0,7.0,4.0,5.0,5.0,5.0,5.0,5.0,5.0,6.0,5.0,6.0],"centrality_concentration":[0.0442,0.0446,0.0449,0.0465,0.0441,0.0459,0.0442,0.0452,0.045,0.0466,0.0443,0.0449,0.0439,0.0454,0.0501,0.0462,0.048,0.0473,0.0483,0.0486,0.0492,0.0489,0.0472,0.0469,0.0475,0.0458,0.0453,0.0453,0.0422,0.0434,0.0415,0.0404,0.0408,0.0404,0.0395,0.0394,0.0402,0.0409,0.0401,0.0404,0.0415,0.0413,0.0412,0.0435,0.0438,0.0442,0.0437,0.0422,0.0419,0.0435,0.0448,0.0451,0.0448,0.0427,0.0415,0.0415,0.0435,0.0424,0.0427,0.0417,0.0429,0.0447,0.0445,0.0437,0.0428,0.0445,0.0422,0.0396,0.0408,0.0434,0.0451,0.0464,0.0479,0.0477,0.0449,0.0481,0.048,0.0481,0.0498,0.0482,0.0479,0.0465,0.0462,0.045,0.045,0.0479,0.0469,0.0463,0.051,0.0474,0.0456,0.0439,0.0446,0.0457,0.0433,0.0447,0.0434,0.0438,0.0417,0.0411,0.042,0.0415,0.041,0.0417,0.041,0.0406,0.0417,0.0413,0.0424,0.041,0.0428,0.0434,0.0421,0.041,0.0428,0.0423,0.0418,0.0434,0.0434,0.0431,0.0425,0.0447,0.0449,0.045,0.0438,0.043,0.0424,0.0423,0.0421,0.0433,0.0418,0.0446,0.0427,0.043,0.044,0.0429,0.0408,0.0411,0.0416,0.0418,0.0424,0.0419,0.0399,0.0399,0.0403,0.0398,0.0399,0.0385,0.0391,0.0402,0.0408,0.0403,0.0411,0.0413,0.0387,0.0397],"modularity":[0.3327,0.2839,0.3177,0.3283,0.2932,0.2901,0.3031,0.2973,0.312,0.2969,0.2883,0.2848,0.2784,0.2659,0.3067,0.2797,0.2464,0.2718,0.2871,0.2717,0.2856,0.2766,0.3119,0.2901,0.2787,0.2931,0.2756,0.3038,0.2739,0.321,0.2997,0.3398,0.3533,0.3199,0.3335,0.3361,0.3446,0.3264,0.3203,0.3185,0.2996,0.2931,0.3165,0.2898,0.3489,0.3137,0.3274,0.2964,0.3136,0.3182,0.2983,0.2822,0.314,0.3366,0.341,0.3652,0.3261,0.3394,0.3339,0.3052,0.3233,0.3009,0.315,0.3258,0.3196,0.2974,0.2961,0.3358,0.3218,0.3197,0.2813,0.2489,0.2342,0.2277,0.2642,0.2463,0.2748,0.2799,0.2503,0.2997,0.2778,0.3028,0.3032,0.3386,0.3152,0.2778,0.3212,0.3392,0.2947,0.3323,0.3478,0.3511,0.3191,0.3116,0.298,0.3143,0.3085,0.3166,0.3096,0.3387,0.3481,0.3464,0.3264,0.2955,0.3162,0.3301,0.3207,0.3141,0.3039,0.2866,0.2848,0.2669,0.2585,0.2715,0.2671,0.2737,0.2957,0.3076,0.3159,0.3328,0.3034,0.3064,0.315,0.2859,0.3055,0.2959,0.3141,0.3035,0.3383,0.3435,0.3572,0.3585,0.3395,0.3185,0.3005,0.3582,0.3547,0.3668,0.3247,0.3457,0.3299,0.3296,0.3321,0.3558,0.3727,0.3201,0.3332,0.3043,0.3517,0.3614,0.3295,0.3547,0.3609,0.3632,0.4146,0.3812],"avg_abs_partial_correlation":[0.0162,0.0164,0.0162,0.0152,0.017,0.0163,0.0175,0.0171,0.0161,0.0175,0.0174,0.0183,0.0178,0.0183,0.0148,0.0161,0.017,0.0178,0.0182,0.0189,0.0182,0.0178,0.018,0.0186,0.0185,0.018,0.0185,0.016,0.0178,0.0195,0.0199,0.0209,0.0204,0.0217,0.0217,0.0213,0.0217,0.023,0.0221,0.0212,0.0219,0.0212,0.0189,0.0175,0.0165,0.0169,0.0168,0.017,0.0178,0.0181,0.0167,0.0186,0.0192,0.0204,0.0204,0.0197,0.0204,0.0202,0.0201,0.0205,0.0192,0.0187,0.0179,0.0179,0.0167,0.0195,0.0218,0.0212,0.0201,0.0211,0.0203,0.0207,0.0197,0.0184,0.019,0.0193,0.0184,0.0171,0.0157,0.0154,0.0154,0.0142,0.0176,0.0185,0.0145,0.013,0.0129,0.0138,0.0137,0.0155,0.0182,0.0194,0.0183,0.0189,0.0207,0.0209,0.0208,0.0204,0.0229,0.0231,0.0229,0.0226,0.0246,0.0245,0.0247,0.0259,0.0255,0.0236,0.0221,0.0231,0.0216,0.022,0.0227,0.0244,0.0246,0.0256,0.0255,0.0234,0.0265,0.026,0.0272,0.0269,0.0268,0.027,0.0267,0.027,0.0272,0.0273,0.0258,0.0256,0.0253,0.0255,0.0267,0.0276,0.0281,0.0292,0.0306,0.0314,0.0316,0.0306,0.0301,0.0304,0.0307,0.03,0.03,0.03,0.0308,0.0327,0.0308,0.0302,0.029,0.0291,0.0294,0.0298,0.0293,0.0286],"algebraic_connectivity":[0.0474,0.0578,0.0432,0.0546,0.064,0.0396,0.0893,0.0614,0.073,0.079,0.0859,0.0986,0.0863,0.0716,0.0529,0.055,0.0,0.0642,0.0611,0.0,-0.0,0.0,0.0,0.0564,0.0398,0.0539,0.0,0.0,0.0,0.0796,0.0869,0.0738,0.0725,-0.0,0.0845,0.0654,0.0663,-0.0,0.1253,0.0658,0.0634,0.0592,0.0597,0.0591,0.0,0.0,0.0,0.0602,0.1023,0.0602,0.0524,-0.0,0.0,0.0,0.0534,0.0,0.1129,0.0843,0.1629,0.1193,0.0687,0.1046,0.0785,0.0947,0.0506,0.0,0.0742,0.1456,0.1261,0.0841,0.0774,0.0911,0.0518,0.0,0.0513,0.0611,0.0602,0.0217,0.0,0.0,-0.0,0.0,0.0,0.075,0.0,0.0,0.0,0.0451,-0.0,-0.0,0.0,0.0568,-0.0,-0.0,0.0847,0.0923,0.0906,0.0837,0.1572,0.135,0.1233,0.1034,0.1535,0.1582,0.111,0.0848,0.1349,0.0,0.0646,0.0723,0.0574,0.0642,0.0393,0.0977,0.094,0.0725,0.0933,0.0,0.0,-0.0,0.0708,0.077,0.077,0.0778,0.0744,0.084,0.0888,0.1564,0.1373,0.1577,0.0584,-0.0,0.0,-0.0,0.0,0.122,0.1456,0.0,0.0,-0.0,0.0,-0.0,0.0,0.0,0.0859,0.0,0.0855,0.2264,0.2196,0.1642,0.1525,0.2008,0.08,0.0,0.1817,0.1307]}}}</script>
+
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+
+/* =====================================================================
+   BẢNG MÀU ĐƯỢC ĐỌC MỘT LẦN
+   getComputedStyle() buộc trình duyệt tính lại kiểu dáng. Gọi nó bên
+   trong vòng lặp vẽ (mỗi cạnh, mỗi đỉnh) là nguyên nhân giật rõ rệt
+   nhất, nên toàn bộ biến CSS được đọc một lần và chỉ đọc lại khi đổi nền.
+   ================================================================== */
+let PAL = {};
+const PAL_KEYS = ["ink", "panel", "panel-2", "rule", "rule-hi", "text",
+                  "text-hi", "muted", "faint", "grid", "ink-on"];
+function readPalette() {
+  const s = getComputedStyle(document.documentElement);
+  PAL = {};
+  PAL_KEYS.forEach(k => PAL[k] = s.getPropertyValue("--" + k).trim());
+  PAL.mono = s.getPropertyValue("--mono").trim();
+  PAL.isDark = PAL.ink === "#000000" || PAL.ink.startsWith("rgb(0, 0, 0");
+  // Thang xám cho các cụm, đảo chiều theo nền để luôn tương phản.
+  PAL.ramp = PAL.isDark
+    ? ["#FFFFFF", "#C4C4C4", "#8F8F8F", "#666666", "#454545", "#2C2C2C", "#DEDEDE", "#7A7A7A"]
+    : ["#000000", "#3A3A3A", "#616161", "#878787", "#A8A8A8", "#C6C6C6", "#1F1F1F", "#9A9A9A"];
+  PAL.rampInk = PAL.ramp.map(hex => {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = 0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    return lum > 140 ? "#000000" : "#FFFFFF";
+  });
+}
+readPalette();
+
+/* ---------- định dạng số theo chuẩn Việt Nam ---------- */
+const NF = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nfd = d => new Intl.NumberFormat("vi-VN", { minimumFractionDigits: d, maximumFractionDigits: d });
+const CACHE_NF = {};
+const num = (v, d = 3) => {
+  if (v == null || !isFinite(v)) return "–";
+  (CACHE_NF[d] ||= nfd(d));
+  return CACHE_NF[d].format(v);
+};
+const pct = (v, d = 2) => v == null || !isFinite(v) ? "–" : num(100 * v, d) + "%";
+const pp  = (v, d = 3) => v == null || !isFinite(v) ? "–" : (v > 0 ? "+" : "") + num(100 * v, d) + " đ%";
+
+const el = (t, a = {}, kids = []) => {
+  const n = document.createElement(t);
+  for (const [k, v] of Object.entries(a)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else n.setAttribute(k, v);
+  }
+  (Array.isArray(kids) ? kids : [kids]).forEach(c => c && n.appendChild(c));
+  return n;
+};
+const table = (head, rows) => {
+  const t = el("table");
+  t.appendChild(el("thead", {}, el("tr", {}, head.map(h => el("th", { text: h })))));
+  const tb = el("tbody");
+  const frag = document.createDocumentFragment();
+  rows.forEach(r => {
+    const tr = el("tr", r.cls ? { class: r.cls } : {});
+    (r.cells || r).forEach(c => {
+      const td = el("td", c && c.cls ? { class: c.cls } : {});
+      if (c && c.node) td.appendChild(c.node);
+      else td.textContent = c && c.text !== undefined ? c.text : (c == null ? "–" : c);
+      tr.appendChild(td);
+    });
+    if (r.onclick) { tr.style.cursor = "pointer"; tr.onclick = r.onclick; }
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+  t.appendChild(tb);
+  return t;
+};
+const swap = (host, node) => { host.textContent = ""; host.appendChild(node); };
+const $ = id => document.getElementById(id);
+
+/* ---------- đổi nền ---------- */
+$("themebtn").onclick = () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = document.documentElement.getAttribute("data-theme") || (dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  readPalette();
+  netLayers = null;          // các lớp đệm mang màu cũ
+  redrawAll();
+};
+
+/* ---------- dải thông tin đầu trang ---------- */
+(() => {
+  const d = D.run.data || {};
+  const snaps = D.run.snapshots_per_key
+    ? Object.values(D.run.snapshots_per_key).reduce((a, b) => a + b, 0) : null;
+  const bits = [
+    ["rổ", (d.n_tickers || 31) + " mã"],
+    ["giai đoạn", (d.date_min || "") + " → " + (d.date_max || "")],
+    ["nếp gấp", D.run.n_folds],
+    ["ảnh chụp", snaps ? snaps.toLocaleString("vi-VN") : "–"],
+    ["cập nhật", D.as_of],
+  ];
+  $("runstrip").innerHTML = bits.map(([k, v]) => `${k} <b>${v}</b>`).join("");
+  $("foot-run").textContent =
+    `${(d.n_rows || 0).toLocaleString("vi-VN")} dòng giá · ${D.run.n_folds} nếp gấp walk-forward có kiểm dịch · 236 test đơn vị`;
+})();
+
+/* ---------- ba luận điểm ---------- */
+(() => {
+  const A = D.allocation_summary || [];
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  const best = A.length ? A.reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b) : null;
+  const skill = (D.run.verdict || {}).absolute_skill || {};
+  const est = D.estimator_tests || [];
+  const nWin = est.filter(t => t.significant_reduction).length;
+
+  const claims = [
+    { state: "pass", kicker: "Luận điểm 1 · cấu trúc",
+      stamp: "Được ủng hộ",
+      q: "Đồ thị mô tả được mã nào biến động cùng mã nào.",
+      ev: "3.526 ảnh chụp hằng ngày của đồ thị tương quan riêng phần 30 đỉnh, dựng trên lợi "
+        + "suất đã khử ảnh hưởng thị trường. Tỷ lệ cạnh tồn tại giữa hai ngày liên tiếp trung "
+        + "bình khoảng 0,9 — đủ ổn định để đọc.",
+      figs: [[(D.universe || {}).node_count || 30, "đỉnh"],
+             [(D.edges || []).length, "cạnh công bố"],
+             [(D.communities || []).length, "cụm"]] },
+    { state: "fail", kicker: "Luận điểm 2 · dự báo",
+      stamp: "Bị bác bỏ",
+      q: "Đồ thị dự báo được căng thẳng thị trường.",
+      ev: "Bị bác bỏ. Không cấu hình nào thắng nổi một dự báo hằng số đặt tại tần suất thực "
+        + "tế, ở bất kỳ tầm dự báo nào. Mốc naive_frequency đứng đầu bảng Brier mọi lần.",
+      figs: [[`${skill.n_with_positive_brier_skill ?? 0} / ${skill.n_configurations ?? "–"}`, "có kỹ năng dương", true],
+             [num(skill.best_brier_skill_score, 4), "điểm kỹ năng tốt nhất"],
+             [`${(D.run.verdict || {}).n_significant_brier ?? "–"} / ${(D.run.verdict || {}).n_comparisons ?? "–"}`, "cặp có ý nghĩa"]] },
+    { state: "partial", kicker: "Luận điểm 3 · phân bổ vốn",
+      stamp: "Ủng hộ một phần",
+      q: "Hiệp phương sai từ đồ thị cải thiện phân bổ vốn.",
+      ev: "Một phần. Việc mô hình hoá phụ thuộc cắt giảm biến động thực hiện rõ rệt so với "
+        + "chia đều, nhưng ước lượng thưa từ đồ thị không phân biệt được với hiệp phương sai mẫu.",
+      figs: [[eqw && best ? pp(best.annual_volatility - eqw.annual_volatility, 2) : "–", "thay đổi biến động", true],
+             [best ? pct(best.annual_volatility) : "–", "biến động thấp nhất"],
+             [`${nWin} / ${est.length}`, "lần đồ thị thắng"]] }
+  ];
+  const host = $("claims");
+  const frag = document.createDocumentFragment();
+  claims.forEach(c => {
+    frag.appendChild(el("div", { class: "claim", "data-state": c.state }, [
+      el("div", { class: "claim-head" }, [
+        el("span", { class: "claim-kicker", text: c.kicker }),
+        el("span", { class: "stamp", text: c.stamp })
+      ]),
+      el("p", { class: "claim-q", text: c.q }),
+      el("p", { class: "claim-ev", text: c.ev }),
+      el("div", { class: "claim-fig" }, c.figs.map(f => el("div", { class: "fig" }, [
+        el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: String(f[0]) }),
+        el("span", { class: "fig-l", text: f[1] })
+      ])))
+    ]));
+  });
+  host.appendChild(frag);
+})();
+
+/* ---------- xuất xứ ---------- */
+(() => {
+  const d = D.run.data || {};
+  const rows = [
+    ["Nguồn", "SQLite DataPro, mở ở chế độ chỉ đọc"],
+    ["Cơ sở giá", "giá đóng cửa điều chỉnh, close × (1 − ADJUST_RATE/1e6)"],
+    ["Lợi suất", "log 1 ngày, khử ảnh hưởng VN30 bằng OLS trượt 60 ngày"],
+    ["Tầng lõi", "tương quan riêng phần, graphical lasso, cửa sổ 60 ngày"],
+    ["Chia dữ liệu", "walk-forward có kiểm dịch · cách ly 40 ngày · cấm vận 5 ngày"],
+    ["Khớp tham số", "chuẩn hoá, chọn đặc trưng, ngưỡng và α chỉ trên dữ liệu huấn luyện"],
+    ["Ngày ngoài mẫu", "1.323"],
+    ["Cảnh báo về rổ", "VN30 hiện tại giữ cố định — có sai lệch sống sót"],
+  ];
+  swap($("prov-table"), table(["Hạng mục", "Giá trị"],
+    rows.map(r => [{ text: r[0], cls: "k" }, r[1]])));
+  $("prov-sub").textContent = (d.date_min || "") + " → " + (d.date_max || "");
+})();
+
+/* ---------- chỉ số tập trung hiện tại ---------- */
+(() => {
+  const s = D.network_state || {};
+  const figs = [
+    [num(s.stress_score, 2), "mức chỉ số (0–100)", true],
+    [pct(s.historical_percentile, 1), "phân vị lịch sử"],
+    [(s.change_20d > 0 ? "+" : "") + num(s.change_20d, 2), "thay đổi 20 ngày"],
+    [s.label === "high_stress" ? "tập trung cao" : (s.label || "–"), "nhãn trạng thái"]
+  ];
+  const host = $("stress-figs");
+  figs.forEach(f => host.appendChild(el("div", { class: "fig" }, [
+    el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: String(f[0]) }),
+    el("span", { class: "fig-l", text: f[1] })
+  ])));
+  $("stress-asof").textContent = "tính đến " + D.as_of;
+})();
+
+/* =====================================================================
+   NỀN TẢNG VẼ
+   fitCanvas chỉ cấp phát lại bộ đệm ảnh khi kích thước thực sự đổi.
+   Gán canvas.width mỗi lần vẽ sẽ xoá và cấp phát lại toàn bộ vùng nhớ
+   ảnh, việc này tốn kém hơn hẳn so với chính thao tác vẽ.
+   ================================================================== */
+function fitCanvas(cv) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.clientWidth | 0;
+  const h = +cv.dataset.h;
+  const W = (w * dpr) | 0, H = (h * dpr) | 0;
+  if (cv.width !== W || cv.height !== H) {
+    cv.width = W; cv.height = H; cv.style.height = h + "px";
+  }
+  const ctx = cv.getContext("2d", { alpha: false });
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = PAL.panel;
+  ctx.fillRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function ticks(min, max, n) {
+  const span = (max - min) || 1;
+  const step = Math.pow(10, Math.floor(Math.log10(span / n)));
+  const err = (span / n) / step;
+  const mult = err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+  const s = step * mult;
+  const out = [];
+  for (let v = Math.ceil(min / s) * s; v <= max + 1e-12; v += s) out.push(+v.toFixed(10));
+  return out;
+}
+function drawAxes(ctx, box, yTicks, fmtY, xTicks) {
+  ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = PAL.faint;
+  ctx.font = "10px " + PAL.mono;
+  ctx.beginPath();
+  yTicks.forEach(v => {
+    const y = Math.round(box.Y(v)) + 0.5;
+    ctx.moveTo(box.l, y); ctx.lineTo(box.r, y);
+  });
+  ctx.stroke();
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  yTicks.forEach(v => ctx.fillText(fmtY(v), box.l - 7, Math.round(box.Y(v))));
+  if (xTicks) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    xTicks.forEach(t => ctx.fillText(t.lab, box.X(t.v), box.b + 7));
+  }
+}
+
+/* ================= LỊCH SỬ CHỈ SỐ ================= */
+const HIST_VI = {
+  stress_score: "Chỉ số tập trung cấu trúc",
+  graph_density: "Mật độ đồ thị",
+  spectral_radius: "Bán kính phổ",
+  market_mode_share: "Tỷ trọng mode thị trường",
+  number_of_communities: "Số lượng cụm",
+  centrality_concentration: "Tập trung centrality (Herfindahl)",
+  modularity: "Độ mô-đun",
+  avg_abs_partial_correlation: "Tương quan riêng phần tuyệt đối trung bình",
+  algebraic_connectivity: "Liên thông đại số"
+};
+(() => {
+  const sel = $("hist-metric");
+  Object.keys((D.history || {}).series || {}).forEach(k =>
+    sel.appendChild(el("option", { value: k, text: HIST_VI[k] || k })));
+  sel.onchange = drawHistory;
+})();
+function drawHistory() {
+  if (!D.history) return;
+  const cv = $("hist-canvas");
+  const key = $("hist-metric").value;
+  const vals = D.history.series[key], dates = D.history.dates;
+  if (!vals) return;
+  const { ctx, w, h } = fitCanvas(cv);
+  const box = { l: 58, r: w - 12, t: 14, b: h - 26 };
+  const fin = vals.filter(v => v != null);
+  const lo = Math.min(...fin), hi = Math.max(...fin);
+  box.X = i => box.l + (box.r - box.l) * (i / (vals.length - 1));
+  box.Y = v => box.b - (box.b - box.t) * ((v - lo) / ((hi - lo) || 1));
+  const xt = [];
+  for (let i = 0; i < dates.length; i++) {
+    const d = dates[i];
+    if (d.slice(5, 7) === "01" && d.slice(8, 10) <= "07" && +d.slice(0, 4) % 2 === 0)
+      xt.push({ v: i, lab: d.slice(0, 4) });
+  }
+  drawAxes(ctx, box, ticks(lo, hi, 5), v => num(v, hi - lo < 2 ? 2 : 0), xt);
+
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]; if (v == null) continue;
+    started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+  }
+  ctx.lineTo(box.X(vals.length - 1), box.b);
+  ctx.lineTo(box.X(0), box.b);
+  ctx.closePath();
+  ctx.fillStyle = PAL.isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+  ctx.fill();
+
+  ctx.beginPath(); started = false;
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]; if (v == null) continue;
+    started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+  }
+  ctx.lineWidth = 1.4; ctx.strokeStyle = PAL["text-hi"]; ctx.stroke();
+
+  const last = vals.length - 1;
+  if (vals[last] != null) {
+    ctx.fillStyle = PAL["text-hi"];
+    ctx.beginPath(); ctx.arc(box.X(last), box.Y(vals[last]), 3, 0, 6.284); ctx.fill();
+  }
+}
+
+/* =====================================================================
+   MẠNG LƯỚI
+   Bố cục lực được tính MỘT lần rồi kết xuất sẵn ra hai lớp đệm ngoài
+   màn hình: lớp đầy đủ và lớp mờ. Khi rê chuột chỉ cần dán lớp mờ rồi
+   vẽ lại đúng đỉnh đang trỏ cùng các cạnh của nó — thay vì vẽ lại 81
+   cạnh và 30 đỉnh cho mỗi sự kiện chuột.
+   ================================================================== */
+let netLayers = null, netHover = null, netRaf = 0;
+function computeLayout(w, h) {
+  const nodes = D.nodes, index = {};
+  nodes.forEach((n, i) => index[n.id] = i);
+  const N = nodes.length;
+  let seed = 20260724;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const P = nodes.map((n, i) => ({
+    x: w / 2 + Math.cos(6.2832 * i / N) * w * 0.29 + (rand() - 0.5) * 10,
+    y: h / 2 + Math.sin(6.2832 * i / N) * h * 0.31 + (rand() - 0.5) * 10,
+    vx: 0, vy: 0
+  }));
+  const E = (D.edges || [])
+    .filter(e => index[e.s] != null && index[e.t] != null)
+    .map(e => ({ a: index[e.s], b: index[e.t], w: Math.abs(e.w), neg: e.w < 0 }));
+  for (let it = 0; it < 260; it++) {
+    const damp = 0.9 - 0.85 * it / 260;
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        let dx = P[j].x - P[i].x, dy = P[j].y - P[i].y;
+        const d2 = dx * dx + dy * dy || 1, d = Math.sqrt(d2), f = 5400 / d2;
+        dx /= d; dy /= d;
+        P[i].vx -= dx * f; P[i].vy -= dy * f;
+        P[j].vx += dx * f; P[j].vy += dy * f;
+      }
+    }
+    for (let k = 0; k < E.length; k++) {
+      const e = E[k], A = P[e.a], B = P[e.b];
+      let dx = B.x - A.x, dy = B.y - A.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const f = (d - 76) * 0.055 * (0.4 + e.w * 2.4);
+      dx /= d; dy /= d;
+      A.vx += dx * f; A.vy += dy * f; B.vx -= dx * f; B.vy -= dy * f;
+    }
+    for (let i = 0; i < N; i++) {
+      const p = P[i];
+      p.vx += (w / 2 - p.x) * 0.012; p.vy += (h / 2 - p.y) * 0.012;
+      p.x += p.vx * damp; p.y += p.vy * damp;
+      p.vx *= 0.80; p.vy *= 0.80;
+      p.x = Math.max(36, Math.min(w - 36, p.x));
+      p.y = Math.max(28, Math.min(h - 28, p.y));
+    }
+  }
+  const maxS = Math.max(...nodes.map(n => n.strength || 0), 1e-9);
+  const R = nodes.map(n => 6 + 15 * Math.sqrt((n.strength || 0) / maxS));
+  return { P, E, R, adj: buildAdj(N, E) };
+}
+function buildAdj(N, E) {
+  const adj = Array.from({ length: N }, () => new Set());
+  E.forEach(e => { adj[e.a].add(e.b); adj[e.b].add(e.a); });
+  return adj;
+}
+function paintNetwork(ctx, L, alpha) {
+  const nodes = D.nodes;
+  ctx.globalAlpha = alpha;
+  // cạnh đồng biến: nét liền · cạnh nghịch biến: nét đứt
+  for (const dashed of [false, true]) {
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.strokeStyle = dashed ? PAL.muted : PAL["text-hi"];
+    for (let k = 0; k < L.E.length; k++) {
+      const e = L.E[k]; if (e.neg !== dashed) continue;
+      ctx.beginPath();
+      ctx.lineWidth = 0.5 + e.w * 4.5;
+      ctx.moveTo(L.P[e.a].x, L.P[e.a].y);
+      ctx.lineTo(L.P[e.b].x, L.P[e.b].y);
+      ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "600 10px " + PAL.mono;
+  for (let i = 0; i < nodes.length; i++) {
+    const c = (nodes[i].community || 0) % PAL.ramp.length;
+    ctx.fillStyle = PAL.ramp[c];
+    ctx.beginPath(); ctx.arc(L.P[i].x, L.P[i].y, L.R[i], 0, 6.284); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = PAL["rule-hi"]; ctx.stroke();
+    ctx.fillStyle = PAL.rampInk[c];
+    ctx.fillText(nodes[i].id, L.P[i].x, L.P[i].y);
+  }
+  ctx.globalAlpha = 1;
+}
+function buildLayers(w, h) {
+  const L = computeLayout(w, h);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const mk = alpha => {
+    const c = document.createElement("canvas");
+    c.width = w * dpr; c.height = h * dpr;
+    const x = c.getContext("2d");
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.fillStyle = PAL.panel; x.fillRect(0, 0, w, h);
+    paintNetwork(x, L, alpha);
+    return c;
+  };
+  return { L, w, h, full: mk(1), dim: mk(0.16) };
+}
+function drawNetwork() {
+  const cv = $("net-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  if (!netLayers || netLayers.w !== w) netLayers = buildLayers(w, h);
+  const { L } = netLayers;
+  if (netHover == null) {
+    ctx.drawImage(netLayers.full, 0, 0, w, h);
+  } else {
+    ctx.drawImage(netLayers.dim, 0, 0, w, h);
+    const nb = L.adj[netHover];
+    for (const dashed of [false, true]) {
+      ctx.setLineDash(dashed ? [4, 3] : []);
+      ctx.strokeStyle = dashed ? PAL.muted : PAL["text-hi"];
+      L.E.forEach(e => {
+        if (e.neg !== dashed) return;
+        if (e.a !== netHover && e.b !== netHover) return;
+        ctx.beginPath(); ctx.lineWidth = 0.8 + e.w * 5;
+        ctx.moveTo(L.P[e.a].x, L.P[e.a].y); ctx.lineTo(L.P[e.b].x, L.P[e.b].y); ctx.stroke();
+      });
+    }
+    ctx.setLineDash([]);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "600 10px " + PAL.mono;
+    [netHover, ...nb].forEach(i => {
+      const c = (D.nodes[i].community || 0) % PAL.ramp.length;
+      ctx.fillStyle = PAL.ramp[c];
+      ctx.beginPath(); ctx.arc(L.P[i].x, L.P[i].y, L.R[i], 0, 6.284); ctx.fill();
+      ctx.lineWidth = i === netHover ? 2 : 1;
+      ctx.strokeStyle = i === netHover ? PAL["text-hi"] : PAL["rule-hi"];
+      ctx.stroke();
+      ctx.fillStyle = PAL.rampInk[c];
+      ctx.fillText(D.nodes[i].id, L.P[i].x, L.P[i].y);
+    });
+  }
+  $("net-sub").textContent =
+    `${D.nodes.length} đỉnh · ${L.E.length} cạnh · ${D.as_of}`;
+}
+(() => {
+  const cv = $("net-canvas");
+  const setHover = value => {
+    if (value === netHover) return;
+    netHover = value;
+    if (!netRaf) netRaf = requestAnimationFrame(() => { netRaf = 0; drawNetwork(); });
+  };
+  cv.addEventListener("mousemove", ev => {
+    if (!netLayers) return;
+    const r = cv.getBoundingClientRect();
+    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    const { P, R } = netLayers.L;
+    let hit = null;
+    for (let i = 0; i < P.length; i++) {
+      const dx = P[i].x - mx, dy = P[i].y - my;
+      if (dx * dx + dy * dy < (R[i] + 3) * (R[i] + 3)) { hit = i; break; }
+    }
+    cv.style.cursor = hit == null ? "default" : "pointer";
+    setHover(hit);
+  }, { passive: true });
+  cv.addEventListener("mouseleave", () => setHover(null), { passive: true });
+})();
+
+(() => {
+  const rows = D.nodes.map((n, i) => ({
+    cells: [
+      { text: n.rank ?? i + 1, cls: "dim" },
+      { text: n.id, cls: "k" },
+      n.sector || "–",
+      { text: num(n.strength, 3) },
+      { text: num(n.eigenvector_centrality, 3) },
+      { text: num(n.pagerank, 4) },
+      { text: num(n.degree, 0) },
+      { text: "C" + (n.community ?? 0), cls: "dim" }
+    ],
+    onclick: () => { netHover = netHover === i ? null : i; drawNetwork(); }
+  }));
+  swap($("node-table"), table(
+    ["#", "Mã", "Ngành", "Độ mạnh", "Riêng vector", "PageRank", "Bậc", "Cụm"], rows));
+})();
+
+(() => {
+  const rows = (D.communities || []).map(c => [
+    { text: "C" + c.community_id, cls: "k" },
+    { text: num(c.size, 0) },
+    c.dominant_sector || "–",
+    { text: pct(c.dominant_sector_share, 0), cls: "dim" },
+    { text: num(c.cohesion, 3) },
+    (c.members || []).join(" ")
+  ]);
+  swap($("comm-table"), table(
+    ["Cụm", "Số mã", "Ngành chủ đạo", "Độ thuần", "Độ cố kết", "Thành viên"], rows));
+})();
+
+/* ================= DỰ BÁO ================= */
+(() => {
+  const skill = (D.run.verdict || {}).absolute_skill || {};
+  if (skill.n_configurations) {
+    $("bss-headline").textContent =
+      `0 trên ${skill.n_configurations} cấu hình học máy đạt điểm kỹ năng Brier dương; tốt nhất là ${num(skill.best_brier_skill_score, 4)}.`;
+  }
+  const hs = [...new Set((D.oos_metrics || []).map(m => m.horizon))].sort((a, b) => a - b);
+  const sel = $("oos-h");
+  hs.forEach(h => sel.appendChild(el("option", { value: h, text: "tầm " + h + " ngày" })));
+  if (hs.includes(20)) sel.value = 20;
+  sel.onchange = drawOOS;
+  drawOOS();
+})();
+function drawOOS() {
+  const h = +$("oos-h").value;
+  const rows = (D.oos_metrics || []).filter(m => m.horizon === h)
+    .sort((a, b) => a.brier - b.brier)
+    .map(m => ({
+      cls: m.model === "naive_frequency" ? "hi" : "",
+      cells: [
+        { text: m.model, cls: "k" },
+        m.feature_set,
+        { text: num(m.brier, 4) },
+        { text: num(m.brier_skill_score, 4), cls: m.brier_skill_score > 0 ? "down" : "up" },
+        { text: num(m.auroc, 3), cls: m.auroc > 0.5 ? "" : "dim" },
+        { text: num(m.auprc, 3) },
+        { text: num(m.base_rate, 3), cls: "dim" }
+      ]
+    }));
+  swap($("oos-table"), table(
+    ["Mô hình", "Bộ đặc trưng", "Brier", "Kỹ năng", "AUROC", "AUPRC", "Tần suất nền"], rows));
+}
+function drawBSS() {
+  const cv = $("bss-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const data = (D.oos_metrics || []).filter(m => m.brier_skill_score != null)
+    .sort((a, b) => b.brier_skill_score - a.brier_skill_score).slice(0, 22);
+  if (!data.length) return;
+  const box = { l: 8, r: w - 8, t: 30, b: h - 14 };
+  const lo = Math.min(...data.map(d => d.brier_skill_score), 0);
+  const hi = Math.max(...data.map(d => d.brier_skill_score), 0.02);
+  const X = v => box.l + (box.r - box.l) * ((v - lo) / ((hi - lo) || 1));
+  const bh = (box.b - box.t) / data.length;
+  const zero = Math.round(X(0)) + 0.5;
+
+  ctx.strokeStyle = PAL["rule-hi"]; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(zero, box.t - 10); ctx.lineTo(zero, box.b); ctx.stroke();
+  ctx.fillStyle = PAL.muted; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  ctx.fillText("kỹ năng bằng 0 = mốc naive", zero + 7, box.t - 12);
+
+  ctx.fillStyle = PAL.isDark ? "rgba(255,255,255,0.24)" : "rgba(0,0,0,0.16)";
+  data.forEach((d, i) => {
+    const y = box.t + i * bh, v = d.brier_skill_score;
+    ctx.fillRect(Math.min(X(0), X(v)), y + 1, Math.abs(X(v) - X(0)), Math.max(bh - 2.5, 2));
+  });
+  ctx.fillStyle = PAL.text; ctx.font = "9.5px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  data.forEach((d, i) => {
+    ctx.fillText(`${d.model}·${d.feature_set}·h${d.horizon}`, zero + 7, box.t + i * bh + bh / 2);
+  });
+}
+(() => {
+  const figs = [["0,103", "IC · chỉ đặc trưng mã", true],
+                ["4,93", "t · Newey–West"],
+                ["0,060", "IC · thêm centrality"],
+                ["0,049", "IC · thêm hàng xóm"]];
+  const host = $("ic-figs");
+  figs.forEach(f => host.appendChild(el("div", { class: "fig" }, [
+    el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: f[0] }),
+    el("span", { class: "fig-l", text: f[1] })
+  ])));
+})();
+
+/* ================= PHÂN BỔ VỐN ================= */
+const KEY_LINES = ["equal_weight__sample", "minimum_variance__sample",
+                   "minimum_variance__glasso", "minimum_variance__ledoit_wolf"];
+const KEY_VI = k => k.replace("equal_weight", "chia đều")
+  .replace("minimum_variance", "phương sai tối thiểu")
+  .replace("community_risk_parity", "risk parity theo cụm")
+  .replace("risk_parity", "risk parity")
+  .replace("inverse_volatility", "nghịch đảo biến động")
+  .replace("__", " · ").replace(/_/g, " ");
+
+(() => {
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  const best = A.reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b);
+  const comm = A.find(a => a.rule === "community_risk_parity");
+  const rp = A.filter(a => a.rule === "risk_parity")
+    .reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b, { annual_volatility: NaN });
+  const gl = (D.estimator_tests || []).find(t => t.rule === "minimum_variance" && t.estimator === "glasso");
+  const nWin = (D.estimator_tests || []).filter(t => t.significant_reduction).length;
+  if (eqw) $("v-eqw").textContent = pct(eqw.annual_volatility);
+  $("v-best").textContent = pct(best.annual_volatility);
+  if (eqw) $("v-diff").textContent = pp(best.annual_volatility - eqw.annual_volatility, 2);
+  if (gl) $("v-gl").textContent = pp(gl.volatility_difference, 3);
+  if (comm) $("v-comm").textContent = pct(comm.annual_volatility);
+  if (isFinite(rp.annual_volatility)) $("v-rp").textContent = pct(rp.annual_volatility);
+  $("est-count").textContent = nWin === 0
+    ? "Không có phép so sánh nào trong sáu phép cho thấy giảm rủi ro có ý nghĩa."
+    : `${nWin} trên ${(D.estimator_tests || []).length} phép so sánh cho thấy giảm rủi ro có ý nghĩa.`;
+})();
+
+function drawRiskReturn() {
+  const cv = $("rr-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const box = { l: 58, r: w - 118, t: 16, b: h - 32 };
+  const xs = A.map(a => a.annual_volatility), ys = A.map(a => a.annual_return);
+  const x0 = Math.min(...xs) * 0.985, x1 = Math.max(...xs) * 1.012;
+  const y0 = Math.min(...ys) * 0.985, y1 = Math.max(...ys) * 1.012;
+  box.X = v => box.l + (box.r - box.l) * ((v - x0) / (x1 - x0));
+  box.Y = v => box.b - (box.b - box.t) * ((v - y0) / (y1 - y0));
+  drawAxes(ctx, box, ticks(y0, y1, 4), v => num(100 * v, 1) + "%",
+    ticks(x0, x1, 4).map(v => ({ v, lab: num(100 * v, 0) + "%" })));
+
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  if (eqw) {
+    ctx.strokeStyle = PAL["rule-hi"]; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(box.X(eqw.annual_volatility), box.t);
+    ctx.lineTo(box.X(eqw.annual_volatility), box.b);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = PAL.faint; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillText("chia đều", box.X(eqw.annual_volatility) - 5, box.t + 2);
+  }
+  // Quy tắc trọng số phân biệt bằng HÌNH DẠNG, không bằng màu.
+  const SHAPE = {
+    equal_weight: "cross", inverse_volatility: "tri", community_risk_parity: "diamond",
+    risk_parity: "square", minimum_variance: "circle"
+  };
+  const mark = (shape, x, y, filled) => {
+    ctx.beginPath();
+    if (shape === "circle") ctx.arc(x, y, 5, 0, 6.284);
+    else if (shape === "square") ctx.rect(x - 4.4, y - 4.4, 8.8, 8.8);
+    else if (shape === "diamond") { ctx.moveTo(x, y - 5.6); ctx.lineTo(x + 5.6, y); ctx.lineTo(x, y + 5.6); ctx.lineTo(x - 5.6, y); ctx.closePath(); }
+    else if (shape === "tri") { ctx.moveTo(x, y - 5.6); ctx.lineTo(x + 5.2, y + 4); ctx.lineTo(x - 5.2, y + 4); ctx.closePath(); }
+    else { ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); }
+    if (shape === "cross") { ctx.strokeStyle = PAL["text-hi"]; ctx.lineWidth = 1.6; ctx.stroke(); return; }
+    ctx.fillStyle = filled ? PAL["text-hi"] : PAL.panel;
+    ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = PAL["text-hi"]; ctx.stroke();
+  };
+  A.forEach(a => {
+    const x = box.X(a.annual_volatility), y = box.Y(a.annual_return);
+    mark(SHAPE[a.rule] || "circle", x, y, a.estimator === "glasso");
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(a.estimator, x + 9, y);
+  });
+  ctx.fillStyle = PAL.faint; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("biến động thực hiện hằng năm", (box.l + box.r) / 2, h - 15);
+
+  let ly = box.t + 4;
+  const VI = { equal_weight: "chia đều", inverse_volatility: "nghịch đảo biến động",
+               community_risk_parity: "risk parity theo cụm", risk_parity: "risk parity",
+               minimum_variance: "phương sai tối thiểu" };
+  Object.entries(SHAPE).forEach(([rule, shape]) => {
+    mark(shape, box.r + 22, ly + 5, false);
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(VI[rule], box.r + 33, ly + 5);
+    ly += 18;
+  });
+  ctx.fillStyle = PAL.faint;
+  ctx.fillText("ô đặc = glasso", box.r + 14, ly + 6);
+}
+
+function drawRollingVol() {
+  const cv = $("rv-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w || !D.rolling_vol) return;
+  const S = D.rolling_vol.series, dates = D.rolling_vol.dates;
+  const keys = KEY_LINES.filter(k => S[k]);
+  if (!keys.length) return;
+  const box = { l: 54, r: w - 10, t: 14, b: h - 26 };
+  const all = [];
+  keys.forEach(k => S[k].forEach(v => { if (v != null) all.push(v); }));
+  const lo = Math.min(...all), hi = Math.max(...all);
+  box.X = i => box.l + (box.r - box.l) * (i / (dates.length - 1));
+  box.Y = v => box.b - (box.b - box.t) * ((v - lo) / ((hi - lo) || 1));
+  const xt = [];
+  dates.forEach((d, i) => { if (d.slice(5) === "01" && +d.slice(0, 4) % 2 === 0) xt.push({ v: i, lab: d.slice(0, 4) }); });
+  drawAxes(ctx, box, ticks(lo, hi, 5), v => num(100 * v, 0) + "%", xt);
+
+  // Bốn đường phân biệt bằng KIỂU NÉT, không bằng màu.
+  const DASH = [[1, 3], [6, 3], [2, 2], []];
+  const WIDTH = [1, 1.1, 1.1, 1.8];
+  keys.forEach((k, ki) => {
+    ctx.setLineDash(DASH[ki % DASH.length]);
+    ctx.lineWidth = WIDTH[ki % WIDTH.length];
+    ctx.strokeStyle = ki === keys.length - 1 ? PAL["text-hi"] : PAL.muted;
+    ctx.beginPath();
+    let started = false;
+    const s = S[k];
+    for (let i = 0; i < s.length; i++) {
+      const v = s[i]; if (v == null) continue;
+      started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  $("rv-legend").innerHTML = keys.map((k, i) => {
+    const d = DASH[i % DASH.length];
+    const style = d.length ? `border-top:2px dashed currentColor` : `border-top:2px solid currentColor`;
+    const col = i === keys.length - 1 ? "var(--text-hi)" : "var(--muted)";
+    return `<span style="color:${col}"><i style="${style}"></i>${KEY_VI(k)}</span>`;
+  }).join("");
+}
+
+(() => {
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const worst = Math.max(...A.map(a => a.annual_volatility));
+  const best = Math.min(...A.map(a => a.annual_volatility));
+  const rows = A.map(a => {
+    const bar = el("div", { class: "bar" });
+    bar.appendChild(el("i", {
+      class: a.annual_volatility === best ? "q" : "",
+      style: `width:${(100 * a.annual_volatility / worst).toFixed(1)}%`
+    }));
+    return {
+      cls: a.key === "equal_weight__sample" ? "hi" : "",
+      cells: [
+        { text: KEY_VI(a.rule), cls: "k" },
+        a.estimator,
+        { text: pct(a.annual_volatility) },
+        { node: bar },
+        { text: pct(a.annual_return) },
+        { text: num(a.sharpe, 3) },
+        { text: pct(a.max_drawdown) },
+        { text: num(a.mean_effective_n_bets, 2), cls: a.estimator === "diagonal" ? "dim" : "" },
+        { text: num(a.mean_turnover_traded, 3) },
+        { text: pct(a.annual_cost_drag, 2), cls: "dim" }
+      ]
+    };
+  });
+  swap($("alloc-table"), table(
+    ["Quy tắc", "Bộ ước lượng", "Biến động", "", "Lợi suất", "Sharpe", "Sụt giảm sâu nhất",
+     "Cược hiệu dụng", "Vòng quay", "Chi phí/năm"], rows));
+})();
+
+(() => {
+  const T = D.estimator_tests || [];
+  if (!T.length) return;
+  const lim = Math.max(...T.flatMap(t => [Math.abs(t.ci_lower), Math.abs(t.ci_upper)])) * 1.15;
+  const rows = T.map(t => {
+    const P = v => 50 + 50 * (v / lim);
+    const ci = el("div", { class: "ci" });
+    ci.appendChild(el("span", { class: "zero", style: "left:50%" }));
+    const a = Math.min(P(t.ci_lower), P(t.ci_upper)), b = Math.max(P(t.ci_lower), P(t.ci_upper));
+    ci.appendChild(el("span", {
+      class: "rng" + (t.significant_reduction ? " sig" : ""),
+      style: `left:${a.toFixed(2)}%;width:${(b - a).toFixed(2)}%`
+    }));
+    ci.appendChild(el("span", { class: "pt", style: `left:${P(t.volatility_difference).toFixed(2)}%` }));
+    return {
+      cells: [
+        { text: KEY_VI(t.rule), cls: "k" },
+        t.estimator,
+        { text: pct(t.volatility) },
+        { text: pct(t.baseline_volatility), cls: "dim" },
+        { text: pp(t.volatility_difference, 3), cls: t.volatility_difference < 0 ? "down" : "up" },
+        { node: ci },
+        { text: num(t.p_value, 3) },
+        { node: el("span", {
+            class: "chip " + (t.significant_reduction ? "yes" : "no"),
+            text: t.significant_reduction ? "có giảm" : "không khác biệt" }) }
+      ]
+    };
+  });
+  swap($("est-table"), table(
+    ["Quy tắc", "Bộ ước lượng", "Biến động", "So với mẫu", "Chênh lệch",
+     "Khoảng tin cậy 95% quanh 0", "p", "Kết luận"], rows));
+})();
+
+(() => {
+  const sel = $("w-key");
+  Object.keys(D.latest_weights || {}).sort().forEach(k =>
+    sel.appendChild(el("option", { value: k, text: KEY_VI(k) })));
+  if (D.latest_weights && D.latest_weights["minimum_variance__ledoit_wolf"])
+    sel.value = "minimum_variance__ledoit_wolf";
+  sel.onchange = drawWeights;
+})();
+function drawWeights() {
+  const cv = $("w-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const W = (D.latest_weights || {})[$("w-key").value] || {};
+  const items = Object.entries(W).sort((a, b) => b[1] - a[1]);
+  if (!items.length) return;
+  const box = { l: 10, r: w - 10, t: 20, b: h - 40 };
+  const maxW = Math.max(...items.map(i => i[1]), 0.01);
+  const bw = (box.r - box.l) / items.length;
+  const capped = 0.199;
+  items.forEach(([ticker, v], i) => {
+    const bh = (box.b - box.t) * (v / maxW);
+    const x = box.l + i * bw;
+    ctx.fillStyle = v >= capped
+      ? PAL["text-hi"]
+      : (PAL.isDark ? "rgba(255,255,255,0.34)" : "rgba(0,0,0,0.26)");
+    ctx.fillRect(x + 1, box.b - bh, Math.max(bw - 2, 1), bh);
+    if (v >= capped) {   // vị thế chạm trần được viền để nhận ra ngay
+      ctx.strokeStyle = PAL["text-hi"]; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, box.b - bh - 0.5, Math.max(bw - 1, 1), bh);
+    }
+    ctx.save();
+    ctx.translate(x + bw / 2, box.b + 6);
+    ctx.rotate(-Math.PI / 2.4);
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(ticker, 0, 0);
+    ctx.restore();
+    if (v > maxW * 0.34) {
+      ctx.fillStyle = PAL["text-hi"]; ctx.font = "9.5px " + PAL.mono;
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(num(100 * v, 1), x + bw / 2, box.b - bh - 3);
+    }
+  });
+  ctx.fillStyle = PAL.faint; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText(`${items.length} vị thế · trần 20% · tái cân bằng ${D.weights_date} · ô viền = chạm trần`,
+    box.l, 3);
+}
+
+/* ================= THẺ ĐIỀU HƯỚNG ================= */
+const VIEWS = ["overview", "network", "forecast", "allocation"];
+const shown = v => !$("view-" + v).classList.contains("hidden");
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t === tab)));
+    VIEWS.forEach(v => $("view-" + v).classList.toggle("hidden", v !== tab.dataset.view));
+    redrawAll();
+  };
+});
+function redrawAll() {
+  // Canvas nằm trong khối display:none báo chiều rộng bằng 0, nên mỗi lần
+  // vẽ đều được chặn theo khung nhìn đang hiển thị.
+  if (shown("overview")) drawHistory();
+  if (shown("network")) drawNetwork();
+  if (shown("forecast")) drawBSS();
+  if (shown("allocation")) { drawRiskReturn(); drawRollingVol(); drawWeights(); }
+}
+let resizeTimer;
+addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { netLayers = null; redrawAll(); }, 160);
+}, { passive: true });
+redrawAll();
+</script>

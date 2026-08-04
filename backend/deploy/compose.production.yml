@@ -1,0 +1,175 @@
+name: quantpercent-production
+
+services:
+  timescaledb:
+    image: ${TIMESCALE_IMAGE:?Set an immutable TimescaleDB image tag}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quant
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: market
+    volumes:
+      - database_data:/var/lib/postgresql/data
+      - ../../../Database-Onr-Percent/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quant -d market"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [private]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [private]
+
+  db-role-init:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    environment:
+      PGHOST: timescaledb
+      PGPORT: 5432
+      PGDATABASE: market
+      PGUSER: quant
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      QP_WEB_PASSWORD: ${QP_WEB_PASSWORD:?Set QP_WEB_PASSWORD}
+    volumes:
+      - ../scripts/create_role.sql:/scripts/create_role.sql:ro
+    entrypoint: ["sh", "-ec"]
+    command:
+      - >-
+        psql --set="api_password=$$QP_WEB_PASSWORD"
+        --file=/scripts/create_role.sql
+    depends_on:
+      timescaledb: { condition: service_healthy }
+    networks: [private]
+
+  migrate:
+    build:
+      context: ..
+    profiles: ["tools"]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://quant:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@timescaledb:5432/market
+      REDIS_URL: redis://redis:6379/1
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      COOKIE_SECURE: "true"
+      CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN}
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      timescaledb: { condition: service_healthy }
+      db-role-init: { condition: service_completed_successfully }
+    networks: [private]
+
+  api:
+    build:
+      context: ..
+    restart: unless-stopped
+    environment: &api_environment
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://qp_web:${QP_WEB_PASSWORD:?Set QP_WEB_PASSWORD}@timescaledb:5432/market
+      REDIS_URL: redis://redis:6379/1
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: lax
+      PUBLIC_SITE_URL: https://${DOMAIN}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      CONTACT_NOTIFY_EMAIL: ${CONTACT_NOTIFY_EMAIL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Quant Percent <noreply@quantpercent.com>}
+      MARKET_DELAY_MINUTES: ${MARKET_DELAY_MINUTES:-15}
+      STALE_AFTER_MINUTES: ${STALE_AFTER_MINUTES:-90}
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    depends_on:
+      timescaledb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ../../quantpercentFE/config:/catalogue/config:ro
+    networks: [private]
+
+  worker:
+    build:
+      context: ..
+    restart: unless-stopped
+    environment: *api_environment
+    command: ["python", "-m", "app.workers.scheduler"]
+    depends_on:
+      timescaledb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [private]
+
+  frontend:
+    build:
+      context: ../../quantpercentFE
+      args:
+        NEXT_PUBLIC_AUTH_MODE: api
+        NEXT_PUBLIC_API_BASE_URL: ""
+        NEXT_PUBLIC_CSRF_COOKIE_NAME: qp_csrf
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+    restart: unless-stopped
+    environment:
+      DATA_MODE: api
+      API_BASE_URL: http://api:8000
+    depends_on: [api]
+    networks: [private]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend, api]
+    networks: [private]
+
+  backup:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    environment:
+      PGHOST: timescaledb
+      PGPORT: 5432
+      PGDATABASE: market
+      PGUSER: quant
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./backup.sh:/scripts/backup.sh:ro
+    entrypoint: ["sh", "/scripts/backup.sh"]
+    depends_on:
+      timescaledb: { condition: service_healthy }
+    networks: [private]
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  database_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,5 @@
+model,horizon,fold,actual,Bull,Sideway,Bear,Stress,evaluation_scope
+multiclass_ebm_baseline,20,0,Bull,191,89,36,126,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Sideway,110,63,21,98,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Bear,30,31,13,22,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Stress,62,38,26,38,nested_purged_development_oos

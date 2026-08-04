@@ -1,0 +1,156 @@
+{
+  "scenario": {
+    "per_horizon": {
+      "20": {
+        "point_estimate": {
+          "crps": 0.0361734217022111,
+          "wis": 0.0297074912760124,
+          "coverage_90_error": 0.0637681159420288,
+          "coverage_95_error": 0.03886532343584326,
+          "width_90": 0.4614458499045228
+        },
+        "posterior_mean_mc": {
+          "crps": 0.0335292660243256,
+          "wis": 0.0239340159333571,
+          "coverage_90_error": 0.1124425592082009,
+          "coverage_95_error": 0.08856486390950857,
+          "width_90": 0.1454034709654446
+        },
+        "variational_posterior": {
+          "crps": 0.0334578008819274,
+          "wis": 0.0238588332821791,
+          "coverage_90_error": 0.10890774125132552,
+          "coverage_95_error": 0.08768115942028987,
+          "width_90": 0.1481365790623185
+        },
+        "chosen": "point_estimate",
+        "vb_vs_point_ci_excludes_zero": {
+          "crps": true,
+          "wis": true
+        }
+      },
+      "40": {
+        "point_estimate": {
+          "crps": 0.0604567259697138,
+          "wis": 0.0568415651653364,
+          "coverage_90_error": 0.08953900709219853,
+          "coverage_95_error": 0.0485815602836881,
+          "width_90": 1.1080680804399952
+        },
+        "posterior_mean_mc": {
+          "crps": 0.0476800087613663,
+          "wis": 0.0348277981219431,
+          "coverage_90_error": 0.09982269503546104,
+          "coverage_95_error": 0.08652482269503536,
+          "width_90": 0.229956712518834
+        },
+        "variational_posterior": {
+          "crps": 0.0475766864479,
+          "wis": 0.0346894461747756,
+          "coverage_90_error": 0.09273049645390075,
+          "coverage_95_error": 0.07925531914893624,
+          "width_90": 0.2357008152492181
+        },
+        "chosen": "point_estimate",
+        "vb_vs_point_ci_excludes_zero": {
+          "crps": true,
+          "wis": true
+        }
+      },
+      "60": {
+        "point_estimate": {
+          "crps": 0.0783841303172322,
+          "wis": 0.0796135395477243,
+          "coverage_90_error": 0.0866595517609392,
+          "coverage_95_error": 0.045197438633938214,
+          "width_90": 1.7004001889897224
+        },
+        "posterior_mean_mc": {
+          "crps": 0.0539928242555828,
+          "wis": 0.0394651974922649,
+          "coverage_90_error": 0.09672714336535038,
+          "coverage_95_error": 0.0951440768409818,
+          "width_90": 0.2334102645782361
+        },
+        "variational_posterior": {
+          "crps": 0.0537286819337187,
+          "wis": 0.039028196537513,
+          "coverage_90_error": 0.0833866951262896,
+          "coverage_95_error": 0.07931341159729632,
+          "width_90": 0.2452638331381068
+        },
+        "chosen": "variational_posterior",
+        "vb_vs_point_ci_excludes_zero": {
+          "crps": true,
+          "wis": true
+        }
+      }
+    },
+    "votes": [
+      "point_estimate",
+      "point_estimate",
+      "variational_posterior"
+    ],
+    "default_scenario_mode": "point_estimate"
+  },
+  "classifier": {
+    "per_horizon": {
+      "20.0": {
+        "head_wins": 2,
+        "criteria": 5,
+        "ebm": {
+          "macro_f1": 0.2191630663780492,
+          "recall_bear": 0.0667195767195767,
+          "recall_stress": 0.293014326416701,
+          "brier": 0.7729599604615945,
+          "log_loss": 1.4279447997553216
+        },
+        "head": {
+          "macro_f1": 0.2095087302553185,
+          "recall_bear": 0.0052910052910052,
+          "recall_stress": 0.0,
+          "brier": 0.7218281875521718,
+          "log_loss": 1.3232173335704756
+        }
+      },
+      "40.0": {
+        "head_wins": 2,
+        "criteria": 5,
+        "ebm": {
+          "macro_f1": 0.2360436487735559,
+          "recall_bear": 0.0839972047519217,
+          "recall_stress": 0.2633085396855286,
+          "brier": 0.7826137705872656,
+          "log_loss": 1.438268710749303
+        },
+        "head": {
+          "macro_f1": 0.2198434141453421,
+          "recall_bear": 0.0,
+          "recall_stress": 0.0736434108527131,
+          "brier": 0.7376260265879327,
+          "log_loss": 1.3527994003064885
+        }
+      },
+      "60.0": {
+        "head_wins": 2,
+        "criteria": 5,
+        "ebm": {
+          "macro_f1": 0.2183467405822772,
+          "recall_bear": 0.0740952824055019,
+          "recall_stress": 0.3533387039026137,
+          "brier": 0.801235392889662,
+          "log_loss": 1.4772608226385096
+        },
+        "head": {
+          "macro_f1": 0.2108038031483316,
+          "recall_bear": 0.0,
+          "recall_stress": 0.1534640171858217,
+          "brier": 0.7409198778840785,
+          "log_loss": 1.3523691833134024
+        }
+      }
+    },
+    "production_classifier": "EBM",
+    "rule": "head must win majority of {brier, log_loss, macro_f1, recall_bear, recall_stress} on every horizon"
+  }
+}

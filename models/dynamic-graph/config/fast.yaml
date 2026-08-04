@@ -1,0 +1,48 @@
+# Fast mode: smoke-test the full pipeline end to end in a few minutes.
+# Quantitative results from this mode are NOT publication grade.
+extends: default.yaml
+
+project:
+  mode: fast
+
+graph:
+  windows: [60, 120]
+  core_window: 60
+  edge_filter_method: quantile
+  bootstrap_iterations: 0
+  snapshot_stride: 5
+  build_raw_and_residual: false
+  build_correlation_and_partial: true
+  enable_lead_lag: true
+  enable_spillover: false
+
+network:
+  compute_betweenness: true
+  compute_closeness: false
+
+training:
+  initial_train_days: 504
+  validation_days: 126
+  test_days: 126
+  enable_tuning: false
+
+models:
+  run_random_forest: false
+  run_xgboost_if_available: false
+  run_ebm_if_available: false
+  run_temporal_gnn: false
+
+evaluation:
+  bootstrap_iterations: 200
+
+ablation:
+  enabled: true
+  variants:
+    - market_only
+    - graph_only
+    - market_plus_graph
+    - single_scale_60
+
+output:
+  create_figures: true
+  export_parquet: false

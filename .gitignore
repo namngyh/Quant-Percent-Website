@@ -1,0 +1,41 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# JavaScript
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+
+# Runtime database and market data
+database/data/raw/
+database/dockerdata/
+database/backup/
+database/backups/
+*.dump
+*.vhdx
+
+# Local deployment secrets/backups
+backend/deploy/.env.production
+backend/deploy/backups/

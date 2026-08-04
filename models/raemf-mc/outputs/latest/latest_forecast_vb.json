@@ -1,0 +1,59 @@
+{
+  "generated_from": "outputs/latest/canonical_vnindex.csv",
+  "forecast_origin": "2026-07-13",
+  "last_close": 1800.54,
+  "scenario_mode": "variational_posterior",
+  "paths": 1500,
+  "posterior_convergence": "converged",
+  "posterior_warnings": [
+    "Dropped 1 non-finite training observations"
+  ],
+  "verifiable_note": "Dự báo live: chưa thể kiểm chứng cho tới khi đủ số phiên tương lai của từng horizon.",
+  "horizons": {
+    "20": {
+      "verifiable_after_sessions": 20,
+      "matured": false,
+      "median_return": 0.009881381225344595,
+      "interval_80": [
+        -0.02201135904740541,
+        0.04251214673334956
+      ],
+      "interval_95": [
+        -0.04526720661200769,
+        0.06586821045728974
+      ],
+      "prob_negative_return": 0.326,
+      "prob_drawdown_gt_10pct": 0.0026666666666666666
+    },
+    "40": {
+      "verifiable_after_sessions": 40,
+      "matured": false,
+      "median_return": 0.02252047396262779,
+      "interval_80": [
+        -0.024984641392265212,
+        0.06898142738988806
+      ],
+      "interval_95": [
+        -0.05982193830517784,
+        0.10244664075624339
+      ],
+      "prob_negative_return": 0.254,
+      "prob_drawdown_gt_10pct": 0.016
+    },
+    "60": {
+      "verifiable_after_sessions": 60,
+      "matured": false,
+      "median_return": 0.03315209901990221,
+      "interval_80": [
+        -0.019401385708602625,
+        0.0887697614954518
+      ],
+      "interval_95": [
+        -0.051486232613970055,
+        0.12790772376395748
+      ],
+      "prob_negative_return": 0.194,
+      "prob_drawdown_gt_10pct": 0.023333333333333334
+    }
+  }
+}

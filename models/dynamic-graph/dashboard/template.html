@@ -1,0 +1,1389 @@
+<title>DynamicGraph · Bảng điều khiển nghiên cứu VN30</title>
+
+<style>
+/* =======================================================================
+   HỆ MÀU — ĐƠN SẮC HOÀN TOÀN
+   Không có màu sắc nào. Mọi thông tin vốn được mã hoá bằng màu đều
+   chuyển sang mã hoá bằng HÌNH THỨC: nét liền / nét đứt cho dấu của
+   tương quan, ô đặc / ô rỗng cho phán quyết, tam giác lên / xuống cho
+   chiều tốt xấu. Cách này đọc được trên máy in đen trắng và với người
+   mù màu, điều mà bảng màu không làm được.
+   ==================================================================== */
+:root {
+  --ink:      #000000;
+  --panel:    #080808;
+  --panel-2:  #111111;
+  --rule:     #262626;
+  --rule-hi:  #3D3D3D;
+  --text:     #D2D2D2;
+  --text-hi:  #FFFFFF;
+  --muted:    #8A8A8A;
+  --faint:    #565656;
+  --grid:     #1A1A1A;
+  --ink-on:   #000000;   /* chữ đặt trên nền sáng */
+
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", "Menlo",
+          "DejaVu Sans Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink:#FFFFFF; --panel:#FFFFFF; --panel-2:#F4F4F4; --rule:#D9D9D9;
+    --rule-hi:#BDBDBD; --text:#1C1C1C; --text-hi:#000000; --muted:#666666;
+    --faint:#9C9C9C; --grid:#EAEAEA; --ink-on:#FFFFFF;
+  }
+}
+:root[data-theme="light"] {
+  --ink:#FFFFFF; --panel:#FFFFFF; --panel-2:#F4F4F4; --rule:#D9D9D9;
+  --rule-hi:#BDBDBD; --text:#1C1C1C; --text-hi:#000000; --muted:#666666;
+  --faint:#9C9C9C; --grid:#EAEAEA; --ink-on:#FFFFFF;
+}
+:root[data-theme="dark"] {
+  --ink:#000000; --panel:#080808; --panel-2:#111111; --rule:#262626;
+  --rule-hi:#3D3D3D; --text:#D2D2D2; --text-hi:#FFFFFF; --muted:#8A8A8A;
+  --faint:#565656; --grid:#1A1A1A; --ink-on:#000000;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0; background: var(--ink); color: var(--text);
+  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1460px; margin: 0 auto; padding: 0 var(--s5) var(--s7); }
+
+/* ---- thanh tiêu đề ---------------------------------------------------
+   Nền đặc, không dùng backdrop-filter: bộ lọc nền buộc trình duyệt hợp
+   thành lại toàn khung mỗi khi cuộn, và đó chính là nguyên nhân giật.  */
+.masthead {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--ink); border-bottom: 1px solid var(--rule);
+}
+.masthead-inner {
+  max-width: 1460px; margin: 0 auto; padding: var(--s3) var(--s5);
+  display: flex; align-items: baseline; gap: var(--s5); flex-wrap: wrap;
+}
+.brand {
+  font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-hi); white-space: nowrap;
+}
+.brand em { font-style: normal; color: var(--muted); font-weight: 400; }
+.runstrip {
+  display: flex; gap: var(--s4); flex-wrap: wrap;
+  font-size: 11px; color: var(--muted); margin-left: auto;
+}
+.runstrip b { color: var(--text); font-weight: 500; }
+.themetoggle {
+  font: inherit; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--rule); border-radius: 0; padding: 3px 10px; cursor: pointer;
+}
+.themetoggle:hover { color: var(--text-hi); border-color: var(--rule-hi); }
+.themetoggle:focus-visible { outline: 2px solid var(--text-hi); outline-offset: 2px; }
+
+/* ---- thẻ điều hướng --------------------------------------------------- */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--rule);
+  margin: 0 0 var(--s5); overflow-x: auto;
+}
+.tab {
+  font: inherit; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: var(--s3) var(--s4); cursor: pointer; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text-hi); border-bottom-color: var(--text-hi); }
+.tab:focus-visible { outline: 2px solid var(--text-hi); outline-offset: -2px; }
+
+/* ---- luận điểm -------------------------------------------------------- */
+.claims {
+  display: grid; gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin: var(--s5) 0;
+}
+.claim { border: 1px solid var(--rule); background: var(--panel); padding: var(--s4); }
+.claim[data-state="pass"]    { border-left: 3px solid var(--text-hi); }
+.claim[data-state="fail"]    { border-left: 3px dashed var(--faint); }
+.claim[data-state="partial"] { border-left: 3px double var(--muted); }
+.claim-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--s3); margin-bottom: var(--s3);
+}
+.claim-kicker {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+}
+.stamp {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid currentColor; padding: 2px 8px; white-space: nowrap;
+}
+.claim[data-state="pass"] .stamp    { color: var(--ink); background: var(--text-hi); border-color: var(--text-hi); }
+.claim[data-state="fail"] .stamp    { color: var(--muted); border-style: dashed; }
+.claim[data-state="partial"] .stamp { color: var(--text); }
+.claim-q {
+  font-size: 15px; color: var(--text-hi); font-weight: 600;
+  letter-spacing: -0.005em; margin: 0 0 var(--s2); text-wrap: balance;
+}
+.claim[data-state="fail"] .claim-q {
+  text-decoration: line-through; text-decoration-thickness: 2px;
+  color: var(--muted);
+}
+.claim-ev {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted); margin: 0;
+}
+.claim-fig {
+  margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--rule);
+  display: flex; gap: var(--s5); flex-wrap: wrap;
+}
+.fig { display: flex; flex-direction: column; gap: 1px; }
+.fig-v { font-size: 20px; font-weight: 600; color: var(--text-hi); letter-spacing: -0.02em; }
+.fig-v.q { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.fig-l { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+
+/* ---- khối ------------------------------------------------------------- */
+.grid { display: grid; gap: var(--s3); }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); }
+.panel { border: 1px solid var(--rule); background: var(--panel); min-width: 0; }
+.panel-hd {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3);
+  padding: var(--s3) var(--s4); border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+}
+.panel-t { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-hi); }
+.panel-s { font-size: 11px; color: var(--faint); }
+.panel-bd { padding: var(--s4); }
+.panel-bd.flush { padding: 0; }
+
+.note {
+  font-family: var(--sans); font-size: 13px; line-height: 1.65; color: var(--muted);
+  margin: 0; max-width: 70ch;
+}
+.note + .note { margin-top: var(--s3); }
+.note b, .note strong { color: var(--text-hi); font-weight: 600; }
+.note code {
+  font-family: var(--mono); font-size: 11.5px; background: var(--panel-2);
+  border: 1px solid var(--rule); padding: 0 4px; color: var(--text);
+}
+
+/* ---- bảng ------------------------------------------------------------- */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td {
+  text-align: right; padding: 6px var(--s3); white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+}
+th:first-child, td:first-child { text-align: left; }
+th {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  font-weight: 500; position: sticky; top: 0; background: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--rule);
+}
+td { color: var(--text); }
+tbody tr:hover td { background: var(--panel-2); }
+tbody tr.hi td { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--text-hi); }
+td.k { color: var(--text-hi); }
+td.dim { color: var(--faint); }
+td.up::before { content: "▲ "; color: var(--muted); }
+td.down::before { content: "▼ "; color: var(--text-hi); }
+
+.chip {
+  display: inline-block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 1px 7px; border: 1px solid currentColor;
+}
+.chip.yes { color: var(--ink); background: var(--text-hi); border-color: var(--text-hi); }
+.chip.no  { color: var(--faint); border-style: dashed; }
+
+canvas { display: block; width: 100%; }
+.legend {
+  display: flex; gap: var(--s4); flex-wrap: wrap;
+  font-size: 11px; color: var(--muted); padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--rule);
+}
+.legend i { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 6px; }
+.legend i.solid  { border-top: 2px solid var(--text-hi); }
+.legend i.dashed { border-top: 2px dashed var(--muted); }
+.legend i.sq { width: 9px; height: 9px; border: 1px solid var(--text); }
+
+.ctl { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.ctl select {
+  font: inherit; font-size: 11px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--rule); border-radius: 0; padding: 3px 8px; cursor: pointer;
+}
+.ctl select:focus-visible { outline: 2px solid var(--text-hi); outline-offset: 1px; }
+
+.bar { position: relative; height: 5px; background: var(--grid); min-width: 70px; }
+.bar > i { position: absolute; inset: 0 auto 0 0; background: var(--text); }
+.bar > i.q { background: var(--text-hi); }
+
+.ci { position: relative; height: 15px; min-width: 140px; }
+.ci .zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--rule-hi); }
+.ci .rng  { position: absolute; top: 6px; height: 3px; background: var(--muted); }
+.ci .rng.sig { background: var(--text-hi); }
+.ci .pt   { position: absolute; top: 2px; width: 3px; height: 11px; background: var(--text-hi); }
+
+.sect-rule {
+  display: flex; align-items: center; gap: var(--s3);
+  margin: var(--s6) 0 var(--s4); color: var(--muted);
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.sect-rule::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+.hidden { display: none; }
+
+.caveat { border: 1px dashed var(--rule-hi); background: var(--panel-2); padding: var(--s3) var(--s4); margin-top: var(--s4); }
+.caveat p { margin: 0; font-family: var(--sans); font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+.caveat p + p { margin-top: var(--s2); }
+.caveat b { color: var(--text-hi); }
+.caveat-t {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--text); margin-bottom: var(--s2);
+}
+
+footer {
+  margin-top: var(--s7); padding-top: var(--s4); border-top: 1px solid var(--rule);
+  font-size: 11px; color: var(--faint); display: flex; gap: var(--s5); flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 720px) {
+  .wrap { padding: 0 var(--s3) var(--s6); }
+  .masthead-inner { padding: var(--s3); }
+  .runstrip { margin-left: 0; }
+}
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">DYNAMICGRAPH <em>· VN30</em></div>
+    <div class="runstrip" id="runstrip"></div>
+    <button class="themetoggle" id="themebtn" type="button">Đổi nền</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="Khung nhìn">
+    <button class="tab" role="tab" data-view="overview"   aria-selected="true">Tổng quan</button>
+    <button class="tab" role="tab" data-view="network"    aria-selected="false">Mạng lưới</button>
+    <button class="tab" role="tab" data-view="forecast"   aria-selected="false">Dự báo</button>
+    <button class="tab" role="tab" data-view="allocation" aria-selected="false">Phân bổ vốn</button>
+  </nav>
+
+  <!-- ================= TỔNG QUAN ================= -->
+  <section id="view-overview" role="tabpanel">
+    <div class="claims" id="claims"></div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd"><span class="panel-t">Ba luận điểm được kiểm chứng riêng biệt</span></div>
+        <div class="panel-bd">
+          <p class="note">Ba luận điểm được đánh giá tách rời, bởi vì chúng thành công và
+          thất bại độc lập với nhau. Gộp chúng lại là cách dễ nhất để thổi phồng giá trị
+          của một mô hình mạng lưới.</p>
+          <p class="note"><b>Cấu trúc</b> là mô tả hiện tại: mã nào biến động cùng mã nào sau
+          khi đã khử ảnh hưởng của chỉ số thị trường và của mọi mã còn lại. Nó hữu ích mà
+          không cần dự báo gì, và không bị chấm điểm theo tương lai.</p>
+          <p class="note"><b>Dự báo</b> là tuyên bố về mô men bậc nhất — chỉ số có căng thẳng
+          sau <i>h</i> ngày hay không. Nó được so với một mốc chỉ đếm tần suất lịch sử, và
+          nó thua ở mọi tầm dự báo.</p>
+          <p class="note"><b>Phân bổ vốn</b> là tuyên bố về mô men bậc hai — hiệp phương sai
+          ước lượng có đủ tốt để định cỡ vị thế hay không. Đây là bài toán dễ hơn hẳn: cấu
+          trúc tương quan bền vững qua nhiều tháng, trong khi tỷ lệ tín hiệu trên nhiễu của
+          lợi suất kỳ vọng gần bằng không.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Xuất xứ của lần chạy</span>
+          <span class="panel-s" id="prov-sub"></span>
+        </div>
+        <div class="panel-bd flush"><div class="tablewrap"><table id="prov-table"></table></div></div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Trạng thái mạng lưới hiện tại</div>
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Chỉ số tập trung cấu trúc</span>
+          <span class="panel-s" id="stress-asof"></span>
+        </div>
+        <div class="panel-bd">
+          <div class="claim-fig" id="stress-figs" style="border-top:none;padding-top:0;margin-top:0"></div>
+          <div class="caveat">
+            <div class="caveat-t">Đọc đây là cấu trúc, không phải tình trạng thị trường</div>
+            <p>Trong mã nguồn chỉ số này mang tên “stress score”, và cái tên đó gây hiểu nhầm.
+            Nó là một tổ hợp đã chuẩn hoá của các thước đo tập trung trong đồ thị. Thực tế
+            nó <b>cao vào năm 2018 và 2026 khi VN30 ở vùng đỉnh</b>, và <b>thấp suốt cú sụp
+            tháng 3/2020</b> khi VN30 giảm khoảng 45%. Nó đo mức độ tập trung của cấu trúc
+            phụ thuộc, không đo mức độ xấu của thị trường.</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Lịch sử chỉ số mạng lưới</span>
+          <div class="ctl"><select id="hist-metric" aria-label="Chọn chỉ số"></select></div>
+        </div>
+        <div class="panel-bd flush"><canvas id="hist-canvas" data-h="268"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MẠNG LƯỚI ================= -->
+  <section id="view-network" role="tabpanel" class="hidden">
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Mạng tương quan riêng phần</span>
+          <span class="panel-s" id="net-sub"></span>
+        </div>
+        <div class="panel-bd flush">
+          <canvas id="net-canvas" data-h="530"></canvas>
+          <div class="legend">
+            <span><i class="solid"></i>liên hệ đồng biến</span>
+            <span><i class="dashed"></i>liên hệ nghịch biến</span>
+            <span><i class="sq"></i>độ đậm nhạt = cụm</span>
+            <span>kích thước = độ mạnh · rê chuột để tách riêng</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Danh sách mã theo độ mạnh</span>
+          <span class="panel-s">bấm một dòng để tách riêng</span>
+        </div>
+        <div class="panel-bd flush">
+          <div class="tablewrap" style="max-height:572px;overflow-y:auto"><table id="node-table"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Độ bền vững của thứ hạng</div>
+    <div class="panel"><div class="panel-bd">
+      <p class="note">Thứ hạng centrality <b>phụ thuộc vào lựa chọn cách dựng đồ thị</b>, nó
+      không phải một thuộc tính của thị trường. Trong 40 cặp biến thể mà quy trình đã so sánh —
+      tương quan so với tương quan riêng phần, lợi suất thô so với phần dư, cửa sổ từ 20 đến
+      252 ngày — chỉ <b>3 cặp</b> vượt mức đồng thuận Spearman 0,7, và vài cặp còn
+      <b>tương quan âm</b>: tương quan riêng phần trên phần dư 20 ngày xếp hạng gần như ngược
+      lại so với tương quan trên lợi suất thô 60 ngày (−0,42).</p>
+      <p class="note">Một điểm nữa nằm ở hệ số phạt. Từ α = 0,002 đến α = 0,02 đồ thị
+      <b>giống hệt nhau đến từng con số</b> — 261 cạnh, mật độ 0,600, cùng năm mã trung tâm —
+      bởi vì trần mật độ ràng buộc trước khi hệ số phạt kịp ràng buộc. Giá trị đang dùng
+      α = 0,02 nằm ngay mép vùng đó, nên độ thưa của mạng công bố đến từ <b>bộ lọc phân vị
+      cạnh</b> chứ không từ graphical lasso. Chỉ từ α ≥ 0,05 hệ số phạt mới thực sự tác động,
+      và khi đó danh sách mã trung tâm thay đổi đáng kể (mức trùng lặp top 5 rơi xuống 0,4).</p>
+    </div></div>
+
+    <div class="sect-rule">Các cụm</div>
+    <div class="panel"><div class="panel-bd flush">
+      <div class="tablewrap"><table id="comm-table"></table></div>
+    </div></div>
+  </section>
+
+  <!-- ================= DỰ BÁO ================= -->
+  <section id="view-forecast" role="tabpanel" class="hidden">
+    <div class="panel">
+      <div class="panel-hd"><span class="panel-t">Kết quả</span></div>
+      <div class="panel-bd">
+        <p class="note"><b id="bss-headline">Không cấu hình nào đạt điểm kỹ năng Brier dương.</b>
+        Điểm kỹ năng âm nghĩa là mô hình tệ hơn một dự báo hằng số đặt tại tần suất thực tế —
+        bảng dưới đây xếp hạng mức độ thua, không phải mức độ hữu dụng.</p>
+        <p class="note">Ở mọi tầm dự báo, đứng đầu bảng là <code>naive_frequency</code>, một
+        mô hình mà toàn bộ nội dung là tần suất căng thẳng trong lịch sử. Các mô hình học máy
+        với 660 đặc trưng đồ thị và 36 đặc trưng thị trường không thắng nổi phép đếm.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:var(--s3)">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Điểm kỹ năng Brier</span>
+          <span class="panel-s">số 0 = mốc naive</span>
+        </div>
+        <div class="panel-bd flush"><canvas id="bss-canvas" data-h="340"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Chỉ số ngoài mẫu</span>
+          <div class="ctl"><select id="oos-h" aria-label="Tầm dự báo"></select></div>
+        </div>
+        <div class="panel-bd flush">
+          <div class="tablewrap" style="max-height:348px;overflow-y:auto"><table id="oos-table"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Xếp hạng chéo giữa các mã</div>
+    <div class="panel"><div class="panel-bd">
+      <div class="claim-fig" id="ic-figs" style="border-top:none;padding-top:0;margin-top:0"></div>
+      <p class="note" style="margin-top:var(--s4)">Xếp hạng các mã bằng đặc trưng của chính
+      chúng thì <b>có tác dụng</b> (IC 0,103; <i>t</i> hiệu chỉnh = 4,93). Nhưng
+      <b>thêm đặc trưng mạng lưới lại làm xấu đi</b>: thêm centrality kéo IC xuống 0,060,
+      thêm tổng hợp từ hàng xóm xuống 0,049. Centrality mô tả vị trí cấu trúc, không mô tả
+      lợi suất kỳ vọng.</p>
+      <div class="caveat">
+        <div class="caveat-t">Thống kê t ban đầu bị thổi phồng gấp ba lần</div>
+        <p>Lợi suất 20 ngày tính hằng ngày chồng lấn nhau 19 ngày, nên hai quan sát IC liên
+        tiếp có tự tương quan 0,86. Coi 1.323 quan sát chồng lấn như độc lập cho ra
+        <i>t</i> = 15,4. Sai số chuẩn Newey–West cho <i>t</i> = 4,93. Kết quả sống sót qua
+        hiệu chỉnh; con số ban đầu thì không.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ================= PHÂN BỔ VỐN ================= -->
+  <section id="view-allocation" role="tabpanel" class="hidden">
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="panel-t">Phán quyết</span>
+        <span class="panel-s"><code>covariance_helps_graph_does_not</code></span>
+      </div>
+      <div class="panel-bd">
+        <p class="note">Phân bổ có tính đến hiệp phương sai <b>thắng rõ rệt so với chia đều</b>:
+        biến động thực hiện giảm từ <b id="v-eqw">–</b> xuống <b id="v-best">–</b>, tức
+        <b id="v-diff">–</b>. Cả mười danh mục đều có ý nghĩa thống kê dưới bootstrap khối
+        ghép cặp.</p>
+        <p class="note">Nhưng <b>hiệp phương sai thưa từ graphical lasso không thắng được
+        hiệp phương sai mẫu</b> khi giữ nguyên quy tắc trọng số. Ở phương sai tối thiểu,
+        chênh lệch là <b id="v-gl">–</b> với khoảng tin cậy cắt qua số 0.</p>
+        <p class="note">Phân hoạch cụm — đầu vào duy nhất mà chỉ đồ thị mới cung cấp được —
+        <b>cho kết quả kém hơn</b>: risk parity theo cụm đạt <b id="v-comm">–</b> so với
+        <b id="v-rp">–</b> của risk parity thường, trong khi vòng quay cao hơn nhiều.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:var(--s3)">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Rủi ro và lợi suất thực hiện</span>
+          <span class="panel-s">ngoài mẫu, đã trừ 15 điểm cơ bản mỗi chiều</span>
+        </div>
+        <div class="panel-bd flush"><canvas id="rr-canvas" data-h="368"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-t">Biến động thực hiện trượt</span>
+          <span class="panel-s">cửa sổ 126 ngày</span>
+        </div>
+        <div class="panel-bd flush">
+          <canvas id="rv-canvas" data-h="368"></canvas>
+          <div class="legend" id="rv-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect-rule">Toàn bộ danh mục</div>
+    <div class="panel"><div class="panel-bd flush">
+      <div class="tablewrap"><table id="alloc-table"></table></div>
+    </div></div>
+
+    <div class="sect-rule">Phép thử cô lập: graphical lasso so với hiệp phương sai mẫu</div>
+    <div class="panel">
+      <div class="panel-bd flush"><div class="tablewrap"><table id="est-table"></table></div></div>
+      <div class="panel-bd" style="border-top:1px solid var(--rule)">
+        <p class="note">Cùng quy tắc trọng số, cùng cửa sổ, cùng mức trần — chỉ thay bộ ước
+        lượng hiệp phương sai. Khoảng tin cậy cắt qua số 0 nghĩa là hai bộ ước lượng không
+        phân biệt được. <b id="est-count">Không có phép so sánh nào cho thấy giảm rủi ro có
+        ý nghĩa.</b></p>
+      </div>
+    </div>
+
+    <div class="sect-rule">Trọng số tại kỳ tái cân bằng gần nhất</div>
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="panel-t">Trọng số vị thế</span>
+        <div class="ctl"><select id="w-key" aria-label="Chọn danh mục"></select></div>
+      </div>
+      <div class="panel-bd flush"><canvas id="w-canvas" data-h="312"></canvas></div>
+    </div>
+
+    <div class="caveat">
+      <div class="caveat-t">Cột “số cược hiệu dụng” không so sánh được giữa các bộ ước lượng</div>
+      <p>Nó được tính dưới ma trận hiệp phương sai <b>của chính bộ ước lượng đó</b>. Bộ
+      <code>diagonal</code> giả định tương quan bằng 0, nên theo đúng giả định ấy nó báo
+      khoảng 20 cược độc lập trong khi hiệp phương sai mẫu báo 5. Cột đó
+      <b>chỉ dùng để so sánh giữa các quy tắc trọng số</b>, không dùng để so giữa các bộ
+      ước lượng.</p>
+    </div>
+    <div class="caveat">
+      <div class="caveat-t">Những gì mô phỏng này bỏ qua</div>
+      <p>Tác động giá khi khớp lệnh — chi phí ở đây tuyến tính theo giá trị giao dịch, còn
+      tác động thật thì lồi, nên các quy tắc vòng quay cao đang được đối xử quá nhẹ tay.
+      Ngoài ra: giới hạn sở hữu nước ngoài, quy mô lô, khả năng vay mượn chứng khoán, và
+      những lần thay đổi thành phần rổ VN30 trong suốt giai đoạn.</p>
+      <p>Rổ cổ phiếu là VN30 <b>hiện tại</b> giữ cố định từ 2012 — sai lệch sống sót có mặt,
+      nó ưu ái mọi quy tắc ở đây như nhau, nhưng nó ưu ái tất cả. Đây là các phép so sánh mô
+      hình rủi ro, <b>không phải một chiến lược giao dịch</b>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span id="foot-run"></span>
+    <span>Nguồn dữ liệu chỉ đọc · không sửa dữ liệu gốc</span>
+    <span>Trọng số lập tại <i>t</i> chỉ áp vào lợi suất sau <i>t</i></span>
+  </footer>
+</div>
+
+<script type="application/json" id="payload">__PAYLOAD__</script>
+
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+
+/* =====================================================================
+   BẢNG MÀU ĐƯỢC ĐỌC MỘT LẦN
+   getComputedStyle() buộc trình duyệt tính lại kiểu dáng. Gọi nó bên
+   trong vòng lặp vẽ (mỗi cạnh, mỗi đỉnh) là nguyên nhân giật rõ rệt
+   nhất, nên toàn bộ biến CSS được đọc một lần và chỉ đọc lại khi đổi nền.
+   ================================================================== */
+let PAL = {};
+const PAL_KEYS = ["ink", "panel", "panel-2", "rule", "rule-hi", "text",
+                  "text-hi", "muted", "faint", "grid", "ink-on"];
+function readPalette() {
+  const s = getComputedStyle(document.documentElement);
+  PAL = {};
+  PAL_KEYS.forEach(k => PAL[k] = s.getPropertyValue("--" + k).trim());
+  PAL.mono = s.getPropertyValue("--mono").trim();
+  PAL.isDark = PAL.ink === "#000000" || PAL.ink.startsWith("rgb(0, 0, 0");
+  // Thang xám cho các cụm, đảo chiều theo nền để luôn tương phản.
+  PAL.ramp = PAL.isDark
+    ? ["#FFFFFF", "#C4C4C4", "#8F8F8F", "#666666", "#454545", "#2C2C2C", "#DEDEDE", "#7A7A7A"]
+    : ["#000000", "#3A3A3A", "#616161", "#878787", "#A8A8A8", "#C6C6C6", "#1F1F1F", "#9A9A9A"];
+  PAL.rampInk = PAL.ramp.map(hex => {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = 0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    return lum > 140 ? "#000000" : "#FFFFFF";
+  });
+}
+readPalette();
+
+/* ---------- định dạng số theo chuẩn Việt Nam ---------- */
+const NF = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nfd = d => new Intl.NumberFormat("vi-VN", { minimumFractionDigits: d, maximumFractionDigits: d });
+const CACHE_NF = {};
+const num = (v, d = 3) => {
+  if (v == null || !isFinite(v)) return "–";
+  (CACHE_NF[d] ||= nfd(d));
+  return CACHE_NF[d].format(v);
+};
+const pct = (v, d = 2) => v == null || !isFinite(v) ? "–" : num(100 * v, d) + "%";
+const pp  = (v, d = 3) => v == null || !isFinite(v) ? "–" : (v > 0 ? "+" : "") + num(100 * v, d) + " đ%";
+
+const el = (t, a = {}, kids = []) => {
+  const n = document.createElement(t);
+  for (const [k, v] of Object.entries(a)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else n.setAttribute(k, v);
+  }
+  (Array.isArray(kids) ? kids : [kids]).forEach(c => c && n.appendChild(c));
+  return n;
+};
+const table = (head, rows) => {
+  const t = el("table");
+  t.appendChild(el("thead", {}, el("tr", {}, head.map(h => el("th", { text: h })))));
+  const tb = el("tbody");
+  const frag = document.createDocumentFragment();
+  rows.forEach(r => {
+    const tr = el("tr", r.cls ? { class: r.cls } : {});
+    (r.cells || r).forEach(c => {
+      const td = el("td", c && c.cls ? { class: c.cls } : {});
+      if (c && c.node) td.appendChild(c.node);
+      else td.textContent = c && c.text !== undefined ? c.text : (c == null ? "–" : c);
+      tr.appendChild(td);
+    });
+    if (r.onclick) { tr.style.cursor = "pointer"; tr.onclick = r.onclick; }
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+  t.appendChild(tb);
+  return t;
+};
+const swap = (host, node) => { host.textContent = ""; host.appendChild(node); };
+const $ = id => document.getElementById(id);
+
+/* ---------- đổi nền ---------- */
+$("themebtn").onclick = () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = document.documentElement.getAttribute("data-theme") || (dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  readPalette();
+  netLayers = null;          // các lớp đệm mang màu cũ
+  redrawAll();
+};
+
+/* ---------- dải thông tin đầu trang ---------- */
+(() => {
+  const d = D.run.data || {};
+  const snaps = D.run.snapshots_per_key
+    ? Object.values(D.run.snapshots_per_key).reduce((a, b) => a + b, 0) : null;
+  const bits = [
+    ["rổ", (d.n_tickers || 31) + " mã"],
+    ["giai đoạn", (d.date_min || "") + " → " + (d.date_max || "")],
+    ["nếp gấp", D.run.n_folds],
+    ["ảnh chụp", snaps ? snaps.toLocaleString("vi-VN") : "–"],
+    ["cập nhật", D.as_of],
+  ];
+  $("runstrip").innerHTML = bits.map(([k, v]) => `${k} <b>${v}</b>`).join("");
+  $("foot-run").textContent =
+    `${(d.n_rows || 0).toLocaleString("vi-VN")} dòng giá · ${D.run.n_folds} nếp gấp walk-forward có kiểm dịch · 236 test đơn vị`;
+})();
+
+/* ---------- ba luận điểm ---------- */
+(() => {
+  const A = D.allocation_summary || [];
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  const best = A.length ? A.reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b) : null;
+  const skill = (D.run.verdict || {}).absolute_skill || {};
+  const est = D.estimator_tests || [];
+  const nWin = est.filter(t => t.significant_reduction).length;
+
+  const claims = [
+    { state: "pass", kicker: "Luận điểm 1 · cấu trúc",
+      stamp: "Được ủng hộ",
+      q: "Đồ thị mô tả được mã nào biến động cùng mã nào.",
+      ev: "3.526 ảnh chụp hằng ngày của đồ thị tương quan riêng phần 30 đỉnh, dựng trên lợi "
+        + "suất đã khử ảnh hưởng thị trường. Tỷ lệ cạnh tồn tại giữa hai ngày liên tiếp trung "
+        + "bình khoảng 0,9 — đủ ổn định để đọc.",
+      figs: [[(D.universe || {}).node_count || 30, "đỉnh"],
+             [(D.edges || []).length, "cạnh công bố"],
+             [(D.communities || []).length, "cụm"]] },
+    { state: "fail", kicker: "Luận điểm 2 · dự báo",
+      stamp: "Bị bác bỏ",
+      q: "Đồ thị dự báo được căng thẳng thị trường.",
+      ev: "Bị bác bỏ. Không cấu hình nào thắng nổi một dự báo hằng số đặt tại tần suất thực "
+        + "tế, ở bất kỳ tầm dự báo nào. Mốc naive_frequency đứng đầu bảng Brier mọi lần.",
+      figs: [[`${skill.n_with_positive_brier_skill ?? 0} / ${skill.n_configurations ?? "–"}`, "có kỹ năng dương", true],
+             [num(skill.best_brier_skill_score, 4), "điểm kỹ năng tốt nhất"],
+             [`${(D.run.verdict || {}).n_significant_brier ?? "–"} / ${(D.run.verdict || {}).n_comparisons ?? "–"}`, "cặp có ý nghĩa"]] },
+    { state: "partial", kicker: "Luận điểm 3 · phân bổ vốn",
+      stamp: "Ủng hộ một phần",
+      q: "Hiệp phương sai từ đồ thị cải thiện phân bổ vốn.",
+      ev: "Một phần. Việc mô hình hoá phụ thuộc cắt giảm biến động thực hiện rõ rệt so với "
+        + "chia đều, nhưng ước lượng thưa từ đồ thị không phân biệt được với hiệp phương sai mẫu.",
+      figs: [[eqw && best ? pp(best.annual_volatility - eqw.annual_volatility, 2) : "–", "thay đổi biến động", true],
+             [best ? pct(best.annual_volatility) : "–", "biến động thấp nhất"],
+             [`${nWin} / ${est.length}`, "lần đồ thị thắng"]] }
+  ];
+  const host = $("claims");
+  const frag = document.createDocumentFragment();
+  claims.forEach(c => {
+    frag.appendChild(el("div", { class: "claim", "data-state": c.state }, [
+      el("div", { class: "claim-head" }, [
+        el("span", { class: "claim-kicker", text: c.kicker }),
+        el("span", { class: "stamp", text: c.stamp })
+      ]),
+      el("p", { class: "claim-q", text: c.q }),
+      el("p", { class: "claim-ev", text: c.ev }),
+      el("div", { class: "claim-fig" }, c.figs.map(f => el("div", { class: "fig" }, [
+        el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: String(f[0]) }),
+        el("span", { class: "fig-l", text: f[1] })
+      ])))
+    ]));
+  });
+  host.appendChild(frag);
+})();
+
+/* ---------- xuất xứ ---------- */
+(() => {
+  const d = D.run.data || {};
+  const rows = [
+    ["Nguồn", "SQLite DataPro, mở ở chế độ chỉ đọc"],
+    ["Cơ sở giá", "giá đóng cửa điều chỉnh, close × (1 − ADJUST_RATE/1e6)"],
+    ["Lợi suất", "log 1 ngày, khử ảnh hưởng VN30 bằng OLS trượt 60 ngày"],
+    ["Tầng lõi", "tương quan riêng phần, graphical lasso, cửa sổ 60 ngày"],
+    ["Chia dữ liệu", "walk-forward có kiểm dịch · cách ly 40 ngày · cấm vận 5 ngày"],
+    ["Khớp tham số", "chuẩn hoá, chọn đặc trưng, ngưỡng và α chỉ trên dữ liệu huấn luyện"],
+    ["Ngày ngoài mẫu", "1.323"],
+    ["Cảnh báo về rổ", "VN30 hiện tại giữ cố định — có sai lệch sống sót"],
+  ];
+  swap($("prov-table"), table(["Hạng mục", "Giá trị"],
+    rows.map(r => [{ text: r[0], cls: "k" }, r[1]])));
+  $("prov-sub").textContent = (d.date_min || "") + " → " + (d.date_max || "");
+})();
+
+/* ---------- chỉ số tập trung hiện tại ---------- */
+(() => {
+  const s = D.network_state || {};
+  const figs = [
+    [num(s.stress_score, 2), "mức chỉ số (0–100)", true],
+    [pct(s.historical_percentile, 1), "phân vị lịch sử"],
+    [(s.change_20d > 0 ? "+" : "") + num(s.change_20d, 2), "thay đổi 20 ngày"],
+    [s.label === "high_stress" ? "tập trung cao" : (s.label || "–"), "nhãn trạng thái"]
+  ];
+  const host = $("stress-figs");
+  figs.forEach(f => host.appendChild(el("div", { class: "fig" }, [
+    el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: String(f[0]) }),
+    el("span", { class: "fig-l", text: f[1] })
+  ])));
+  $("stress-asof").textContent = "tính đến " + D.as_of;
+})();
+
+/* =====================================================================
+   NỀN TẢNG VẼ
+   fitCanvas chỉ cấp phát lại bộ đệm ảnh khi kích thước thực sự đổi.
+   Gán canvas.width mỗi lần vẽ sẽ xoá và cấp phát lại toàn bộ vùng nhớ
+   ảnh, việc này tốn kém hơn hẳn so với chính thao tác vẽ.
+   ================================================================== */
+function fitCanvas(cv) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.clientWidth | 0;
+  const h = +cv.dataset.h;
+  const W = (w * dpr) | 0, H = (h * dpr) | 0;
+  if (cv.width !== W || cv.height !== H) {
+    cv.width = W; cv.height = H; cv.style.height = h + "px";
+  }
+  const ctx = cv.getContext("2d", { alpha: false });
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = PAL.panel;
+  ctx.fillRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function ticks(min, max, n) {
+  const span = (max - min) || 1;
+  const step = Math.pow(10, Math.floor(Math.log10(span / n)));
+  const err = (span / n) / step;
+  const mult = err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+  const s = step * mult;
+  const out = [];
+  for (let v = Math.ceil(min / s) * s; v <= max + 1e-12; v += s) out.push(+v.toFixed(10));
+  return out;
+}
+function drawAxes(ctx, box, yTicks, fmtY, xTicks) {
+  ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = PAL.faint;
+  ctx.font = "10px " + PAL.mono;
+  ctx.beginPath();
+  yTicks.forEach(v => {
+    const y = Math.round(box.Y(v)) + 0.5;
+    ctx.moveTo(box.l, y); ctx.lineTo(box.r, y);
+  });
+  ctx.stroke();
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  yTicks.forEach(v => ctx.fillText(fmtY(v), box.l - 7, Math.round(box.Y(v))));
+  if (xTicks) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    xTicks.forEach(t => ctx.fillText(t.lab, box.X(t.v), box.b + 7));
+  }
+}
+
+/* ================= LỊCH SỬ CHỈ SỐ ================= */
+const HIST_VI = {
+  stress_score: "Chỉ số tập trung cấu trúc",
+  graph_density: "Mật độ đồ thị",
+  spectral_radius: "Bán kính phổ",
+  market_mode_share: "Tỷ trọng mode thị trường",
+  number_of_communities: "Số lượng cụm",
+  centrality_concentration: "Tập trung centrality (Herfindahl)",
+  modularity: "Độ mô-đun",
+  avg_abs_partial_correlation: "Tương quan riêng phần tuyệt đối trung bình",
+  algebraic_connectivity: "Liên thông đại số"
+};
+(() => {
+  const sel = $("hist-metric");
+  Object.keys((D.history || {}).series || {}).forEach(k =>
+    sel.appendChild(el("option", { value: k, text: HIST_VI[k] || k })));
+  sel.onchange = drawHistory;
+})();
+function drawHistory() {
+  if (!D.history) return;
+  const cv = $("hist-canvas");
+  const key = $("hist-metric").value;
+  const vals = D.history.series[key], dates = D.history.dates;
+  if (!vals) return;
+  const { ctx, w, h } = fitCanvas(cv);
+  const box = { l: 58, r: w - 12, t: 14, b: h - 26 };
+  const fin = vals.filter(v => v != null);
+  const lo = Math.min(...fin), hi = Math.max(...fin);
+  box.X = i => box.l + (box.r - box.l) * (i / (vals.length - 1));
+  box.Y = v => box.b - (box.b - box.t) * ((v - lo) / ((hi - lo) || 1));
+  const xt = [];
+  for (let i = 0; i < dates.length; i++) {
+    const d = dates[i];
+    if (d.slice(5, 7) === "01" && d.slice(8, 10) <= "07" && +d.slice(0, 4) % 2 === 0)
+      xt.push({ v: i, lab: d.slice(0, 4) });
+  }
+  drawAxes(ctx, box, ticks(lo, hi, 5), v => num(v, hi - lo < 2 ? 2 : 0), xt);
+
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]; if (v == null) continue;
+    started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+  }
+  ctx.lineTo(box.X(vals.length - 1), box.b);
+  ctx.lineTo(box.X(0), box.b);
+  ctx.closePath();
+  ctx.fillStyle = PAL.isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+  ctx.fill();
+
+  ctx.beginPath(); started = false;
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]; if (v == null) continue;
+    started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+  }
+  ctx.lineWidth = 1.4; ctx.strokeStyle = PAL["text-hi"]; ctx.stroke();
+
+  const last = vals.length - 1;
+  if (vals[last] != null) {
+    ctx.fillStyle = PAL["text-hi"];
+    ctx.beginPath(); ctx.arc(box.X(last), box.Y(vals[last]), 3, 0, 6.284); ctx.fill();
+  }
+}
+
+/* =====================================================================
+   MẠNG LƯỚI
+   Bố cục lực được tính MỘT lần rồi kết xuất sẵn ra hai lớp đệm ngoài
+   màn hình: lớp đầy đủ và lớp mờ. Khi rê chuột chỉ cần dán lớp mờ rồi
+   vẽ lại đúng đỉnh đang trỏ cùng các cạnh của nó — thay vì vẽ lại 81
+   cạnh và 30 đỉnh cho mỗi sự kiện chuột.
+   ================================================================== */
+let netLayers = null, netHover = null, netRaf = 0;
+function computeLayout(w, h) {
+  const nodes = D.nodes, index = {};
+  nodes.forEach((n, i) => index[n.id] = i);
+  const N = nodes.length;
+  let seed = 20260724;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const P = nodes.map((n, i) => ({
+    x: w / 2 + Math.cos(6.2832 * i / N) * w * 0.29 + (rand() - 0.5) * 10,
+    y: h / 2 + Math.sin(6.2832 * i / N) * h * 0.31 + (rand() - 0.5) * 10,
+    vx: 0, vy: 0
+  }));
+  const E = (D.edges || [])
+    .filter(e => index[e.s] != null && index[e.t] != null)
+    .map(e => ({ a: index[e.s], b: index[e.t], w: Math.abs(e.w), neg: e.w < 0 }));
+  for (let it = 0; it < 260; it++) {
+    const damp = 0.9 - 0.85 * it / 260;
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        let dx = P[j].x - P[i].x, dy = P[j].y - P[i].y;
+        const d2 = dx * dx + dy * dy || 1, d = Math.sqrt(d2), f = 5400 / d2;
+        dx /= d; dy /= d;
+        P[i].vx -= dx * f; P[i].vy -= dy * f;
+        P[j].vx += dx * f; P[j].vy += dy * f;
+      }
+    }
+    for (let k = 0; k < E.length; k++) {
+      const e = E[k], A = P[e.a], B = P[e.b];
+      let dx = B.x - A.x, dy = B.y - A.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const f = (d - 76) * 0.055 * (0.4 + e.w * 2.4);
+      dx /= d; dy /= d;
+      A.vx += dx * f; A.vy += dy * f; B.vx -= dx * f; B.vy -= dy * f;
+    }
+    for (let i = 0; i < N; i++) {
+      const p = P[i];
+      p.vx += (w / 2 - p.x) * 0.012; p.vy += (h / 2 - p.y) * 0.012;
+      p.x += p.vx * damp; p.y += p.vy * damp;
+      p.vx *= 0.80; p.vy *= 0.80;
+      p.x = Math.max(36, Math.min(w - 36, p.x));
+      p.y = Math.max(28, Math.min(h - 28, p.y));
+    }
+  }
+  const maxS = Math.max(...nodes.map(n => n.strength || 0), 1e-9);
+  const R = nodes.map(n => 6 + 15 * Math.sqrt((n.strength || 0) / maxS));
+  return { P, E, R, adj: buildAdj(N, E) };
+}
+function buildAdj(N, E) {
+  const adj = Array.from({ length: N }, () => new Set());
+  E.forEach(e => { adj[e.a].add(e.b); adj[e.b].add(e.a); });
+  return adj;
+}
+function paintNetwork(ctx, L, alpha) {
+  const nodes = D.nodes;
+  ctx.globalAlpha = alpha;
+  // cạnh đồng biến: nét liền · cạnh nghịch biến: nét đứt
+  for (const dashed of [false, true]) {
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.strokeStyle = dashed ? PAL.muted : PAL["text-hi"];
+    for (let k = 0; k < L.E.length; k++) {
+      const e = L.E[k]; if (e.neg !== dashed) continue;
+      ctx.beginPath();
+      ctx.lineWidth = 0.5 + e.w * 4.5;
+      ctx.moveTo(L.P[e.a].x, L.P[e.a].y);
+      ctx.lineTo(L.P[e.b].x, L.P[e.b].y);
+      ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "600 10px " + PAL.mono;
+  for (let i = 0; i < nodes.length; i++) {
+    const c = (nodes[i].community || 0) % PAL.ramp.length;
+    ctx.fillStyle = PAL.ramp[c];
+    ctx.beginPath(); ctx.arc(L.P[i].x, L.P[i].y, L.R[i], 0, 6.284); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = PAL["rule-hi"]; ctx.stroke();
+    ctx.fillStyle = PAL.rampInk[c];
+    ctx.fillText(nodes[i].id, L.P[i].x, L.P[i].y);
+  }
+  ctx.globalAlpha = 1;
+}
+function buildLayers(w, h) {
+  const L = computeLayout(w, h);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const mk = alpha => {
+    const c = document.createElement("canvas");
+    c.width = w * dpr; c.height = h * dpr;
+    const x = c.getContext("2d");
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.fillStyle = PAL.panel; x.fillRect(0, 0, w, h);
+    paintNetwork(x, L, alpha);
+    return c;
+  };
+  return { L, w, h, full: mk(1), dim: mk(0.16) };
+}
+function drawNetwork() {
+  const cv = $("net-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  if (!netLayers || netLayers.w !== w) netLayers = buildLayers(w, h);
+  const { L } = netLayers;
+  if (netHover == null) {
+    ctx.drawImage(netLayers.full, 0, 0, w, h);
+  } else {
+    ctx.drawImage(netLayers.dim, 0, 0, w, h);
+    const nb = L.adj[netHover];
+    for (const dashed of [false, true]) {
+      ctx.setLineDash(dashed ? [4, 3] : []);
+      ctx.strokeStyle = dashed ? PAL.muted : PAL["text-hi"];
+      L.E.forEach(e => {
+        if (e.neg !== dashed) return;
+        if (e.a !== netHover && e.b !== netHover) return;
+        ctx.beginPath(); ctx.lineWidth = 0.8 + e.w * 5;
+        ctx.moveTo(L.P[e.a].x, L.P[e.a].y); ctx.lineTo(L.P[e.b].x, L.P[e.b].y); ctx.stroke();
+      });
+    }
+    ctx.setLineDash([]);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "600 10px " + PAL.mono;
+    [netHover, ...nb].forEach(i => {
+      const c = (D.nodes[i].community || 0) % PAL.ramp.length;
+      ctx.fillStyle = PAL.ramp[c];
+      ctx.beginPath(); ctx.arc(L.P[i].x, L.P[i].y, L.R[i], 0, 6.284); ctx.fill();
+      ctx.lineWidth = i === netHover ? 2 : 1;
+      ctx.strokeStyle = i === netHover ? PAL["text-hi"] : PAL["rule-hi"];
+      ctx.stroke();
+      ctx.fillStyle = PAL.rampInk[c];
+      ctx.fillText(D.nodes[i].id, L.P[i].x, L.P[i].y);
+    });
+  }
+  $("net-sub").textContent =
+    `${D.nodes.length} đỉnh · ${L.E.length} cạnh · ${D.as_of}`;
+}
+(() => {
+  const cv = $("net-canvas");
+  const setHover = value => {
+    if (value === netHover) return;
+    netHover = value;
+    if (!netRaf) netRaf = requestAnimationFrame(() => { netRaf = 0; drawNetwork(); });
+  };
+  cv.addEventListener("mousemove", ev => {
+    if (!netLayers) return;
+    const r = cv.getBoundingClientRect();
+    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    const { P, R } = netLayers.L;
+    let hit = null;
+    for (let i = 0; i < P.length; i++) {
+      const dx = P[i].x - mx, dy = P[i].y - my;
+      if (dx * dx + dy * dy < (R[i] + 3) * (R[i] + 3)) { hit = i; break; }
+    }
+    cv.style.cursor = hit == null ? "default" : "pointer";
+    setHover(hit);
+  }, { passive: true });
+  cv.addEventListener("mouseleave", () => setHover(null), { passive: true });
+})();
+
+(() => {
+  const rows = D.nodes.map((n, i) => ({
+    cells: [
+      { text: n.rank ?? i + 1, cls: "dim" },
+      { text: n.id, cls: "k" },
+      n.sector || "–",
+      { text: num(n.strength, 3) },
+      { text: num(n.eigenvector_centrality, 3) },
+      { text: num(n.pagerank, 4) },
+      { text: num(n.degree, 0) },
+      { text: "C" + (n.community ?? 0), cls: "dim" }
+    ],
+    onclick: () => { netHover = netHover === i ? null : i; drawNetwork(); }
+  }));
+  swap($("node-table"), table(
+    ["#", "Mã", "Ngành", "Độ mạnh", "Riêng vector", "PageRank", "Bậc", "Cụm"], rows));
+})();
+
+(() => {
+  const rows = (D.communities || []).map(c => [
+    { text: "C" + c.community_id, cls: "k" },
+    { text: num(c.size, 0) },
+    c.dominant_sector || "–",
+    { text: pct(c.dominant_sector_share, 0), cls: "dim" },
+    { text: num(c.cohesion, 3) },
+    (c.members || []).join(" ")
+  ]);
+  swap($("comm-table"), table(
+    ["Cụm", "Số mã", "Ngành chủ đạo", "Độ thuần", "Độ cố kết", "Thành viên"], rows));
+})();
+
+/* ================= DỰ BÁO ================= */
+(() => {
+  const skill = (D.run.verdict || {}).absolute_skill || {};
+  if (skill.n_configurations) {
+    $("bss-headline").textContent =
+      `0 trên ${skill.n_configurations} cấu hình học máy đạt điểm kỹ năng Brier dương; tốt nhất là ${num(skill.best_brier_skill_score, 4)}.`;
+  }
+  const hs = [...new Set((D.oos_metrics || []).map(m => m.horizon))].sort((a, b) => a - b);
+  const sel = $("oos-h");
+  hs.forEach(h => sel.appendChild(el("option", { value: h, text: "tầm " + h + " ngày" })));
+  if (hs.includes(20)) sel.value = 20;
+  sel.onchange = drawOOS;
+  drawOOS();
+})();
+function drawOOS() {
+  const h = +$("oos-h").value;
+  const rows = (D.oos_metrics || []).filter(m => m.horizon === h)
+    .sort((a, b) => a.brier - b.brier)
+    .map(m => ({
+      cls: m.model === "naive_frequency" ? "hi" : "",
+      cells: [
+        { text: m.model, cls: "k" },
+        m.feature_set,
+        { text: num(m.brier, 4) },
+        { text: num(m.brier_skill_score, 4), cls: m.brier_skill_score > 0 ? "down" : "up" },
+        { text: num(m.auroc, 3), cls: m.auroc > 0.5 ? "" : "dim" },
+        { text: num(m.auprc, 3) },
+        { text: num(m.base_rate, 3), cls: "dim" }
+      ]
+    }));
+  swap($("oos-table"), table(
+    ["Mô hình", "Bộ đặc trưng", "Brier", "Kỹ năng", "AUROC", "AUPRC", "Tần suất nền"], rows));
+}
+function drawBSS() {
+  const cv = $("bss-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const data = (D.oos_metrics || []).filter(m => m.brier_skill_score != null)
+    .sort((a, b) => b.brier_skill_score - a.brier_skill_score).slice(0, 22);
+  if (!data.length) return;
+  const box = { l: 8, r: w - 8, t: 30, b: h - 14 };
+  const lo = Math.min(...data.map(d => d.brier_skill_score), 0);
+  const hi = Math.max(...data.map(d => d.brier_skill_score), 0.02);
+  const X = v => box.l + (box.r - box.l) * ((v - lo) / ((hi - lo) || 1));
+  const bh = (box.b - box.t) / data.length;
+  const zero = Math.round(X(0)) + 0.5;
+
+  ctx.strokeStyle = PAL["rule-hi"]; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(zero, box.t - 10); ctx.lineTo(zero, box.b); ctx.stroke();
+  ctx.fillStyle = PAL.muted; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  ctx.fillText("kỹ năng bằng 0 = mốc naive", zero + 7, box.t - 12);
+
+  ctx.fillStyle = PAL.isDark ? "rgba(255,255,255,0.24)" : "rgba(0,0,0,0.16)";
+  data.forEach((d, i) => {
+    const y = box.t + i * bh, v = d.brier_skill_score;
+    ctx.fillRect(Math.min(X(0), X(v)), y + 1, Math.abs(X(v) - X(0)), Math.max(bh - 2.5, 2));
+  });
+  ctx.fillStyle = PAL.text; ctx.font = "9.5px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  data.forEach((d, i) => {
+    ctx.fillText(`${d.model}·${d.feature_set}·h${d.horizon}`, zero + 7, box.t + i * bh + bh / 2);
+  });
+}
+(() => {
+  const figs = [["0,103", "IC · chỉ đặc trưng mã", true],
+                ["4,93", "t · Newey–West"],
+                ["0,060", "IC · thêm centrality"],
+                ["0,049", "IC · thêm hàng xóm"]];
+  const host = $("ic-figs");
+  figs.forEach(f => host.appendChild(el("div", { class: "fig" }, [
+    el("span", { class: "fig-v" + (f[2] ? " q" : ""), text: f[0] }),
+    el("span", { class: "fig-l", text: f[1] })
+  ])));
+})();
+
+/* ================= PHÂN BỔ VỐN ================= */
+const KEY_LINES = ["equal_weight__sample", "minimum_variance__sample",
+                   "minimum_variance__glasso", "minimum_variance__ledoit_wolf"];
+const KEY_VI = k => k.replace("equal_weight", "chia đều")
+  .replace("minimum_variance", "phương sai tối thiểu")
+  .replace("community_risk_parity", "risk parity theo cụm")
+  .replace("risk_parity", "risk parity")
+  .replace("inverse_volatility", "nghịch đảo biến động")
+  .replace("__", " · ").replace(/_/g, " ");
+
+(() => {
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  const best = A.reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b);
+  const comm = A.find(a => a.rule === "community_risk_parity");
+  const rp = A.filter(a => a.rule === "risk_parity")
+    .reduce((a, b) => a.annual_volatility < b.annual_volatility ? a : b, { annual_volatility: NaN });
+  const gl = (D.estimator_tests || []).find(t => t.rule === "minimum_variance" && t.estimator === "glasso");
+  const nWin = (D.estimator_tests || []).filter(t => t.significant_reduction).length;
+  if (eqw) $("v-eqw").textContent = pct(eqw.annual_volatility);
+  $("v-best").textContent = pct(best.annual_volatility);
+  if (eqw) $("v-diff").textContent = pp(best.annual_volatility - eqw.annual_volatility, 2);
+  if (gl) $("v-gl").textContent = pp(gl.volatility_difference, 3);
+  if (comm) $("v-comm").textContent = pct(comm.annual_volatility);
+  if (isFinite(rp.annual_volatility)) $("v-rp").textContent = pct(rp.annual_volatility);
+  $("est-count").textContent = nWin === 0
+    ? "Không có phép so sánh nào trong sáu phép cho thấy giảm rủi ro có ý nghĩa."
+    : `${nWin} trên ${(D.estimator_tests || []).length} phép so sánh cho thấy giảm rủi ro có ý nghĩa.`;
+})();
+
+function drawRiskReturn() {
+  const cv = $("rr-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const box = { l: 58, r: w - 118, t: 16, b: h - 32 };
+  const xs = A.map(a => a.annual_volatility), ys = A.map(a => a.annual_return);
+  const x0 = Math.min(...xs) * 0.985, x1 = Math.max(...xs) * 1.012;
+  const y0 = Math.min(...ys) * 0.985, y1 = Math.max(...ys) * 1.012;
+  box.X = v => box.l + (box.r - box.l) * ((v - x0) / (x1 - x0));
+  box.Y = v => box.b - (box.b - box.t) * ((v - y0) / (y1 - y0));
+  drawAxes(ctx, box, ticks(y0, y1, 4), v => num(100 * v, 1) + "%",
+    ticks(x0, x1, 4).map(v => ({ v, lab: num(100 * v, 0) + "%" })));
+
+  const eqw = A.find(a => a.key === "equal_weight__sample");
+  if (eqw) {
+    ctx.strokeStyle = PAL["rule-hi"]; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(box.X(eqw.annual_volatility), box.t);
+    ctx.lineTo(box.X(eqw.annual_volatility), box.b);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = PAL.faint; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillText("chia đều", box.X(eqw.annual_volatility) - 5, box.t + 2);
+  }
+  // Quy tắc trọng số phân biệt bằng HÌNH DẠNG, không bằng màu.
+  const SHAPE = {
+    equal_weight: "cross", inverse_volatility: "tri", community_risk_parity: "diamond",
+    risk_parity: "square", minimum_variance: "circle"
+  };
+  const mark = (shape, x, y, filled) => {
+    ctx.beginPath();
+    if (shape === "circle") ctx.arc(x, y, 5, 0, 6.284);
+    else if (shape === "square") ctx.rect(x - 4.4, y - 4.4, 8.8, 8.8);
+    else if (shape === "diamond") { ctx.moveTo(x, y - 5.6); ctx.lineTo(x + 5.6, y); ctx.lineTo(x, y + 5.6); ctx.lineTo(x - 5.6, y); ctx.closePath(); }
+    else if (shape === "tri") { ctx.moveTo(x, y - 5.6); ctx.lineTo(x + 5.2, y + 4); ctx.lineTo(x - 5.2, y + 4); ctx.closePath(); }
+    else { ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); }
+    if (shape === "cross") { ctx.strokeStyle = PAL["text-hi"]; ctx.lineWidth = 1.6; ctx.stroke(); return; }
+    ctx.fillStyle = filled ? PAL["text-hi"] : PAL.panel;
+    ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = PAL["text-hi"]; ctx.stroke();
+  };
+  A.forEach(a => {
+    const x = box.X(a.annual_volatility), y = box.Y(a.annual_return);
+    mark(SHAPE[a.rule] || "circle", x, y, a.estimator === "glasso");
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(a.estimator, x + 9, y);
+  });
+  ctx.fillStyle = PAL.faint; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("biến động thực hiện hằng năm", (box.l + box.r) / 2, h - 15);
+
+  let ly = box.t + 4;
+  const VI = { equal_weight: "chia đều", inverse_volatility: "nghịch đảo biến động",
+               community_risk_parity: "risk parity theo cụm", risk_parity: "risk parity",
+               minimum_variance: "phương sai tối thiểu" };
+  Object.entries(SHAPE).forEach(([rule, shape]) => {
+    mark(shape, box.r + 22, ly + 5, false);
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(VI[rule], box.r + 33, ly + 5);
+    ly += 18;
+  });
+  ctx.fillStyle = PAL.faint;
+  ctx.fillText("ô đặc = glasso", box.r + 14, ly + 6);
+}
+
+function drawRollingVol() {
+  const cv = $("rv-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w || !D.rolling_vol) return;
+  const S = D.rolling_vol.series, dates = D.rolling_vol.dates;
+  const keys = KEY_LINES.filter(k => S[k]);
+  if (!keys.length) return;
+  const box = { l: 54, r: w - 10, t: 14, b: h - 26 };
+  const all = [];
+  keys.forEach(k => S[k].forEach(v => { if (v != null) all.push(v); }));
+  const lo = Math.min(...all), hi = Math.max(...all);
+  box.X = i => box.l + (box.r - box.l) * (i / (dates.length - 1));
+  box.Y = v => box.b - (box.b - box.t) * ((v - lo) / ((hi - lo) || 1));
+  const xt = [];
+  dates.forEach((d, i) => { if (d.slice(5) === "01" && +d.slice(0, 4) % 2 === 0) xt.push({ v: i, lab: d.slice(0, 4) }); });
+  drawAxes(ctx, box, ticks(lo, hi, 5), v => num(100 * v, 0) + "%", xt);
+
+  // Bốn đường phân biệt bằng KIỂU NÉT, không bằng màu.
+  const DASH = [[1, 3], [6, 3], [2, 2], []];
+  const WIDTH = [1, 1.1, 1.1, 1.8];
+  keys.forEach((k, ki) => {
+    ctx.setLineDash(DASH[ki % DASH.length]);
+    ctx.lineWidth = WIDTH[ki % WIDTH.length];
+    ctx.strokeStyle = ki === keys.length - 1 ? PAL["text-hi"] : PAL.muted;
+    ctx.beginPath();
+    let started = false;
+    const s = S[k];
+    for (let i = 0; i < s.length; i++) {
+      const v = s[i]; if (v == null) continue;
+      started ? ctx.lineTo(box.X(i), box.Y(v)) : (ctx.moveTo(box.X(i), box.Y(v)), started = true);
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  $("rv-legend").innerHTML = keys.map((k, i) => {
+    const d = DASH[i % DASH.length];
+    const style = d.length ? `border-top:2px dashed currentColor` : `border-top:2px solid currentColor`;
+    const col = i === keys.length - 1 ? "var(--text-hi)" : "var(--muted)";
+    return `<span style="color:${col}"><i style="${style}"></i>${KEY_VI(k)}</span>`;
+  }).join("");
+}
+
+(() => {
+  const A = D.allocation_summary || [];
+  if (!A.length) return;
+  const worst = Math.max(...A.map(a => a.annual_volatility));
+  const best = Math.min(...A.map(a => a.annual_volatility));
+  const rows = A.map(a => {
+    const bar = el("div", { class: "bar" });
+    bar.appendChild(el("i", {
+      class: a.annual_volatility === best ? "q" : "",
+      style: `width:${(100 * a.annual_volatility / worst).toFixed(1)}%`
+    }));
+    return {
+      cls: a.key === "equal_weight__sample" ? "hi" : "",
+      cells: [
+        { text: KEY_VI(a.rule), cls: "k" },
+        a.estimator,
+        { text: pct(a.annual_volatility) },
+        { node: bar },
+        { text: pct(a.annual_return) },
+        { text: num(a.sharpe, 3) },
+        { text: pct(a.max_drawdown) },
+        { text: num(a.mean_effective_n_bets, 2), cls: a.estimator === "diagonal" ? "dim" : "" },
+        { text: num(a.mean_turnover_traded, 3) },
+        { text: pct(a.annual_cost_drag, 2), cls: "dim" }
+      ]
+    };
+  });
+  swap($("alloc-table"), table(
+    ["Quy tắc", "Bộ ước lượng", "Biến động", "", "Lợi suất", "Sharpe", "Sụt giảm sâu nhất",
+     "Cược hiệu dụng", "Vòng quay", "Chi phí/năm"], rows));
+})();
+
+(() => {
+  const T = D.estimator_tests || [];
+  if (!T.length) return;
+  const lim = Math.max(...T.flatMap(t => [Math.abs(t.ci_lower), Math.abs(t.ci_upper)])) * 1.15;
+  const rows = T.map(t => {
+    const P = v => 50 + 50 * (v / lim);
+    const ci = el("div", { class: "ci" });
+    ci.appendChild(el("span", { class: "zero", style: "left:50%" }));
+    const a = Math.min(P(t.ci_lower), P(t.ci_upper)), b = Math.max(P(t.ci_lower), P(t.ci_upper));
+    ci.appendChild(el("span", {
+      class: "rng" + (t.significant_reduction ? " sig" : ""),
+      style: `left:${a.toFixed(2)}%;width:${(b - a).toFixed(2)}%`
+    }));
+    ci.appendChild(el("span", { class: "pt", style: `left:${P(t.volatility_difference).toFixed(2)}%` }));
+    return {
+      cells: [
+        { text: KEY_VI(t.rule), cls: "k" },
+        t.estimator,
+        { text: pct(t.volatility) },
+        { text: pct(t.baseline_volatility), cls: "dim" },
+        { text: pp(t.volatility_difference, 3), cls: t.volatility_difference < 0 ? "down" : "up" },
+        { node: ci },
+        { text: num(t.p_value, 3) },
+        { node: el("span", {
+            class: "chip " + (t.significant_reduction ? "yes" : "no"),
+            text: t.significant_reduction ? "có giảm" : "không khác biệt" }) }
+      ]
+    };
+  });
+  swap($("est-table"), table(
+    ["Quy tắc", "Bộ ước lượng", "Biến động", "So với mẫu", "Chênh lệch",
+     "Khoảng tin cậy 95% quanh 0", "p", "Kết luận"], rows));
+})();
+
+(() => {
+  const sel = $("w-key");
+  Object.keys(D.latest_weights || {}).sort().forEach(k =>
+    sel.appendChild(el("option", { value: k, text: KEY_VI(k) })));
+  if (D.latest_weights && D.latest_weights["minimum_variance__ledoit_wolf"])
+    sel.value = "minimum_variance__ledoit_wolf";
+  sel.onchange = drawWeights;
+})();
+function drawWeights() {
+  const cv = $("w-canvas");
+  const { ctx, w, h } = fitCanvas(cv);
+  if (!w) return;
+  const W = (D.latest_weights || {})[$("w-key").value] || {};
+  const items = Object.entries(W).sort((a, b) => b[1] - a[1]);
+  if (!items.length) return;
+  const box = { l: 10, r: w - 10, t: 20, b: h - 40 };
+  const maxW = Math.max(...items.map(i => i[1]), 0.01);
+  const bw = (box.r - box.l) / items.length;
+  const capped = 0.199;
+  items.forEach(([ticker, v], i) => {
+    const bh = (box.b - box.t) * (v / maxW);
+    const x = box.l + i * bw;
+    ctx.fillStyle = v >= capped
+      ? PAL["text-hi"]
+      : (PAL.isDark ? "rgba(255,255,255,0.34)" : "rgba(0,0,0,0.26)");
+    ctx.fillRect(x + 1, box.b - bh, Math.max(bw - 2, 1), bh);
+    if (v >= capped) {   // vị thế chạm trần được viền để nhận ra ngay
+      ctx.strokeStyle = PAL["text-hi"]; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, box.b - bh - 0.5, Math.max(bw - 1, 1), bh);
+    }
+    ctx.save();
+    ctx.translate(x + bw / 2, box.b + 6);
+    ctx.rotate(-Math.PI / 2.4);
+    ctx.fillStyle = PAL.muted; ctx.font = "9.5px " + PAL.mono;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(ticker, 0, 0);
+    ctx.restore();
+    if (v > maxW * 0.34) {
+      ctx.fillStyle = PAL["text-hi"]; ctx.font = "9.5px " + PAL.mono;
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(num(100 * v, 1), x + bw / 2, box.b - bh - 3);
+    }
+  });
+  ctx.fillStyle = PAL.faint; ctx.font = "10px " + PAL.mono;
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText(`${items.length} vị thế · trần 20% · tái cân bằng ${D.weights_date} · ô viền = chạm trần`,
+    box.l, 3);
+}
+
+/* ================= THẺ ĐIỀU HƯỚNG ================= */
+const VIEWS = ["overview", "network", "forecast", "allocation"];
+const shown = v => !$("view-" + v).classList.contains("hidden");
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t === tab)));
+    VIEWS.forEach(v => $("view-" + v).classList.toggle("hidden", v !== tab.dataset.view));
+    redrawAll();
+  };
+});
+function redrawAll() {
+  // Canvas nằm trong khối display:none báo chiều rộng bằng 0, nên mỗi lần
+  // vẽ đều được chặn theo khung nhìn đang hiển thị.
+  if (shown("overview")) drawHistory();
+  if (shown("network")) drawNetwork();
+  if (shown("forecast")) drawBSS();
+  if (shown("allocation")) { drawRiskReturn(); drawRollingVol(); drawWeights(); }
+}
+let resizeTimer;
+addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { netLayers = null; redrawAll(); }, 160);
+}, { passive: true });
+redrawAll();
+</script>

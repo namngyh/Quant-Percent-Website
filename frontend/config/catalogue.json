@@ -1,0 +1,2036 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "slug": "raemf-mc",
+      "name": "RAEMF-VB-MC",
+      "code": "QP-F01",
+      "markets": [
+        "VNINDEX"
+      ],
+      "category": "forecasting",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "public",
+      "featured": true,
+      "version": "0.3.0",
+      "updatedAt": "2026-07-25T00:00:00.000Z",
+      "sparkline": [
+        54.61,
+        58.95,
+        64.62
+      ],
+      "sparklineLabel": {
+        "vi": "Tỷ lệ dự báo đúng tăng hoặc giảm",
+        "en": "Correct up-or-down forecasts by period"
+      },
+      "horizons": [
+        20,
+        40,
+        60
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Ước lượng VN-Index có thể tăng hoặc giảm trong phạm vi nào ở 20, 40 và 60 phiên.",
+        "en": "Estimates how far the VN-Index could rise or fall over 20, 40 and 60 sessions."
+      },
+      "keyOutput": {
+        "vi": "Phạm vi tăng giảm và rủi ro cho 20, 40 và 60 phiên",
+        "en": "Possible returns and risks over 20, 40 and 60 sessions"
+      },
+      "description": {
+        "objective": {
+          "vi": "Ước lượng VN-Index có thể tăng hoặc giảm trong phạm vi nào sau 20, 40 và 60 phiên, đồng thời đo khả năng xảy ra các mức thua lỗ.",
+          "en": "Estimate how far VN-Index could rise or fall over 20, 40 and 60 sessions, including the chance of different loss levels."
+        },
+        "intuition": {
+          "vi": "Quan hệ giữa các biến thị trường có thể thay đổi theo từng giai đoạn. Mô hình vì vậy sử dụng trạng thái thị trường như một phần bối cảnh của dự báo.",
+          "en": "Relationships between market variables can change over time. The model therefore uses market state as part of the forecast context."
+        },
+        "modelType": {
+          "vi": "Kết hợp mô hình nhận biết trạng thái thị trường với nhiều kịch bản mô phỏng để tạo ra một phạm vi kết quả thay vì chỉ một con số.",
+          "en": "The system combines models that recognise market states with many simulated scenarios, producing a range of possible outcomes instead of one number."
+        },
+        "validation": {
+          "vi": "Kiểm tra lần lượt theo thời gian trên dữ liệu chưa dùng để xây dựng mô hình; so sánh với cách dự báo đơn giản và đo xem kết quả thực tế có nằm trong phạm vi đã dự báo hay không.",
+          "en": "The model is tested in time order on data not used to build it, compared with a simple forecast and checked against actual outcomes."
+        },
+        "outputs": {
+          "vi": [
+            "Kết quả ở trung tâm cho từng thời hạn",
+            "Phạm vi dự báo 95%",
+            "Khả năng tăng hoặc giảm",
+            "Khả năng của từng trạng thái thị trường",
+            "Mức biến động dự kiến"
+          ],
+          "en": [
+            "Central result for each period",
+            "95% forecast range",
+            "Chance of a rise or fall",
+            "Chance of each market state",
+            "Expected volatility"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Không thể dự đoán đầy đủ các sự kiện bất ngờ bên ngoài thị trường",
+            "Sai số có thể tăng ở thời hạn dài",
+            "Kết quả phụ thuộc vào chất lượng dữ liệu đầu vào"
+          ],
+          "en": [
+            "Cannot fully anticipate unexpected external events",
+            "Errors may grow over longer periods",
+            "Results depend on input data quality"
+          ]
+        }
+      },
+      "researchProfile": {
+        "slug": "raemf-mc",
+        "repoUrl": "https://github.com/namngyh/RAEMF-MC-Regime-Aware-Explainable-Multi-Horizon-Forecasting-with-Monte-Carlo-",
+        "sourceCommit": "c9c3f9082dd09cd3a23d4e62a5b80992d483fcf0",
+        "artifactDate": "2026-07-25",
+        "verdict": {
+          "eyebrow": {
+            "vi": "Kết quả chính",
+            "en": "Main result"
+          },
+          "title": {
+            "vi": "Mô hình ước lượng phạm vi kết quả tốt hơn, nhưng vẫn đánh giá rủi ro thấp hơn thực tế.",
+            "en": "The model estimates the range of outcomes better, but still understates real-world risk."
+          },
+          "body": {
+            "vi": "Phiên bản M2 dự báo phạm vi kết quả tốt hơn phiên bản chỉ đưa ra một giá trị. Tuy nhiên, phạm vi này vẫn còn hẹp: kết quả thực tế rơi ra ngoài nhiều hơn mức mong đợi và rủi ro thua lỗ lớn bị đánh giá thấp. Vì vậy, Quant Percent chỉ công bố M2 như một kết quả nghiên cứu, chưa dùng làm phiên bản mặc định.",
+            "en": "M2 estimates possible outcomes better than the version that gives a single value. Its forecast range is still too narrow: actual outcomes fall outside more often than expected and large losses are understated. Quant Percent therefore presents M2 as research, not as the default model."
+          }
+        },
+        "metrics": [
+          {
+            "label": {
+              "vi": "Dữ liệu",
+              "en": "Dataset"
+            },
+            "value": {
+              "vi": "6.306 phiên",
+              "en": "6,306 sessions"
+            },
+            "note": {
+              "vi": "VN-Index, 28/07/2000–13/07/2026",
+              "en": "VN-Index, 28 Jul 2000–13 Jul 2026"
+            }
+          },
+          {
+            "label": {
+              "vi": "Dữ liệu dùng để kiểm tra",
+              "en": "Data used for testing"
+            },
+            "value": {
+              "vi": "1.874–1.886",
+              "en": "1,874–1,886"
+            },
+            "note": {
+              "vi": "mốc dự báo cho mỗi thời hạn",
+              "en": "test points for each forecast period"
+            }
+          },
+          {
+            "label": {
+              "vi": "Tỷ lệ dự báo đúng tăng/giảm",
+              "en": "Correct up-or-down forecasts"
+            },
+            "value": {
+              "vi": "54,6–64,6%",
+              "en": "54.6–64.6%"
+            },
+            "note": {
+              "vi": "tăng dần từ 20 đến 60 phiên",
+              "en": "from 20 to 60 sessions"
+            }
+          },
+          {
+            "label": {
+              "vi": "Kết quả nằm trong phạm vi 95%",
+              "en": "Actual outcomes inside the 95% range"
+            },
+            "value": {
+              "vi": "86,2–87,1%",
+              "en": "86.2–87.1%"
+            },
+            "note": {
+              "vi": "thấp hơn mục tiêu 95%",
+              "en": "below the nominal 95% target"
+            }
+          }
+        ],
+        "method": {
+          "vi": [
+            "Mô hình xác định thị trường đang tăng, đi ngang, giảm hay căng thẳng chỉ bằng thông tin đã có tại thời điểm dự báo.",
+            "Một thành phần ước lượng mức biến động; một thành phần khác ước lượng khả năng của từng trạng thái thị trường.",
+            "Phương pháp Bayes biến phân được dùng để tạo ra nhiều kết quả có thể xảy ra, thay vì chỉ đưa ra một con số.",
+            "Mô hình được kiểm tra ba lần theo thứ tự thời gian. Các vùng dữ liệu có thể chồng lấn được loại bỏ để tránh nhìn trước tương lai."
+          ],
+          "en": [
+            "The model describes the market as rising, sideways, falling or stressed using only information available at the time.",
+            "One component estimates volatility while another estimates the chance of each market condition.",
+            "Variational Bayes creates a range of possible returns rather than a single number.",
+            "The model is tested three times in date order, with overlapping data removed to prevent looking into the future."
+          ]
+        },
+        "findings": {
+          "vi": [
+            "Cả 9 lần chạy cho ba thời hạn 20, 40 và 60 phiên đều hoàn tất ổn định.",
+            "Mô hình còn nhận biết kém các giai đoạn thị trường giảm. Xác suất trạng thái không nên được xem là tín hiệu mua bán.",
+            "Dự báo tạo ngày 13/07/2026 chưa đến đủ thời hạn để so sánh với thực tế, nên không được dùng để chứng minh hiệu quả."
+          ],
+          "en": [
+            "All nine runs across the 20, 40 and 60-session periods completed reliably.",
+            "The model still struggles to identify falling markets. Market-state probabilities are not trading signals.",
+            "Forecasts issued on 13 Jul 2026 have not reached their full periods and are not used as performance evidence."
+          ]
+        },
+        "charts": [
+          {
+            "id": "raemf-coverage",
+            "title": {
+              "vi": "Kết quả thực tế có nằm trong phạm vi dự báo không?",
+              "en": "Did actual outcomes stay inside the forecast range?"
+            },
+            "note": {
+              "vi": "Nếu phạm vi được công bố là 90% hoặc 95%, tỷ lệ thực tế cũng nên gần mức đó. Kết quả thấp hơn cho thấy phạm vi dự báo còn quá hẹp.",
+              "en": "A range labelled 90% or 95% should contain actual outcomes at about that rate. Lower results show that the range is too narrow."
+            },
+            "categories": [
+              "20",
+              "40",
+              "60"
+            ],
+            "valueSuffix": "%",
+            "minimum": 70,
+            "maximum": 100,
+            "series": [
+              {
+                "name": {
+                  "vi": "Phạm vi dự báo 90%",
+                  "en": "90% interval"
+                },
+                "data": [
+                  79.11,
+                  80.73,
+                  81.66
+                ],
+                "type": "bar",
+                "color": "#087f78"
+              },
+              {
+                "name": {
+                  "vi": "Phạm vi dự báo 95%",
+                  "en": "95% interval"
+                },
+                "data": [
+                  86.23,
+                  87.07,
+                  87.07
+                ],
+                "type": "bar",
+                "color": "#d97706"
+              }
+            ]
+          },
+          {
+            "id": "raemf-regimes",
+            "title": {
+              "vi": "Mô hình nhìn nhận thị trường ngày 13/07/2026 ra sao?",
+              "en": "How did the model view the market on 13 Jul 2026?"
+            },
+            "note": {
+              "vi": "Không trạng thái nào có xác suất vượt trội, nên kết quả được xếp là “không chắc chắn”. Biểu đồ chỉ mô tả thị trường, không phải khuyến nghị mua bán.",
+              "en": "Probabilities are dispersed and the system labels the result uncertain. This is a state description, not a trading recommendation."
+            },
+            "categories": [
+              "20",
+              "40",
+              "60"
+            ],
+            "valueSuffix": "%",
+            "minimum": 0,
+            "maximum": 100,
+            "series": [
+              {
+                "name": {
+                  "vi": "Tăng",
+                  "en": "Bull"
+                },
+                "data": [
+                  21.96,
+                  23.27,
+                  23.66
+                ],
+                "type": "bar",
+                "color": "#16805d",
+                "stack": "regime"
+              },
+              {
+                "name": {
+                  "vi": "Đi ngang",
+                  "en": "Sideway"
+                },
+                "data": [
+                  22.65,
+                  19.08,
+                  22.28
+                ],
+                "type": "bar",
+                "color": "#9caaa6",
+                "stack": "regime"
+              },
+              {
+                "name": {
+                  "vi": "Giảm",
+                  "en": "Bear"
+                },
+                "data": [
+                  23.9,
+                  22.49,
+                  18.22
+                ],
+                "type": "bar",
+                "color": "#d97706",
+                "stack": "regime"
+              },
+              {
+                "name": {
+                  "vi": "Căng thẳng",
+                  "en": "Stress"
+                },
+                "data": [
+                  31.49,
+                  35.16,
+                  35.85
+                ],
+                "type": "bar",
+                "color": "#c64032",
+                "stack": "regime"
+              }
+            ]
+          }
+        ],
+        "provenance": {
+          "vi": "Số liệu lấy từ báo cáo và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
+          "en": "Figures come from the report and result files in the repository at the cited code version. The website has not independently rerun the full model-building process."
+        }
+      }
+    },
+    {
+      "slug": "rarf-fhe",
+      "name": "RARF-FHE",
+      "code": "QP-F02",
+      "markets": [
+        "VNINDEX",
+        "VN30"
+      ],
+      "category": "forecasting",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "public",
+      "featured": true,
+      "version": "1.0.0",
+      "updatedAt": "2026-07-15T00:00:00.000Z",
+      "sparkline": [
+        1.23,
+        2.82,
+        3.99,
+        5.73,
+        8.17,
+        9.84
+      ],
+      "sparklineLabel": {
+        "vi": "Sai số dự báo theo từng thời hạn",
+        "en": "Forecast error by period"
+      },
+      "horizons": [
+        1,
+        5,
+        10,
+        20,
+        40,
+        60
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Dự báo VN-Index, tự chuyển về phương án đơn giản khi mô hình học máy chưa đủ tốt.",
+        "en": "Forecasts the VN-Index and falls back to a simple method when machine learning is not good enough."
+      },
+      "keyOutput": {
+        "vi": "Phạm vi dự báo và khả năng giảm từ đỉnh của VN-Index",
+        "en": "Forecast ranges and chances of a decline from peak"
+      },
+      "description": {
+        "objective": {
+          "vi": "Dự báo VN-Index theo nhiều thời hạn, đồng thời ước lượng phạm vi kết quả và khả năng giảm từ đỉnh.",
+          "en": "Forecast VN-Index over several periods, including a possible range and the chance of a decline from a previous peak."
+        },
+        "intuition": {
+          "vi": "Việc theo dõi mức đóng góp của từng nhóm dữ liệu giúp người đọc hiểu cơ sở của dự báo. Mức đóng góp không đồng nghĩa với quan hệ nhân quả.",
+          "en": "Tracking each factor group's contribution helps readers understand the basis of a forecast. Contribution does not imply causation."
+        },
+        "modelType": {
+          "vi": "Mô hình rừng ngẫu nhiên (Random Forest) được so sánh với một cách dự báo cơ sở. Hệ thống tự dùng phương án đơn giản nếu học máy chưa tốt hơn.",
+          "en": "A Random Forest is compared with a simple reference forecast. The system automatically uses the simpler option when machine learning is not better."
+        },
+        "validation": {
+          "vi": "Dữ liệu được chia đúng theo thời gian. Mô hình chỉ học từ quá khứ rồi mới được thử trên giai đoạn tiếp theo.",
+          "en": "Data is divided in time order. The model learns only from the past and is then tested on the following period."
+        },
+        "outputs": {
+          "vi": [
+            "Dự báo theo từng thời hạn",
+            "Phạm vi kết quả",
+            "Khả năng giảm từ đỉnh",
+            "Trạng thái thị trường"
+          ],
+          "en": [
+            "Forecast for each period",
+            "Possible outcome range",
+            "Chance of a decline from peak",
+            "Market state"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Giải thích ở mức nhóm đặc trưng, không phải quan hệ nhân quả",
+            "Nhạy với thay đổi cấu trúc thị trường"
+          ],
+          "en": [
+            "Explanations are at factor-group level, not causal",
+            "Sensitive to structural market changes"
+          ]
+        }
+      },
+      "researchProfile": {
+        "slug": "rarf-fhe",
+        "repoUrl": "https://github.com/namngyh/RARF-FHE-Regime-Aware-Random-Forest-Forecasting-Hybrid-Engine",
+        "sourceCommit": "6215511c84f02b356135d959883459c8e8f565fe",
+        "artifactDate": "2026-07-15",
+        "verdict": {
+          "eyebrow": {
+            "vi": "Kết quả chính",
+            "en": "Main result"
+          },
+          "title": {
+            "vi": "Hệ thống kiểm soát rủi ro hoạt động tốt, nhưng mô hình học máy chưa dự báo tốt hơn cách đơn giản.",
+            "en": "The risk controls work, but machine learning has not beaten a simple forecast."
+          },
+          "body": {
+            "vi": "Ở thời hạn chính 20 phiên, hệ thống nhận thấy mô hình học máy không tốt hơn cách dự báo cơ sở nên tự động quay về phương án đơn giản hơn. Cơ chế này giúp tránh sử dụng một mô hình chưa đủ tốt. Sau khi hiệu chỉnh, khoảng dự báo đáng tin cậy hơn nhưng cũng rộng hơn.",
+            "en": "For the main 20-session period, the system found that machine learning was not better and switched to a simpler forecast. This safeguard avoids relying on a model that has not proved its value. After adjustment, the forecast range was more reliable but also wider."
+          }
+        },
+        "metrics": [
+          {
+            "label": {
+              "vi": "Dữ liệu",
+              "en": "Dataset"
+            },
+            "value": {
+              "vi": "6.306 phiên",
+              "en": "6,306 sessions"
+            },
+            "note": {
+              "vi": "VN-Index, 28/07/2000–13/07/2026",
+              "en": "VN-Index, 28 Jul 2000–13 Jul 2026"
+            }
+          },
+          {
+            "label": {
+              "vi": "Tiêu chí đã đạt",
+              "en": "Checks passed"
+            },
+            "value": {
+              "vi": "7/9",
+              "en": "7/9"
+            },
+            "note": {
+              "vi": "tiêu chí kiểm tra; bản A0 vẫn được giữ",
+              "en": "7 of 9 checks passed; the safer version was kept"
+            }
+          },
+          {
+            "label": {
+              "vi": "Kết quả nằm trong phạm vi 95%",
+              "en": "Actual outcomes inside the 95% range"
+            },
+            "value": {
+              "vi": "95,26%",
+              "en": "95.26%"
+            },
+            "note": {
+              "vi": "sau hiệu chỉnh, từ mức 86,29%",
+              "en": "after adjustment, up from 86.29%"
+            }
+          },
+          {
+            "label": {
+              "vi": "Mô phỏng gần nhất",
+              "en": "Latest simulation"
+            },
+            "value": {
+              "vi": "40.000",
+              "en": "40,000"
+            },
+            "note": {
+              "vi": "kịch bản giá cho thời hạn 20 phiên",
+              "en": "price paths over 20 sessions"
+            }
+          }
+        ],
+        "method": {
+          "vi": [
+            "Hệ thống xác định trạng thái và mức biến động của thị trường chỉ bằng dữ liệu đã có tại thời điểm dự báo.",
+            "Mô hình rừng ngẫu nhiên (Random Forest) dự báo cho sáu thời hạn và luôn được so sánh với một cách dự báo cơ sở đơn giản.",
+            "Một bước hiệu chỉnh thống kê giúp phạm vi dự báo phản ánh sát hơn mức độ không chắc chắn thực tế.",
+            "Hàng chục nghìn kịch bản được mô phỏng để ước lượng khả năng thua lỗ lớn và mức giảm từ đỉnh."
+          ],
+          "en": [
+            "The system identifies the market state and expected volatility using only information available at the forecast date.",
+            "A Random Forest makes forecasts for six time periods and is always compared with a simple reference method.",
+            "A statistical adjustment helps the forecast range reflect real-world uncertainty more closely.",
+            "Tens of thousands of scenarios estimate the chance of a large loss and a decline from a previous peak."
+          ]
+        },
+        "findings": {
+          "vi": [
+            "Sai số tăng khi thời hạn dài hơn. Biểu đồ thể hiện kết quả của cách dự báo cơ sở được hệ thống chọn, không phải thành tích riêng của Random Forest.",
+            "Mô phỏng ngày 13/07/2026 ước tính khả năng VN-Index giảm hơn 5% từ đỉnh trong 20 phiên là 35,03%. Đây là xác suất mô phỏng, không phải điều chắc chắn xảy ra.",
+            "Kết quả dựa trên giả định các biến động từng xảy ra trong quá khứ vẫn còn hữu ích cho tương lai. Độ chính xác có thể giảm khi thị trường thay đổi mạnh."
+          ],
+          "en": [
+            "Forecast error increases over longer periods. The chart shows the simple method selected by the system, not the Random Forest on its own.",
+            "The 13 Jul 2026 simulation estimated a 35.03% chance that VN-Index would fall more than 5% from a peak within 20 sessions. This is a simulated probability, not a certainty.",
+            "The result assumes that past market movements remain useful for understanding the future. Accuracy may fall when the market changes sharply."
+          ]
+        },
+        "charts": [
+          {
+            "id": "rarf-rmse",
+            "title": {
+              "vi": "Sai số dự báo tăng thế nào khi nhìn xa hơn?",
+              "en": "How does forecast error grow over longer periods?"
+            },
+            "note": {
+              "vi": "Đơn vị là phần trăm thay đổi của VN-Index. Ở thời hạn chính, hệ thống chọn cách dự báo cơ sở vì Random Forest chưa cho kết quả tốt hơn.",
+              "en": "Values are percentage changes in VN-Index. For the main period, the system selected the simple reference method because the Random Forest was not better."
+            },
+            "categories": [
+              "1",
+              "5",
+              "10",
+              "20",
+              "40",
+              "60"
+            ],
+            "valueSuffix": "%",
+            "minimum": 0,
+            "series": [
+              {
+                "name": {
+                  "vi": "Sai số dự báo (RMSE)",
+                  "en": "Forecast error (RMSE)"
+                },
+                "data": [
+                  1.23,
+                  2.82,
+                  3.99,
+                  5.73,
+                  8.17,
+                  9.84
+                ],
+                "type": "line",
+                "color": "#087f78"
+              }
+            ]
+          },
+          {
+            "id": "rarf-drawdown",
+            "title": {
+              "vi": "Khả năng giảm từ đỉnh trong mô phỏng gần nhất",
+              "en": "What was the chance of a decline from a peak in the latest simulation?"
+            },
+            "note": {
+              "vi": "Mỗi cột cho biết khả năng VN-Index giảm quá một ngưỡng nhất định so với đỉnh, trong 5, 10 hoặc 20 phiên kể từ ngày 13/07/2026.",
+              "en": "Each bar shows the chance that VN-Index falls beyond a stated level from a previous peak within 5, 10 or 20 sessions from 13 Jul 2026."
+            },
+            "categories": [
+              "3%",
+              "5%",
+              "7%",
+              "10%",
+              "15%"
+            ],
+            "valueSuffix": "%",
+            "minimum": 0,
+            "series": [
+              {
+                "name": {
+                  "vi": "Trong 5 phiên",
+                  "en": "Within 5 sessions"
+                },
+                "data": [
+                  17.72,
+                  4.2,
+                  0.79,
+                  0.02,
+                  0
+                ],
+                "type": "bar",
+                "color": "#9caaa6"
+              },
+              {
+                "name": {
+                  "vi": "Trong 10 phiên",
+                  "en": "Within 10 sessions"
+                },
+                "data": [
+                  39.22,
+                  14.2,
+                  4.32,
+                  0.5,
+                  0.01
+                ],
+                "type": "bar",
+                "color": "#d97706"
+              },
+              {
+                "name": {
+                  "vi": "Trong 20 phiên",
+                  "en": "Within 20 sessions"
+                },
+                "data": [
+                  67.81,
+                  35.03,
+                  15.87,
+                  3.78,
+                  0.19
+                ],
+                "type": "bar",
+                "color": "#c64032"
+              }
+            ]
+          }
+        ],
+        "provenance": {
+          "vi": "Số liệu lấy từ báo cáo và các bảng kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
+          "en": "Figures come from the reports and result tables in the repository at the cited code version. The website has not independently rerun the full model-building process."
+        }
+      }
+    },
+    {
+      "slug": "dynamic-graph",
+      "name": "DynamicGraph",
+      "code": "QP-R02",
+      "markets": [
+        "VN30"
+      ],
+      "category": "risk",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "public",
+      "featured": true,
+      "version": "0.1.0",
+      "updatedAt": "2026-07-29T00:00:00.000Z",
+      "sparkline": [
+        82.47,
+        80.37,
+        83.83,
+        81.72,
+        86.08,
+        83.77,
+        83.5,
+        86.24,
+        83.35,
+        85.35,
+        80.71,
+        84.62
+      ],
+      "sparklineLabel": {
+        "vi": "Mức liên kết giữa các cổ phiếu gần đây",
+        "en": "Recent connection level among stocks"
+      },
+      "horizons": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Cho biết các cổ phiếu VN30 đang liên kết với nhau ra sao và khi nào khả năng đa dạng hóa suy giảm.",
+        "en": "Shows how VN30 stocks move together and when diversification may weaken."
+      },
+      "keyOutput": {
+        "vi": "Bản đồ liên kết cổ phiếu và mức căng thẳng của VN30",
+        "en": "Stock connection map and VN30 stress level"
+      },
+      "description": {
+        "objective": {
+          "vi": "Mô tả cấu trúc phụ thuộc biến đổi theo thời gian giữa các cổ phiếu VN30 sau khi loại ảnh hưởng chung của thị trường.",
+          "en": "Describe time-varying dependence among VN30 stocks after removing their shared market component."
+        },
+        "intuition": {
+          "vi": "Khi nhiều cổ phiếu liên kết chặt hơn, khả năng đa dạng hóa có thể suy giảm. Mạng giúp quan sát hiện tượng này nhưng không cho biết giá sẽ tăng hay giảm.",
+          "en": "When stocks become more tightly connected, diversification may weaken. The network observes this structure but does not predict price direction."
+        },
+        "modelType": {
+          "vi": "Mạng tương quan riêng phần 60 phiên, ước lượng bằng Ledoit–Wolf và Graphical Lasso, kèm chỉ số độ trung tâm và cộng đồng.",
+          "en": "A 60-session relationship map, using established statistical methods to identify strongly connected stocks and groups."
+        },
+        "validation": {
+          "vi": "Mô hình được kiểm tra 20 lần theo thứ tự thời gian, có khoảng cách giữa dữ liệu học và dữ liệu kiểm tra để tránh nhìn trước. Phần dự báo căng thẳng chưa tốt hơn cách dự báo đơn giản.",
+          "en": "The model was tested 20 times in chronological order, with gaps between learning and test data to prevent looking ahead. Its stress forecast did not beat a simple method."
+        },
+        "outputs": {
+          "vi": [
+            "Mạng phụ thuộc VN30",
+            "Điểm căng thẳng cấu trúc",
+            "Độ trung tâm của từng cổ phiếu",
+            "Cụm cổ phiếu liên kết"
+          ],
+          "en": [
+            "VN30 dependency network",
+            "Structural stress score",
+            "Stock centrality",
+            "Dependency communities"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Không dự báo giá và không chứng minh quan hệ nguyên nhân–kết quả",
+            "Dùng danh sách VN30 hiện tại cho cả dữ liệu quá khứ nên có thể bỏ sót các cổ phiếu đã bị loại",
+            "Phần dự báo căng thẳng chưa tốt hơn cách dùng tần suất lịch sử"
+          ],
+          "en": [
+            "Does not forecast price or establish causality",
+            "Uses the current VN30 list historically and therefore has survivorship bias",
+            "Stress forecasting has not beaten historical frequency"
+          ]
+        }
+      },
+      "researchProfile": {
+        "slug": "dynamic-graph",
+        "repoUrl": "https://github.com/namngyh/Dynamic-Graph",
+        "sourceCommit": "bde76b714b05fed4b3ff1becdf420ad0e390844d",
+        "artifactDate": "2026-07-29",
+        "verdict": {
+          "eyebrow": {
+            "vi": "Kết quả chính",
+            "en": "Main result"
+          },
+          "title": {
+            "vi": "Hữu ích để xem các cổ phiếu VN30 đang liên kết với nhau ra sao, nhưng không dùng để dự báo giá.",
+            "en": "Useful for seeing how VN30 stocks move together, but not for predicting prices."
+          },
+          "body": {
+            "vi": "DynamicGraph cho biết cổ phiếu nào thường biến động cùng nhau và mức độ thị trường đang tập trung vào một số nhóm cổ phiếu. Khi được thử trên dữ liệu mới, phần dự báo căng thẳng không tốt hơn cách dùng tần suất lịch sử. Vì vậy, công cụ này chỉ dùng để quan sát cấu trúc thị trường, không đưa ra dự báo giá hay tín hiệu mua bán.",
+            "en": "DynamicGraph shows which stocks often move together and whether the market is becoming concentrated in a few groups. On newer test data, its stress forecast was not better than a simple method based on historical frequency. The website therefore uses it only to observe market structure, not to predict prices or give buy and sell signals."
+          }
+        },
+        "metrics": [
+          {
+            "label": {
+              "vi": "Phạm vi",
+              "en": "Coverage"
+            },
+            "value": {
+              "vi": "30 cổ phiếu",
+              "en": "30 stocks"
+            },
+            "note": {
+              "vi": "danh sách VN30 hiện tại, cộng chỉ số VN30",
+              "en": "current VN30 constituents plus the VN30 index"
+            }
+          },
+          {
+            "label": {
+              "vi": "Điểm căng thẳng",
+              "en": "Stress score"
+            },
+            "value": {
+              "vi": "84,62/100",
+              "en": "84.62/100"
+            },
+            "note": {
+              "vi": "ngày 24/07/2026, trạng thái căng thẳng cao",
+              "en": "24 Jul 2026, high-stress state"
+            }
+          },
+          {
+            "label": {
+              "vi": "So với lịch sử",
+              "en": "Compared with history"
+            },
+            "value": {
+              "vi": "92,82%",
+              "en": "92.82%"
+            },
+            "note": {
+              "vi": "so với lịch sử có sẵn",
+              "en": "relative to available history"
+            }
+          },
+          {
+            "label": {
+              "vi": "Dữ liệu dùng để kiểm tra",
+              "en": "Test data"
+            },
+            "value": {
+              "vi": "1.323 ngày",
+              "en": "1,323 days"
+            },
+            "note": {
+              "vi": "20 lần chia theo thời gian, có khoảng cách chống nhìn trước",
+              "en": "20 time-based tests, with gaps to prevent looking ahead"
+            }
+          }
+        ],
+        "method": {
+          "vi": [
+            "Trước tiên, mô hình loại bớt ảnh hưởng chung của toàn thị trường để tập trung vào mối liên hệ riêng giữa từng cặp cổ phiếu.",
+            "Dữ liệu 60 phiên gần nhất được dùng để tạo một bản đồ: cổ phiếu là các điểm, mối liên hệ đủ mạnh là các đường nối.",
+            "Từ bản đồ này, mô hình đo cổ phiếu nào có nhiều ảnh hưởng trong mạng, nhóm nào đang liên kết chặt và mức căng thẳng chung.",
+            "Khi kiểm tra theo thời gian, mọi phép tính chỉ dùng dữ liệu có trước ngày đánh giá để tránh nhìn trước tương lai."
+          ],
+          "en": [
+            "The model first removes some of the broad market effect so it can focus on the relationship between each pair of stocks.",
+            "The latest 60 sessions are used to build a map: stocks are points and sufficiently strong relationships are connecting lines.",
+            "The map is used to measure which stocks are highly connected, which groups move closely together and how concentrated the market is.",
+            "Every time-based test uses only information available before the evaluation date."
+          ]
+        },
+        "findings": {
+          "vi": [
+            "Ngày 24/07/2026, VIC, FPT và VHM là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
+            "Trong thử nghiệm phân bổ, cách ưu tiên giảm biến động đạt mức biến động năm 16,44%, thấp hơn mức 20,34% của danh mục chia đều. Tuy nhiên, riêng kỹ thuật Graphical Lasso chưa cho thấy lợi ích rõ ràng.",
+            "Thử nghiệm dùng danh sách VN30 hiện tại cho cả dữ liệu quá khứ, nên có thể bỏ sót các cổ phiếu từng bị loại khỏi VN30. Kết quả chưa thể xem là một chiến lược có thể giao dịch thực tế."
+          ],
+          "en": [
+            "VIC, FPT and VHM were the three most connected stocks in the network on 24 Jul 2026. Being highly connected does not mean their prices will rise.",
+            "In the allocation test, the approach focused on reducing fluctuations recorded 16.44% annual volatility, compared with 20.34% for an equally weighted portfolio. The Graphical Lasso technique did not show a clear additional benefit.",
+            "The test applies today's VN30 list to past data, so it may omit stocks that previously left the index. The result should not be treated as a ready-to-trade strategy."
+          ]
+        },
+        "charts": [
+          {
+            "id": "dynamic-stress",
+            "title": {
+              "vi": "Mức liên kết và căng thẳng của VN30 gần đây",
+              "en": "Recent connection and stress level in VN30"
+            },
+            "note": {
+              "vi": "Điểm cao cho thấy các cổ phiếu đang liên kết chặt hơn hoặc khả năng đa dạng hóa đang giảm. Đây không phải xác suất thị trường đi xuống.",
+              "en": "A high score means stocks are more tightly connected or diversification may be weaker. It is not the probability of a market decline."
+            },
+            "categories": [
+              "09/07",
+              "10/07",
+              "13/07",
+              "14/07",
+              "15/07",
+              "16/07",
+              "17/07",
+              "20/07",
+              "21/07",
+              "22/07",
+              "23/07",
+              "24/07"
+            ],
+            "valueSuffix": "/100",
+            "minimum": 70,
+            "maximum": 100,
+            "series": [
+              {
+                "name": {
+                  "vi": "Điểm căng thẳng",
+                  "en": "Stress score"
+                },
+                "data": [
+                  82.47,
+                  80.37,
+                  83.83,
+                  81.72,
+                  86.08,
+                  83.77,
+                  83.5,
+                  86.24,
+                  83.35,
+                  85.35,
+                  80.71,
+                  84.62
+                ],
+                "type": "line",
+                "color": "#d97706"
+              }
+            ]
+          },
+          {
+            "id": "dynamic-skill",
+            "title": {
+              "vi": "Phần dự báo có tốt hơn cách đơn giản không?",
+              "en": "Did the forecast beat a simple method?"
+            },
+            "note": {
+              "vi": "Mức trên 0% mới tốt hơn cách dự báo dựa trên tần suất lịch sử. Tất cả thời hạn đều dưới 0%, nên phần này chưa đủ tốt để sử dụng như một sản phẩm dự báo.",
+              "en": "Only values above 0% would beat a forecast based on historical frequency. Every period is below 0%, so this part is not presented as a forecasting product."
+            },
+            "categories": [
+              "5",
+              "10",
+              "20",
+              "40"
+            ],
+            "valueSuffix": "%",
+            "minimum": -75,
+            "maximum": 5,
+            "baseline": 0,
+            "series": [
+              {
+                "name": {
+                  "vi": "Mức cải thiện so với cách đơn giản",
+                  "en": "Improvement over the simple method"
+                },
+                "data": [
+                  -12.16,
+                  -54.76,
+                  -61.82,
+                  -66.83
+                ],
+                "type": "bar",
+                "color": "#c64032"
+              }
+            ]
+          }
+        ],
+        "visual": {
+          "src": "/research/dynamic-graph-network.png",
+          "alt": {
+            "vi": "Bản đồ mối liên hệ mới nhất giữa các cổ phiếu VN30",
+            "en": "Latest map of relationships among VN30 stocks"
+          },
+          "caption": {
+            "vi": "Mỗi vòng tròn là một cổ phiếu, mỗi đường nối thể hiện hai cổ phiếu có mối liên hệ đáng chú ý sau khi đã loại bớt ảnh hưởng chung của thị trường. Mối liên hệ không có nghĩa một cổ phiếu gây ra biến động ở cổ phiếu khác.",
+            "en": "Each circle is a stock. Each line marks a notable relationship after reducing the broad market effect. A connection does not mean that one stock causes another to move."
+          }
+        },
+        "provenance": {
+          "vi": "Số liệu lấy từ báo cáo và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
+          "en": "Figures come from the reports and result files in the repository at the cited code version. The website has not independently rerun the full model-building process."
+        }
+      }
+    },
+    {
+      "slug": "msdp",
+      "name": "MSDP",
+      "code": "QP-F03",
+      "markets": [
+        "VNINDEX"
+      ],
+      "category": "forecasting",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "public",
+      "featured": true,
+      "version": "0.1.0",
+      "updatedAt": "2026-07-22T00:00:00.000Z",
+      "sparkline": [
+        90.24,
+        88.55,
+        87.95
+      ],
+      "sparklineLabel": {
+        "vi": "Độ tin cậy của phạm vi dự báo",
+        "en": "Reliability of the forecast range"
+      },
+      "horizons": [
+        5,
+        20,
+        60
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Ước lượng phạm vi tăng giảm, mức giảm từ đỉnh và biến động của VN-Index ở nhiều thời hạn.",
+        "en": "Estimates possible VN-Index returns, declines from peak and volatility over several periods."
+      },
+      "keyOutput": {
+        "vi": "Khả năng tăng, phạm vi kết quả và rủi ro giảm giá",
+        "en": "Chance of rising, possible outcomes and downside risk"
+      },
+      "description": {
+        "objective": {
+          "vi": "Ước lượng phạm vi VN-Index có thể tăng hoặc giảm sau 5, 20 và 60 phiên thay vì chỉ đưa ra một con số.",
+          "en": "Estimate how far VN-Index could rise or fall over 5, 20 and 60 sessions instead of giving only one number."
+        },
+        "intuition": {
+          "vi": "Nhịp ngắn, trung, dài và biến động có thể chứa thông tin khác nhau. Mô hình học cách phối hợp bốn góc nhìn riêng cho từng thời hạn.",
+          "en": "Short, medium, long and volatility views can carry different information. The model learns a separate mix for each horizon."
+        },
+        "modelType": {
+          "vi": "Bốn thành phần quan sát thị trường ở các khoảng thời gian khác nhau. Kết quả được hiệu chỉnh để phạm vi dự báo sát thực tế hơn.",
+          "en": "Four components observe the market over different periods. The result is adjusted so the forecast range better matches real outcomes."
+        },
+        "validation": {
+          "vi": "Dữ liệu được chia theo thời gian thành phần xây dựng, hiệu chỉnh và kiểm tra. Mô hình được thử với 50 phương án, chạy lại 3 lần và lấy mẫu lại 1.000 lần để đo độ ổn định.",
+          "en": "Data is divided in time order for building, adjusting and testing. The model tried 50 settings, was run three times and checked with 1,000 repeated samples."
+        },
+        "outputs": {
+          "vi": [
+            "Phạm vi tăng hoặc giảm",
+            "Khả năng VN-Index tăng",
+            "Mức giảm từ đỉnh có thể xảy ra",
+            "Mức biến động dự kiến",
+            "Mức đóng góp của bốn thành phần"
+          ],
+          "en": [
+            "Possible rise or fall range",
+            "Chance that VN-Index rises",
+            "Possible decline from peak",
+            "Expected volatility",
+            "Contribution of four components"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Chưa chứng minh được ưu thế dự báo điểm",
+            "Khoảng dự báo dài hạn rất rộng",
+            "Quy trình huấn luyện lại production và hiệu chỉnh OOF chưa hoàn tất"
+          ],
+          "en": [
+            "Not yet proven better at predicting one number",
+            "Long-term forecast ranges are very wide",
+            "Full retraining and final operational checks are incomplete"
+          ]
+        }
+      },
+      "researchProfile": {
+        "slug": "msdp",
+        "repoUrl": "https://github.com/namngyh/MSDP-Multi-Scale-Distributional-Predictor-for-VN-Index",
+        "sourceCommit": "8c359449bb018b0ab13255c0f3e0c3a761b814a0",
+        "artifactDate": "2026-07-22",
+        "runId": "20260722_154609_gpu",
+        "verdict": {
+          "eyebrow": {
+            "vi": "Kết quả chính",
+            "en": "Main result"
+          },
+          "title": {
+            "vi": "Hữu ích để ước lượng phạm vi và rủi ro, nhưng chưa dự báo một con số tốt hơn các cách đơn giản.",
+            "en": "Useful for estimating a range and risk, but not yet better at predicting one number."
+          },
+          "body": {
+            "vi": "MSDP cho kết quả tốt hơn ở một số phép đo, nhưng khi kiểm tra độ ổn định, chưa thể khẳng định sai số dự báo trung bình tốt hơn các cách đơn giản. Bằng chứng rõ hơn chỉ xuất hiện ở một vài trường hợp: dự báo 5 phiên, phạm vi kết quả 20 phiên và khả năng tăng trong 5 phiên.",
+            "en": "MSDP performs better on several measures, but stability checks do not yet show that its average forecast error is clearly lower than simple methods. Stronger evidence appears only in a few cases: the 5-session forecast, the 20-session outcome range and the chance of a rise over 5 sessions."
+          }
+        },
+        "metrics": [
+          {
+            "label": {
+              "vi": "Dữ liệu kiểm tra cuối",
+              "en": "Final test data"
+            },
+            "value": {
+              "vi": "830 mốc",
+              "en": "830 test points"
+            },
+            "note": {
+              "vi": "không dùng để điều chỉnh mô hình",
+              "en": "not used to adjust the model"
+            }
+          },
+          {
+            "label": {
+              "vi": "Số phương án đã thử",
+              "en": "Settings tried"
+            },
+            "value": {
+              "vi": "50 lần",
+              "en": "50 trials"
+            },
+            "note": {
+              "vi": "4 lần chia dữ liệu theo thời gian",
+              "en": "4 time-based data splits"
+            }
+          },
+          {
+            "label": {
+              "vi": "Độ ổn định",
+              "en": "Stability"
+            },
+            "value": {
+              "vi": "3 lần chạy",
+              "en": "3 runs"
+            },
+            "note": {
+              "vi": "1.000 lần lấy mẫu lại để kiểm tra",
+              "en": "1,000 repeated samples for stability checks"
+            }
+          },
+          {
+            "label": {
+              "vi": "Kết quả nằm trong phạm vi dự báo",
+              "en": "Actual outcomes inside the forecast range"
+            },
+            "value": {
+              "vi": "88,0–90,2%",
+              "en": "88.0–90.2%"
+            },
+            "note": {
+              "vi": "so với mục tiêu 90%",
+              "en": "compared with the 90% target"
+            }
+          }
+        ],
+        "method": {
+          "vi": [
+            "Bốn thành phần cùng quan sát thị trường ở góc nhìn ngắn hạn, trung hạn, dài hạn và mức biến động.",
+            "Với mỗi thời hạn 5, 20 hoặc 60 phiên, mô hình tự chọn mức đóng góp của từng thành phần.",
+            "Kết quả gồm khả năng tăng, phạm vi lợi suất có thể xảy ra, mức giảm từ đỉnh và mức biến động dự kiến.",
+            "Một bước hiệu chỉnh thống kê giúp phạm vi dự báo sát thực tế hơn. Bộ dữ liệu kiểm tra cuối không được dùng để điều chỉnh mô hình."
+          ],
+          "en": [
+            "Four components examine the market from short-term, medium-term, long-term and volatility perspectives.",
+            "For each period of 5, 20 or 60 sessions, the model decides how much each component should contribute.",
+            "Results include the chance of a rise, a possible return range, the decline from a previous peak and expected volatility.",
+            "A statistical adjustment makes the forecast range more realistic. The final test data is kept separate from model adjustments."
+          ]
+        },
+        "findings": {
+          "vi": [
+            "Cách mô hình tự chia trọng số chỉ tốt hơn nhẹ so với việc chia đều cho bốn thành phần.",
+            "Phạm vi dự báo rộng lên nhanh khi nhìn xa hơn. Điều này thể hiện mức độ không chắc chắn, không phải xác suất mô hình dự báo đúng.",
+            "Quá trình huấn luyện lại và kiểm tra đầy đủ trước khi vận hành chưa hoàn tất. Kết quả hiện vẫn ở giai đoạn nghiên cứu."
+          ],
+          "en": [
+            "The model's automatic weighting was only slightly better than giving equal weight to all four components.",
+            "The forecast range widens quickly over longer periods. This shows uncertainty; it is not the probability that the forecast is correct.",
+            "The full retraining and final operational checks are not complete. The current result remains at the research stage."
+          ]
+        },
+        "charts": [
+          {
+            "id": "msdp-coverage",
+            "title": {
+              "vi": "Hiệu chỉnh có giúp phạm vi dự báo đáng tin hơn không?",
+              "en": "Did adjustment make the forecast range more reliable?"
+            },
+            "note": {
+              "vi": "Sau hiệu chỉnh, tỷ lệ kết quả thực tế nằm trong phạm vi dự báo gần mục tiêu 90% hơn. Đổi lại, phạm vi dự báo rộng hơn.",
+              "en": "After adjustment, the share of actual outcomes inside the forecast range moved closer to the 90% target. The trade-off is a wider range."
+            },
+            "categories": [
+              "5",
+              "20",
+              "60"
+            ],
+            "valueSuffix": "%",
+            "minimum": 80,
+            "maximum": 95,
+            "baseline": 90,
+            "series": [
+              {
+                "name": {
+                  "vi": "Trước hiệu chỉnh",
+                  "en": "Before adjustment"
+                },
+                "data": [
+                  87.83,
+                  86.75,
+                  86.14
+                ],
+                "type": "bar",
+                "color": "#9caaa6"
+              },
+              {
+                "name": {
+                  "vi": "Sau hiệu chỉnh",
+                  "en": "After adjustment"
+                },
+                "data": [
+                  90.24,
+                  88.55,
+                  87.95
+                ],
+                "type": "bar",
+                "color": "#087f78"
+              }
+            ]
+          },
+          {
+            "id": "msdp-latest",
+            "title": {
+              "vi": "VN-Index có thể tăng hoặc giảm bao nhiêu từ ngày 13/07/2026?",
+              "en": "How far could VN-Index rise or fall from 13 Jul 2026?"
+            },
+            "note": {
+              "vi": "Đường giữa là kết quả ở trung tâm; hai đường ngoài là phạm vi sau hiệu chỉnh. Ba điểm chỉ thể hiện kết quả ở từng thời hạn, không phải đường đi tương lai của VN-Index.",
+              "en": "The middle line is the central result and the outer lines show the adjusted range. These are results for separate time periods, not a predicted future path for VN-Index."
+            },
+            "categories": [
+              "5",
+              "20",
+              "60"
+            ],
+            "valueSuffix": "%",
+            "minimum": -25,
+            "maximum": 25,
+            "baseline": 0,
+            "series": [
+              {
+                "name": {
+                  "vi": "Mức thấp của phạm vi",
+                  "en": "Lower end of range"
+                },
+                "data": [
+                  -5.93,
+                  -11.88,
+                  -21.19
+                ],
+                "type": "line",
+                "color": "#c64032"
+              },
+              {
+                "name": {
+                  "vi": "Kết quả ở trung tâm",
+                  "en": "Central result"
+                },
+                "data": [
+                  -0.5,
+                  -0.96,
+                  -1.56
+                ],
+                "type": "line",
+                "color": "#0d1110"
+              },
+              {
+                "name": {
+                  "vi": "Mức cao của phạm vi",
+                  "en": "Upper end of range"
+                },
+                "data": [
+                  4.03,
+                  9.68,
+                  18.74
+                ],
+                "type": "line",
+                "color": "#16805d"
+              }
+            ]
+          }
+        ],
+        "provenance": {
+          "vi": "Số liệu lấy từ lần chạy GPU ngày 22/07/2026 và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Báo cáo thử nhanh cũ không được dùng. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
+          "en": "Figures come from the completed GPU test and result files in the repository at the cited code version. An older quick test was excluded. The website has not independently rerun the full model-building process."
+        }
+      }
+    },
+    {
+      "slug": "model-modus",
+      "name": "Model Modus",
+      "code": "QP-T01",
+      "markets": [
+        "VN30F1M"
+      ],
+      "category": "trading_system",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "public",
+      "featured": false,
+      "version": "2.1.0",
+      "horizons": [
+        1
+      ],
+      "show_performance": true,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "strategySlug": "vn30f1m-walk-forward",
+      "tagline": {
+        "vi": "Hệ thống giao dịch có quy tắc cho hợp đồng tương lai VN30F1M, hiện mới được thử nghiệm trên dữ liệu quá khứ.",
+        "en": "A rule-based VN30F1M futures system currently tested only on historical data."
+      },
+      "keyOutput": {
+        "vi": "Kết quả của ba lần thử nghiệm độc lập",
+        "en": "Results from three independent tests"
+      },
+      "description": {
+        "objective": {
+          "vi": "Giao dịch có hệ thống hợp đồng tương lai VN30F1M trong ngày với quản trị rủi ro thích ứng.",
+          "en": "Systematic intraday trading of VN30F1M futures with adaptive risk management."
+        },
+        "intuition": {
+          "vi": "Hệ thống sử dụng cùng một bộ quy tắc để xử lý dữ liệu và quản trị rủi ro, nhằm giảm sự thiếu nhất quán trong quyết định giao dịch.",
+          "en": "The system applies the same rules to data processing and risk management to reduce inconsistency in trading decisions."
+        },
+        "modelType": {
+          "vi": "Hệ thống gồm ba phần chính: đọc tín hiệu thị trường, quyết định giao dịch và kiểm soát rủi ro. Quy tắc mua bán chi tiết không được công khai.",
+          "en": "The system has three main parts: reading market signals, making trade decisions and controlling risk. Detailed trading rules are not published."
+        },
+        "validation": {
+          "vi": "Hệ thống được thử trên các năm dữ liệu chưa dùng để xây dựng mô hình và được chạy lại 50 lần để xem kết quả có ổn định hay không. Mô phỏng có tính đến giá mở cửa vượt mức dừng lỗ, phiên ATC, ngày đáo hạn và chi phí giao dịch.",
+          "en": "The system was tested on years not used to build the model and run 50 times to check stability. The simulation includes opening prices beyond stop levels, ATC sessions, expiry days and transaction costs."
+        },
+        "outputs": {
+          "vi": [
+            "Đường tăng trưởng vốn",
+            "Mức giảm từ đỉnh",
+            "Phân bố lợi nhuận từng lệnh",
+            "Chỉ số rủi ro",
+            "Ảnh hưởng của chi phí giao dịch"
+          ],
+          "en": [
+            "Portfolio value over time",
+            "Decline from peak",
+            "Profit or loss for each trade",
+            "Risk measures",
+            "Effect of transaction costs"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Không công khai tín hiệu vào lệnh, vị thế hiện tại, tham số hay logic chiến lược",
+            "Chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế; toàn bộ kết quả hiện tại là mô phỏng",
+            "Hướng giao dịch chưa ổn định giữa các lần chạy; nhóm nghiên cứu đang đánh giá phương án kết hợp nhiều lần chạy"
+          ],
+          "en": [
+            "Entry signals, current positions, parameters and strategy logic are not published",
+            "No paper trading or live trading yet. Every result is simulated",
+            "Trade direction is not yet stable across repeated runs; the research team is testing a way to combine multiple runs"
+          ]
+        }
+      },
+      "architecture": [
+        {
+          "title": {
+            "vi": "Tầng tín hiệu",
+            "en": "Signal layer"
+          },
+          "text": {
+            "vi": "Ba nhóm tín hiệu cùng quan sát chu kỳ, xu hướng và sức mạnh của chuyển động giá. Chúng cung cấp nhiều góc nhìn trước khi hệ thống đưa ra quyết định.",
+            "en": "Three independent signal systems view the market through cycle, trend and momentum, giving the central model a multi-angle view."
+          }
+        },
+        {
+          "title": {
+            "vi": "Bộ não quyết định",
+            "en": "Decision core"
+          },
+          "text": {
+            "vi": "Mô hình đọc 255 khoảng dữ liệu 5 phút gần nhất để tìm mẫu biến động. Sau đó, phương pháp học từ thử–sai (PPO) chọn thời điểm vào hoặc thoát lệnh theo mức tin cậy của hệ thống.",
+            "en": "An LSTM network processes the latest 255 five-minute intervals, combined with PPO reinforcement learning to produce entry and exit decisions based on the model's confidence."
+          }
+        },
+        {
+          "title": {
+            "vi": "Nhận diện trạng thái thị trường",
+            "en": "Market regime detection"
+          },
+          "text": {
+            "vi": "Hệ thống nhận biết bốn trạng thái: tăng, giảm, đi ngang và biến động mạnh. Phiên sáng và phiên chiều được xử lý riêng vì hành vi thị trường có thể khác nhau.",
+            "en": "A Hidden Markov model classifies the data into four market states: bullish flow, bearish flow, sideways and turbulent. Morning and afternoon sessions use separate models."
+          }
+        },
+        {
+          "title": {
+            "vi": "Quản trị rủi ro thích ứng",
+            "en": "Adaptive risk management"
+          },
+          "text": {
+            "vi": "Mức dừng lỗ được nới hoặc thu hẹp theo mức biến động dự kiến: thị trường biến động mạnh thì khoảng dừng rộng hơn. Điều kiện dừng được kiểm tra từng phút.",
+            "en": "Stop-loss and trailing-stop levels adjust to forecast volatility using GARCH. Stop conditions are evaluated on one-minute data rather than every five minutes."
+          }
+        },
+        {
+          "title": {
+            "vi": "Mô phỏng khớp lệnh",
+            "en": "Execution simulation"
+          },
+          "text": {
+            "vi": "Mô phỏng khớp lệnh tại giá mở cửa khi thị trường vượt qua mức dừng, chuyển lệnh phát sinh trong phiên ATC sang giá mở cửa hôm sau, tất toán vào ngày đáo hạn và tính chi phí giao dịch.",
+            "en": "The simulation fills at the open when the market gaps through a stop, defers orders arising in the ATC session to the next day's open, settles positions on expiry days and applies transaction costs."
+          }
+        },
+        {
+          "title": {
+            "vi": "Không nhìn trước tương lai",
+            "en": "Anti-leakage discipline"
+          },
+          "text": {
+            "vi": "Mô hình chỉ được học từ dữ liệu đã có trong quá khứ. Dữ liệu dùng để kiểm tra không được dùng để điều chỉnh mô hình, và bộ dữ liệu cuối chỉ được mở một lần.",
+            "en": "Every component that learns from data sees only data before the training cutoff. Validation and test sets are sealed off from tuning; the test set is opened exactly once."
+          }
+        }
+      ],
+      "researchProfile": null
+    },
+    {
+      "slug": "vn30-equity-intelligence",
+      "name": "VN30 Equity Intelligence",
+      "code": "QP-R01",
+      "markets": [
+        "VN30"
+      ],
+      "category": "ranking",
+      "status": "active",
+      "visibility": "public",
+      "access": "public",
+      "featured": false,
+      "version": "1.1.0",
+      "horizons": [
+        5,
+        20
+      ],
+      "show_performance": false,
+      "show_forecast": true,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "So sánh các cổ phiếu VN30 theo xu hướng, mức biến động và rủi ro.",
+        "en": "Compares VN30 stocks by trend, volatility and risk."
+      },
+      "keyOutput": {
+        "vi": "Thứ hạng và mức rủi ro của 30 cổ phiếu VN30",
+        "en": "Rankings and risk levels for 30 VN30 stocks"
+      },
+      "description": {
+        "objective": {
+          "vi": "Xếp hạng tương đối các cổ phiếu VN30 dựa trên tổ hợp định giá, trạng thái kỹ thuật, rủi ro và trạng thái của nhóm ngành.",
+          "en": "Relative ranking of VN30 stocks by a composite of valuation, technical state, risk and sector regime."
+        },
+        "intuition": {
+          "vi": "So sánh các cổ phiếu trong cùng rổ giúp thể hiện vị trí tương đối của từng mã. Kết quả xếp hạng không phải dự báo giá hay khuyến nghị mua bán.",
+          "en": "Comparing stocks within the same basket shows each stock's relative position. The ranking is neither a price forecast nor a trading recommendation."
+        },
+        "modelType": {
+          "vi": "Mô hình xếp hạng đa yếu tố, chuẩn hóa các cổ phiếu tại cùng một thời điểm và điều chỉnh theo trạng thái thị trường.",
+          "en": "A multi-factor ranking model with cross-sectional normalization and regime adjustment."
+        },
+        "validation": {
+          "vi": "Đánh giá độ ổn định của thứ hạng và khả năng phân biệt tương đối trên dữ liệu chưa dùng để huấn luyện.",
+          "en": "Rank-stability evaluation and out-of-sample relative information coefficients over time."
+        },
+        "outputs": {
+          "vi": [
+            "Xếp hạng hằng ngày",
+            "Mức định giá tương đối",
+            "Trạng thái kỹ thuật",
+            "Điểm rủi ro",
+            "Trạng thái nhóm ngành"
+          ],
+          "en": [
+            "Daily rankings",
+            "Relative valuation",
+            "Technical state",
+            "Risk score",
+            "Sector regime"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Thứ hạng chỉ mang tính tương đối, không phải khuyến nghị mua bán",
+            "Phạm vi hiện chỉ gồm các cổ phiếu trong rổ VN30"
+          ],
+          "en": [
+            "Rankings are relative, not trade recommendations",
+            "Coverage limited to the VN30 basket"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "regime-hmm",
+      "name": "Regime HMM",
+      "code": "QP-S01",
+      "markets": [
+        "VNINDEX",
+        "VN30",
+        "VN30F1M"
+      ],
+      "category": "regime",
+      "status": "active",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "1.4.1",
+      "horizons": [
+        1
+      ],
+      "show_performance": false,
+      "show_forecast": true,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Nhận biết thị trường đang tăng, giảm, đi ngang hay biến động mạnh.",
+        "en": "Real-time market state detection with Hidden Markov models."
+      },
+      "keyOutput": {
+        "vi": "Khả năng xảy ra của từng trạng thái thị trường",
+        "en": "Regime probabilities for the main indices"
+      },
+      "description": {
+        "objective": {
+          "vi": "Nhận biết thị trường đang tăng, giảm, đi ngang hay biến động mạnh, đồng thời ước lượng khả năng trạng thái thay đổi.",
+          "en": "Classify the market into statistical states (bullish, bearish, sideways, turbulent) with transition probabilities."
+        },
+        "intuition": {
+          "vi": "Trạng thái thị trường cung cấp một lớp bối cảnh để các mô hình khác điều chỉnh cách diễn giải dữ liệu.",
+          "en": "Other models need context before acting. Market state provides that context."
+        },
+        "modelType": {
+          "vi": "Mô hình Markov ẩn dùng mức tăng giảm và biến động để nhận biết trạng thái thị trường.",
+          "en": "Hidden Markov model over return and volatility features."
+        },
+        "validation": {
+          "vi": "Đánh giá độ ổn định của phân loại và độ trễ khi nhận diện thay đổi trạng thái trên dữ liệu chưa dùng để huấn luyện.",
+          "en": "Classification stability and out-of-sample transition detection latency."
+        },
+        "outputs": {
+          "vi": [
+            "Trạng thái hiện tại",
+            "Xác suất từng trạng thái",
+            "Khả năng chuyển từ trạng thái này sang trạng thái khác"
+          ],
+          "en": [
+            "Current regime",
+            "Per-regime probabilities",
+            "Transition matrix"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Nhận diện có độ trễ tự nhiên",
+            "Số trạng thái là lựa chọn mô hình hóa"
+          ],
+          "en": [
+            "Detection has inherent lag",
+            "The number of states is a modeling choice"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "vol-garch",
+      "name": "Volatility GARCH",
+      "code": "QP-V01",
+      "markets": [
+        "VNINDEX",
+        "VN30F1M"
+      ],
+      "category": "volatility",
+      "status": "active",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "1.0.5",
+      "horizons": [
+        1,
+        5
+      ],
+      "show_performance": false,
+      "show_forecast": true,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Ước lượng giá có thể dao động mạnh đến mức nào trong 1–5 phiên tới.",
+        "en": "Conditional volatility forecasting for indices and derivatives."
+      },
+      "keyOutput": {
+        "vi": "Mức biến động dự kiến trong 1–5 phiên",
+        "en": "1–5 day volatility forecasts"
+      },
+      "description": {
+        "objective": {
+          "vi": "Ước lượng mức biến động trong 1 và 5 ngày để hỗ trợ xây dựng khoảng dự báo và đánh giá rủi ro.",
+          "en": "Estimate and forecast conditional volatility to feed forecast intervals and risk management."
+        },
+        "intuition": {
+          "vi": "Mức biến động thường tập trung theo từng giai đoạn: sau một phiên biến động mạnh, các phiên tiếp theo cũng có thể tiếp tục biến động mạnh. Mô hình khai thác đặc điểm này.",
+          "en": "Volatility often clusters over time: large moves can be followed by further large moves. The model uses this observed pattern."
+        },
+        "modelType": {
+          "vi": "Mô hình GARCH học từ việc các giai đoạn biến động mạnh thường xuất hiện gần nhau.",
+          "en": "GARCH-family models with fat-tailed distributions."
+        },
+        "validation": {
+          "vi": "Kiểm tra trên giai đoạn dữ liệu mới bằng một thước đo chuyên dùng cho dự báo biến động (QLIKE).",
+          "en": "Out-of-sample evaluation with volatility-specific loss functions (QLIKE)."
+        },
+        "outputs": {
+          "vi": [
+            "Biến động dự báo theo từng thời hạn",
+            "Khoảng biến động ước tính",
+            "Trạng thái biến động"
+          ],
+          "en": [
+            "Per-horizon volatility forecasts",
+            "Volatility bands",
+            "Volatility state"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Không dự báo được cú sốc biến động đột ngột",
+            "Giả định cấu trúc có thể bị vi phạm"
+          ],
+          "en": [
+            "Cannot anticipate sudden volatility shocks",
+            "Structural assumptions can be violated"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "mc-risk-engine",
+      "name": "MC Risk Engine",
+      "code": "QP-K01",
+      "markets": [
+        "VNINDEX",
+        "VN30",
+        "VN30F1M"
+      ],
+      "category": "risk",
+      "status": "active",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "1.3.0",
+      "horizons": [
+        20
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Mô phỏng nhiều tình huống để ước lượng khả năng thua lỗ và mức giảm từ đỉnh.",
+        "en": "Estimating risk and future drawdowns through simulation."
+      },
+      "keyOutput": {
+        "vi": "Ngưỡng lỗ ước tính và mức giảm có thể xảy ra",
+        "en": "VaR, Expected Shortfall and drawdown distributions"
+      },
+      "description": {
+        "objective": {
+          "vi": "Ước lượng ngưỡng lỗ VaR, tổn thất kỳ vọng, mức giảm từ đỉnh và kết quả trong các kịch bản thị trường bất lợi.",
+          "en": "Estimate VaR, Expected Shortfall, drawdown distributions and stress scenarios for the systematic book."
+        },
+        "intuition": {
+          "vi": "Một giá trị trung bình không phản ánh đầy đủ các trường hợp xấu. Mô hình vì vậy đánh giá cả phạm vi kết quả và xác suất của từng mức tổn thất.",
+          "en": "A single average does not describe adverse cases. The model therefore estimates a range of outcomes and the probability of different loss levels."
+        },
+        "modelType": {
+          "vi": "Tạo nhiều kịch bản ngẫu nhiên (Monte Carlo) và lấy mẫu lại dữ liệu cũ để kiểm tra độ ổn định của kết quả.",
+          "en": "Monte Carlo and bootstrap over regime-conditioned return distributions."
+        },
+        "validation": {
+          "vi": "Đối chiếu ngưỡng VaR với dữ liệu thực tế và kiểm tra tỷ lệ kết quả nằm trong phạm vi đã ước lượng.",
+          "en": "VaR backtesting (violation rates) and percentile coverage checks."
+        },
+        "outputs": {
+          "vi": [
+            "VaR và tổn thất kỳ vọng theo mức tin cậy",
+            "Phân bố mức giảm từ đỉnh",
+            "Kịch bản thị trường bất lợi"
+          ],
+          "en": [
+            "VaR and ES by confidence level",
+            "Drawdown distributions",
+            "Stress scenarios"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Kết quả phụ thuộc vào cách mô hình giả định các mức tăng giảm có thể xảy ra",
+            "Những tình huống chưa từng xảy ra trong quá khứ có thể không được phản ánh"
+          ],
+          "en": [
+            "Dependent on distributional assumptions",
+            "Historical scenarios do not cover all futures"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "market-breadth",
+      "name": "Market Breadth Monitor",
+      "code": "QP-X01",
+      "markets": [
+        "VN30"
+      ],
+      "category": "regime",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "0.3.0",
+      "horizons": [
+        5
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Cho biết một xu hướng đang được nhiều hay chỉ một vài cổ phiếu VN30 hỗ trợ.",
+        "en": "Measuring market breadth through co-movement of constituent stocks."
+      },
+      "keyOutput": {
+        "vi": "Mức độ tham gia của các cổ phiếu và cảnh báo lệch xu hướng",
+        "en": "Breadth and divergence indices (experimental)"
+      },
+      "description": {
+        "objective": {
+          "vi": "Phát hiện khi chỉ số vẫn tăng nhưng ngày càng ít cổ phiếu cùng tăng, dấu hiệu xu hướng có thể đang yếu đi.",
+          "en": "Detect internal trend weakening early through the breadth of constituent participation."
+        },
+        "intuition": {
+          "vi": "Chỉ số có thể tăng nhờ một vài cổ phiếu lớn trong khi phần còn lại đã yếu đi. Sự lệch nhau này đáng để theo dõi.",
+          "en": "An index can rise while most stocks are already weakening. That difference can carry useful information."
+        },
+        "modelType": {
+          "vi": "Tổ hợp các chỉ số đo mức độ tham gia của cổ phiếu, được chuẩn hóa tại cùng một thời điểm. Mô hình đang thử nghiệm.",
+          "en": "A composite of cross-sectionally normalized breadth measures (experimental)."
+        },
+        "validation": {
+          "vi": "Ý tưởng vẫn đang được kiểm tra; chưa có kết quả hoàn chỉnh trên một giai đoạn dữ liệu mới.",
+          "en": "In hypothesis-testing stage; no complete out-of-sample results yet."
+        },
+        "outputs": {
+          "vi": [
+            "Chỉ số độ rộng",
+            "Cảnh báo phân kỳ"
+          ],
+          "en": [
+            "Breadth index",
+            "Divergence alerts"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Mô hình đang thử nghiệm. Kết quả chưa được kiểm tra đầy đủ"
+          ],
+          "en": [
+            "Experimental model. Results have not yet been fully tested"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "sector-rotation",
+      "name": "Sector Rotation Model",
+      "code": "QP-X02",
+      "markets": [
+        "VN30"
+      ],
+      "category": "ranking",
+      "status": "experimental",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "0.2.1",
+      "horizons": [
+        20
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Theo dõi luân chuyển dòng tiền giữa các nhóm ngành.",
+        "en": "Tracking capital rotation across sector groups."
+      },
+      "keyOutput": {
+        "vi": "Xếp hạng nhóm ngành theo sức mạnh giá (thử nghiệm)",
+        "en": "Sector momentum rankings (experimental)"
+      },
+      "description": {
+        "objective": {
+          "vi": "Nhận diện chu kỳ luân chuyển giữa các nhóm ngành trong rổ VN30.",
+          "en": "Identify rotation cycles across sector groups within the VN30 basket."
+        },
+        "intuition": {
+          "vi": "Tiền có thể chuyển từ nhóm ngành đang yếu sang nhóm đang mạnh. Theo dõi sự thay đổi này giúp hiểu nhóm nào đang dẫn dắt thị trường.",
+          "en": "Capital rarely leaves the market at once. It moves between sectors, which can reveal changes in market structure."
+        },
+        "modelType": {
+          "vi": "Mô hình động lượng tương đối giữa nhóm ngành (đang thử nghiệm).",
+          "en": "Relative momentum model across sector groups (experimental)."
+        },
+        "validation": {
+          "vi": "Đang thử trên dữ liệu quá khứ; chưa có kết quả để công bố.",
+          "en": "Under historical validation; no published results."
+        },
+        "outputs": {
+          "vi": [
+            "Xếp hạng ngành",
+            "Trạng thái luân chuyển"
+          ],
+          "en": [
+            "Sector rankings",
+            "Rotation state"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Mô hình đang thử nghiệm. Kết quả chưa được kiểm tra đầy đủ",
+            "VN30 có ít cổ phiếu trong một số nhóm ngành nên việc so sánh còn hạn chế"
+          ],
+          "en": [
+            "Experimental model. Results have not yet been fully tested",
+            "Sector granularity within VN30 is limited"
+          ]
+        }
+      },
+      "researchProfile": null
+    },
+    {
+      "slug": "liquidity-flow",
+      "name": "Liquidity Flow",
+      "code": "QP-X03",
+      "markets": [
+        "VNINDEX"
+      ],
+      "category": "regime",
+      "status": "archived",
+      "visibility": "public",
+      "access": "members",
+      "featured": false,
+      "version": "0.9.0",
+      "horizons": [
+        5
+      ],
+      "show_performance": false,
+      "show_forecast": false,
+      "show_internal_signal": false,
+      "tagline": {
+        "vi": "Nghiên cứu cũ về mối liên hệ giữa khối lượng giao dịch và giá, hiện không còn cập nhật.",
+        "en": "Early research on liquidity flows (archived)."
+      },
+      "keyOutput": {
+        "vi": "Không còn cập nhật",
+        "en": "No longer updated"
+      },
+      "description": {
+        "objective": {
+          "vi": "Tìm hiểu liệu thay đổi về khối lượng và khả năng mua bán có xuất hiện trước biến động giá ngắn hạn hay không.",
+          "en": "Studied the relationship between trading liquidity and short-term returns."
+        },
+        "intuition": {
+          "vi": "Trong một số giai đoạn, thanh khoản thay đổi trước giá. Tuy nhiên, giả thuyết này không cho kết quả đủ ổn định trên dữ liệu chưa dùng để xây dựng mô hình.",
+          "en": "Liquidity sometimes shifts before price. Tests showed that this idea was not stable enough on new data."
+        },
+        "modelType": {
+          "vi": "Mô hình thống kê sử dụng các chỉ số về khối lượng và khả năng mua bán. Nghiên cứu đã được lưu trữ.",
+          "en": "Regression models over liquidity features (archived)."
+        },
+        "validation": {
+          "vi": "Không vượt qua yêu cầu về độ ổn định trên dữ liệu chưa dùng để xây dựng mô hình, nên đã được lưu trữ để tham chiếu.",
+          "en": "Did not pass stability tests on new data. Archived for reference."
+        },
+        "outputs": {
+          "vi": [
+            "Không còn công bố đầu ra"
+          ],
+          "en": [
+            "No outputs are published"
+          ]
+        },
+        "limitations": {
+          "vi": [
+            "Mô hình đã dừng cập nhật từ khi lưu trữ"
+          ],
+          "en": [
+            "The model has not been updated since archival"
+          ]
+        }
+      },
+      "researchProfile": null
+    }
+  ],
+  "strategies": [
+    {
+      "slug": "vn30f1m-validation-2024",
+      "name": {
+        "vi": "Model Modus: Thử nghiệm năm 2024",
+        "en": "Model Modus: 2024 Test"
+      },
+      "systemSlug": "model-modus",
+      "dataset": "validation",
+      "resultType": "out_of_sample",
+      "asset": "VN30F1M",
+      "timeframe": "5 phút",
+      "benchmark": {
+        "vi": "Chưa có dữ liệu của phương án đầu tư dùng để so sánh",
+        "en": "No comparison investment data was available"
+      },
+      "periodStart": "2024-01-02",
+      "periodEnd": "2024-12-31",
+      "feesNote": {
+        "vi": "Chưa trừ phí giao dịch (cấu hình tham chiếu: phí + thuế 0,4 điểm/vòng lệnh)",
+        "en": "Before transaction fees (reference: 0.4 points in fees and tax per completed trade)"
+      },
+      "slippageNote": {
+        "vi": "Chưa trừ chênh lệch giá khi khớp lệnh (mức tham chiếu: 0,2 điểm mỗi chiều)",
+        "en": "Before the difference between expected and executed price (reference: 0.2 points per side)"
+      },
+      "splitNote": {
+        "vi": "Mô hình chỉ học từ dữ liệu 2018–2023. Dữ liệu năm 2024 được giữ riêng để kiểm tra sau khi mô hình đã hoàn tất.",
+        "en": "The model learned only from 2018–2023 data. The year 2024 was kept separate for the final test."
+      },
+      "modelVersion": "brain-2026-07-02",
+      "codeVersion": "pre-2026-07-04",
+      "seedNote": {
+        "vi": "Một lần chạy",
+        "en": "One run"
+      },
+      "summary": {
+        "vi": "Lần đầu Model Modus được thử trên một năm dữ liệu hoàn toàn chưa dùng để xây dựng hoặc điều chỉnh mô hình.",
+        "en": "The first test of Model Modus on a full year of data that was not used to build or adjust the model."
+      },
+      "caveats": {
+        "vi": [
+          "Kết quả chỉ đến từ một lần chạy, nên chưa cho biết mô hình có ổn định khi chạy lại hay không.",
+          "Đây là kết quả mô phỏng, không phải giao dịch thật. Quant Percent chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế cho hệ thống này.",
+          "Số liệu được tạo trước khi cách mô phỏng khớp lệnh được sửa ngày 04/07/2026. Cách tính mới thận trọng hơn khi giá mở cửa vượt qua mức dừng lỗ. Vì kết quả cũ có thể tốt hơn thực tế, toàn bộ báo cáo sẽ được chạy và công bố lại.",
+          "Lợi nhuận công bố chưa trừ chi phí giao dịch. Ảnh hưởng của chi phí được trình bày riêng trong báo cáo chạy nhiều lần.",
+          "Tỷ lệ phần trăm được tính trên mức vốn giả định 1.000 điểm chỉ số, tương đương 100.000.000 VND theo mệnh giá 100.000 VND mỗi điểm. Mức giảm từ đỉnh được tính trên đường tăng trưởng vốn."
+        ],
+        "en": [
+          "This result comes from one run, so it does not show whether repeated runs would be stable.",
+          "Simulated results, not live trading. Quant Percent has not run paper trading or live trading for this system.",
+          "These figures were produced before the order simulation was corrected on 4 July 2026. The new method is more cautious when the opening price moves beyond a stop level. Because the earlier figures may be too optimistic, every report will be rerun and republished.",
+          "Published profit does not include transaction costs. A separate 50-run report shows how costs affect the result.",
+          "Percentages use an assumed starting value of 1,000 index points, equal to 100,000,000 VND at 100,000 VND per point. The largest decline is measured from the highest previous portfolio value."
+        ]
+      }
+    },
+    {
+      "slug": "vn30f1m-walk-forward",
+      "name": {
+        "vi": "Model Modus: Thử lần lượt từng năm 2024–2026",
+        "en": "Model Modus: Year-by-year Test 2024–2026"
+      },
+      "systemSlug": "model-modus",
+      "dataset": "walkForward",
+      "resultType": "walk_forward",
+      "asset": "VN30F1M",
+      "timeframe": "5 phút",
+      "benchmark": {
+        "vi": "Chưa có dữ liệu của phương án đầu tư dùng để so sánh",
+        "en": "No comparison investment data was available"
+      },
+      "periodStart": "2024-01-02",
+      "periodEnd": "2026-06-30",
+      "feesNote": {
+        "vi": "Chưa trừ phí giao dịch (cấu hình tham chiếu: phí + thuế 0,4 điểm/vòng lệnh)",
+        "en": "Before transaction fees (reference: 0.4 points in fees and tax per completed trade)"
+      },
+      "slippageNote": {
+        "vi": "Chưa trừ chênh lệch giá khi khớp lệnh (mức tham chiếu: 0,2 điểm mỗi chiều)",
+        "en": "Before the difference between expected and executed price (reference: 0.2 points per side)"
+      },
+      "splitNote": {
+        "vi": "Mỗi năm được kiểm tra riêng. Mô hình chỉ học từ dữ liệu năm 2018 đến hết năm liền trước, sau đó mới được thử trên năm kế tiếp. Cách làm này mô phỏng đúng tình huống không biết trước tương lai.",
+        "en": "Each year is tested separately. The model learns from 2018 through the previous year, then is tested on the next year. This mirrors a situation where future data is not available."
+      },
+      "modelVersion": "brain-2026-07-02",
+      "codeVersion": "pre-2026-07-04",
+      "seedNote": {
+        "vi": "Một lần chạy (mã 100)",
+        "en": "One run (code 100)"
+      },
+      "summary": {
+        "vi": "Thử nghiệm trên ba năm liên tiếp. Ở mỗi năm, mô hình chỉ được biết dữ liệu của những năm trước.",
+        "en": "A test over three consecutive years. For each year, the model only knew data from earlier years."
+      },
+      "caveats": {
+        "vi": [
+          "Giai đoạn năm 2026 chỉ có dữ liệu đến 30/06/2026, gồm 13 lệnh và cho kết quả âm. Số lệnh này chưa đủ để đưa ra kết luận.",
+          "Kết quả chung của ba giai đoạn chịu ảnh hưởng lớn từ năm 2025, vì vậy không nên được hiểu là mức lợi suất kỳ vọng hằng năm.",
+          "Đây là kết quả mô phỏng, không phải giao dịch thật. Quant Percent chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế cho hệ thống này.",
+          "Số liệu được tạo trước khi cách mô phỏng khớp lệnh được sửa ngày 04/07/2026. Cách tính mới thận trọng hơn khi giá mở cửa vượt qua mức dừng lỗ. Vì kết quả cũ có thể tốt hơn thực tế, toàn bộ báo cáo sẽ được chạy và công bố lại.",
+          "Lợi nhuận công bố chưa trừ chi phí giao dịch. Ảnh hưởng của chi phí được trình bày riêng trong báo cáo chạy nhiều lần.",
+          "Tỷ lệ phần trăm được tính trên mức vốn giả định 1.000 điểm chỉ số, tương đương 100.000.000 VND theo mệnh giá 100.000 VND mỗi điểm. Mức giảm từ đỉnh được tính trên đường tăng trưởng vốn."
+        ],
+        "en": [
+          "The 2026 period covers only half a year, through 30 June 2026. It contains 13 trades and a negative result, which is too little evidence for a conclusion.",
+          "The combined figure is dominated by 2025; it should not be read as an expected annual return.",
+          "Simulated results, not live trading. Quant Percent has not run paper trading or live trading for this system.",
+          "These figures were produced before the order simulation was corrected on 4 July 2026. The new method is more cautious when the opening price moves beyond a stop level. Because the earlier figures may be too optimistic, every report will be rerun and republished.",
+          "Published profit does not include transaction costs. A separate 50-run report shows how costs affect the result.",
+          "Percentages use an assumed starting value of 1,000 index points, equal to 100,000,000 VND at 100,000 VND per point. The largest decline is measured from the highest previous portfolio value."
+        ]
+      }
+    },
+    {
+      "slug": "vn30f1m-multiseed-test",
+      "name": {
+        "vi": "Model Modus: Thử nghiệm 2025–2026 (50 lần chạy)",
+        "en": "Model Modus: 2025–2026 Test (50 runs)"
+      },
+      "systemSlug": "model-modus",
+      "dataset": "multiseed",
+      "resultType": "backtest",
+      "asset": "VN30F1M",
+      "timeframe": "5 phút",
+      "benchmark": {
+        "vi": "Chưa có dữ liệu của phương án đầu tư dùng để so sánh",
+        "en": "No comparison investment data was available"
+      },
+      "periodStart": "2025-01-02",
+      "periodEnd": "2026-06-30",
+      "feesNote": {
+        "vi": "Kết quả gốc chưa trừ phí; bảng độ nhạy đo ở các mức 0,0–0,5 điểm/lệnh",
+        "en": "Main figures exclude fees; the cost table shows levels from 0.0 to 0.5 points per trade"
+      },
+      "slippageNote": {
+        "vi": "Chênh lệch giá khi khớp lệnh được tính chung trong bảng ảnh hưởng của chi phí",
+        "en": "The difference between expected and executed price is included in the same cost table"
+      },
+      "splitNote": {
+        "vi": "Mô hình học từ dữ liệu 2018–2024. Dữ liệu 2025–2026 chỉ được mở để kiểm tra một lần sau khi mô hình đã ngừng điều chỉnh vào ngày 02/07/2026.",
+        "en": "The model learned from 2018–2024 data. The 2025–2026 data was used once for testing after model adjustments stopped on 2 July 2026."
+      },
+      "modelVersion": "brain-2026-07-02",
+      "codeVersion": "pre-2026-07-04",
+      "seedNote": {
+        "vi": "50 lần chạy",
+        "en": "50 runs"
+      },
+      "summary": {
+        "vi": "So sánh 50 lần chạy trên cùng bộ dữ liệu để xem kết quả có ổn định hay không, đồng thời đo ảnh hưởng của chi phí giao dịch.",
+        "en": "A comparison of 50 runs on the same test data to see whether results are stable and how transaction costs affect them."
+      },
+      "caveats": {
+        "vi": [
+          "Bộ dữ liệu kiểm tra chỉ được sử dụng một lần. Nếu tiếp tục xem kết quả để điều chỉnh mô hình, lần kiểm tra này sẽ không còn độc lập.",
+          "Hướng giao dịch chưa ổn định giữa các lần chạy: 45/50 lần nghiêng về mua và 5/50 lần nghiêng về bán. Nhóm nghiên cứu đang thử cách kết hợp nhiều lần chạy.",
+          "Giai đoạn đánh giá chỉ dài 1,4 năm và bao gồm nửa năm 2026 khuyết dữ liệu.",
+          "Đây là kết quả mô phỏng, không phải giao dịch thật. Quant Percent chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế cho hệ thống này.",
+          "Số liệu được tạo trước khi cách mô phỏng khớp lệnh được sửa ngày 04/07/2026. Cách tính mới thận trọng hơn khi giá mở cửa vượt qua mức dừng lỗ. Vì kết quả cũ có thể tốt hơn thực tế, toàn bộ báo cáo sẽ được chạy và công bố lại.",
+          "Lợi nhuận công bố chưa trừ chi phí giao dịch. Ảnh hưởng của chi phí được trình bày riêng trong báo cáo chạy nhiều lần.",
+          "Tỷ lệ phần trăm được tính trên mức vốn giả định 1.000 điểm chỉ số, tương đương 100.000.000 VND theo mệnh giá 100.000 VND mỗi điểm. Mức giảm từ đỉnh được tính trên đường tăng trưởng vốn."
+        ],
+        "en": [
+          "The test data was used once. Repeatedly checking it while adjusting the model would make the test less independent.",
+          "Trade direction is not stable across runs: 45 of 50 favour buying and 5 favour selling. The research team is testing a way to combine multiple runs.",
+          "The evaluation window is only 1.4 years and includes a half-complete 2026.",
+          "Simulated results, not live trading. Quant Percent has not run paper trading or live trading for this system.",
+          "These figures were produced before the order simulation was corrected on 4 July 2026. The new method is more cautious when the opening price moves beyond a stop level. Because the earlier figures may be too optimistic, every report will be rerun and republished.",
+          "Published profit does not include transaction costs. A separate 50-run report shows how costs affect the result.",
+          "Percentages use an assumed starting value of 1,000 index points, equal to 100,000,000 VND at 100,000 VND per point. The largest decline is measured from the highest previous portfolio value."
+        ]
+      }
+    }
+  ]
+}

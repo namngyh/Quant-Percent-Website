@@ -1,0 +1,11 @@
+platform: Windows-11-10.0.26200-SP0
+python: 3.12.13
+gpu: NVIDIA GeForce RTX 4060 (8.0 GiB)
+cuda_runtime: 12.1
+bf16: True
+numpy: 2.3.1
+pandas: 3.0.3
+pymc: 6.2.0
+arviz: 1.2.0
+xgboost: 3.3.0
+jax: None

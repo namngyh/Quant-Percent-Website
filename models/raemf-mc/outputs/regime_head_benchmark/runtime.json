@@ -1,0 +1,35 @@
+{
+  "seconds": 452.7050358000015,
+  "horizons": [
+    20,
+    40,
+    60
+  ],
+  "folds": 3,
+  "data_sha256": "962c2c8e69821b572ca20034c40c4254656405b1ba9b75410396753b6d0697c5",
+  "data_metadata": {
+    "rows_loaded": 6306,
+    "duplicate_dates": 0,
+    "exact_duplicate_records_removed": 0,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-13",
+    "sha256": "962c2c8e69821b572ca20034c40c4254656405b1ba9b75410396753b6d0697c5"
+  },
+  "objective_weights": {
+    "macro_f1": 0.3,
+    "balanced_accuracy": 0.2,
+    "recall_bear": 0.15,
+    "recall_stress": 0.15,
+    "one_minus_normalized_brier": 0.2
+  }
+}

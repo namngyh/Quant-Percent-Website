@@ -1,0 +1,47 @@
+{
+  "fitted": true,
+  "inference_method": "meanfield_advi",
+  "regime_labels": [
+    "hmm_prob_state_0",
+    "hmm_prob_state_1",
+    "hmm_prob_state_2",
+    "hmm_prob_state_3"
+  ],
+  "scaling_metadata": {
+    "return_scale": 0.014390667344105535
+  },
+  "train_date_range": [
+    "2000-07-31 00:00:00",
+    "2026-07-01 00:00:00"
+  ],
+  "data_fingerprint": "f108bc9f3355206763b29e0da20810ab064d66ad53f86f0a57c1ab5d3ad5d531",
+  "random_seed": 123,
+  "convergence_status": "converged",
+  "warnings": [
+    "Dropped 1 non-finite training observations"
+  ],
+  "effective_observations": [
+    1672.8054283896984,
+    1746.322577597799,
+    1371.897235027594,
+    1505.974758984895
+  ],
+  "config": {
+    "enabled": true,
+    "backend": "pymc",
+    "method": "meanfield_advi",
+    "advi_steps": 300,
+    "posterior_draws": 100,
+    "posterior_predictive_draws": 50,
+    "learning_rate": 0.01,
+    "convergence_window": 50,
+    "convergence_tolerance": 0.05,
+    "shared_nu": false,
+    "prior_mu_scale": 0.5,
+    "prior_log_scale_sd": 0.3,
+    "prior_nu_rate": 0.1,
+    "random_seed": 123,
+    "fallback_to_point_estimate": true,
+    "min_effective_observations": 20
+  }
+}

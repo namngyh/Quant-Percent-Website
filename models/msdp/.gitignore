@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.matplotlib/
+artifacts/models/*.pt
+artifacts/tuning/*.db
+data/processed/*
+!data/processed/.gitkeep
+/VNINDEX_Daily.csv

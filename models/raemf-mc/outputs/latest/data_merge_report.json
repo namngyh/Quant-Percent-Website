@@ -1,0 +1,54 @@
+{
+  "primary_file": "VNINDEX_Daily.csv",
+  "secondary_file": "data.csv",
+  "primary_sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f",
+  "secondary_sha256": "40db5e75e396d7fcb4cb59f72b291058e49b3cf12efea192cddf4e0d43223704",
+  "primary_rows": 6306,
+  "secondary_rows": 6298,
+  "overlap_dates": 6298,
+  "conflicting_cells": 2,
+  "conflicting_dates": 2,
+  "rows_only_in_primary": 8,
+  "rows_only_in_secondary": 0,
+  "merged_rows": 6306,
+  "merged_start": "2000-07-28",
+  "merged_end": "2026-07-13",
+  "primary_meta": {
+    "rows_loaded": 6306,
+    "duplicate_dates": 2,
+    "exact_duplicate_records_removed": 1,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-13",
+    "sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f"
+  },
+  "secondary_meta": {
+    "rows_loaded": 6298,
+    "duplicate_dates": 0,
+    "exact_duplicate_records_removed": 0,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-01",
+    "sha256": "40db5e75e396d7fcb4cb59f72b291058e49b3cf12efea192cddf4e0d43223704"
+  },
+  "canonical_parquet_sha256": "fdbdaa6d37d89d82f5e56ebd281563289c8f68803f0484d08a1a3b50da3ce064",
+  "canonical_csv_sha256": "962c2c8e69821b572ca20034c40c4254656405b1ba9b75410396753b6d0697c5"
+}

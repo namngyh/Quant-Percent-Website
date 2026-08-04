@@ -1,0 +1,45 @@
+{
+  "rows_loaded": 6306,
+  "duplicate_dates": 2,
+  "exact_duplicate_records_removed": 1,
+  "conflicting_duplicate_records_aggregated": 0,
+  "malformed_rows": [],
+  "columns": [
+    "date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume"
+  ],
+  "start_date": "2000-07-28",
+  "end_date": "2026-07-13",
+  "sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f",
+  "source_file": "VNINDEX_Daily.csv",
+  "raw_columns": [
+    "Date",
+    "Open",
+    "High",
+    "Low",
+    "Close",
+    "Volume",
+    "Unnamed: 6",
+    "Unnamed: 7",
+    "Unnamed: 8",
+    "Unnamed: 9",
+    "Unnamed: 10",
+    "Unnamed: 11",
+    "Unnamed: 12"
+  ],
+  "missing": {
+    "date": 0,
+    "open": 0,
+    "high": 0,
+    "low": 0,
+    "close": 0,
+    "volume": 0
+  },
+  "optional_missing_columns": [],
+  "negative_or_ohlc_suspicious_rows": 0,
+  "abnormal_calendar_gaps": 37
+}

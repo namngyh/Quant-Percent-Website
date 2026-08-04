@@ -1,0 +1,2 @@
+horizon,outer_fold,model_kind,feature_group,objective,recall,precision,pr_auc,brier,ece,expected_cost,admissible,constraint_failures,inner_folds
+20,0,logistic,base_plus_downside_all,0.43288984956318566,1.0,0.38333333333333336,0.5002815599019903,0.40033253473537717,0.40751325155418255,0.024805114229231897,False,brier_tolerance_exceeded,1

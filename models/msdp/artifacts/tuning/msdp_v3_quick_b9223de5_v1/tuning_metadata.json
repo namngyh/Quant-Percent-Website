@@ -1,0 +1,39 @@
+{
+  "study_name": "msdp_v3_quick_b9223de5_v1",
+  "model_version": "v3",
+  "feature_version": "v1",
+  "git_commit": "c2b2a0fdb6e4235291b964fbded26f256604af7d",
+  "data_hash": "b9223de5500676ccd64fdb29edc27bf2c28bc04f424397dd3058e674737ea379",
+  "config": "quick",
+  "seed": 42,
+  "runtime_seconds": 1092.700187921524,
+  "trial_counts": {
+    "running": 0,
+    "complete": 8,
+    "pruned": 0,
+    "fail": 0,
+    "waiting": 0
+  },
+  "fold_definitions": [
+    {
+      "fold": 0,
+      "train_start": 0,
+      "train_end": 3304,
+      "validation_start": 3365,
+      "validation_end": 3616,
+      "purge_gap": 60
+    },
+    {
+      "fold": 1,
+      "train_start": 0,
+      "train_end": 3556,
+      "validation_start": 3617,
+      "validation_end": 3868,
+      "purge_gap": 60
+    }
+  ],
+  "python": "3.11.9",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "created_at": "2026-07-20T09:33:07.567513+00:00",
+  "storage": "C:\\Users\\Hoai Nam Nguyen\\Desktop\\MSDP\\artifacts\\tuning\\msdp_optuna.db"
+}

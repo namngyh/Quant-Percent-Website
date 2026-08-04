@@ -1,0 +1,437 @@
+{
+  "config_mode": "default",
+  "data": {
+    "index_ticker": "VN30",
+    "n_rows": 90023,
+    "n_tickers": 31,
+    "date_min": "2012-02-06",
+    "date_max": "2026-07-24",
+    "fingerprint": "cf4f63b6856693b2",
+    "source": {
+      "path": "<redacted:sha256:03f72083652a2213>",
+      "path_name": "D.dat",
+      "backend": "datapro_sqlite",
+      "tables": [
+        "HIST",
+        "QUOTES_INFO"
+      ],
+      "n_symbols": 31,
+      "date_min": "2012-02-06",
+      "date_max": "2026-07-24",
+      "has_adjusted_price": true,
+      "has_volume": true,
+      "has_turnover": true,
+      "has_sector": "True",
+      "adjustment_method": "adjusted_close = close * (1 - ADJUST_RATE/1e6); cumulative vendor factor, latest session factor = 1.0",
+      "assumptions": [
+        "HIST.TRADING_KEY is days since 1970-01-01. Validated by decoding the maximum key and matching it to the session represented by the QUOTES_INFO snapshot.",
+        "HIST.EID <-> QUOTES_INFO.SYMBOL is reconstructed by unique OHLCV fingerprint on the latest session, because the vendor schema carries no foreign key between the two tables. Symbols whose OHLCV tuple is not unique on that session remain unmapped and are reported rather than guessed.",
+        "adjusted_close = close * (1 - ADJUST_RATE/1e6). The scale and functional form were verified against 12 HPG corporate-action boundaries: the implied factor ratio matched the observed reference-price-to-previous-close ratio to 5 decimal places at every one.",
+        "Prices are quoted in thousand VND and turnover (VAL) in VND. Only ratios and log differences are used downstream, so the unit mismatch does not propagate.",
+        "ICB_ID decodes as <industry:2><supersector:2><sector:2>. Validated against ~40 known tickers (banks -> 8030, real estate -> 8060, securities -> 8070, steel -> 1070).",
+        "Rows with TRADING_KEY before 1990 belong to global reference series (equity indices, metals, FX), not Vietnamese listings; they do not enter a VN30 universe."
+      ],
+      "warnings": []
+    },
+    "universe": {
+      "method": "static_list",
+      "n_tickers": 30,
+      "tickers": [
+        "ACB",
+        "BCM",
+        "BID",
+        "BVH",
+        "CTG",
+        "FPT",
+        "GAS",
+        "GVR",
+        "HDB",
+        "HPG",
+        "LPB",
+        "MBB",
+        "MSN",
+        "MWG",
+        "PLX",
+        "SAB",
+        "SHB",
+        "SSB",
+        "SSI",
+        "STB",
+        "TCB",
+        "TPB",
+        "VCB",
+        "VHM",
+        "VIB",
+        "VIC",
+        "VJC",
+        "VNM",
+        "VPB",
+        "VRE"
+      ],
+      "survivorship_bias_warning": true,
+      "warnings": [
+        "SURVIVORSHIP BIAS: the universe file has no effective dates, so today's VN30 membership is applied to the whole history. Stocks that were removed from the index are absent and current members are present before they joined. Network statistics and any model trained on them are optimistically biased. Use `data.universe_method: liquidity_proxy` for a point-in-time alternative, or add effective dates to config/vn30_universe.csv."
+      ],
+      "notes": []
+    },
+    "normalization": {
+      "n_rows_in": 90035,
+      "n_rows_out": 90035,
+      "n_duplicates_dropped": 0,
+      "index_ticker": "VN30",
+      "used_unadjusted_price": false,
+      "adjusted_price_available": true,
+      "sector_source": "database_classification",
+      "n_sector_overrides": 0,
+      "n_unknown_sector": 1,
+      "warnings": [
+        "1 ticker(s) have sector = UNKNOWN. Sectors are never guessed from the company name; add them to config/sector_map.csv if you need sector features."
+      ]
+    },
+    "validation": {
+      "n_rows": 90023,
+      "n_tickers": 31,
+      "date_min": "2012-02-06",
+      "date_max": "2026-07-24",
+      "excluded_tickers": [],
+      "n_errors": 0,
+      "n_warnings": 3,
+      "checks": [
+        {
+          "name": "duplicate_ticker_date",
+          "passed": "True",
+          "severity": "error",
+          "message": "No duplicates.",
+          "detail": {
+            "n_duplicates": 0
+          }
+        },
+        {
+          "name": "missing_trading_dates",
+          "passed": true,
+          "severity": "warning",
+          "message": "All tickers cover their in-range trading days.",
+          "detail": {
+            "worst": [
+              {
+                "ticker": "ACB",
+                "first_date": "2012-02-06 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3609,
+                "n_expected": 3609,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "BCM",
+                "first_date": "2018-02-21 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 2105,
+                "n_expected": 2105,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "BID",
+                "first_date": "2014-01-24 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3113,
+                "n_expected": 3113,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "BVH",
+                "first_date": "2012-02-06 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3609,
+                "n_expected": 3609,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "CTG",
+                "first_date": "2012-02-06 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3609,
+                "n_expected": 3609,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "FPT",
+                "first_date": "2012-02-06 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3609,
+                "n_expected": 3609,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "GAS",
+                "first_date": "2012-05-21 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3537,
+                "n_expected": 3537,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "GVR",
+                "first_date": "2018-03-21 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 2085,
+                "n_expected": 2085,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "HDB",
+                "first_date": "2018-01-05 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 2131,
+                "n_expected": 2131,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              },
+              {
+                "ticker": "HPG",
+                "first_date": "2012-02-06 00:00:00",
+                "last_date": "2026-07-24 00:00:00",
+                "n_observations": 3609,
+                "n_expected": 3609,
+                "n_missing": 0,
+                "missing_ratio": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "name": "non_positive_prices",
+          "passed": true,
+          "severity": "error",
+          "message": "All prices positive.",
+          "detail": {
+            "n": 0
+          }
+        },
+        {
+          "name": "negative_volume",
+          "passed": true,
+          "severity": "error",
+          "message": "No negative volume.",
+          "detail": {
+            "n": 0
+          }
+        },
+        {
+          "name": "ohlc_coherence",
+          "passed": false,
+          "severity": "warning",
+          "message": "4 row(s) violate low <= {open, close} <= high.",
+          "detail": {
+            "n": 4
+          }
+        },
+        {
+          "name": "abnormal_price_jumps",
+          "passed": true,
+          "severity": "warning",
+          "message": "No abnormal price jumps.",
+          "detail": {
+            "by_ticker": {}
+          }
+        },
+        {
+          "name": "corporate_action_like_jumps",
+          "passed": true,
+          "severity": "warning",
+          "message": "No corporate-action-like jumps beyond the daily price band.",
+          "detail": {
+            "by_ticker": {}
+          }
+        },
+        {
+          "name": "minimum_history",
+          "passed": true,
+          "severity": "warning",
+          "message": "All tickers meet the minimum history requirement.",
+          "detail": {
+            "tickers": {}
+          }
+        },
+        {
+          "name": "stale_prices",
+          "passed": false,
+          "severity": "warning",
+          "message": "19 ticker(s) have a run of >= 5 identical consecutive closes.",
+          "detail": {
+            "longest_runs": {
+              "STB": 13,
+              "ACB": 10,
+              "MSN": 9,
+              "MBB": 8,
+              "VNM": 8,
+              "CTG": 7,
+              "SHB": 7,
+              "SSB": 7,
+              "BCM": 6,
+              "GAS": 6,
+              "GVR": 6,
+              "LPB": 6,
+              "SAB": 6,
+              "VIB": 6,
+              "BID": 5
+            }
+          }
+        },
+        {
+          "name": "zero_return_ratio",
+          "passed": true,
+          "severity": "warning",
+          "message": "Zero-return ratios are within a normal range.",
+          "detail": {
+            "ratios": {}
+          }
+        },
+        {
+          "name": "excess_forward_fill",
+          "passed": true,
+          "severity": "warning",
+          "message": "Forward-fill usage is minimal.",
+          "detail": {
+            "ratios": {}
+          }
+        },
+        {
+          "name": "calendar_alignment",
+          "passed": false,
+          "severity": "warning",
+          "message": "496 date(s) have fewer than half of the tickers reporting - sources may not share a trading calendar.",
+          "detail": {
+            "n_ragged_dates": 496
+          }
+        },
+        {
+          "name": "calendar_gaps",
+          "passed": false,
+          "severity": "info",
+          "message": "1 calendar gap(s) longer than 10 days (holidays or data outages).",
+          "detail": {
+            "gaps": [
+              {
+                "from": "2015-02-13",
+                "to": "2015-02-24",
+                "days": 11
+              }
+            ]
+          }
+        },
+        {
+          "name": "timestamp_normalisation",
+          "passed": true,
+          "severity": "warning",
+          "message": "All timestamps are dates.",
+          "detail": {
+            "n": 0
+          }
+        },
+        {
+          "name": "constituent_count",
+          "passed": true,
+          "severity": "info",
+          "message": "Ticker count per date ranges 14..31 (median 30).",
+          "detail": {
+            "min": 14,
+            "max": 31,
+            "median": 30,
+            "first_date_count": 14,
+            "last_date_count": 31
+          }
+        },
+        {
+          "name": "index_present",
+          "passed": true,
+          "severity": "error",
+          "message": "Index `VN30` present.",
+          "detail": {}
+        }
+      ]
+    },
+    "warnings": [
+      "1 ticker(s) have sector = UNKNOWN. Sectors are never guessed from the company name; add them to config/sector_map.csv if you need sector features.",
+      "SURVIVORSHIP BIAS: the universe file has no effective dates, so today's VN30 membership is applied to the whole history. Stocks that were removed from the index are absent and current members are present before they joined. Network statistics and any model trained on them are optimistically biased. Use `data.universe_method: liquidity_proxy` for a point-in-time alternative, or add effective dates to config/vn30_universe.csv.",
+      "4 row(s) violate low <= {open, close} <= high.",
+      "19 ticker(s) have a run of >= 5 identical consecutive closes.",
+      "496 date(s) have fewer than half of the tickers reporting - sources may not share a trading calendar."
+    ]
+  },
+  "graph_keys": [
+    "partial_correlation__residual__w20",
+    "partial_correlation__residual__w60",
+    "partial_correlation__residual__w120",
+    "partial_correlation__residual__w252",
+    "partial_correlation__raw__w20",
+    "partial_correlation__raw__w60",
+    "partial_correlation__raw__w120",
+    "partial_correlation__raw__w252",
+    "correlation__residual__w60",
+    "correlation__raw__w60"
+  ],
+  "snapshots_per_key": {
+    "partial_correlation__residual__w20": 712,
+    "partial_correlation__residual__w60": 3526,
+    "partial_correlation__residual__w120": 694,
+    "partial_correlation__residual__w252": 671,
+    "partial_correlation__raw__w20": 718,
+    "partial_correlation__raw__w60": 710,
+    "partial_correlation__raw__w120": 698,
+    "partial_correlation__raw__w252": 672,
+    "correlation__residual__w60": 705,
+    "correlation__raw__w60": 710
+  },
+  "n_folds": 21,
+  "verdict": {
+    "verdict": "mixed",
+    "n_comparisons": 20,
+    "n_significant_brier": 4,
+    "n_significant_auprc": 3,
+    "mean_brier_difference": -0.025948567114373267,
+    "absolute_skill": {
+      "n_configurations": 48,
+      "n_with_positive_brier_skill": 0,
+      "best_brier_skill_score": -0.12162563158530593,
+      "beats_climatology": false,
+      "note": "No configuration beat a constant forecast at the realised base rate. Any relative improvement below is an improvement over a poorly calibrated baseline, not evidence of usable forecasting skill."
+    },
+    "interpretation": "Some settings improved significantly and others did not. The evidence does not support a general claim that graph features help."
+  },
+  "node_ranking_verdict": {
+    "verdict": "no_improvement",
+    "baseline_ic_mean": 0.10287687798855073,
+    "baseline_ic_t_stat": 15.362947045372687,
+    "best_feature_set": "node_plus_centrality",
+    "best_ic_mean": 0.05987479497131881,
+    "best_ic_t_stat": 9.25461687806872,
+    "ic_improvements": {
+      "node_plus_centrality": -0.04300208301723192,
+      "node_plus_neighbor": -0.05355146144619428
+    },
+    "interpretation": "Network features did not improve cross-sectional ordering over per-stock features. Centrality describes structural position, not expected return.",
+    "caveat": "Rank IC and long-short spreads are evaluation devices. They demonstrate ordering ability, not a causal effect and not a tradable strategy."
+  },
+  "assumptions": [
+    "HIST.TRADING_KEY is days since 1970-01-01. Validated by decoding the maximum key and matching it to the session represented by the QUOTES_INFO snapshot.",
+    "HIST.EID <-> QUOTES_INFO.SYMBOL is reconstructed by unique OHLCV fingerprint on the latest session, because the vendor schema carries no foreign key between the two tables. Symbols whose OHLCV tuple is not unique on that session remain unmapped and are reported rather than guessed.",
+    "adjusted_close = close * (1 - ADJUST_RATE/1e6). The scale and functional form were verified against 12 HPG corporate-action boundaries: the implied factor ratio matched the observed reference-price-to-previous-close ratio to 5 decimal places at every one.",
+    "Prices are quoted in thousand VND and turnover (VAL) in VND. Only ratios and log differences are used downstream, so the unit mismatch does not propagate.",
+    "ICB_ID decodes as <industry:2><supersector:2><sector:2>. Validated against ~40 known tickers (banks -> 8030, real estate -> 8060, securities -> 8070, steel -> 1070).",
+    "Rows with TRADING_KEY before 1990 belong to global reference series (equity indices, metals, FX), not Vietnamese listings; they do not enter a VN30 universe.",
+    "Residual returns come from a 60-day rolling market regression; residual at t uses coefficients fitted on [t-W+1, t] only.",
+    "The graphical lasso is fitted on the CORRELATION matrix rather than the covariance. Daily return covariances are ~1e-4, so a penalty on the covariance scale would zero every off-diagonal term; partial correlation is scale invariant, so the estimate is unchanged while alpha becomes comparable across windows and regimes.",
+    "Centrality measures that are undefined on negative weights (eigenvector, PageRank, closeness, harmonic, betweenness, clustering, coreness) are computed on |A|. Sign information is preserved separately as positive/negative strength and edge sign ratio.",
+    "The universe is the static VN30 list in config/vn30_universe.csv applied to all of history, because the database carries no index-membership table. This is survivorship-biased; `data.universe_method: liquidity_proxy` builds a point-in-time alternative from trailing market cap x turnover."
+  ],
+  "skipped_modules": [],
+  "gnn": null
+}

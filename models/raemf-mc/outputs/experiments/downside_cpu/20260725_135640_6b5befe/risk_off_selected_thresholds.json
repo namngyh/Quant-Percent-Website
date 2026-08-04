@@ -1,0 +1,20 @@
+{
+  "h20_fold0": {
+    "baseline": {
+      "threshold": 0.49,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.62,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "logistic",
+      "feature_group": "base_plus_downside_all",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  }
+}

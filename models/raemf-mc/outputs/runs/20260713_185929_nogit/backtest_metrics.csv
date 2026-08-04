@@ -1,0 +1,2 @@
+model,cumulative_return,annualized_return,annualized_volatility,sharpe,sortino,calmar,max_drawdown,turnover,hit_rate,average_exposure,state_changes
+RAEMF-MC exposure,23.74348507417855,0.12838324558740635,0.08489383897826443,1.5122798913626303,1.984933863375487,0.6318615666681467,-0.20318255193836332,195.25,0.5060336614798349,0.2924738012067323,451

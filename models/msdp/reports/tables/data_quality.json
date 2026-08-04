@@ -1,0 +1,17 @@
+{
+  "rows": 6306,
+  "start": "2000-07-28",
+  "end": "2026-07-13",
+  "duplicate_dates": 0,
+  "missing": {
+    "date": 0,
+    "open": 0,
+    "high": 0,
+    "low": 0,
+    "close": 0,
+    "volume": 0
+  },
+  "issues": [
+    "OHLC constraint violations: high=27, low=15"
+  ]
+}

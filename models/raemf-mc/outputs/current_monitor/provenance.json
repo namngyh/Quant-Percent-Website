@@ -1,0 +1,28 @@
+{
+  "data_file": "VNINDEX_Daily.csv",
+  "data_sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f",
+  "data_metadata": {
+    "rows_loaded": 6306,
+    "duplicate_dates": 2,
+    "exact_duplicate_records_removed": 1,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-13",
+    "sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f"
+  },
+  "baseline_run": "outputs\\latest",
+  "baseline_forecast_date": "2026-07-01",
+  "baseline_anchor_close": 1865.37,
+  "revised_source_close_at_baseline_date": 1867.21,
+  "source_revision_pct": 0.0009863994810681564,
+  "evaluation_rule": "Final horizon class is scored only after h new trading sessions are observed"
+}

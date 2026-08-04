@@ -1,0 +1,269 @@
+# =============================================================================
+# DynamicGraph - default configuration
+# -----------------------------------------------------------------------------
+# Every value here is a DEFAULT, not an empirically optimal choice.
+# `fast.yaml`, `full.yaml` and `local.yaml` inherit from this file via `extends`.
+# =============================================================================
+
+project:
+  name: DynamicGraph
+  version: "0.1.0"
+  seed: 42
+  mode: default            # default | fast | full
+
+data:
+  # Filled by `discover-data`. May also be a SQLAlchemy URL.
+  database_path: null
+  database_url_env: DYNAMICGRAPH_DATABASE_URL
+  # Backend hint; `auto` sniffs the file/URL. One of:
+  # auto | datapro_sqlite | generic_sqlite | duckdb | parquet | csv | sqlalchemy
+  backend: auto
+  # Optional explicit table/column overrides discovered by the schema inference.
+  table: null
+  column_map: {}
+
+  index_symbol: VN30            # canonical name used inside the pipeline
+  index_source_symbol: null     # raw symbol in the DB (auto-detected if null)
+  universe: VN30
+
+  # Universe resolution:
+  #   static_list      -> config/vn30_universe.csv (survivorship-biased)
+  #   liquidity_proxy  -> point-in-time top-N by trailing median turnover
+  universe_method: static_list
+  universe_size: 30
+  universe_file: config/vn30_universe.csv
+  liquidity_lookback_days: 120
+  universe_rebalance_days: 63
+
+  sector_map_file: config/sector_map.csv
+
+  start_date: null
+  end_date: null
+
+  allow_unadjusted_price: false
+  minimum_history_days: 252
+  max_missing_ratio_per_window: 0.10
+  max_forward_fill_days: 1
+  stale_price_max_run: 5
+  jump_sigma_threshold: 10.0
+  read_only: true
+
+features:
+  return_windows: [1, 5, 10, 20, 60]
+  volatility_windows: [5, 20, 60]
+  beta_windows: [20, 60]
+  drawdown_windows: [20, 60, 252]
+  ewma_lambda: 0.94
+  var_quantile: 0.05
+  residualize_market: true
+  residualize_sector: false
+  residual_window: 60
+  robust_cross_sectional_scaling: true
+  liquidity_features: true
+  winsorize_z: 5.0
+
+graph:
+  windows: [20, 60, 120, 252]
+  core_window: 60
+  core_layer: partial_correlation      # correlation | partial_correlation
+  return_type: residual                # raw | residual
+  covariance_estimator: ledoit_wolf    # sample | ledoit_wolf
+  graphical_lasso_alpha: 0.02
+  graphical_lasso_alpha_grid: [0.002, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20]
+  graphical_lasso_alpha_selection: fixed   # fixed | cv_train_only | stability
+  max_graph_density: 0.60
+  signed_graph: true
+  use_absolute_weight_for_centrality: true
+
+  edge_filter_method: quantile         # absolute | quantile | stability | none
+  absolute_threshold: 0.10
+  top_edge_quantile: 0.25
+  bootstrap_iterations: 100
+  block_length: 10                     # moving-block bootstrap block length ("auto" -> n^(1/3))
+  edge_stability_threshold: 0.60
+
+  snapshot_stride: 1                   # core layer: build a snapshot every N trading days
+  # Secondary layers/scales only supply graph-LEVEL features, which are
+  # forward-filled onto the daily index. Building them daily costs runtime and
+  # memory for information the model never sees.
+  secondary_snapshot_stride: 5
+  build_raw_and_residual: true
+  build_correlation_and_partial: true
+
+  enable_lead_lag: true
+  lead_lag_days: [1, 2, 3, 5]
+  lead_lag_window: 120
+  lead_lag_threshold: 1.25
+  lead_lag_min_abs_corr: 0.05
+  lead_lag_fdr_alpha: 0.10
+
+  enable_spillover: false
+  spillover_window: 120
+  spillover_horizon: 10
+  spillover_lags: 2
+  spillover_estimator: ridge           # ridge | lasso | pca
+  spillover_ridge_alpha: 1.0
+  spillover_pca_components: 5
+
+network:
+  compute_betweenness: true
+  compute_closeness: true
+  community_method: auto               # auto | louvain | greedy | spectral
+  community_resolution: 1.0
+  pagerank_alpha: 0.85
+  neighbor_risk_feature: volatility_20d
+
+stress_score:
+  metrics:
+    - avg_abs_partial_correlation
+    - graph_density
+    - spectral_radius
+    - market_mode_share
+    - centrality_concentration
+    - largest_cc_share
+    - average_clustering
+    - negative_diversification
+    - edge_turnover
+    - community_compression
+  # +1 -> higher metric means higher stress; -1 -> inverted before aggregation
+  signs:
+    avg_abs_partial_correlation: 1
+    graph_density: 1
+    spectral_radius: 1
+    market_mode_share: 1
+    centrality_concentration: 1
+    largest_cc_share: 1
+    average_clustering: 1
+    negative_diversification: 1
+    edge_turnover: 1
+    community_compression: 1
+  weights: equal                       # equal | {metric: weight}
+  clip_z: 3.0
+  redundancy_corr_threshold: 0.95
+  state_percentiles: [0.50, 0.80, 0.95]
+  state_labels: [low_connectivity, normal, elevated, high_stress]
+
+targets:
+  horizons: [5, 10, 20, 40]
+  stress_definition: both              # absolute | quantile | both
+  primary_stress_definition: quantile
+  stress_quantile: 0.10
+  absolute_drawdown_thresholds:
+    5: -0.03
+    10: -0.04
+    20: -0.05
+    40: -0.07
+  volatility_quantile: 0.90
+  node_stress_quantile: 0.10
+  node_absolute_drawdown_thresholds:
+    5: -0.06
+    10: -0.08
+    20: -0.10
+    40: -0.14
+
+training:
+  split_method: purged_walk_forward
+  initial_train_days: 756
+  validation_days: 126
+  test_days: 63
+  expanding_window: true
+  purge_days: 40
+  embargo_days: 5
+  min_positive_train: 15
+  # Feature selection, fitted on each fold's TRAINING rows only. With ~2800
+  # training observations and ~280 positives, more than a few dozen features is
+  # p >> n. 0 disables selection.
+  max_features: 60
+  feature_redundancy_threshold: 0.95
+  optuna_trials_fast: 20
+  optuna_trials_full: 100
+  enable_tuning: false
+  tuning_objective: brier              # brier | logloss | auprc | composite
+  random_seed: 42
+  n_jobs: 1
+
+models:
+  run_naive: true
+  run_logistic: true
+  run_random_forest: true
+  run_hist_gradient_boosting: true
+  run_ebm_if_available: true
+  run_xgboost_if_available: true
+  run_temporal_gnn: false
+  calibration_method: isotonic          # sigmoid | isotonic | none
+  class_weight: balanced
+  feature_sets: [market, graph, combined]
+
+gnn:
+  enabled: false
+  sequence_lengths: [10, 20, 60]
+  sequence_length: 20
+  hidden_dimensions: [16, 32, 64]
+  hidden_dimension: 32
+  graph_layers: [1, 2]
+  n_graph_layers: 1
+  temporal_model: GRU
+  dropout_range: [0.10, 0.40]
+  dropout: 0.25
+  weight_decay: 0.0001
+  learning_rate: 0.001
+  max_epochs: 200
+  batch_size: 32
+  early_stopping_patience: 20
+  gradient_clip_norm: 1.0
+  loss: focal                          # focal | weighted_bce
+  focal_gamma: 2.0
+  device: auto
+
+evaluation:
+  bootstrap_iterations: 500
+  bootstrap_block_length: 20
+  calibration_bins: 10
+  event_min_gap_days: 20
+  decision_threshold_objective: f1     # f1 | mcc | balanced_accuracy | fixed
+  fixed_threshold: 0.5
+
+# Capital allocation. Tests whether the estimated dependence structure improves
+# portfolio construction -- a second-moment claim, evaluated separately from the
+# first-moment (stress forecasting) claim in `training:`.
+allocation:
+  enabled: true
+  estimation_window: 0        # 0 inherits graph.core_window
+  rebalance_days: 20
+  max_weight: 0.20            # per-name cap; uncapped min-variance overfits badly
+  cost_bps_per_side: 15.0     # VN large caps: ~10-20 bps per side including spread
+  min_assets: 10
+  rolling_volatility_window: 126
+
+ablation:
+  enabled: true
+  variants:
+    - market_only
+    - graph_only
+    - market_plus_graph
+    - correlation_graph
+    - partial_correlation_graph
+    - raw_return_graph
+    - residual_return_graph
+    - single_scale_60
+    - single_scale_120
+    - multi_scale
+    - no_community_features
+    - no_spectral_features
+    - no_centrality_features
+
+output:
+  artifacts_dir: artifacts
+  export_json: true
+  export_csv: true
+  export_parquet: true
+  create_figures: true
+  create_html_report: false
+  top_n_nodes: 10
+  top_n_edges: 60
+  history_export_days: 750
+
+logging:
+  level: INFO
+  file: artifacts/reports/dynamicgraph.log
+  rich: true

@@ -1,0 +1,10 @@
+horizon,fold,train_start,train_end,validation_start,validation_end,test_start,test_end,train_observations,validation_observations,test_observations,selected_model_kind,selected_feature_group,selected_feature_count,baseline_feature_count,cache_status,candidate_warning,evaluation_scope
+20,0,2000-07-28,2013-02-07,2013-03-15,2015-02-10,2015-03-19,2017-03-13,2962,477,497,logistic,base_plus_downside_all,143,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+20,1,2000-07-28,2015-02-10,2015-03-19,2017-02-13,2017-03-14,2019-03-11,3459,477,497,hist_gradient_boosting,base_plus_downside_all,142,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+20,2,2000-07-28,2017-02-13,2017-03-14,2019-02-11,2019-03-12,2021-03-04,3956,477,497,ebm,base_plus_downside_all,143,107,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+40,0,2000-07-28,2012-12-21,2013-02-27,2014-12-22,2015-02-27,2017-02-17,2930,455,495,logistic,base_plus_downside_price,138,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+40,1,2000-07-28,2014-12-22,2015-02-27,2016-12-15,2017-02-20,2019-02-13,3425,455,495,ebm,base_plus_downside_price,137,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+40,2,2000-07-28,2016-12-15,2017-02-20,2018-12-10,2019-02-14,2021-01-28,3920,455,495,hist_gradient_boosting,base,107,107,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+60,0,2000-07-28,2012-11-07,2013-02-04,2014-11-04,2015-01-30,2017-01-19,2898,433,493,hist_gradient_boosting,base,106,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+60,1,2000-07-28,2014-11-04,2015-01-30,2016-10-26,2017-01-20,2019-01-11,3391,433,493,hist_gradient_boosting,base,106,106,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos
+60,2,2000-07-28,2016-10-26,2017-01-20,2018-10-17,2019-01-14,2020-12-30,3884,433,493,ebm,base,107,107,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos

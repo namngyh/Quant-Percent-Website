@@ -1,0 +1,11 @@
+{
+  "started_at_utc": "2026-07-25T06:56:40.621710+00:00",
+  "finished_at_utc": "2026-07-25T06:57:13.249610+00:00",
+  "git_sha": "6b5befe",
+  "seed": 42,
+  "data_checksum": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f",
+  "config_checksum": "82f8c2deea04d2d80bbac4fd6d3b681fe88c645ae137c543317f8789997d5bd1",
+  "evaluation_scope": "nested_purged_development_oos",
+  "legacy_audit_period": "post_selection_legacy_audit_not_run",
+  "production_changed": false
+}

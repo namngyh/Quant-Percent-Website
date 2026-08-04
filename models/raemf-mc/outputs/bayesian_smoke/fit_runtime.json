@@ -1,0 +1,11 @@
+{
+  "runtime_seconds": 50.31369179999456,
+  "peak_memory_bytes": 90091540,
+  "artifact_size_bytes": 3003939,
+  "data_sha256": "40db5e75e396d7fcb4cb59f72b291058e49b3cf12efea192cddf4e0d43223704",
+  "commit": "5b86df29e737fc5a0b2b66fec151e55f640dc58c",
+  "inference_family": "meanfield_advi",
+  "iterations": 300,
+  "seed": 123,
+  "convergence_status": "converged"
+}

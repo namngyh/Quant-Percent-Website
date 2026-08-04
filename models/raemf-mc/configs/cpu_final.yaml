@@ -1,0 +1,23 @@
+extends: cpu_experiment.yaml
+
+runtime:
+  mode: cpu-final
+  device: cpu
+  max_threads: 4
+  memory_budget_mb: 6144
+
+tuning:
+  enabled: false
+
+monte_carlo:
+  paths: 1200
+  chunk_size: 200
+  store_paths: false
+
+bootstrap:
+  metric_replicates: 1000
+
+downside_experiment:
+  mode: frozen
+  frozen_artifact: outputs/experiments/downside_cpu/REPLACE_WITH_ACCEPTED_RUN/frozen_decision.json
+  run_legacy_audit: true

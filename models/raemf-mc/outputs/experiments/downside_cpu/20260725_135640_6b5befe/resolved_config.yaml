@@ -1,0 +1,167 @@
+runtime:
+  mode: cpu-smoke
+  seed: 42
+  max_threads: 2
+  cache_features: true
+  fail_fast: false
+  device: cpu
+  memory_budget_mb: 4096
+  cache_dir: outputs/cache/downside_cpu
+  multiprocessing: false
+split:
+  train_fraction: 0.65
+  validation_fraction: 0.15
+  test_fraction: 0.2
+target:
+  bull_threshold: 0.5
+  bear_threshold: 0.5
+  stress_threshold: 1.5
+  volatility_window: 40
+features:
+  missing_threshold: 0.4
+  correlation_threshold: 0.98
+  downside_features:
+    enabled: true
+hmm:
+  n_states: 4
+  seeds:
+  - 42
+risk:
+  egarch_p: 1
+  egarch_o: 1
+  egarch_q: 1
+models:
+  ebm:
+    max_bins: 32
+    interactions: 0
+    learning_rate: 0.04
+    max_rounds: 20
+    outer_bags: 1
+    min_samples_leaf: 5
+  xgboost:
+    n_estimators: 160
+    max_depth: 3
+    learning_rate: 0.04
+  random_forest:
+    n_estimators: 240
+    max_depth: 6
+tuning:
+  enabled: false
+  trials_per_horizon: 15
+  folds: 3
+  validation_size: 240
+  timeout_seconds_per_horizon: 900
+monte_carlo:
+  paths: 200
+  chunk_size: 100
+  scenario_mode: point_estimate
+  store_paths: false
+bayesian:
+  enabled: false
+  backend: pymc
+  method: fullrank_advi
+  advi_steps: 30000
+  posterior_draws: 2000
+  posterior_predictive_draws: 1000
+  learning_rate: 0.01
+  convergence_window: 500
+  convergence_tolerance: 0.001
+  shared_nu: false
+  prior_mu_scale: 0.5
+  prior_log_scale_sd: 0.3
+  prior_nu_rate: 0.1
+  random_seed: 42
+  fallback_to_point_estimate: true
+  min_effective_observations: 20
+bootstrap:
+  metric_replicates: 50
+  block_length: 20
+market_filter:
+  bull_threshold: 0.42
+  stress_threshold: 0.25
+  bear_threshold: 0.35
+  entropy_uncertain: 1.25
+backtest:
+  transaction_cost_bps: 10
+downside_experiment:
+  mode: smoke
+  output_root: outputs/experiments/downside_cpu
+  horizons:
+  - 20
+  folds: 1
+  inner_folds: 1
+  inner_validation_size: 180
+  test_fraction: 0.2
+  validation_fraction: 0.08
+  feature_groups:
+  - base_plus_downside_all
+  model_kinds:
+  - logistic
+  run_legacy_audit: false
+risk_off:
+  enabled: true
+  sample_weight:
+    positive_cost: 2.0
+    negative_cost: 1.0
+    severity_lambda: 1.0
+    severity_cap: 4.0
+    min_weight: 0.25
+    max_weight: 12.0
+  models:
+    logistic:
+      C: 1.0
+      max_iter: 400
+    hist_gradient_boosting:
+      learning_rate: 0.05
+      max_iter: 30
+      max_depth: 3
+      min_samples_leaf: 20
+      l2_regularization: 1.0
+      importance_sample_size: 200
+    ebm:
+      max_bins: 32
+      interactions: 0
+      max_rounds: 20
+      learning_rate: 0.04
+      outer_bags: 1
+      min_samples_leaf: 5
+  threshold_selection:
+    objective: expected_cost
+    start: 0.05
+    stop: 0.8
+    step: 0.01
+    min_precision: 0.25
+    min_recall: 0.4
+    fn_cost_multiplier: 3.0
+    fp_cost_multiplier: 1.0
+  objective:
+    expected_cost_scale: 0.05
+    weights:
+      recall: 0.25
+      pr_auc: 0.2
+      expected_cost: 0.2
+      macro_f1: 0.1
+      brier: 0.1
+      ece: 0.05
+      false_positive_exposure: 0.1
+  constraints:
+    min_precision: 0.25
+    brier_tolerance: 0.02
+    macro_f1_tolerance: 0.03
+  acceptance_criteria:
+    minimum_recall_gain: 0.1
+    minimum_precision: 0.25
+    minimum_cost_reduction: 0.1
+    brier_tolerance: 0.02
+    macro_f1_tolerance: 0.03
+risk_overlay:
+  enabled: true
+  probability_bands:
+  - max_probability: 0.25
+    multiplier: 1.0
+  - max_probability: 0.4
+    multiplier: 0.75
+  - max_probability: 0.55
+    multiplier: 0.5
+  - max_probability: 1.0
+    multiplier: 0.25

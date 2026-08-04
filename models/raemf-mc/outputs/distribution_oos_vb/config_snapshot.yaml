@@ -1,0 +1,129 @@
+runtime:
+  mode: laptop-vb
+  seed: 42
+  max_threads: 4
+  cache_features: true
+  fail_fast: false
+split:
+  train_fraction: 0.65
+  validation_fraction: 0.15
+  test_fraction: 0.2
+target:
+  bull_threshold: 0.5
+  bear_threshold: 0.5
+  stress_threshold: 1.5
+  volatility_window: 40
+features:
+  missing_threshold: 0.4
+  correlation_threshold: 0.98
+hmm:
+  n_states: 4
+  seeds:
+  - 11
+  - 42
+  - 73
+risk:
+  egarch_p: 1
+  egarch_o: 1
+  egarch_q: 1
+models:
+  ebm:
+    max_bins: 96
+    interactions: 0
+    learning_rate: 0.03
+    max_rounds: 80
+    outer_bags: 2
+    min_samples_leaf: 2
+  xgboost:
+    n_estimators: 160
+    max_depth: 3
+    learning_rate: 0.04
+  random_forest:
+    n_estimators: 240
+    max_depth: 6
+tuning:
+  enabled: false
+  trials_per_horizon: 15
+  folds: 3
+  validation_size: 240
+  timeout_seconds_per_horizon: 900
+monte_carlo:
+  paths: 1500
+  chunk_size: 300
+  scenario_mode: variational_posterior
+bayesian:
+  enabled: true
+  backend: pytorch_cuda
+  method: fullrank_advi
+  advi_steps: 6000
+  posterior_draws: 1200
+  posterior_predictive_draws: 500
+  learning_rate: 0.005
+  convergence_window: 500
+  convergence_tolerance: 0.001
+  shared_nu: true
+  prior_mu_scale: 0.5
+  prior_log_scale_sd: 0.3
+  prior_nu_rate: 0.1
+  random_seed: 42
+  fallback_to_point_estimate: true
+  min_effective_observations: 80
+  hierarchical: true
+  seeds:
+  - 11
+  - 42
+  - 73
+  min_steps: 1500
+  retry_learning_rates:
+  - 0.001
+  vi_samples_per_step: 8
+  gradient_clip_norm: 5.0
+  early_stopping_patience: 1500
+  fallback_to_meanfield: true
+  device: auto
+  require_gpu: false
+  dtype: float32
+  priors:
+    mu_global_sd: 0.25
+    mu_tau_sd: 0.25
+    log_c_global_sd: 0.25
+    log_c_tau_sd: 0.2
+    nu_rate: 0.1
+bootstrap:
+  metric_replicates: 120
+  block_length: 20
+market_filter:
+  bull_threshold: 0.42
+  stress_threshold: 0.25
+  bear_threshold: 0.35
+  entropy_uncertain: 1.25
+backtest:
+  transaction_cost_bps: 10
+bayesian_regime_head:
+  enabled: true
+  max_features: 20
+  seeds:
+  - 11
+  - 42
+  - 73
+  advi_steps: 6000
+  posterior_draws: 800
+  learning_rate: 0.01
+  ablation_horizons:
+  - 20
+  device: auto
+distribution_benchmark:
+  n_folds: 3
+  test_fraction: 0.3
+  validation_fraction: 0.1
+  horizons:
+  - 20
+  - 40
+  - 60
+  paths: 300
+  mc_seeds:
+  - 11
+  - 42
+  - 73
+  bootstrap_replicates: 500
+  bootstrap_block_length: 20

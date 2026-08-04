@@ -1,0 +1,5 @@
+missing_rate,n_snapshots,mean_density,mean_nodes,density_correlation_with_clean
+0.0,16,0.18620689655172412,30.0,1.0
+0.05,2,0.1724137931034483,29.0,
+0.1,1,0.20512820512820512,13.0,
+0.2,0,,,

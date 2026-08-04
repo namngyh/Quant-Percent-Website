@@ -1,0 +1,27 @@
+{
+  "hmm_warnings": [],
+  "egarch_warnings": [],
+  "horizons": {
+    "20": {
+      "labeled_observations": 6286,
+      "last_labeled_date": "2026-06-15",
+      "selected_feature_count": 108,
+      "temperature_from_baseline_validation": 2.0,
+      "model_warning": null
+    },
+    "40": {
+      "labeled_observations": 6266,
+      "last_labeled_date": "2026-05-18",
+      "selected_feature_count": 108,
+      "temperature_from_baseline_validation": 1.2999999999999998,
+      "model_warning": null
+    },
+    "60": {
+      "labeled_observations": 6246,
+      "last_labeled_date": "2026-04-15",
+      "selected_feature_count": 108,
+      "temperature_from_baseline_validation": 1.1,
+      "model_warning": null
+    }
+  }
+}

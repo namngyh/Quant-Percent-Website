@@ -1,0 +1,2 @@
+horizon,fold,train_start,train_end,validation_start,validation_end,test_start,test_end,train_observations,validation_observations,test_observations,selected_model_kind,selected_feature_group,selected_feature_count,baseline_feature_count,cache_status,candidate_warning,evaluation_scope
+20,0,2000-07-28,2015-07-14,2015-08-12,2017-02-13,2017-03-14,2021-03-04,3559,377,994,logistic,base_plus_downside_all,143,107,fold_indices:hit;hmm_egarch:hit,,nested_purged_development_oos

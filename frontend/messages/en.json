@@ -1,0 +1,619 @@
+{
+  "meta": {
+    "siteName": "Quant Percent",
+    "home": {
+      "title": "Quant Percent: Understand Vietnam's Markets Through Data",
+      "description": "Quant Percent builds models that help investors understand market direction, risk and possible outcomes in Vietnam."
+    },
+    "market": {
+      "title": "Market Intelligence",
+      "description": "Public dashboard: market state, regime, probabilities, volatility and risk for VN-Index, VN30 and VN30F1M."
+    },
+    "models": {
+      "title": "Market Models",
+      "description": "Models for forecasting, understanding market conditions and measuring risk."
+    },
+    "performance": {
+      "title": "Performance",
+      "description": "Transparent performance reporting: equity curves, drawdowns, risk metrics, with backtest and paper trading clearly separated."
+    },
+    "about": {
+      "title": "About",
+      "description": "Quant Percent is a quantitative research group developing systematic market-analysis and trading models for Vietnam's financial markets."
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Contact Quant Percent about research collaboration, data or technology partnerships, or register your interest."
+    },
+    "legal": {
+      "title": "Legal",
+      "description": "Terms of use and important disclosures about Quant Percent's quantitative research content."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "description": "How Quant Percent collects, uses and protects your personal data."
+    },
+    "status": {
+      "title": "System Status",
+      "description": "Operational status of Quant Percent data and model services."
+    },
+    "login": {
+      "title": "Sign in",
+      "description": "Sign in to see the full output of Quant Percent's models."
+    },
+    "register": {
+      "title": "Create account",
+      "description": "Create an account to follow Quant Percent's full research catalogue."
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "description": "Recover access to your Quant Percent account."
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "market": "Market Intelligence",
+    "models": "Models",
+    "performance": "Performance",
+    "about": "About",
+    "contact": "Contact",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "language": "Language"
+  },
+  "footer": {
+    "tagline": "Understand Vietnam's Markets Through Data.",
+    "philosophy": "Clear data. Rigorous testing. Transparent risk.",
+    "nav": "Navigation",
+    "resources": "Resources",
+    "legalNav": "Legal",
+    "systemStatus": "System status",
+    "legal": "Legal",
+    "privacy": "Privacy policy",
+    "disclaimer": "Quant Percent is currently a research group. This website provides information only. It is not investment advice, an offer to invest or a guarantee of returns.",
+    "copyright": "© {year} Quant Percent. All rights reserved."
+  },
+  "common": {
+    "mockNotice": "The Market Analysis section currently uses illustrative data. Models and Performance use published research results with sources and limitations stated.",
+    "illustrative": "Illustrative",
+    "researchOutput": "Research output",
+    "dataState": {
+      "loading": "Loading data…",
+      "error": "Failed to load data. Please try again.",
+      "empty": "No data to display yet.",
+      "stale": "Data has not been refreshed recently.",
+      "partial": "Some data is temporarily unavailable.",
+      "maintenance": "The system is under maintenance. Please check back later.",
+      "unavailable": "Model temporarily unavailable.",
+      "retry": "Retry"
+    },
+    "freshness": {
+      "dataAsOf": "Data as of",
+      "generatedAt": "Generated at",
+      "updated": "Updated",
+      "delayedBy": "Delayed {minutes} min",
+      "source": "Source",
+      "modelVersion": "Model version"
+    },
+    "regime": {
+      "bullish": "Bullish",
+      "bullish_transition": "Bullish transition",
+      "bearish": "Bearish",
+      "bearish_transition": "Bearish transition",
+      "sideways": "Sideways",
+      "turbulent": "Turbulent"
+    },
+    "riskState": {
+      "low": "Low",
+      "moderate": "Moderate",
+      "elevated": "Elevated",
+      "high": "High"
+    },
+    "signal": {
+      "bullish": "Bullish",
+      "neutral": "Neutral",
+      "defensive": "Defensive",
+      "high_risk": "High Risk",
+      "low_conviction": "Low Conviction"
+    },
+    "modelStatus": {
+      "active": "Research version available",
+      "paper_trading": "Paper trading",
+      "experimental": "Research",
+      "archived": "Archived"
+    },
+    "resultType": {
+      "backtest": "Test on historical data",
+      "out_of_sample": "Test on previously unseen data",
+      "walk_forward": "Year-by-year test",
+      "paper_trading": "Paper trading",
+      "live": "Live trading"
+    },
+    "horizonDays": "{count} days",
+    "viewDetails": "View details",
+    "viewAll": "View all",
+    "learnMore": "Learn more",
+    "comingSoon": "Coming soon",
+    "notAvailable": "Not available",
+    "search": "Search",
+    "all": "All",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} / {total}"
+  },
+  "glossary": {
+    "regime": "How the model describes the market now: rising, falling, moving sideways or experiencing unusually large moves.",
+    "probabilityUp": "The model's estimate of the chance that the market rises over the selected period.",
+    "volatility": "How sharply prices move up and down. Higher volatility usually means greater short-term risk.",
+    "riskState": "A composite assessment of current risk based on volatility, drawdown and market state.",
+    "forecastInterval": "A range of possible outcomes. A wider range means the model is less certain.",
+    "drawdown": "The fall from the most recent peak. A 10% drawdown means the value is 10% below that peak.",
+    "var": "Value at Risk (VaR) is an estimated loss threshold under normal conditions. It is not the largest possible loss.",
+    "es": "Expected Shortfall is the average loss in cases that are worse than the VaR threshold.",
+    "sharpe": "Excess return per unit of total risk. Higher is better.",
+    "sortino": "Like Sharpe, but only penalizes downside volatility.",
+    "calmar": "Annualized return divided by maximum drawdown.",
+    "profitFactor": "Gross profit divided by gross loss. Above 1 means net profitable.",
+    "winRate": "The share of trades that were profitable.",
+    "turnover": "How actively the portfolio trades. More turnover means more cost.",
+    "exposure": "The share of time the system holds a market position.",
+    "basis": "The spread between the futures price and the underlying index.",
+    "coverage": "The share of actual outcomes that fell inside the forecast range. It shows whether that range was reliable.",
+    "monteCarlo": "Monte Carlo simulation creates many possible scenarios to estimate the range of outcomes and risks.",
+    "bootstrap": "Repeatedly resampling past data to check whether a result is stable or may have occurred by chance.",
+    "downsideProbability": "The estimated probability of a negative return over the evaluation horizon.",
+    "modelConsensus": "The degree of agreement between independent models on the current market state."
+  },
+  "home": {
+    "hero": {
+      "title": "Understand Vietnam's Markets Through Data.",
+      "description": "Quant Percent helps investors see market direction, risk and possible outcomes more clearly. Every result explains the data, how it was tested and what it cannot prove.",
+      "primaryCta": "View Today's Market",
+      "secondaryCta": "Explore the Models"
+    },
+    "pulse": {
+      "title": "Market pulse",
+      "regime": "Regime",
+      "probabilityUp": "Probability up",
+      "volatility": "Volatility",
+      "riskState": "Risk state"
+    },
+    "numbers": {
+      "eyebrow": "What we publish",
+      "title": "Research with clear evidence and limits",
+      "models": "models in the research catalogue",
+      "strategies": "Model Modus validation reports",
+      "horizons": "forecast periods from 1 to 60 sessions",
+      "validation": "multiple checks of result stability",
+      "focus": "Vietnam-focused research"
+    },
+    "systems": {
+      "eyebrow": "Our models",
+      "title": "Each model answers a specific question",
+      "description": "Some models estimate market direction, some measure risk and others show how stocks move together. Each page explains the result in plain language.",
+      "viewAllModels": "View all models"
+    },
+    "performance": {
+      "eyebrow": "Test results",
+      "title": "More than a return number",
+      "description": "Each report shows returns alongside losses from peak, trading costs, the data period and remaining uncertainty.",
+      "cta": "View Results and Risks"
+    },
+    "cta": {
+      "title": "Want to discuss a model or a research partnership?",
+      "contact": "Talk to Us",
+      "register": "Leave Your Details"
+    }
+  },
+  "market": {
+    "title": "Market Intelligence",
+    "description": "Follow market direction, the chance of rising or falling, volatility and risk. Each measure includes an explanation of what it means.",
+    "tabs": {
+      "overview": "Overview",
+      "vnindex": "VN-Index",
+      "vn30": "VN30",
+      "vn30f1m": "VN30F1M",
+      "stocks": "VN30 Stocks",
+      "risk": "Risk"
+    },
+    "overview": {
+      "marketState": "Market state",
+      "modelConsensus": "Model consensus",
+      "systemStatus": "System status",
+      "operational": "Operational",
+      "probabilityDown": "Probability down",
+      "signal": "Public state"
+    },
+    "chart": {
+      "price": "Price",
+      "volume": "Volume",
+      "return": "Return",
+      "history": "Price history",
+      "forecastTitle": "Possible outcomes by period",
+      "forecastCenter": "Middle of the forecast range",
+      "interval": "{level} forecast range",
+      "actual": "Actual price",
+      "currentDrawdown": "Decline from the latest peak",
+      "riskScore": "Risk score",
+      "forecastHistory": "Forecast history",
+      "expectedReturn": "Estimated rise or fall",
+      "viewModel": "View model"
+    },
+    "vn30f1m": {
+      "notice": "This page only shows information cleared for publication: market price, basis, volatility, regime and aggregate performance. No entry signals, positions or strategy parameters are shown.",
+      "basis": "Basis",
+      "systemState": "Public system state",
+      "aggregatePerformance": "Aggregate performance"
+    },
+    "stocks": {
+      "searchPlaceholder": "Search ticker…",
+      "columns": {
+        "ticker": "Ticker",
+        "price": "Price",
+        "change": "Change",
+        "regime": "Regime",
+        "probabilityUp": "P(up)",
+        "volatility": "Volatility",
+        "risk": "Risk",
+        "rank": "Rank"
+      },
+      "filterRegime": "Filter by regime",
+      "noResults": "No tickers match the current filters."
+    },
+    "risk": {
+      "title": "Risk overview",
+      "currentDrawdown": "Decline from the latest peak",
+      "rollingDrawdown": "Largest decline over 60 sessions",
+      "volatility": "Volatility",
+      "var": "Estimated 95% one-day loss threshold (VaR)",
+      "es": "Average loss in worse cases",
+      "downsideProbability": "Downside probability",
+      "mcDistribution": "Possible declines in simulated scenarios",
+      "mcDescription": "{n} simulated paths estimate how far the portfolio could fall from its peak over the next 250 sessions.",
+      "stress": "What if the market worsens?",
+      "stressDescription": "Estimated portfolio change under adverse market conditions.",
+      "riskRegime": "Risk regime",
+      "scenarios": {
+        "vol_shock": "Volatility shock",
+        "gap_down": "Sharp opening gap down",
+        "liquidity_drought": "Liquidity drought",
+        "regime_flip": "Sudden regime flip"
+      }
+    }
+  },
+  "models": {
+    "title": "Models",
+    "description": "Each model answers a different market question. See what it does, how it was tested, what the results support and where its limits remain.",
+    "filters": {
+      "market": "Market",
+      "category": "Purpose",
+      "status": "Status"
+    },
+    "categories": {
+      "forecasting": "Forecasting",
+      "regime": "Market direction",
+      "trading_system": "Trading system",
+      "ranking": "Ranking",
+      "volatility": "Volatility",
+      "risk": "Risk"
+    },
+    "card": {
+      "market": "Market",
+      "category": "Purpose",
+      "updated": "Updated",
+      "keyOutput": "Main result"
+    },
+    "locked": {
+      "badge": "Sign-in required",
+      "cardHint": "Sign in to unlock this model",
+      "bannerTitle": "You are viewing {preview} public models",
+      "bannerText": "Sign in to unlock the remaining {locked} models and their detailed output.",
+      "detailTitle": "Members-only content",
+      "detailText": "This model's detailed output is shown after signing in. Registration is free and requires no payment details."
+    },
+    "detail": {
+      "overview": "Model overview",
+      "problem": "Purpose",
+      "assets": "Markets covered",
+      "horizons": "Forecast horizons",
+      "version": "Version",
+      "currentOutput": "Latest result",
+      "forecastChart": "Forecast chart",
+      "historicalForecasts": "Historical forecasts",
+      "historicalDescription": "Comparing forecasts made at each point in time with the values realized afterwards.",
+      "forecastAt": "Forecast made",
+      "predicted": "Predicted",
+      "actual": "Actual",
+      "error": "Error",
+      "inInterval": "In interval",
+      "coverage": "{level} interval coverage",
+      "description": "Model description",
+      "objective": "Objective",
+      "intuition": "Simple explanation",
+      "modelType": "How it works",
+      "validation": "How results were tested",
+      "outputs": "Results provided",
+      "limitations": "Limitations",
+      "architecture": "Main parts of the system",
+      "architectureNote": "This section explains what each part does. Detailed data, parameters and trading rules are not disclosed.",
+      "validatedPerformance": "Tested results",
+      "validatedPerformanceNote": "Independent tests of the same system, each labeled with its data period and test type.",
+      "disclosureNote": "Quant Percent does not disclose specific input data, feature sets, weights, parameters or trading logic.",
+      "notFound": "Model not found."
+    }
+  },
+  "performance": {
+    "title": "Test Results",
+    "description": "Research results for Model Modus on VN30F1M futures. Each report states the data period, testing method and included costs. Different test designs are shown separately.",
+    "labelNote": "All current figures come from historical simulation, not real trading, and do not guarantee future results. The model may perform worse when market conditions change.",
+    "restatementNote": "The figures below were produced before the 4 July 2026 execution-fill correction, which makes fill assumptions stricter. All reports will be re-run and restated once that work completes.",
+    "reportsHeading": "Test runs",
+    "system": {
+      "eyebrow": "System",
+      "reportsLead": "The {count} reports below are separate tests of the same system. They differ in data period and test design, not in product.",
+      "learnMore": "Explore {name}",
+      "market": "Market",
+      "timeframe": "Timeframe",
+      "evaluated": "Evaluated",
+      "runs": "Test runs",
+      "curveCaption": "Capital change from the middle-ranked run, using 2025–2026 data"
+    },
+    "strategyCard": {
+      "period": "Period",
+      "asset": "Asset",
+      "benchmark": "Comparison approach",
+      "seeds": "Runs"
+    },
+    "detail": {
+      "reportInfo": "Report information",
+      "period": "Period",
+      "asset": "Asset",
+      "timeframe": "Timeframe",
+      "benchmark": "Benchmark",
+      "fees": "Transaction fees",
+      "slippage": "Execution price difference",
+      "split": "Data split",
+      "status": "Result type",
+      "updated": "Last updated",
+      "seeds": "Runs",
+      "modelVersion": "Model version",
+      "codeVersion": "Code revision",
+      "source": "Data source",
+      "caveatsTitle": "What to know before reading the report",
+      "equityCurve": "Capital change over time",
+      "drawdown": "Decline from the latest peak",
+      "returnDistribution": "Per-trade profit distribution",
+      "tradeAxis": "Trade number",
+      "pointsAxis": "Index points",
+      "costAxis": "Cost per trade (points)",
+      "pointsUnit": "pts",
+      "tradesShort": "{count} trades",
+      "tradeIndexNote": "The horizontal axis is the closed-trade number. The source run records profit per trade without timestamps.",
+      "seriesNote": "Portfolio value from the middle-ranked run (#{seed}) out of {total} runs; the horizontal axis is the closed-trade number.",
+      "foldTitle": "Results by period",
+      "foldNote": "For each period, the model learns only from earlier data and is then tested on the following year. Periods remain separate to avoid overstating capital growth.",
+      "foldNet": "Return for this period",
+      "foldTrain": "Trained on",
+      "foldTest": "Tested on",
+      "partialYear": "partial year",
+      "exitReasonsTitle": "Exit reasons",
+      "exitReasonsNote": "Share of trades closed by each mechanism.",
+      "exitReasons": {
+        "sl": "Stop loss",
+        "signal": "Signal reversal",
+        "brain": "Model exit decision",
+        "expiry": "Contract expiry",
+        "trail": "Trailing stop"
+      },
+      "seedDistribution": "How much do results change across repeated runs?",
+      "seedDistributionNote": "The model was run {seeds} times on the same data; {positive} runs ended positive. Trade direction remains unstable: {long} runs lean long and {short} lean short.",
+      "seedStats": {
+        "profitMean": "Mean",
+        "profitMedian": "Median",
+        "profitMin": "Lowest",
+        "profitMax": "Highest"
+      },
+      "bootstrapTitle": "Are results stable when the data changes slightly?",
+      "bootstrapNote": "The recorded profit series was resampled {n} times to estimate how much results could vary.",
+      "bootstrapMedian": "Middle outcome",
+      "bootstrapVar": "Lower-end outcome (bottom 5%)",
+      "bootstrapPayoff": "Average profit-to-loss ratio (90% estimated range)",
+      "bootstrapProb": "Chance that the profit-to-loss ratio is above 1",
+      "costStress": "How do trading costs affect the result?",
+      "costStressNote": "Reference config: {fee} points fee and tax per round trip, {slippage} points slippage per side. The table measures mean profit at different applied cost levels.",
+      "costPerTrade": "Cost per trade",
+      "pctPositive": "Runs with a positive result",
+      "ci95": "95% confidence interval",
+      "ciTitle": "Estimated 95% range across repeated runs",
+      "ciNote": "Estimated by repeatedly resampling the results from all runs.",
+      "metricColumn": "Metric",
+      "meanColumn": "Mean",
+      "metrics": "Metrics",
+      "metricNames": {
+        "totalReturn": "Total return",
+        "annualizedReturn": "Annualized return",
+        "maxDrawdown": "Maximum drawdown",
+        "winRate": "Win rate",
+        "exposure": "Exposure",
+        "pctMonths": "Positive months",
+        "wrLong": "Win rate (long)",
+        "wrShort": "Win rate (short)",
+        "netPoints": "Net profit",
+        "maxDrawdownPoints": "Maximum drawdown (points)",
+        "expectancy": "Expectancy per trade",
+        "avgWin": "Average win",
+        "avgLoss": "Average loss",
+        "longPnl": "Long P&L",
+        "shortPnl": "Short P&L",
+        "sharpe": "Sharpe",
+        "sortino": "Sortino",
+        "calmar": "Calmar",
+        "profitFactor": "Profit factor",
+        "payoff": "Payoff",
+        "ulcer": "Ulcer index",
+        "upi": "Ulcer performance index",
+        "equityR2": "Equity curve linearity (R²)",
+        "trades": "Number of trades",
+        "maxConsecutiveLosses": "Longest losing streak",
+        "benchmarkReturn": "Benchmark return"
+      },
+      "notFound": "Strategy not found."
+    }
+  },
+  "about": {
+    "title": "About",
+    "whatTitle": "What Quant Percent is",
+    "whatText": "Quant Percent is a data-driven market research group. We build models to understand market direction, estimate risk and test rule-based trading methods in Vietnam.",
+    "whyTitle": "Why we exist",
+    "whyText": "Quant Percent was created so investors can see results together with how they were tested and what risks remain. We publish weaknesses and unsuccessful findings, not only favourable numbers.",
+    "focusTitle": "Market focus",
+    "focusText": "We focus on the VN-Index, the VN30 equity basket and VN30F1M index futures. This defined scope helps us keep data collection, model development and validation consistent.",
+    "philosophyTitle": "Research philosophy",
+    "philosophyText": "Every conclusion should state its data, test period and limitations. Forecasts are never certain, returns always involve risk and every model can underperform.",
+    "approachTitle": "How we work",
+    "approachText": "Depending on the model, the process may include data-quality checks, validation on unseen data, scenario simulation and paper trading. The website reports only stages that have actually been completed; Model Modus currently has simulated results only.",
+    "visionTitle": "Long-term vision",
+    "visionText": "To build an asset management organization in Vietnam where decisions are based on data, technology and a clear risk process.",
+    "developingTitle": "Areas under development",
+    "developingItems": ["Multi-horizon forecasting for indices and stocks", "Quantitative trading systems for derivatives", "Equity analytics and ranking platform", "Risk measurement and simulation tools", "Data infrastructure and model monitoring"],
+    "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website."
+  },
+  "contact": {
+    "title": "Contact",
+    "description": "Want to learn about a model, discuss a partnership or hear about future products? Leave a message and Quant Percent will respond to your needs.",
+    "form": {
+      "name": "Full name",
+      "email": "Email",
+      "phone": "Phone (optional)",
+      "organization": "Organization (optional)",
+      "inquiryType": "Inquiry type",
+      "inquiryTypes": {
+        "investor_interest": "I want to learn about models and future opportunities",
+        "research_collaboration": "Research collaboration",
+        "data_partnership": "Data partnership",
+        "technology_partnership": "Technology partnership",
+        "general": "General inquiry"
+      },
+      "message": "Message",
+      "consent": "I agree to Quant Percent's privacy policy.",
+      "submit": "Send message",
+      "sending": "Sending…",
+      "success": "Thank you. We have received your message and will respond soon.",
+      "errorGeneric": "Could not send your message. Please try again later.",
+      "errorRateLimit": "You are sending too quickly. Please try again in a few minutes.",
+      "validation": {
+        "nameRequired": "Please enter your name",
+        "emailRequired": "Please enter your email",
+        "emailInvalid": "Invalid email address",
+        "inquiryRequired": "Please select an inquiry type",
+        "messageRequired": "Please enter a message",
+        "messageTooShort": "Message must be at least 10 characters",
+        "consentRequired": "You must agree to the privacy policy to submit"
+      }
+    },
+    "registerNote": "Leaving your details is not an investment commitment. Quant Percent is not raising or accepting capital; your information is used only to respond and discuss future research or partnership opportunities."
+  },
+  "legal": {
+    "title": "Legal",
+    "intro": "Please read the following terms carefully before using content on the Quant Percent website.",
+    "items": [
+      { "title": "Nature of content", "text": "Quant Percent is currently a quantitative research group. Content on this website is provided for informational and research purposes only and does not constitute personalized investment advice, an offer to invest, or any guarantee of returns." },
+      { "title": "Forecast uncertainty", "text": "All forecasts carry uncertainty. Forecast intervals and probabilities are statistical estimates, not commitments about outcomes." },
+      { "title": "Past results", "text": "Past results, including backtests and paper trading, do not guarantee future outcomes." },
+      { "title": "Backtest limitations", "text": "Backtests are built on historical data and may be affected by overfitting, selection bias and execution assumptions." },
+      { "title": "Paper trading", "text": "Paper trading is simulated operation and differs from live trading in execution, liquidity, costs and psychology." },
+      { "title": "Data delays and revisions", "text": "Displayed data may lag real time and may be revised as data sources update." },
+      { "title": "Model changes", "text": "Models are under continuous research and may change, be paused or be removed without notice." },
+      { "title": "User responsibility", "text": "Users are solely responsible for their own investment decisions. Trading securities and derivatives carries risk of capital loss." },
+      { "title": "No substitute for professional advice", "text": "Information on this website does not replace investment, legal or tax advice from licensed professionals." }
+    ],
+    "reviewNote": "This content requires review by qualified legal counsel in Vietnam before the website goes into production."
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This policy describes how Quant Percent collects, uses and protects your personal data when you use this website.",
+    "sections": [
+      { "title": "Data we collect", "text": "When you submit the contact form, we collect your name, email, phone and organization (if provided), inquiry type and message. The current version of the website does not require accounts." },
+      { "title": "How we use it", "text": "Contact data is used only to respond to your inquiry and, if you registered interest, to inform you about future research and partnership opportunities. We do not sell or share your data with third parties for advertising." },
+      { "title": "Storage and protection", "text": "Data is stored with access control and processed only by responsible personnel. We apply reasonable technical measures against unauthorized access." },
+      { "title": "Retention", "text": "Contact data is retained for as long as needed to handle your inquiry and at most 24 months after the last contact, unless the law requires otherwise." },
+      { "title": "Your rights", "text": "You may request access to, correction of, or deletion of your personal data by contacting us through the website form." },
+      { "title": "Cookies", "text": "This website uses only technical cookies necessary for operation (such as remembering your language). No advertising or third-party tracking cookies are used." }
+    ]
+  },
+  "status": {
+    "title": "System Status",
+    "description": "Operational status of data and model services. This page reflects the mock environment during development.",
+    "services": "Services",
+    "serviceNames": {
+      "market_data": "Market data",
+      "model_output": "Model outputs",
+      "performance": "Validation data",
+      "public_api": "Public data gateway",
+      "contact": "Contact form"
+    },
+    "dataFreshness": "Data freshness",
+    "modelStatus": "Model status",
+    "operational": "Operational",
+    "degraded": "Degraded",
+    "down": "Down",
+    "lastChecked": "Last checked"
+  },
+  "auth": {
+    "nav": {
+      "signIn": "Sign in",
+      "signUp": "Sign up",
+      "signOut": "Sign out",
+      "account": "Account"
+    },
+    "mockNotice": "The account feature is a prototype. The session is stored in this browser only and credentials are not verified by a server.",
+    "login": {
+      "title": "Sign in",
+      "description": "Sign in to see the full output of our models.",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "forgot": "Forgot password?",
+      "noAccount": "No account yet?",
+      "toRegister": "Sign up"
+    },
+    "register": {
+      "title": "Create account",
+      "description": "Register for free to unlock the full research catalogue.",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "hasAccount": "Already have an account?",
+      "toLogin": "Sign in"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "description": "Password recovery is a prototype and does not send email yet.",
+      "submit": "Check the Feature",
+      "submitting": "Processing…",
+      "sent": "This is a prototype, so no recovery email has been sent.",
+      "backToLogin": "Back to sign in"
+    },
+    "fields": {
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "consent": "I agree to Quant Percent's legal terms and privacy policy."
+    },
+    "validation": {
+      "nameRequired": "Please enter your name",
+      "emailRequired": "Please enter your email",
+      "emailInvalid": "Invalid email address",
+      "passwordRequired": "Please enter a password",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "confirmRequired": "Please confirm your password",
+      "confirmMismatch": "Passwords do not match",
+      "consentRequired": "You must agree to create an account"
+    },
+    "error": "Could not process your request. Please try again."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist or has been moved.",
+    "backHome": "Back to home"
+  }
+}

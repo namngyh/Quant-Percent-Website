@@ -1,0 +1,42 @@
+# Full mode: multi-scale graphs, bootstrap edge stability, tuning, GNN.
+# Expect a long runtime.
+extends: default.yaml
+
+project:
+  mode: full
+
+graph:
+  windows: [20, 60, 120, 252]
+  core_window: 60
+  edge_filter_method: stability
+  bootstrap_iterations: 100
+  block_length: auto
+  edge_stability_threshold: 0.60
+  snapshot_stride: 1
+  build_raw_and_residual: true
+  build_correlation_and_partial: true
+  graphical_lasso_alpha_selection: cv_train_only
+  enable_lead_lag: true
+  enable_spillover: true
+
+network:
+  compute_betweenness: true
+  compute_closeness: true
+
+training:
+  enable_tuning: true
+  optuna_trials_full: 100
+  n_jobs: -1
+
+models:
+  run_temporal_gnn: true
+
+gnn:
+  enabled: true
+
+evaluation:
+  bootstrap_iterations: 1000
+
+output:
+  create_figures: true
+  create_html_report: true

@@ -1,0 +1,29 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "machine": "AMD64",
+  "python_version": "3.12.13 | packaged by Anaconda, Inc. | (main, Mar 19 2026, 20:16:45) [MSC v.1942 64 bit (AMD64)]",
+  "torch": {
+    "torch_installed": true,
+    "torch_version": "2.5.1",
+    "cuda_available": true,
+    "cuda_runtime": "12.1",
+    "gpu_count": 1,
+    "gpu_name": "NVIDIA GeForce RTX 4060",
+    "gpu_capability": [
+      8,
+      9
+    ],
+    "vram_total_bytes": 8585084928,
+    "vram_free_bytes": 7452229632,
+    "bf16_supported": true,
+    "tf32_allowed": false
+  },
+  "package_versions": {
+    "numpy": "2.3.1",
+    "pandas": "3.0.3",
+    "pymc": "6.2.0",
+    "arviz": "1.2.0",
+    "xgboost": "3.3.0",
+    "jax": null
+  }
+}

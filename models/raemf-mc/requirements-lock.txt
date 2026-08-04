@@ -1,0 +1,20 @@
+# Environment snapshot (conda env "project", Python 3.12.13, Windows 11,
+# CUDA 12.1, RTX 4060) used for the RAEMF-VB-MC v0.3.0 results.
+arch==8.0.0
+arviz==1.2.0
+hmmlearn==0.3.3
+interpret-core==0.7.8
+matplotlib==3.11.0
+numpy==2.3.1
+nvidia-cuda-nvrtc-cu12==12.1.105
+optuna==4.9.0
+pandas==3.0.3
+pyarrow==25.0.0
+pymc==6.2.0
+pytensor==3.2.2
+pytest==9.1.1
+PyYAML==6.0.3
+scikit-learn==1.9.0
+scipy==1.17.1
+torch==2.5.1
+xgboost==3.3.0

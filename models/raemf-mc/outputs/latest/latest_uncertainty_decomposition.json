@@ -1,0 +1,23 @@
+{
+  "20": {
+    "variance_m2_total": 0.000720082945072581,
+    "variance_m1_no_parameter_uncertainty": 0.0007278116240762679,
+    "parameter_uncertainty_share": 0.0,
+    "variance_m2_modal_initial_state": 0.0007208314051959373,
+    "initial_regime_uncertainty_share": 0.0
+  },
+  "40": {
+    "variance_m2_total": 0.0015966176319135866,
+    "variance_m1_no_parameter_uncertainty": 0.0015108220454484033,
+    "parameter_uncertainty_share": 0.05373583803052151,
+    "variance_m2_modal_initial_state": 0.001596422779832706,
+    "initial_regime_uncertainty_share": 0.00012204054182163304
+  },
+  "60": {
+    "variance_m2_total": 0.0021649456963230983,
+    "variance_m1_no_parameter_uncertainty": 0.0018698317061592025,
+    "parameter_uncertainty_share": 0.13631473097228797,
+    "variance_m2_modal_initial_state": 0.0021649456963230983,
+    "initial_regime_uncertainty_share": 0.0
+  }
+}

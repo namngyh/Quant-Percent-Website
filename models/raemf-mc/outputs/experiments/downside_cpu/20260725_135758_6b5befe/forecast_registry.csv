@@ -1,0 +1,1 @@
+forecast_origin,origin_close,horizon,model_version,git_sha,data_checksum,config_checksum,prob_bull,prob_sideway,prob_bear,prob_stress,risk_off_probability,threshold,alert_state,prob_drawdown_5,prob_drawdown_10,prob_drawdown_15,prob_drawdown_20,var_95,cvar_95,maturity_date,forecast_hash,status,realized_return,realized_mae,realized_max_drawdown,scoring_timestamp

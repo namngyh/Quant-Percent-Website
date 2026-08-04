@@ -1,0 +1,12 @@
+{
+  "device": "cpu",
+  "max_threads": 2,
+  "torch_threads": null,
+  "platform": "Windows-10-10.0.26200-SP0",
+  "cuda_used": false,
+  "wall_time_seconds": 32.62790060043335,
+  "peak_rss_bytes": 292716544,
+  "memory_budget_mb": 4096,
+  "target_cache": "hit",
+  "feature_cache": "hit"
+}

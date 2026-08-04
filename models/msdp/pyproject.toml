@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "msdp-vnindex"
+version = "0.1.0"
+description = "Leakage-aware multi-scale distributional forecasting for VN-Index"
+requires-python = ">=3.10,<3.13"
+dependencies = ["numpy", "pandas", "scipy", "scikit-learn", "torch", "matplotlib", "statsmodels", "optuna", "pyyaml", "joblib", "openpyxl", "jinja2", "markdown"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+

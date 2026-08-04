@@ -1,0 +1,8 @@
+.env
+data/raw/
+dockerdata/
+backup/
+__pycache__/
+*.pyc
+.venv/
+venv/

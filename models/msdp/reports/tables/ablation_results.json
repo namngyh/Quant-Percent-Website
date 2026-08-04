@@ -1,0 +1,10 @@
+[
+  {
+    "name": "equal",
+    "return_pinball_mean": 1.825930824448047
+  },
+  {
+    "name": "single",
+    "return_pinball_mean": 1.563833878150027
+  }
+]

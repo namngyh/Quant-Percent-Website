@@ -1,0 +1,16 @@
+{
+  "mu_0_mean_max_pairwise_gap": 0.00010229115483681927,
+  "mu_1_mean_max_pairwise_gap": 0.0001364133962227426,
+  "mu_2_mean_max_pairwise_gap": 3.6719540313371354e-05,
+  "mu_3_mean_max_pairwise_gap": 0.00021200581598680972,
+  "c_0_mean_max_pairwise_gap": 0.00048450797796251166,
+  "c_1_mean_max_pairwise_gap": 0.009358278363943096,
+  "c_2_mean_max_pairwise_gap": 0.0033319890995821,
+  "c_3_mean_max_pairwise_gap": 0.0073982430994510295,
+  "nu_0_mean_max_pairwise_gap": 0.09058285236358632,
+  "nu_1_mean_max_pairwise_gap": 0.09058285236358632,
+  "nu_2_mean_max_pairwise_gap": 0.09058285236358632,
+  "nu_3_mean_max_pairwise_gap": 0.09058285236358632,
+  "n_seeds": 3.0,
+  "n_converged": 3.0
+}

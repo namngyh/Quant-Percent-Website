@@ -1,0 +1,27 @@
+extends: research.yaml
+
+runtime:
+  mode: distribution-oos-full
+  seed: 42
+
+tuning:
+  enabled: false
+
+bayesian:
+  enabled: true
+  method: fullrank_advi
+  advi_steps: 30000
+  posterior_draws: 2000
+  posterior_predictive_draws: 1000
+  random_seed: 42
+  fallback_to_point_estimate: false
+
+distribution_benchmark:
+  n_folds: 3
+  test_fraction: 0.30
+  validation_fraction: 0.10
+  horizons: [20, 40, 60]
+  paths: 1200
+  mc_seeds: [11, 42, 73]
+  bootstrap_replicates: 1000
+  bootstrap_block_length: 20

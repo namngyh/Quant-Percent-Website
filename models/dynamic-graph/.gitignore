@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# NOTE: git has no inline comments in .gitignore. A trailing "# ..." becomes
+# part of the pattern, so every comment here lives on its own line.
+# ---------------------------------------------------------------------------
+
+# Secrets / machine-specific config
+.env
+config/local.yaml
+*.key
+*.pem
+
+# ---------------------------------------------------------------------------
+# Artifacts.
+#
+# Regenerable caches are excluded: they run to ~150 MB and `run-all` recreates
+# them from the source database in about 20 minutes. What IS committed is the
+# human-readable output a reader needs to evaluate the work without running
+# anything: figures, markdown reports, the website payload, the allocation
+# tables and the out-of-sample metrics.
+# ---------------------------------------------------------------------------
+
+# Panel + feature parquet caches (~50 MB).
+artifacts/processed/
+
+# Snapshot adjacency archives, edge lists and per-snapshot metadata (~30 MB).
+artifacts/graphs/
+
+# Machine-specific paths and the reconstructed symbol map.
+artifacts/data_audit/
+
+# Run logs.
+artifacts/reports/*.log
+
+# Per-layer metric histories: 10 files x ~3,500 rows x 53 columns (~76 MB).
+artifacts/metrics/graph_metrics_*.csv
+artifacts/metrics/node_metrics_history.csv
+artifacts/metrics/stress_score_history.csv
+
+# Parquet mirrors of files already committed as CSV.
+artifacts/latest/*.parquet
+artifacts/allocation/*.parquet
+
+# Keep the directory structure.
+!artifacts/**/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

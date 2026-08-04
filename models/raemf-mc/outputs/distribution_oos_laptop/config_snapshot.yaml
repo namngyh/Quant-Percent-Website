@@ -1,0 +1,95 @@
+runtime:
+  mode: distribution-oos-laptop
+  seed: 42
+  max_threads: 4
+  cache_features: true
+  fail_fast: false
+split:
+  train_fraction: 0.65
+  validation_fraction: 0.15
+  test_fraction: 0.2
+target:
+  bull_threshold: 0.5
+  bear_threshold: 0.5
+  stress_threshold: 1.5
+  volatility_window: 40
+features:
+  missing_threshold: 0.4
+  correlation_threshold: 0.98
+hmm:
+  n_states: 4
+  seeds:
+  - 11
+  - 42
+  - 73
+risk:
+  egarch_p: 1
+  egarch_o: 1
+  egarch_q: 1
+models:
+  ebm:
+    max_bins: 96
+    interactions: 0
+    learning_rate: 0.03
+    max_rounds: 80
+    outer_bags: 2
+    min_samples_leaf: 2
+  xgboost:
+    n_estimators: 160
+    max_depth: 3
+    learning_rate: 0.04
+  random_forest:
+    n_estimators: 240
+    max_depth: 6
+tuning:
+  enabled: false
+  trials_per_horizon: 15
+  folds: 3
+  validation_size: 240
+  timeout_seconds_per_horizon: 900
+monte_carlo:
+  paths: 1200
+  chunk_size: 400
+  scenario_mode: point_estimate
+bayesian:
+  enabled: true
+  backend: pymc
+  method: meanfield_advi
+  advi_steps: 800
+  posterior_draws: 900
+  posterior_predictive_draws: 100
+  learning_rate: 0.01
+  convergence_window: 100
+  convergence_tolerance: 0.01
+  shared_nu: false
+  prior_mu_scale: 0.5
+  prior_log_scale_sd: 0.3
+  prior_nu_rate: 0.1
+  random_seed: 42
+  fallback_to_point_estimate: false
+  min_effective_observations: 20
+bootstrap:
+  metric_replicates: 120
+  block_length: 20
+market_filter:
+  bull_threshold: 0.42
+  stress_threshold: 0.25
+  bear_threshold: 0.35
+  entropy_uncertain: 1.25
+backtest:
+  transaction_cost_bps: 10
+distribution_benchmark:
+  n_folds: 3
+  test_fraction: 0.3
+  validation_fraction: 0.1
+  horizons:
+  - 20
+  - 40
+  - 60
+  paths: 300
+  mc_seeds:
+  - 11
+  - 42
+  - 73
+  bootstrap_replicates: 500
+  bootstrap_block_length: 20

@@ -1,0 +1,39 @@
+{
+  "fold": {
+    "horizon": 20,
+    "fold": 1,
+    "train_start": "2000-07-28",
+    "train_end": "2018-10-15",
+    "validation_start": "2018-11-13",
+    "validation_end": "2021-04-19",
+    "test_start": "2021-05-21",
+    "test_end": "2023-11-20",
+    "train_observations": 4375,
+    "validation_observations": 607,
+    "test_observations": 628,
+    "posterior_status": "not_converged",
+    "elbo_final": 5028.21940801929,
+    "effective_observations": "810.2598;1106.3656;1610.6432;846.7313",
+    "runtime_seconds": 291.2672164000105
+  },
+  "classification": {
+    "model": "RAEMF-MC",
+    "horizon": 20,
+    "n_obs": 628,
+    "accuracy": 0.2961783439490446,
+    "balanced_accuracy": 0.27852880220310594,
+    "macro_precision": 0.24875143239113828,
+    "macro_recall": 0.27852880220310594,
+    "macro_f1": 0.2509786934811177,
+    "weighted_f1": 0.2781293976902681,
+    "mcc": 0.029422696494136966,
+    "brier": 0.7389633184575432,
+    "log_loss": 1.3658394192698016,
+    "ece": 0.0637107504502725,
+    "recall_bull": 0.10552763819095477,
+    "recall_sideway": 0.423728813559322,
+    "recall_bear": 0.09333333333333334,
+    "recall_stress": 0.4915254237288136,
+    "fold": 1
+  }
+}

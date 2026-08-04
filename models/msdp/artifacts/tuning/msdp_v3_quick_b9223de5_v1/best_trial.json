@@ -1,0 +1,98 @@
+{
+  "number": 1,
+  "value": 0.6862957480945733,
+  "params": {
+    "hidden_dim": 64,
+    "latent_dim": 48,
+    "n_blocks": 4,
+    "dropout": 0.1032642385789519,
+    "gate_temperature": 1.3287375091519293,
+    "medium_pool": 7,
+    "long_pool": 21,
+    "learning_rate": 0.0017516992455793442,
+    "weight_decay": 7.756650107886986e-07,
+    "batch_size": 48,
+    "gradient_clip": 1.0,
+    "lambda_direction": 0.15,
+    "lambda_mdd": 0.45,
+    "lambda_volatility": 0.2,
+    "lambda_aux": 0.08,
+    "lambda_balance": 0.01
+  },
+  "user_attrs": {
+    "fold_metrics": [
+      {
+        "fold": 0,
+        "horizon": 5,
+        "score": 0.880595997902384,
+        "pinball_ratio": 0.9720035368001378,
+        "mae_ratio": 1.095132449104912,
+        "brier_ratio": 0.9938831733085475,
+        "mdd_pinball_ratio": 0.8213157433276542,
+        "vol_mae_ratio": 0.8806136396624612,
+        "coverage_penalty": 0.0031746031746031633,
+        "width_ratio": 0.5187156324233427
+      },
+      {
+        "fold": 0,
+        "horizon": 20,
+        "score": 0.8430887383003806,
+        "pinball_ratio": 0.9121942604381836,
+        "mae_ratio": 1.1715568318952936,
+        "brier_ratio": 0.8927896744654276,
+        "mdd_pinball_ratio": 0.6595489324943128,
+        "vol_mae_ratio": 1.0113452879013003,
+        "coverage_penalty": 0.004761904761904745,
+        "width_ratio": 0.4589523065099244
+      },
+      {
+        "fold": 0,
+        "horizon": 60,
+        "score": 0.7216762769519456,
+        "pinball_ratio": 0.8058018853266076,
+        "mae_ratio": 1.0827029367268164,
+        "brier_ratio": 0.6101764237987131,
+        "mdd_pinball_ratio": 0.5627749601880785,
+        "vol_mae_ratio": 0.8346645622739878,
+        "coverage_penalty": 0.04841269841269835,
+        "width_ratio": 0.48140412881013706
+      },
+      {
+        "fold": 1,
+        "horizon": 5,
+        "score": 0.6748943502688134,
+        "pinball_ratio": 0.7845683876150019,
+        "mae_ratio": 0.9259010254925187,
+        "brier_ratio": 0.7875291003407288,
+        "mdd_pinball_ratio": 0.5391469811549021,
+        "vol_mae_ratio": 0.44166007779709654,
+        "coverage_penalty": 0.052380952380952306,
+        "width_ratio": 0.4858724702987928
+      },
+      {
+        "fold": 1,
+        "horizon": 20,
+        "score": 0.5373710359932091,
+        "pinball_ratio": 0.6722911793177649,
+        "mae_ratio": 0.7833084940534979,
+        "brier_ratio": 0.5083305814727925,
+        "mdd_pinball_ratio": 0.3502612696548852,
+        "vol_mae_ratio": 0.41822372220821175,
+        "coverage_penalty": 0.02063492063492056,
+        "width_ratio": 0.41724182631831347
+      },
+      {
+        "fold": 1,
+        "horizon": 60,
+        "score": 0.4862764965767141,
+        "pinball_ratio": 0.6435258911877756,
+        "mae_ratio": 0.7277540670399529,
+        "brier_ratio": 0.25,
+        "mdd_pinball_ratio": 0.29464728998612566,
+        "vol_mae_ratio": 0.5425086572684977,
+        "coverage_penalty": 0.058730158730158744,
+        "width_ratio": 0.3940084756373348
+      }
+    ]
+  }
+}

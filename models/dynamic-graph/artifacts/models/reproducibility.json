@@ -1,0 +1,381 @@
+{
+  "model_name": "DynamicGraph",
+  "model_version": "0.1.0",
+  "run_id": "20260725T174740Z",
+  "generated_at": "2026-07-25T17:47:40.950596+00:00",
+  "seed": 42,
+  "config_fingerprint": "5a6468edfbd1b8d7",
+  "config_snapshot": {
+    "project": {
+      "name": "DynamicGraph",
+      "version": "0.1.0",
+      "seed": 42,
+      "mode": "default"
+    },
+    "data": {
+      "database_path": "<redacted>",
+      "database_url_env": "DYNAMICGRAPH_DATABASE_URL",
+      "backend": "datapro_sqlite",
+      "table": null,
+      "column_map": {},
+      "index_symbol": "VN30",
+      "index_source_symbol": "VN30INDEX",
+      "universe": "VN30",
+      "universe_method": "static_list",
+      "universe_size": 30,
+      "universe_file": "config/vn30_universe.csv",
+      "liquidity_lookback_days": 120,
+      "universe_rebalance_days": 63,
+      "sector_map_file": "config/sector_map.csv",
+      "start_date": "2012-02-06",
+      "end_date": null,
+      "allow_unadjusted_price": false,
+      "minimum_history_days": 252,
+      "max_missing_ratio_per_window": 0.1,
+      "max_forward_fill_days": 1,
+      "stale_price_max_run": 5,
+      "jump_sigma_threshold": 10.0,
+      "read_only": true
+    },
+    "features": {
+      "return_windows": [
+        1,
+        5,
+        10,
+        20,
+        60
+      ],
+      "volatility_windows": [
+        5,
+        20,
+        60
+      ],
+      "beta_windows": [
+        20,
+        60
+      ],
+      "drawdown_windows": [
+        20,
+        60,
+        252
+      ],
+      "ewma_lambda": 0.94,
+      "var_quantile": 0.05,
+      "residualize_market": true,
+      "residualize_sector": false,
+      "residual_window": 60,
+      "robust_cross_sectional_scaling": true,
+      "liquidity_features": true,
+      "winsorize_z": 5.0
+    },
+    "graph": {
+      "windows": [
+        20,
+        60,
+        120,
+        252
+      ],
+      "core_window": 60,
+      "core_layer": "partial_correlation",
+      "return_type": "residual",
+      "covariance_estimator": "ledoit_wolf",
+      "graphical_lasso_alpha": 0.02,
+      "graphical_lasso_alpha_grid": [
+        0.002,
+        0.005,
+        0.01,
+        0.02,
+        0.05,
+        0.1,
+        0.2
+      ],
+      "graphical_lasso_alpha_selection": "fixed",
+      "max_graph_density": 0.6,
+      "signed_graph": true,
+      "use_absolute_weight_for_centrality": true,
+      "edge_filter_method": "quantile",
+      "absolute_threshold": 0.1,
+      "top_edge_quantile": 0.25,
+      "bootstrap_iterations": 0,
+      "block_length": 10,
+      "edge_stability_threshold": 0.6,
+      "snapshot_stride": 1,
+      "secondary_snapshot_stride": 5,
+      "build_raw_and_residual": true,
+      "build_correlation_and_partial": true,
+      "enable_lead_lag": true,
+      "lead_lag_days": [
+        1,
+        2,
+        3,
+        5
+      ],
+      "lead_lag_window": 120,
+      "lead_lag_threshold": 1.25,
+      "lead_lag_min_abs_corr": 0.05,
+      "lead_lag_fdr_alpha": 0.1,
+      "enable_spillover": false,
+      "spillover_window": 120,
+      "spillover_horizon": 10,
+      "spillover_lags": 2,
+      "spillover_estimator": "ridge",
+      "spillover_ridge_alpha": 1.0,
+      "spillover_pca_components": 5
+    },
+    "network": {
+      "compute_betweenness": true,
+      "compute_closeness": true,
+      "community_method": "auto",
+      "community_resolution": 1.0,
+      "pagerank_alpha": 0.85,
+      "neighbor_risk_feature": "volatility_20d"
+    },
+    "stress_score": {
+      "metrics": [
+        "avg_abs_partial_correlation",
+        "graph_density",
+        "spectral_radius",
+        "market_mode_share",
+        "centrality_concentration",
+        "largest_cc_share",
+        "average_clustering",
+        "negative_diversification",
+        "edge_turnover",
+        "community_compression"
+      ],
+      "signs": {
+        "avg_abs_partial_correlation": 1,
+        "graph_density": 1,
+        "spectral_radius": 1,
+        "market_mode_share": 1,
+        "centrality_concentration": 1,
+        "largest_cc_share": 1,
+        "average_clustering": 1,
+        "negative_diversification": 1,
+        "edge_turnover": 1,
+        "community_compression": 1
+      },
+      "weights": "equal",
+      "clip_z": 3.0,
+      "redundancy_corr_threshold": 0.95,
+      "state_percentiles": [
+        0.5,
+        0.8,
+        0.95
+      ],
+      "state_labels": [
+        "low_connectivity",
+        "normal",
+        "elevated",
+        "high_stress"
+      ]
+    },
+    "targets": {
+      "horizons": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "stress_definition": "quantile",
+      "primary_stress_definition": "quantile",
+      "stress_quantile": 0.1,
+      "absolute_drawdown_thresholds": {
+        "5": -0.03,
+        "10": -0.04,
+        "20": -0.05,
+        "40": -0.07
+      },
+      "volatility_quantile": 0.9,
+      "node_stress_quantile": 0.1,
+      "node_absolute_drawdown_thresholds": {
+        "5": -0.06,
+        "10": -0.08,
+        "20": -0.1,
+        "40": -0.14
+      }
+    },
+    "training": {
+      "split_method": "purged_walk_forward",
+      "initial_train_days": 756,
+      "validation_days": 126,
+      "test_days": 63,
+      "expanding_window": true,
+      "purge_days": 40,
+      "embargo_days": 5,
+      "min_positive_train": 15,
+      "max_features": 60,
+      "feature_redundancy_threshold": 0.95,
+      "optuna_trials_fast": 20,
+      "optuna_trials_full": 100,
+      "enable_tuning": false,
+      "tuning_objective": "brier",
+      "random_seed": 42,
+      "n_jobs": 1
+    },
+    "models": {
+      "run_naive": true,
+      "run_logistic": true,
+      "run_random_forest": true,
+      "run_hist_gradient_boosting": true,
+      "run_ebm_if_available": true,
+      "run_xgboost_if_available": true,
+      "run_temporal_gnn": false,
+      "calibration_method": "isotonic",
+      "class_weight": "balanced",
+      "feature_sets": [
+        "market",
+        "graph",
+        "combined"
+      ]
+    },
+    "gnn": {
+      "enabled": false,
+      "sequence_lengths": [
+        10,
+        20,
+        60
+      ],
+      "sequence_length": 20,
+      "hidden_dimensions": [
+        16,
+        32,
+        64
+      ],
+      "hidden_dimension": 32,
+      "graph_layers": [
+        1,
+        2
+      ],
+      "n_graph_layers": 1,
+      "temporal_model": "GRU",
+      "dropout_range": [
+        0.1,
+        0.4
+      ],
+      "dropout": 0.25,
+      "weight_decay": 0.0001,
+      "learning_rate": 0.001,
+      "max_epochs": 200,
+      "batch_size": 32,
+      "early_stopping_patience": 20,
+      "gradient_clip_norm": 1.0,
+      "loss": "focal",
+      "focal_gamma": 2.0,
+      "device": "auto"
+    },
+    "evaluation": {
+      "bootstrap_iterations": 500,
+      "bootstrap_block_length": 20,
+      "calibration_bins": 10,
+      "event_min_gap_days": 20,
+      "decision_threshold_objective": "f1",
+      "fixed_threshold": 0.5
+    },
+    "ablation": {
+      "enabled": true,
+      "variants": [
+        "market_only",
+        "graph_only",
+        "market_plus_graph",
+        "correlation_graph",
+        "partial_correlation_graph",
+        "raw_return_graph",
+        "residual_return_graph",
+        "single_scale_60",
+        "single_scale_120",
+        "multi_scale",
+        "no_community_features",
+        "no_spectral_features",
+        "no_centrality_features"
+      ]
+    },
+    "output": {
+      "artifacts_dir": "artifacts",
+      "export_json": true,
+      "export_csv": true,
+      "export_parquet": true,
+      "create_figures": true,
+      "create_html_report": false,
+      "top_n_nodes": 10,
+      "top_n_edges": 60,
+      "history_export_days": 750
+    },
+    "logging": {
+      "level": "INFO",
+      "file": "artifacts/reports/dynamicgraph.log",
+      "rich": true
+    }
+  },
+  "data_fingerprint": "cf4f63b6856693b2",
+  "data_date_min": "2012-02-06",
+  "data_date_max": "2026-07-24",
+  "n_tickers": 31,
+  "git_commit": null,
+  "platform_info": "Windows 11",
+  "package_versions": {
+    "python": "3.13.14",
+    "numpy": "2.4.4",
+    "pandas": "3.0.3",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.8.0",
+    "statsmodels": "0.14.6",
+    "networkx": "3.6.1",
+    "pyyaml": "6.0.3",
+    "pydantic": "2.13.4",
+    "matplotlib": "3.11.0",
+    "optuna": "4.9.0",
+    "torch": "not installed",
+    "torch_geometric": "not installed",
+    "shap": "not installed",
+    "xgboost": "not installed",
+    "lightgbm": "not installed",
+    "interpret": "not installed",
+    "python-louvain": "not installed",
+    "igraph": "not installed"
+  },
+  "feature_list": [
+    "market_return_1d",
+    "market_return_5d",
+    "market_return_10d",
+    "market_return_20d",
+    "market_return_60d",
+    "market_return_120d",
+    "market_volatility_5d",
+    "market_volatility_20d",
+    "market_volatility_60d",
+    "market_ewma_volatility",
+    "market_volatility_ratio_5_20",
+    "market_volatility_ratio_20_60",
+    "market_downside_volatility_20d",
+    "market_drawdown",
+    "market_max_drawdown_20d",
+    "market_max_drawdown_60d",
+    "market_max_drawdown_252d",
+    "market_days_since_peak",
+    "market_recovery_ratio_60d",
+    "market_skewness_60d",
+    "market_excess_kurtosis_60d",
+    "market_var_60d",
+    "market_rsi_14",
+    "market_price_to_ma50",
+    "market_price_to_ma200",
+    "market_ma50_to_ma200",
+    "market_volume_log",
+    "market_volume_zscore_20d",
+    "market_turnover_log",
+    "market_turnover_zscore_20d",
+    "breadth_advance_ratio",
+    "cross_sectional_dispersion",
+    "cross_sectional_dispersion_20d",
+    "mean_constituent_volatility_20d",
+    "median_constituent_volatility_20d",
+    "mean_constituent_beta_proxy"
+  ],
+  "hyperparameters": {},
+  "calibration_method": "isotonic",
+  "decision_thresholds": {},
+  "training_date": "2026-07-25",
+  "optional_modules_skipped": [],
+  "notes": []
+}

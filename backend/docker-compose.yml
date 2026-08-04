@@ -1,0 +1,51 @@
+# Deployment path. For local development run the API with uvicorn instead
+# (see README.md) — the DB project already publishes 5432/6379 to the
+# host, so there is no networking to set up and you get hot reload.
+#
+# The database and Redis live in the Database-Onr-Percent compose project;
+# this file only adds the API and its worker and joins that project's
+# network, so the data pipeline keeps a single owner.
+#
+# The network is created by the DB project as <folder>_default, i.e.
+# `database-onr-percent_default`. Start that project first, then:
+#   docker compose up -d --build
+# Override QP_NETWORK if your checkout folder has a different name.
+
+services:
+  api:
+    build: .
+    container_name: qp-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    networks:
+      - qp-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    build: .
+    container_name: qp-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+    command: ["python", "-m", "app.workers.scheduler"]
+    networks:
+      - qp-net
+    depends_on:
+      - api
+
+networks:
+  qp-net:
+    external: true
+    name: ${QP_NETWORK:-database-onr-percent_default}

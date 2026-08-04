@@ -1,0 +1,17 @@
+bayesian:
+  enabled: true
+  backend: pymc
+  method: meanfield_advi
+  advi_steps: 300
+  posterior_draws: 100
+  posterior_predictive_draws: 50
+  learning_rate: 0.01
+  convergence_window: 50
+  convergence_tolerance: 0.05
+  shared_nu: false
+  prior_mu_scale: 0.5
+  prior_log_scale_sd: 0.3
+  prior_nu_rate: 0.1
+  random_seed: 123
+  fallback_to_point_estimate: true
+  min_effective_observations: 20

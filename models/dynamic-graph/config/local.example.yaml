@@ -1,0 +1,33 @@
+# -----------------------------------------------------------------------------
+# Local machine configuration.
+#
+#   cp config/local.example.yaml config/local.yaml
+#
+# `config/local.yaml` is gitignored. Put ONLY paths here, never credentials --
+# credentials belong in `.env` via `data.database_url_env`.
+# -----------------------------------------------------------------------------
+extends: default.yaml
+
+data:
+  # Absolute path to the local database discovered by:
+  #     python -m dynamicgraph.cli discover-data
+  #
+  # Examples:
+  #   database_path: "C:/DataPro/D.dat"                  # DataPro SQLite (daily)
+  #   database_path: "D:/data/vn30.sqlite"               # generic SQLite
+  #   database_path: "D:/data/vn30.duckdb"               # DuckDB
+  #   database_path: "D:/data/prices.parquet"            # long-format parquet
+  #   database_path: "D:/data/csv_dir"                   # directory of per-ticker CSVs
+  database_path: null
+
+  # Backend hint. `auto` sniffs the file. Set explicitly if detection is wrong.
+  backend: auto
+
+  # Optional: pin the raw index symbol as it appears in the database.
+  index_source_symbol: null
+
+  start_date: null
+  end_date: null
+
+output:
+  artifacts_dir: artifacts

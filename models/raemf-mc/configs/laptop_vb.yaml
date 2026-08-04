@@ -1,0 +1,70 @@
+# RAEMF-VB-MC laptop profile: Bayesian mode ON, PyTorch backend (CUDA if
+# available, otherwise CPU), hierarchical priors, multi-seed ADVI.
+extends: laptop.yaml
+
+runtime:
+  mode: laptop-vb
+  seed: 42
+
+tuning:
+  enabled: false
+
+bayesian:
+  enabled: true
+  backend: pytorch_cuda
+  method: fullrank_advi
+  hierarchical: true
+  shared_nu: true
+  seeds: [11, 42, 73]
+  advi_steps: 6000
+  min_steps: 1500
+  posterior_draws: 1200
+  posterior_predictive_draws: 500
+  learning_rate: 0.005
+  retry_learning_rates: [0.001]
+  vi_samples_per_step: 8
+  gradient_clip_norm: 5.0
+  early_stopping_patience: 1500
+  convergence_window: 500
+  convergence_tolerance: 0.001
+  min_effective_observations: 80
+  fallback_to_meanfield: true
+  fallback_to_point_estimate: true
+  device: auto
+  require_gpu: false
+  dtype: float32
+  priors:
+    mu_global_sd: 0.25
+    mu_tau_sd: 0.25
+    log_c_global_sd: 0.25
+    log_c_tau_sd: 0.20
+    nu_rate: 0.10
+
+bayesian_regime_head:
+  enabled: true
+  max_features: 20
+  seeds: [11, 42, 73]
+  advi_steps: 6000
+  posterior_draws: 800
+  learning_rate: 0.01
+  ablation_horizons: [20]
+  device: auto
+
+monte_carlo:
+  paths: 1500
+  chunk_size: 300
+  # Pre-registered OOS rule (scripts/summarize_vb_results.py) on the
+  # 2026-07-23 benchmark chose point_estimate as the production default:
+  # variational_posterior improves CRPS/WIS significantly but under-covers
+  # at h20/h40. VB outputs remain research artifacts (see outputs/latest).
+  scenario_mode: point_estimate
+
+distribution_benchmark:
+  n_folds: 3
+  test_fraction: 0.30
+  validation_fraction: 0.10
+  horizons: [20, 40, 60]
+  paths: 300
+  mc_seeds: [11, 42, 73]
+  bootstrap_replicates: 500
+  bootstrap_block_length: 20

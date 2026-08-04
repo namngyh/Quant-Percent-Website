@@ -1,0 +1,18 @@
+MSDP upgraded repository final test run
+Date: 2026-07-20 (Asia/Saigon)
+Command: .\.venv\Scripts\python.exe -m pytest -q
+
+...................                                                      [100%]
+19 passed in 4.73s
+Exit code: 0
+
+Artifact invariant audit in the same verification step:
+- conformal qhat: [1.8102718038650796, 3.782096441757922, 8.658188482680824]
+- all qhat >= 0: PASS
+- calibrated intervals never narrower than raw: PASS
+- all MDD quantiles <= 0 and ordered: PASS
+- maximum saved q90 MDD: -0.30915478%
+- figure manifest entries existing: 63/63
+- README image links existing: 8/8
+- final test prediction rows: 882
+- latest data date: 2026-07-13

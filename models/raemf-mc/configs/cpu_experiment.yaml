@@ -1,0 +1,57 @@
+extends: cpu_smoke.yaml
+
+runtime:
+  mode: cpu-experiment
+  device: cpu
+  max_threads: 4
+  memory_budget_mb: 6144
+
+models:
+  ebm:
+    max_bins: 64
+    interactions: 0
+    max_rounds: 60
+    outer_bags: 1
+  xgboost:
+    n_estimators: 120
+    max_depth: 3
+    n_jobs: 1
+  random_forest:
+    n_estimators: 160
+    max_depth: 6
+    n_jobs: 1
+
+tuning:
+  enabled: true
+  search_method: resource_aware_random
+  trials_per_horizon: 12
+  folds: 3
+  timeout_seconds_per_horizon: 1200
+
+monte_carlo:
+  paths: 600
+  chunk_size: 150
+  store_paths: false
+
+bootstrap:
+  metric_replicates: 300
+
+downside_experiment:
+  mode: experiment
+  horizons: [20, 40, 60]
+  folds: 3
+  inner_folds: 2
+  inner_validation_size: 240
+  test_fraction: 0.30
+  validation_fraction: 0.10
+  feature_groups: [base, base_plus_downside_price, base_plus_downside_all]
+  model_kinds: [logistic, hist_gradient_boosting, ebm]
+  run_legacy_audit: true
+
+risk_off:
+  models:
+    hist_gradient_boosting:
+      max_iter: 100
+    ebm:
+      max_bins: 64
+      max_rounds: 60

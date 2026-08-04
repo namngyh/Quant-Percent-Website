@@ -1,0 +1,49 @@
+model,horizon,actual,Bull,Sideway,Bear,Stress
+MACD,20,Bull,202,106,101,60
+MACD,20,Sideway,190,113,105,43
+MACD,20,Bear,62,41,27,5
+MACD,20,Stress,58,46,86,11
+RAEMF-MC,20,Bull,105,185,96,83
+RAEMF-MC,20,Sideway,66,211,57,117
+RAEMF-MC,20,Bear,29,49,35,22
+RAEMF-MC,20,Stress,37,50,46,68
+XGBoost,20,Bull,175,192,28,74
+XGBoost,20,Sideway,124,234,17,76
+XGBoost,20,Bear,49,45,16,25
+XGBoost,20,Stress,45,65,23,68
+Random Forest,20,Bull,152,232,36,49
+Random Forest,20,Sideway,77,283,22,69
+Random Forest,20,Bear,31,66,13,25
+Random Forest,20,Stress,42,52,24,83
+MACD,40,Bull,186,137,94,54
+MACD,40,Sideway,175,107,130,49
+MACD,40,Bear,56,16,14,9
+MACD,40,Stress,92,48,78,7
+RAEMF-MC,40,Bull,135,135,34,167
+RAEMF-MC,40,Sideway,145,153,15,148
+RAEMF-MC,40,Bear,17,32,5,41
+RAEMF-MC,40,Stress,62,35,33,95
+XGBoost,40,Bull,192,134,34,111
+XGBoost,40,Sideway,141,166,26,128
+XGBoost,40,Bear,31,43,3,18
+XGBoost,40,Stress,70,43,50,62
+Random Forest,40,Bull,177,195,45,54
+Random Forest,40,Sideway,79,265,35,82
+Random Forest,40,Bear,22,56,10,7
+Random Forest,40,Stress,96,62,45,22
+MACD,60,Bull,197,134,77,58
+MACD,60,Sideway,161,127,142,51
+MACD,60,Bear,28,17,18,7
+MACD,60,Stress,113,35,80,3
+RAEMF-MC,60,Bull,100,124,16,226
+RAEMF-MC,60,Sideway,87,80,56,258
+RAEMF-MC,60,Bear,13,21,12,24
+RAEMF-MC,60,Stress,85,34,24,88
+XGBoost,60,Bull,136,147,16,167
+XGBoost,60,Sideway,85,145,23,228
+XGBoost,60,Bear,19,31,2,18
+XGBoost,60,Stress,86,52,5,88
+Random Forest,60,Bull,124,196,51,95
+Random Forest,60,Sideway,85,216,52,128
+Random Forest,60,Bear,13,47,1,9
+Random Forest,60,Stress,88,88,12,43

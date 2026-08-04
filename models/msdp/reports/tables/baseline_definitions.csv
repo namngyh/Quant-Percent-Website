@@ -1,0 +1,7 @@
+baseline_name,forecast_type,targets_supported,metrics_supported,fit_data,residual_source,description_vi
+zero_point,điểm,return,MAE|RMSE,không cần,không áp dụng,Dự báo lợi suất bằng 0
+unconditional_empirical_distribution,phân phối,return|mdd|volatility,pinball|CRPS xấp xỉ|MAE biến động,outer training,không áp dụng,Phân phối thực nghiệm vô điều kiện
+historical_frequency_direction,xác suất,direction,Brier|log loss|reliability,outer training,không áp dụng,Tần suất tăng lịch sử
+historical_mean,điểm và phân phối phần dư,return,MAE|RMSE|pinball,outer training,internal chronological validation,Trung bình lịch sử cộng phân vị residual ngoài mẫu
+ridge_direct,điểm và phân phối phần dư,return,MAE|RMSE|pinball|Spearman,outer training,internal chronological validation,Ridge chọn alpha tuần tự
+logistic_direction,xác suất,direction,Brier|log loss|AUC|F1|MCC,outer training,không áp dụng,Logistic chọn C tuần tự

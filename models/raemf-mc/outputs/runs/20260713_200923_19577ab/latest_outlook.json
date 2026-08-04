@@ -1,0 +1,46 @@
+{
+  "as_of_date": "2026-07-01",
+  "last_close": 1865.37,
+  "horizons": {
+    "20": {
+      "probabilities": {
+        "Bull": 0.23466769020328174,
+        "Sideway": 0.28227003150945046,
+        "Bear": 0.24817909710060557,
+        "Stress": 0.2348831811866623
+      },
+      "predicted_class": "Sideway",
+      "confidence": "Uncertain",
+      "entropy": 1.383342630543357,
+      "margin": 0.03409093440884489,
+      "market_filter": "Uncertain"
+    },
+    "40": {
+      "probabilities": {
+        "Bull": 0.246939098297947,
+        "Sideway": 0.2885816443496799,
+        "Bear": 0.2570194163464764,
+        "Stress": 0.20745984100589668
+      },
+      "predicted_class": "Sideway",
+      "confidence": "Uncertain",
+      "entropy": 1.3794990485639087,
+      "margin": 0.03156222800320352,
+      "market_filter": "Uncertain"
+    },
+    "60": {
+      "probabilities": {
+        "Bull": 0.26492472578434295,
+        "Sideway": 0.3191001001163862,
+        "Bear": 0.18756238496994276,
+        "Stress": 0.22841278912932803
+      },
+      "predicted_class": "Sideway",
+      "confidence": "Uncertain",
+      "entropy": 1.3675813956656828,
+      "margin": 0.054175374332043225,
+      "market_filter": "Uncertain"
+    }
+  },
+  "note": "Không phải lời khuyên đầu tư."
+}

@@ -1,0 +1,5 @@
+model,horizon,fold,class,precision,recall,f1,support,evaluation_scope
+multiclass_ebm_baseline,20,0,Bull,0.4860050890585242,0.4321266968325792,0.45748502994011975,442,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Sideway,0.2850678733031674,0.21575342465753425,0.24561403508771928,292,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Bear,0.13541666666666666,0.13541666666666666,0.13541666666666666,96,nested_purged_development_oos
+multiclass_ebm_baseline,20,0,Stress,0.13380281690140844,0.23170731707317074,0.16964285714285715,164,nested_purged_development_oos

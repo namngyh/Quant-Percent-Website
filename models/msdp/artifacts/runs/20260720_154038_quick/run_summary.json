@@ -1,0 +1,253 @@
+{
+  "run_id": "20260720_154038_quick",
+  "run_label": "quick",
+  "runtime_seconds": 201.9,
+  "tests_not_run_inside_pipeline": true,
+  "best_params": {
+    "hidden_dim": 96,
+    "latent_dim": 48,
+    "n_blocks": 3,
+    "dropout": 0.06046161484954134,
+    "gate_temperature": 1.0,
+    "medium_pool": 3,
+    "long_pool": 20,
+    "learning_rate": 0.0004988085360985748,
+    "weight_decay": 7.200713608744524e-05,
+    "batch_size": 64
+  },
+  "seed_results": [
+    {
+      "seed": 42,
+      "best_epoch": 1,
+      "best_validation_loss": 0.3636629357933998
+    }
+  ],
+  "metrics": {
+    "h5": {
+      "return_mae": 2.405427505185717,
+      "return_rmse": 3.142700583757792,
+      "return_pinball": 0.7993571338596799,
+      "spearman": 0.04700830382098958,
+      "sign_accuracy": 0.5277108433734939,
+      "brier": 0.2563707232475281,
+      "log_loss": 0.7077465653419495,
+      "balanced_accuracy": 0.5461230541141586,
+      "f1": 0.6072186836518046,
+      "mcc": 0.09200200272774786,
+      "mdd_mae": 1.5282952350324732,
+      "mdd_pinball": 0.5122203286639804,
+      "volatility_mae": 7.084856759677624,
+      "volatility_rmse": 10.131719741861735,
+      "roc_auc": 0.5332186805040771,
+      "coverage": 0.7650602409638554,
+      "width": 6.781481742858887,
+      "winkler": 15.121240567597319,
+      "calibrated_interval": {
+        "coverage": 0.9132530120481928,
+        "width": 10.543746314797799,
+        "winkler": 13.39452885629253
+      },
+      "vs_zero_baseline": {
+        "return_mae": 0.06679294948138281,
+        "return_pinball": 0.0530306815318754,
+        "brier": 0.00841620995713846
+      }
+    },
+    "h20": {
+      "return_mae": 5.340940741238528,
+      "return_rmse": 6.725317255690593,
+      "return_pinball": 1.7224544244640936,
+      "spearman": 0.06920386689310797,
+      "sign_accuracy": 0.5325301204819277,
+      "brier": 0.25280919671058655,
+      "log_loss": 0.7012386322021484,
+      "balanced_accuracy": 0.5301812723016162,
+      "f1": 0.6454720616570327,
+      "mcc": 0.06342257487953776,
+      "mdd_mae": 3.148786618117761,
+      "mdd_pinball": 1.0449257509025567,
+      "volatility_mae": 6.1940362101817135,
+      "volatility_rmse": 8.13630524295701,
+      "roc_auc": 0.544740243880645,
+      "coverage": 0.772289156626506,
+      "width": 15.81506633758545,
+      "winkler": 30.662304384541276,
+      "calibrated_interval": {
+        "coverage": 0.9144578313253012,
+        "width": 22.616021821588692,
+        "winkler": 27.65963074719008
+      },
+      "vs_zero_baseline": {
+        "return_mae": 0.5145546246056423,
+        "return_pinball": 0.1245521523550579,
+        "brier": 0.0059820786994503605
+      }
+    },
+    "h60": {
+      "return_mae": 9.246427208693834,
+      "return_rmse": 11.560138176100297,
+      "return_pinball": 2.933367180777244,
+      "spearman": 0.059414207237646205,
+      "sign_accuracy": 0.5313253012048192,
+      "brier": 0.2488255500793457,
+      "log_loss": 0.6907854080200195,
+      "balanced_accuracy": 0.4971515613099772,
+      "f1": 0.6110019646365422,
+      "mcc": -0.005723160529638801,
+      "mdd_mae": 4.9852297464737,
+      "mdd_pinball": 1.695452520204862,
+      "volatility_mae": 5.440624665283796,
+      "volatility_rmse": 6.746653912721847,
+      "roc_auc": 0.5248804265041889,
+      "coverage": 0.7975903614457831,
+      "width": 31.42945671081543,
+      "winkler": 50.08910878579784,
+      "calibrated_interval": {
+        "coverage": 0.9554216867469879,
+        "width": 46.01274202222622,
+        "winkler": 47.82247739508346
+      },
+      "vs_zero_baseline": {
+        "return_mae": 1.0168879863651181,
+        "return_pinball": 0.1562412157037838,
+        "brier": 0.006066427402646263
+      }
+    }
+  },
+  "baseline": {
+    "h5": {
+      "zero_point_mae": 2.338634555704334,
+      "empirical_distribution_pinball": 0.7463264523278045,
+      "historical_frequency_brier": 0.24795451329038962,
+      "historical_mean_mae": 2.3156914916445914,
+      "historical_mean_pinball": 0.7463264523278045,
+      "ridge_mae": 2.418314244846901,
+      "ridge_pinball": 0.7760015304302788,
+      "logistic_brier": 0.25402675094625726,
+      "empirical_mdd_pinball": 0.4815640665414627,
+      "empirical_volatility_mae": 7.570878093062764,
+      "return_mae": 2.338634555704334,
+      "return_pinball": 0.7463264523278045,
+      "brier": 0.24795451329038962
+    },
+    "h20": {
+      "zero_point_mae": 4.826386116632886,
+      "empirical_distribution_pinball": 1.5979022721090357,
+      "historical_frequency_brier": 0.2468271180111362,
+      "historical_mean_mae": 4.746568591063369,
+      "historical_mean_pinball": 1.597902272109036,
+      "ridge_mae": 5.768312246720533,
+      "ridge_pinball": 1.8402269049719506,
+      "logistic_brier": 0.2753014535859646,
+      "empirical_mdd_pinball": 0.9738233405690432,
+      "empirical_volatility_mae": 6.553790250471917,
+      "return_mae": 4.826386116632886,
+      "return_pinball": 1.5979022721090357,
+      "brier": 0.2468271180111362
+    },
+    "h60": {
+      "zero_point_mae": 8.229539222328716,
+      "empirical_distribution_pinball": 2.77712596507346,
+      "historical_frequency_brier": 0.24275912267669944,
+      "historical_mean_mae": 8.043772121528487,
+      "historical_mean_pinball": 2.77712596507346,
+      "ridge_mae": 9.209051349418607,
+      "ridge_pinball": 2.980403787431421,
+      "logistic_brier": 0.25944617286814975,
+      "empirical_mdd_pinball": 1.5684246672705702,
+      "empirical_volatility_mae": 4.713211453308864,
+      "return_mae": 8.229539222328716,
+      "return_pinball": 2.77712596507346,
+      "brier": 0.24275912267669944
+    }
+  },
+  "ablation": [
+    {
+      "name": "equal",
+      "return_pinball_mean": 1.9507422876133624
+    },
+    {
+      "name": "single",
+      "return_pinball_mean": 1.6852911567571631
+    }
+  ],
+  "bootstrap": {
+    "h5_mae_difference_ci95": [
+      -0.013183337706727825,
+      0.17610963582500513
+    ],
+    "h20_mae_difference_ci95": [
+      0.12979655135488352,
+      0.9398406007307667
+    ],
+    "h60_mae_difference_ci95": [
+      0.3033268484437205,
+      2.2387540664256957
+    ]
+  },
+  "figures": [
+    "vnindex_close_history.png",
+    "vnindex_drawdown_history.png",
+    "rolling_volatility.png",
+    "return_distribution.png",
+    "data_quality_overview.png",
+    "target_distribution_by_horizon.png",
+    "training_total_loss_by_seed.png",
+    "training_return_loss.png",
+    "training_direction_loss.png",
+    "training_mdd_loss.png",
+    "training_volatility_loss.png",
+    "learning_rate_history.png",
+    "seed_validation_comparison.png",
+    "predicted_vs_actual_return_h5.png",
+    "return_fan_chart_h5.png",
+    "residual_return_h5.png",
+    "rolling_coverage_h5.png",
+    "direction_reliability_h5.png",
+    "gate_weights_h5.png",
+    "expert_predictions_h5.png",
+    "predicted_vs_actual_mdd_h5.png",
+    "predicted_vs_actual_return_h20.png",
+    "return_fan_chart_h20.png",
+    "residual_return_h20.png",
+    "rolling_coverage_h20.png",
+    "direction_reliability_h20.png",
+    "gate_weights_h20.png",
+    "expert_predictions_h20.png",
+    "predicted_vs_actual_mdd_h20.png",
+    "predicted_vs_actual_return_h60.png",
+    "return_fan_chart_h60.png",
+    "residual_return_h60.png",
+    "rolling_coverage_h60.png",
+    "direction_reliability_h60.png",
+    "gate_weights_h60.png",
+    "expert_predictions_h60.png",
+    "predicted_vs_actual_mdd_h60.png",
+    "raw_vs_calibrated_coverage.png",
+    "interval_width_by_horizon.png",
+    "interval_score_by_horizon.png",
+    "conditional_coverage_by_volatility.png",
+    "direction_probability_vs_actual.png",
+    "brier_score_by_horizon.png",
+    "mean_gate_weights_by_horizon.png",
+    "gate_entropy_by_horizon.png",
+    "expert_disagreement.png",
+    "expert_latent_correlation.png",
+    "expert_usage_by_market_condition.png",
+    "predicted_vs_actual_volatility.png",
+    "mdd_threshold_calibration.png",
+    "baseline_return_pinball_comparison.png",
+    "baseline_direction_brier_comparison.png",
+    "baseline_interval_coverage_comparison.png",
+    "baseline_interval_score_comparison.png",
+    "ablation_comparison.png",
+    "bootstrap_confidence_intervals.png",
+    "performance_by_market_condition.png",
+    "seed_stability.png",
+    "latest_horizon_return_profile.png",
+    "latest_projected_index_interval.png",
+    "latest_gate_weights.png",
+    "latest_risk_profile.png",
+    "latest_confidence_components.png"
+  ]
+}

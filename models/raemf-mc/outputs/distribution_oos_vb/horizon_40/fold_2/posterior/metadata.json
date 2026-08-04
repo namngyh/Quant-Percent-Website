@@ -1,0 +1,68 @@
+{
+  "fitted": true,
+  "backend": "pytorch",
+  "device": "cuda",
+  "inference_method": "torch_fullrank_advi_x3seeds",
+  "regime_labels": [
+    "hmm_prob_state_0",
+    "hmm_prob_state_1",
+    "hmm_prob_state_2",
+    "hmm_prob_state_3"
+  ],
+  "scaling_metadata": {
+    "return_scale": 0.014900775917298265
+  },
+  "train_date_range": [
+    "2000-07-31 00:00:00",
+    "2021-03-09 00:00:00"
+  ],
+  "data_fingerprint": "99a917f0ca558ce240cd0a846bab4bac623eed7a837f000cefcfce17b2a449e8",
+  "random_seed": 11,
+  "convergence_status": "converged",
+  "warnings": [
+    "Dropped 1 non-finite training observations"
+  ],
+  "effective_observations": [],
+  "config": {
+    "enabled": true,
+    "backend": "pytorch_cuda",
+    "method": "fullrank_advi",
+    "advi_steps": 6000,
+    "posterior_draws": 1200,
+    "posterior_predictive_draws": 500,
+    "learning_rate": 0.005,
+    "convergence_window": 500,
+    "convergence_tolerance": 0.001,
+    "shared_nu": true,
+    "prior_mu_scale": 0.5,
+    "prior_log_scale_sd": 0.3,
+    "prior_nu_rate": 0.1,
+    "random_seed": 42,
+    "fallback_to_point_estimate": true,
+    "min_effective_observations": 80,
+    "seeds": [
+      11,
+      42,
+      73
+    ],
+    "hierarchical": true,
+    "priors": {
+      "mu_global_sd": 0.25,
+      "mu_tau_sd": 0.25,
+      "log_c_global_sd": 0.25,
+      "log_c_tau_sd": 0.2,
+      "nu_rate": 0.1
+    },
+    "device": "auto",
+    "require_gpu": false,
+    "dtype": "float32",
+    "min_steps": 1500,
+    "vi_samples_per_step": 8,
+    "retry_learning_rates": [
+      0.001
+    ],
+    "gradient_clip_norm": 5.0,
+    "early_stopping_patience": 1500,
+    "fallback_to_meanfield": true
+  }
+}

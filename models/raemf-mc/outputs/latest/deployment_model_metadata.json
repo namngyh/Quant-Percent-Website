@@ -1,0 +1,29 @@
+{
+  "scope": "refit on all currently labeled observations after parameter lock",
+  "horizons": {
+    "20": {
+      "fit_start": "2000-07-28",
+      "fit_end": "2026-06-03",
+      "prediction_date": "2026-07-01",
+      "labeled_observations": 6278,
+      "selected_feature_count": 108,
+      "calibration_source": "locked temperature learned on evaluation validation"
+    },
+    "40": {
+      "fit_start": "2000-07-28",
+      "fit_end": "2026-05-06",
+      "prediction_date": "2026-07-01",
+      "labeled_observations": 6258,
+      "selected_feature_count": 108,
+      "calibration_source": "locked temperature learned on evaluation validation"
+    },
+    "60": {
+      "fit_start": "2000-07-28",
+      "fit_end": "2026-04-03",
+      "prediction_date": "2026-07-01",
+      "labeled_observations": 6238,
+      "selected_feature_count": 108,
+      "calibration_source": "locked temperature learned on evaluation validation"
+    }
+  }
+}

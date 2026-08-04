@@ -1,0 +1,7 @@
+horizon,candidate,baseline,metric,mean_difference,ci_low,ci_high,ci_excludes_zero
+20,candidate_risk_off,multiclass_probability_sum,recall,0.08653082101130519,-0.01827926785067056,0.21729647330257046,False
+20,candidate_risk_off,multiclass_probability_sum,expected_cost,-0.0027520503894590685,-0.012538155166417785,0.007455841586541696,False
+40,candidate_risk_off,multiclass_probability_sum,recall,0.004414893210425352,-0.07325676115998696,0.0730994152046783,False
+40,candidate_risk_off,multiclass_probability_sum,expected_cost,-0.00044021807854172107,-0.008160881786526538,0.006388142045636838,False
+60,candidate_risk_off,multiclass_probability_sum,recall,-0.22291232647755777,-0.40351966873706,-0.06084914857662809,True
+60,candidate_risk_off,multiclass_probability_sum,expected_cost,0.010767461535362429,-0.006661006052235858,0.03325914316102644,False

@@ -1,0 +1,63 @@
+{
+  "model_risk": {
+    "status": "inconclusive_or_rejected",
+    "checks": {
+      "recall_gain_at_least_10pp": false,
+      "precision_at_least_25pct": false,
+      "pr_auc_improved": true,
+      "expected_cost_reduced_10pct": false,
+      "brier_within_tolerance": false,
+      "multiclass_macro_f1_within_tolerance": true,
+      "fold_consistency": false,
+      "bootstrap_support": false,
+      "cpu_only": true,
+      "memory_within_budget": true
+    },
+    "recall_gain": -0.12692307692307697,
+    "precision": 0.24834437086092714,
+    "pr_auc_gain": 0.024165808667500788,
+    "expected_cost_reduction": -0.1166904774519569,
+    "brier_delta": 0.04075955969437864,
+    "macro_f1_delta": 0.0,
+    "folds_with_recall_improvement": 0,
+    "required_fold_comparisons": 1,
+    "bootstrap_supported_horizons": [],
+    "required_bootstrap_horizons": 1,
+    "fold_comparisons": 1
+  },
+  "distribution_risk": {
+    "status": "not_available",
+    "reason": "Downside classifier run does not retune or replace the registered point-estimate distribution model",
+    "production_scenario_mode": "point_estimate"
+  },
+  "capital_risk": {
+    "status": "paper_overlay_only",
+    "futures_note": "Exposure is notional; margin cash must not be substituted for notional exposure."
+  },
+  "acceptance": {
+    "status": "inconclusive_or_rejected",
+    "checks": {
+      "recall_gain_at_least_10pp": false,
+      "precision_at_least_25pct": false,
+      "pr_auc_improved": true,
+      "expected_cost_reduced_10pct": false,
+      "brier_within_tolerance": false,
+      "multiclass_macro_f1_within_tolerance": true,
+      "fold_consistency": false,
+      "bootstrap_support": false,
+      "cpu_only": true,
+      "memory_within_budget": true
+    },
+    "recall_gain": -0.12692307692307697,
+    "precision": 0.24834437086092714,
+    "pr_auc_gain": 0.024165808667500788,
+    "expected_cost_reduction": -0.1166904774519569,
+    "brier_delta": 0.04075955969437864,
+    "macro_f1_delta": 0.0,
+    "folds_with_recall_improvement": 0,
+    "required_fold_comparisons": 1,
+    "bootstrap_supported_horizons": [],
+    "required_bootstrap_horizons": 1,
+    "fold_comparisons": 1
+  }
+}

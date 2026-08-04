@@ -1,0 +1,29 @@
+extends: laptop.yaml
+
+runtime:
+  mode: distribution-oos-laptop
+  seed: 42
+
+tuning:
+  enabled: false
+
+bayesian:
+  enabled: true
+  method: meanfield_advi
+  advi_steps: 800
+  posterior_draws: 900
+  posterior_predictive_draws: 100
+  convergence_window: 100
+  convergence_tolerance: 0.01
+  random_seed: 42
+  fallback_to_point_estimate: false
+
+distribution_benchmark:
+  n_folds: 3
+  test_fraction: 0.30
+  validation_fraction: 0.10
+  horizons: [20, 40, 60]
+  paths: 300
+  mc_seeds: [11, 42, 73]
+  bootstrap_replicates: 500
+  bootstrap_block_length: 20

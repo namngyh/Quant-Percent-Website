@@ -1,0 +1,136 @@
+[
+  {
+    "community_id": 0,
+    "size": 8,
+    "members": [
+      "FPT",
+      "HDB",
+      "HPG",
+      "MBB",
+      "MSN",
+      "MWG",
+      "STB",
+      "VIC"
+    ],
+    "dominant_sector": "Banks",
+    "dominant_sector_share": 0.375,
+    "sector_composition": {
+      "Banks": 3,
+      "Technology": 1,
+      "Basic Resources": 1,
+      "Food & Beverage": 1,
+      "Retail": 1,
+      "Real Estate": 1
+    },
+    "cohesion": 0.474,
+    "internal_weight": 2.5493,
+    "external_weight": 2.8287,
+    "overall_sector_purity": 0.5333
+  },
+  {
+    "community_id": 1,
+    "size": 6,
+    "members": [
+      "ACB",
+      "LPB",
+      "TPB",
+      "VIB",
+      "VJC",
+      "VPB"
+    ],
+    "dominant_sector": "Banks",
+    "dominant_sector_share": 0.833,
+    "sector_composition": {
+      "Banks": 5,
+      "Travel & Leisure": 1
+    },
+    "cohesion": 0.3567,
+    "internal_weight": 1.1794,
+    "external_weight": 2.1266,
+    "overall_sector_purity": 0.5333
+  },
+  {
+    "community_id": 2,
+    "size": 5,
+    "members": [
+      "BCM",
+      "GAS",
+      "GVR",
+      "PLX",
+      "SSB"
+    ],
+    "dominant_sector": "Real Estate",
+    "dominant_sector_share": 0.2,
+    "sector_composition": {
+      "Real Estate": 1,
+      "Utilities": 1,
+      "Chemicals": 1,
+      "Oil & Gas": 1,
+      "Banks": 1
+    },
+    "cohesion": 0.5234,
+    "internal_weight": 1.5623,
+    "external_weight": 1.4226,
+    "overall_sector_purity": 0.5333
+  },
+  {
+    "community_id": 3,
+    "size": 4,
+    "members": [
+      "BID",
+      "BVH",
+      "CTG",
+      "VCB"
+    ],
+    "dominant_sector": "Banks",
+    "dominant_sector_share": 0.75,
+    "sector_composition": {
+      "Banks": 3,
+      "Insurance": 1
+    },
+    "cohesion": 0.4776,
+    "internal_weight": 0.8662,
+    "external_weight": 0.9475,
+    "overall_sector_purity": 0.5333
+  },
+  {
+    "community_id": 4,
+    "size": 4,
+    "members": [
+      "SAB",
+      "SHB",
+      "SSI",
+      "VNM"
+    ],
+    "dominant_sector": "Food & Beverage",
+    "dominant_sector_share": 0.5,
+    "sector_composition": {
+      "Food & Beverage": 2,
+      "Banks": 1,
+      "Financial Services": 1
+    },
+    "cohesion": 0.3417,
+    "internal_weight": 0.6218,
+    "external_weight": 1.1979,
+    "overall_sector_purity": 0.5333
+  },
+  {
+    "community_id": 5,
+    "size": 3,
+    "members": [
+      "TCB",
+      "VHM",
+      "VRE"
+    ],
+    "dominant_sector": "Real Estate",
+    "dominant_sector_share": 0.667,
+    "sector_composition": {
+      "Real Estate": 2,
+      "Banks": 1
+    },
+    "cohesion": 0.201,
+    "internal_weight": 0.4708,
+    "external_weight": 1.8719,
+    "overall_sector_purity": 0.5333
+  }
+]

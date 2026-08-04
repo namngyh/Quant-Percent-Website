@@ -1,0 +1,24 @@
+{
+  "path": "VNINDEX_Daily.csv",
+  "sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f",
+  "metadata": {
+    "rows_loaded": 6306,
+    "duplicate_dates": 2,
+    "exact_duplicate_records_removed": 1,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-13",
+    "sha256": "de60ce39646402eaa7dba3b68390fa807a6efe2866a1ddf70c0ff603b9e2873f"
+  },
+  "development_target_end_before": "2021-04-02",
+  "legacy_audit_start": "2021-04-02"
+}

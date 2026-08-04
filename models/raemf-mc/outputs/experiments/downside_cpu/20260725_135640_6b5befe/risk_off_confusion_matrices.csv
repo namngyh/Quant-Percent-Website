@@ -1,0 +1,3 @@
+model,horizon,fold,tn,fp,fn,tp
+multiclass_probability_sum,20,0,382,352,152,108
+candidate_risk_off,20,0,507,227,185,75

@@ -1,0 +1,35 @@
+{
+  "scope": "train -> validation calibration -> final test",
+  "horizons": {
+    "20": {
+      "train_start": "2000-07-28",
+      "train_end": "2017-07-12",
+      "validation_start": "2017-08-10",
+      "validation_end": "2021-04-19",
+      "test_start": "2021-05-21",
+      "test_end": "2026-06-03",
+      "selected_feature_count": 107,
+      "temperature": 2.0
+    },
+    "40": {
+      "train_start": "2000-07-28",
+      "train_end": "2017-05-26",
+      "validation_start": "2017-07-24",
+      "validation_end": "2021-02-26",
+      "test_start": "2021-04-27",
+      "test_end": "2026-05-06",
+      "selected_feature_count": 107,
+      "temperature": 1.2999999999999998
+    },
+    "60": {
+      "train_start": "2000-07-28",
+      "train_end": "2017-04-07",
+      "validation_start": "2017-07-05",
+      "validation_end": "2020-12-30",
+      "test_start": "2021-04-02",
+      "test_end": "2026-04-03",
+      "selected_feature_count": 107,
+      "temperature": 1.0999999999999999
+    }
+  }
+}

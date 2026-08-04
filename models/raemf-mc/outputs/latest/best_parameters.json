@@ -1,0 +1,44 @@
+{
+  "20": {
+    "parameters": {
+      "learning_rate": 0.03,
+      "max_rounds": 30,
+      "interactions": 0,
+      "max_bins": 96,
+      "min_samples_leaf": 5,
+      "outer_bags": 2
+    },
+    "objective": 0.6976417380020438,
+    "runtime_seconds": 74.02117872238159,
+    "trials": 15,
+    "pruned": 0
+  },
+  "40": {
+    "parameters": {
+      "learning_rate": 0.015,
+      "max_rounds": 50,
+      "interactions": 0,
+      "max_bins": 96,
+      "min_samples_leaf": 10,
+      "outer_bags": 2
+    },
+    "objective": 0.6952300742989787,
+    "runtime_seconds": 69.88171172142029,
+    "trials": 15,
+    "pruned": 0
+  },
+  "60": {
+    "parameters": {
+      "learning_rate": 0.015,
+      "max_rounds": 30,
+      "interactions": 0,
+      "max_bins": 96,
+      "min_samples_leaf": 10,
+      "outer_bags": 2
+    },
+    "objective": 0.7169440960095935,
+    "runtime_seconds": 71.26252269744873,
+    "trials": 15,
+    "pruned": 0
+  }
+}

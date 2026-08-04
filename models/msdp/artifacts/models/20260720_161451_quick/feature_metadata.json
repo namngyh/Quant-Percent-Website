@@ -1,0 +1,506 @@
+[
+  {
+    "name": "log_return_1",
+    "group": "return",
+    "formula": "log(C_t/C_t-1)",
+    "lookback": 1,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "return_2",
+    "group": "return",
+    "formula": "C_t/C_t-2-1",
+    "lookback": 2,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "return_5",
+    "group": "return",
+    "formula": "C_t/C_t-5-1",
+    "lookback": 5,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "return_10",
+    "group": "return",
+    "formula": "C_t/C_t-10-1",
+    "lookback": 10,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "return_20",
+    "group": "return",
+    "formula": "C_t/C_t-20-1",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "return_60",
+    "group": "return",
+    "formula": "C_t/C_t-60-1",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "overnight_gap",
+    "group": "return",
+    "formula": "log(O_t/C_t-1)",
+    "lookback": 1,
+    "requires": "Open",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "intraday_return",
+    "group": "return",
+    "formula": "log(C_t/O_t)",
+    "lookback": 1,
+    "requires": "Open",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "log_high_low_range",
+    "group": "range",
+    "formula": "log(H/L)",
+    "lookback": 1,
+    "requires": "OHLC",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "normalized_true_range",
+    "group": "range",
+    "formula": "TR/C",
+    "lookback": 1,
+    "requires": "OHLC",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "atr_14",
+    "group": "range",
+    "formula": "mean(TR,14)/C",
+    "lookback": 14,
+    "requires": "OHLC",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "parkinson_vol_20",
+    "group": "range",
+    "formula": "Parkinson",
+    "lookback": 20,
+    "requires": "High Low",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "garman_klass_vol_20",
+    "group": "range",
+    "formula": "Garman-Klass",
+    "lookback": 20,
+    "requires": "OHLC",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "rolling_vol_5",
+    "group": "volatility",
+    "formula": "std(log return)*sqrt(252)",
+    "lookback": 5,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "rolling_vol_10",
+    "group": "volatility",
+    "formula": "std(log return)*sqrt(252)",
+    "lookback": 10,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "rolling_vol_20",
+    "group": "volatility",
+    "formula": "std(log return)*sqrt(252)",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "rolling_vol_60",
+    "group": "volatility",
+    "formula": "std(log return)*sqrt(252)",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "downside_vol_20",
+    "group": "volatility",
+    "formula": "downside std",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "skew_20",
+    "group": "volatility",
+    "formula": "rolling skew",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "kurtosis_20",
+    "group": "volatility",
+    "formula": "rolling kurtosis",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "downside_vol_60",
+    "group": "volatility",
+    "formula": "downside std",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "skew_60",
+    "group": "volatility",
+    "formula": "rolling skew",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "kurtosis_60",
+    "group": "volatility",
+    "formula": "rolling kurtosis",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "sma_distance_5",
+    "group": "trend",
+    "formula": "C/SMA-1",
+    "lookback": 5,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "sma_distance_20",
+    "group": "trend",
+    "formula": "C/SMA-1",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "sma_distance_60",
+    "group": "trend",
+    "formula": "C/SMA-1",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "sma_distance_200",
+    "group": "trend",
+    "formula": "C/SMA-1",
+    "lookback": 200,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "ema_distance_12",
+    "group": "trend",
+    "formula": "C/EMA-1",
+    "lookback": 12,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "ema_distance_26",
+    "group": "trend",
+    "formula": "C/EMA-1",
+    "lookback": 26,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "ema_distance_50",
+    "group": "trend",
+    "formula": "C/EMA-1",
+    "lookback": 50,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "ema_distance_200",
+    "group": "trend",
+    "formula": "C/EMA-1",
+    "lookback": 200,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "macd",
+    "group": "trend",
+    "formula": "(EMA12-EMA26)/C",
+    "lookback": 26,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "macd_signal",
+    "group": "trend",
+    "formula": "EMA9(MACD)/C",
+    "lookback": 35,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "macd_histogram",
+    "group": "trend",
+    "formula": "MACD-signal",
+    "lookback": 35,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "delta_macd",
+    "group": "trend",
+    "formula": "delta MACD/C",
+    "lookback": 27,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "delta_histogram",
+    "group": "trend",
+    "formula": "delta histogram/C",
+    "lookback": 36,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "rsi_14",
+    "group": "trend",
+    "formula": "Wilder RSI",
+    "lookback": 14,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "slope_20",
+    "group": "trend",
+    "formula": "OLS slope log(C)",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "slope_60",
+    "group": "trend",
+    "formula": "OLS slope log(C)",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "up_ratio_10",
+    "group": "trend",
+    "formula": "fraction positive",
+    "lookback": 10,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "up_ratio_20",
+    "group": "trend",
+    "formula": "fraction positive",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "drawdown_20",
+    "group": "drawdown",
+    "formula": "C/rolling_max-1",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "drawdown_60",
+    "group": "drawdown",
+    "formula": "C/rolling_max-1",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "drawdown_252",
+    "group": "drawdown",
+    "formula": "C/rolling_max-1",
+    "lookback": 252,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "drawdown_change",
+    "group": "drawdown",
+    "formula": "delta drawdown60",
+    "lookback": 61,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "position_20",
+    "group": "market_position",
+    "formula": "rolling min-max",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "position_60",
+    "group": "market_position",
+    "formula": "rolling min-max",
+    "lookback": 60,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "bollinger_z_20",
+    "group": "market_position",
+    "formula": "zscore(C,20)",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "median_distance_20",
+    "group": "market_position",
+    "formula": "C/median20-1",
+    "lookback": 20,
+    "requires": "Close",
+    "requires_ohlcv": false,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "log_volume",
+    "group": "volume",
+    "formula": "log(1+V)",
+    "lookback": 1,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "volume_return",
+    "group": "volume",
+    "formula": "delta log volume",
+    "lookback": 1,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "volume_zscore_20",
+    "group": "volume",
+    "formula": "zscore(logV)",
+    "lookback": 20,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "volume_zscore_60",
+    "group": "volume",
+    "formula": "zscore(logV)",
+    "lookback": 60,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "price_volume_corr_20",
+    "group": "volume",
+    "formula": "corr(return,delta logV)",
+    "lookback": 20,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  },
+  {
+    "name": "signed_volume_proxy",
+    "group": "volume",
+    "formula": "sign(return)*logV",
+    "lookback": 1,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long"
+  },
+  {
+    "name": "volume_shock",
+    "group": "volume",
+    "formula": "logV-median20",
+    "lookback": 20,
+    "requires": "Volume",
+    "requires_ohlcv": true,
+    "expert_tags": "short|medium|long|range_volatility"
+  }
+]

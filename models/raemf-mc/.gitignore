@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+outputs/runs/*/models/
+outputs/runs/*
+*.joblib
+*.pkl
+.DS_Store
+incoming/*
+!incoming/README.md
+backups/
+outputs/webapp_jobs/
+logs/
+
+# Keep compact OOS summaries/figures in Git; retain restart checkpoints and
+# posterior binaries locally because they are large and reproducible.
+outputs/distribution_oos_laptop/origin_metrics.csv
+outputs/distribution_oos_laptop/horizon_*/fold_*/origin_metrics_seed_*.csv
+outputs/distribution_oos_laptop/horizon_*/fold_*/posterior/
+outputs/bayesian_smoke/*.npz
+outputs/bayesian_smoke/posterior.nc
+outputs/distribution_oos_vb/origin_metrics.csv
+outputs/distribution_oos_vb/horizon_*/fold_*/origin_metrics_seed_*.csv
+outputs/latest/deployment_posterior/posterior_predictive_draws.npz
+outputs/latest/canonical_vnindex.parquet

@@ -1,0 +1,164 @@
+{
+  "h20_fold0": {
+    "baseline": {
+      "threshold": 0.42,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.37,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "logistic",
+      "feature_group": "base_plus_downside_all",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h20_fold1": {
+    "baseline": {
+      "threshold": 0.47,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.05,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "hist_gradient_boosting",
+      "feature_group": "base_plus_downside_all",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h20_fold2": {
+    "baseline": {
+      "threshold": 0.46,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 1.4
+    },
+    "candidate": {
+      "threshold": 0.57,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "ebm",
+      "feature_group": "base_plus_downside_all",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h40_fold0": {
+    "baseline": {
+      "threshold": 0.4,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 1.6999999999999997
+    },
+    "candidate": {
+      "threshold": 0.29,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "logistic",
+      "feature_group": "base_plus_downside_price",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h40_fold1": {
+    "baseline": {
+      "threshold": 0.39,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.05,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "ebm",
+      "feature_group": "base_plus_downside_price",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h40_fold2": {
+    "baseline": {
+      "threshold": 0.19,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 0.8999999999999999
+    },
+    "candidate": {
+      "threshold": 0.44,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "hist_gradient_boosting",
+      "feature_group": "base",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h60_fold0": {
+    "baseline": {
+      "threshold": 0.44,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.44,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "hist_gradient_boosting",
+      "feature_group": "base",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h60_fold1": {
+    "baseline": {
+      "threshold": 0.35,
+      "constraint_satisfied": false,
+      "reason": "constraint_failure_minimum_expected_cost",
+      "calibration_temperature": 2.4
+    },
+    "candidate": {
+      "threshold": 0.64,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "hist_gradient_boosting",
+      "feature_group": "base",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  },
+  "h60_fold2": {
+    "baseline": {
+      "threshold": 0.11,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "calibration_temperature": 0.7999999999999999
+    },
+    "candidate": {
+      "threshold": 0.49,
+      "constraint_satisfied": true,
+      "reason": "minimum precision/recall constraints satisfied",
+      "model_kind": "ebm",
+      "feature_group": "base",
+      "calibration_temperature": 3.0,
+      "calibration_used": true
+    },
+    "selection_scope": "outer_validation_only"
+  }
+}

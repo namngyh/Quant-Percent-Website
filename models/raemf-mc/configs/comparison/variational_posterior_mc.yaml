@@ -1,0 +1,10 @@
+extends: ../laptop.yaml
+
+runtime:
+  mode: comparison-variational-posterior-mc
+
+monte_carlo:
+  scenario_mode: variational_posterior
+
+bayesian:
+  enabled: true

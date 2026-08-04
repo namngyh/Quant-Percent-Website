@@ -1,0 +1,110 @@
+<h1>Báo cáo nghiên cứu đầy đủ MSDP</h1>
+<h2>Tóm tắt</h2>
+<p>MSDP dự báo phân phối lợi suất VN-Index ở 5, 20 và 60 phiên bằng bốn chuyên gia causal. Trong cấu hình và giai đoạn dữ liệu hiện tại, chưa có bằng chứng cho thấy MSDP vượt baseline.</p>
+<h2>Dữ liệu</h2>
+<p>Dữ liệu có 6306 phiên, từ 2000-07-28 đến 2026-07-13. Cảnh báo chất lượng: ['OHLC constraint violations: high=27, low=15'].</p>
+<h2>Cơ sở toán học</h2>
+<p>Target lợi suất là <code>100 log(C[t+h]/C[t])</code>. MDD là drawdown nhỏ nhất của path tương lai và luôn không dương. Return head lấy median làm tâm; MDD head tạo severity dương rồi đổi dấu. CQR dùng <code>max(lower-y, y-upper, 0)</code> và order statistic riêng từng kỳ hạn.</p>
+<h2>Kiến trúc</h2>
+<p>Input đi qua chuyên gia ngắn, trung, dài và range–volatility độc lập. Mỗi expert dùng projection, LayerNorm, GELU và causal residual Conv1d. Context kết hợp feature cuối với các latent; gate nhận context, latent và horizon embedding. Auxiliary head tạo dự báo riêng để đo bất đồng expert.</p>
+<h2>Scaling, loss và chống leakage</h2>
+<p>Feature/target scaler chỉ fit train hoặc development thích hợp. Return, MDD severity và log-volatility có scaler riêng theo horizon. Loss gồm pinball, BCE-with-logits, Huber, batch load balancing và auxiliary MAE. Split theo thời gian có purge 60 phiên; conformal chỉ fit calibration prediction.</p>
+<h2>Kết quả final test</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Kỳ hạn</th>
+<th style="text-align: right;">MAE</th>
+<th style="text-align: right;">Pinball</th>
+<th style="text-align: right;">Brier</th>
+<th style="text-align: right;">Coverage gốc</th>
+<th style="text-align: right;">Coverage conformal</th>
+<th style="text-align: right;">Pinball Δ so với ZeroReturn</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">2.3688</td>
+<td style="text-align: right;">0.7731</td>
+<td style="text-align: right;">0.2563</td>
+<td style="text-align: right;">80.4%</td>
+<td style="text-align: right;">91.4%</td>
+<td style="text-align: right;">+0.0267</td>
+</tr>
+<tr>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">5.0055</td>
+<td style="text-align: right;">1.7032</td>
+<td style="text-align: right;">0.2620</td>
+<td style="text-align: right;">73.9%</td>
+<td style="text-align: right;">86.1%</td>
+<td style="text-align: right;">+0.1053</td>
+</tr>
+<tr>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">8.8100</td>
+<td style="text-align: right;">3.0273</td>
+<td style="text-align: right;">0.2515</td>
+<td style="text-align: right;">76.6%</td>
+<td style="text-align: right;">86.4%</td>
+<td style="text-align: right;">+0.2502</td>
+</tr>
+</tbody>
+</table>
+<h2>Nhận xét</h2>
+<ul>
+<li>Kỳ hạn 5: Spearman 0.051, MAE 2.369%, pinball 0.773. Pinball chưa thấp hơn ZeroReturn.
+  Conformal nâng coverage từ 80.4% lên 91.4%, đồng thời tăng độ rộng từ 7.32% lên 10.16%.</li>
+<li>Kỳ hạn 20: Spearman 0.087, MAE 5.005%, pinball 1.703. Pinball chưa thấp hơn ZeroReturn.
+  Conformal nâng coverage từ 73.9% lên 86.1%, đồng thời tăng độ rộng từ 14.07% lên 20.73%.</li>
+<li>Kỳ hạn 60: Spearman 0.010, MAE 8.810%, pinball 3.027. Pinball chưa thấp hơn ZeroReturn.
+  Conformal nâng coverage từ 76.6% lên 86.4%, đồng thời tăng độ rộng từ 27.72% lên 39.23%.</li>
+</ul>
+<h2>Dự báo mới nhất</h2>
+<p>Ngày 2026-07-13 00:00:00, VN-Index 1800.54. Đây là hồ sơ dự báo theo khoảng thời gian, không phải đường giá tương lai và không phải khuyến nghị mua bán.</p>
+<h2>Hạn chế và kết luận</h2>
+<p>Artifact quick hiện chỉ dùng một seed và ba trial. Dữ liệu nguồn có vi phạm OHLC; interval dài hạn rộng; gate gần equal-weight. Trong cấu hình và giai đoạn dữ liệu hiện tại, chưa có bằng chứng cho thấy MSDP vượt baseline. Giá trị chính hiện nằm ở mô tả phân phối và hiệu chỉnh rủi ro, chưa phải dự báo điểm.</p>
+<h2>Ánh xạ công thức–code–test</h2>
+<table>
+<thead>
+<tr>
+<th>Công thức</th>
+<th>File</th>
+<th>Thành phần</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CQR score không âm</td>
+<td><code>calibration.py</code></td>
+<td><code>conformity_scores</code></td>
+<td><code>test_calibration.py</code></td>
+</tr>
+<tr>
+<td>Return quantile có tâm median</td>
+<td><code>heads.py</code></td>
+<td><code>MedianCenteredReturnQuantileHead</code></td>
+<td><code>test_quantile_order.py</code></td>
+</tr>
+<tr>
+<td>MDD quantile âm</td>
+<td><code>heads.py</code></td>
+<td><code>NegativeMonotonicMDDHead</code></td>
+<td><code>test_quantile_order.py</code></td>
+</tr>
+<tr>
+<td>Convolution causal</td>
+<td><code>blocks.py</code></td>
+<td><code>CausalConv1d</code></td>
+<td><code>test_causal_conv.py</code></td>
+</tr>
+<tr>
+<td>Gate theo horizon</td>
+<td><code>gate.py</code></td>
+<td><code>HorizonGate</code></td>
+<td><code>test_horizon_gate.py</code></td>
+</tr>
+</tbody>
+</table>

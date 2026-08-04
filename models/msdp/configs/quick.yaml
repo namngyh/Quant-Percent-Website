@@ -1,0 +1,22 @@
+seed: 42
+seeds: [42]
+device: cpu
+deterministic: true
+horizons: [5, 20, 60]
+quantiles: [0.05, 0.25, 0.50, 0.75, 0.95]
+mdd_quantiles: [0.10, 0.50, 0.90]
+lookback: 126
+purge_gap: 60
+calibration_window: 126
+target_coverage: 0.90
+min_feature_nonmissing: 0.65
+split: {development: 0.70, calibration: 0.15, test: 0.15, min_development: 500, min_calibration: 100, min_test: 100}
+model: {hidden_dim: 32, latent_dim: 32, n_blocks: 2, dropout: 0.10, gate_temperature: 1.0, medium_pool: 5, long_pool: 10}
+training: {epochs: 30, tuning_epochs: 30, patience: 6, batch_size: 128, learning_rate: 0.001, weight_decay: 0.00001, folds: 2, trials: 8, num_workers: 0, seeds: [42]}
+tuning: {enabled: true, n_trials: 8, n_folds: 2, max_epochs: 30, early_stopping_patience: 6, pruner: median, seed: 42, n_jobs: 1}
+loss_weights: {return: 1.0, direction: 0.25, mdd: 0.35, volatility: 0.15, balance: 0.01, aux: 0.05, entropy: 0.0}
+bootstrap_resamples: 100
+bootstrap: {n_resamples: 100}
+ablations: [equal, single]
+run_label: quick
+data_quality: {invalid_ohlc_policy: mask_features}

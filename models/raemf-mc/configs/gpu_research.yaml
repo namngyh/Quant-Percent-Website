@@ -1,0 +1,40 @@
+# RAEMF-VB-MC GPU research profile: requires CUDA, more ADVI seeds, more
+# Monte Carlo paths and heavier bootstrap. HMM/EGARCH/EBM stay on CPU by
+# design (benchmarks show no GPU benefit for those estimators).
+extends: laptop_vb.yaml
+
+runtime:
+  mode: gpu-research
+  seed: 42
+  max_threads: 8
+
+bayesian:
+  seeds: [11, 23, 42, 57, 73, 101, 137]
+  advi_steps: 20000
+  min_steps: 3000
+  posterior_draws: 4000
+  posterior_predictive_draws: 2000
+  vi_samples_per_step: 8
+  early_stopping_patience: 3000
+  convergence_window: 1000
+  convergence_tolerance: 0.0005
+  min_effective_observations: 100
+  device: cuda
+  require_gpu: true
+
+bayesian_regime_head:
+  max_features: 40
+  seeds: [11, 23, 42, 57, 73]
+  advi_steps: 15000
+  posterior_draws: 2000
+  ablation_horizons: [20, 40, 60]
+  device: cuda
+
+monte_carlo:
+  paths: 20000
+  chunk_size: 2000
+
+distribution_benchmark:
+  paths: 1000
+  mc_seeds: [11, 42, 73]
+  bootstrap_replicates: 3000

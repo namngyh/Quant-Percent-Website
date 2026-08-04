@@ -1,0 +1,249 @@
+model,horizon,actual,Bull,Sideway,Bear,Stress,fold
+EBM,20,Bull,64,41,45,121,0
+EBM,20,Sideway,34,15,25,122,0
+EBM,20,Bear,18,13,4,28,0
+EBM,20,Stress,51,12,8,27,0
+EBM calibrated,20,Bull,64,41,45,121,0
+EBM calibrated,20,Sideway,34,15,25,122,0
+EBM calibrated,20,Bear,18,13,4,28,0
+EBM calibrated,20,Stress,51,12,8,27,0
+XGBoost,20,Bull,91,45,23,112,0
+XGBoost,20,Sideway,68,12,13,103,0
+XGBoost,20,Bear,29,11,0,23,0
+XGBoost,20,Stress,63,21,4,10,0
+Random Forest,20,Bull,65,63,37,106,0
+Random Forest,20,Sideway,64,27,25,80,0
+Random Forest,20,Bear,26,14,0,23,0
+Random Forest,20,Stress,59,26,2,11,0
+MACD probabilistic,20,Bull,271,0,0,0,0
+MACD probabilistic,20,Sideway,196,0,0,0,0
+MACD probabilistic,20,Bear,63,0,0,0,0
+MACD probabilistic,20,Stress,98,0,0,0,0
+Bayesian regime head,20,Bull,142,113,6,10,0
+Bayesian regime head,20,Sideway,135,54,6,1,0
+Bayesian regime head,20,Bear,51,10,1,1,0
+Bayesian regime head,20,Stress,68,30,0,0,0
+Bayesian regime head calibrated,20,Bull,142,113,6,10,0
+Bayesian regime head calibrated,20,Sideway,135,54,6,1,0
+Bayesian regime head calibrated,20,Bear,51,10,1,1,0
+Bayesian regime head calibrated,20,Stress,68,30,0,0,0
+EBM,20,Bull,21,83,18,71,1
+EBM,20,Sideway,48,108,17,70,1
+EBM,20,Bear,19,29,9,18,1
+EBM,20,Stress,21,19,21,57,1
+EBM calibrated,20,Bull,21,83,18,71,1
+EBM calibrated,20,Sideway,48,108,17,70,1
+EBM calibrated,20,Bear,19,29,9,18,1
+EBM calibrated,20,Stress,21,19,21,57,1
+XGBoost,20,Bull,51,70,23,49,1
+XGBoost,20,Sideway,63,102,15,63,1
+XGBoost,20,Bear,37,21,3,14,1
+XGBoost,20,Stress,24,29,21,44,1
+Random Forest,20,Bull,64,80,8,41,1
+Random Forest,20,Sideway,47,144,18,34,1
+Random Forest,20,Bear,15,42,1,17,1
+Random Forest,20,Stress,24,42,16,36,1
+MACD probabilistic,20,Bull,148,45,0,0,1
+MACD probabilistic,20,Sideway,183,60,0,0,1
+MACD probabilistic,20,Bear,63,12,0,0,1
+MACD probabilistic,20,Stress,69,49,0,0,1
+Bayesian regime head,20,Bull,119,37,0,37,1
+Bayesian regime head,20,Sideway,127,97,9,10,1
+Bayesian regime head,20,Bear,39,29,0,7,1
+Bayesian regime head,20,Stress,96,21,1,0,1
+Bayesian regime head calibrated,20,Bull,119,37,0,37,1
+Bayesian regime head calibrated,20,Sideway,127,97,9,10,1
+Bayesian regime head calibrated,20,Bear,39,29,0,7,1
+Bayesian regime head calibrated,20,Stress,96,21,1,0,1
+EBM,20,Bull,110,140,1,22,2
+EBM,20,Sideway,84,103,0,26,2
+EBM,20,Bear,30,23,1,6,2
+EBM,20,Stress,49,24,0,10,2
+EBM calibrated,20,Bull,110,140,1,22,2
+EBM calibrated,20,Sideway,84,103,0,26,2
+EBM calibrated,20,Bear,30,23,1,6,2
+EBM calibrated,20,Stress,49,24,0,10,2
+XGBoost,20,Bull,173,65,3,32,2
+XGBoost,20,Sideway,133,41,1,38,2
+XGBoost,20,Bear,49,4,0,7,2
+XGBoost,20,Stress,47,16,0,20,2
+Random Forest,20,Bull,74,156,7,36,2
+Random Forest,20,Sideway,52,116,5,40,2
+Random Forest,20,Bear,19,22,3,16,2
+Random Forest,20,Stress,41,22,3,17,2
+MACD probabilistic,20,Bull,41,232,0,0,2
+MACD probabilistic,20,Sideway,28,185,0,0,2
+MACD probabilistic,20,Bear,0,60,0,0,2
+MACD probabilistic,20,Stress,1,82,0,0,2
+Bayesian regime head,20,Bull,199,72,0,2,2
+Bayesian regime head,20,Sideway,140,73,0,0,2
+Bayesian regime head,20,Bear,37,23,0,0,2
+Bayesian regime head,20,Stress,75,8,0,0,2
+Bayesian regime head calibrated,20,Bull,199,72,0,2,2
+Bayesian regime head calibrated,20,Sideway,140,73,0,0,2
+Bayesian regime head calibrated,20,Bear,37,23,0,0,2
+Bayesian regime head calibrated,20,Stress,75,8,0,0,2
+EBM,40,Bull,35,20,10,207,0
+EBM,40,Sideway,20,31,7,145,0
+EBM,40,Bear,10,2,0,53,0
+EBM,40,Stress,47,0,0,39,0
+EBM calibrated,40,Bull,35,20,10,207,0
+EBM calibrated,40,Sideway,20,31,7,145,0
+EBM calibrated,40,Bear,10,2,0,53,0
+EBM calibrated,40,Stress,47,0,0,39,0
+XGBoost,40,Bull,55,31,26,160,0
+XGBoost,40,Sideway,41,46,18,98,0
+XGBoost,40,Bear,10,5,5,45,0
+XGBoost,40,Stress,68,2,0,16,0
+Random Forest,40,Bull,46,67,39,120,0
+Random Forest,40,Sideway,57,56,19,71,0
+Random Forest,40,Bear,28,5,5,27,0
+Random Forest,40,Stress,82,0,3,1,0
+MACD probabilistic,40,Bull,272,0,0,0,0
+MACD probabilistic,40,Sideway,203,0,0,0,0
+MACD probabilistic,40,Bear,65,0,0,0,0
+MACD probabilistic,40,Stress,86,0,0,0,0
+Bayesian regime head,40,Bull,119,105,0,48,0
+Bayesian regime head,40,Sideway,130,61,0,12,0
+Bayesian regime head,40,Bear,61,4,0,0,0
+Bayesian regime head,40,Stress,67,0,0,19,0
+Bayesian regime head calibrated,40,Bull,119,105,0,48,0
+Bayesian regime head calibrated,40,Sideway,130,61,0,12,0
+Bayesian regime head calibrated,40,Bear,61,4,0,0,0
+Bayesian regime head calibrated,40,Stress,67,0,0,19,0
+EBM,40,Bull,81,40,32,34,1
+EBM,40,Sideway,83,70,53,51,1
+EBM,40,Bear,20,14,11,8,1
+EBM,40,Stress,37,14,38,41,1
+EBM calibrated,40,Bull,81,40,32,34,1
+EBM calibrated,40,Sideway,83,70,53,51,1
+EBM calibrated,40,Bear,20,14,11,8,1
+EBM calibrated,40,Stress,37,14,38,41,1
+XGBoost,40,Bull,128,19,16,24,1
+XGBoost,40,Sideway,92,60,18,87,1
+XGBoost,40,Bear,25,15,1,12,1
+XGBoost,40,Stress,31,20,27,52,1
+Random Forest,40,Bull,79,58,11,39,1
+Random Forest,40,Sideway,39,142,21,55,1
+Random Forest,40,Bear,16,31,6,0,1
+Random Forest,40,Stress,55,33,23,19,1
+MACD probabilistic,40,Bull,83,104,0,0,1
+MACD probabilistic,40,Sideway,101,156,0,0,1
+MACD probabilistic,40,Bear,9,44,0,0,1
+MACD probabilistic,40,Stress,30,100,0,0,1
+Bayesian regime head,40,Bull,113,59,0,15,1
+Bayesian regime head,40,Sideway,117,135,4,1,1
+Bayesian regime head,40,Bear,25,26,0,2,1
+Bayesian regime head,40,Stress,126,4,0,0,1
+Bayesian regime head calibrated,40,Bull,113,59,0,15,1
+Bayesian regime head calibrated,40,Sideway,117,135,4,1,1
+Bayesian regime head calibrated,40,Bear,25,26,0,2,1
+Bayesian regime head calibrated,40,Stress,126,4,0,0,1
+EBM,40,Bull,168,105,5,0,2
+EBM,40,Sideway,102,102,1,4,2
+EBM,40,Bear,15,27,2,1,2
+EBM,40,Stress,70,16,7,2,2
+EBM calibrated,40,Bull,168,105,5,0,2
+EBM calibrated,40,Sideway,102,102,1,4,2
+EBM calibrated,40,Bear,15,27,2,1,2
+EBM calibrated,40,Stress,70,16,7,2,2
+XGBoost,40,Bull,212,60,1,5,2
+XGBoost,40,Sideway,147,52,0,10,2
+XGBoost,40,Bear,28,14,0,3,2
+XGBoost,40,Stress,67,22,1,5,2
+Random Forest,40,Bull,97,148,26,7,2
+Random Forest,40,Sideway,52,118,36,3,2
+Random Forest,40,Bear,11,15,19,0,2
+Random Forest,40,Stress,58,13,24,0,2
+MACD probabilistic,40,Bull,65,213,0,0,2
+MACD probabilistic,40,Sideway,31,178,0,0,2
+MACD probabilistic,40,Bear,16,29,0,0,2
+MACD probabilistic,40,Stress,23,72,0,0,2
+Bayesian regime head,40,Bull,183,92,0,3,2
+Bayesian regime head,40,Sideway,161,48,0,0,2
+Bayesian regime head,40,Bear,42,3,0,0,2
+Bayesian regime head,40,Stress,94,1,0,0,2
+Bayesian regime head calibrated,40,Bull,183,92,0,3,2
+Bayesian regime head calibrated,40,Sideway,161,48,0,0,2
+Bayesian regime head calibrated,40,Bear,42,3,0,0,2
+Bayesian regime head calibrated,40,Stress,94,1,0,0,2
+EBM,60,Bull,10,38,7,239,0
+EBM,60,Sideway,9,25,3,148,0
+EBM,60,Bear,1,5,1,40,0
+EBM,60,Stress,20,7,0,71,0
+EBM calibrated,60,Bull,10,38,7,239,0
+EBM calibrated,60,Sideway,9,25,3,148,0
+EBM calibrated,60,Bear,1,5,1,40,0
+EBM calibrated,60,Stress,20,7,0,71,0
+XGBoost,60,Bull,32,37,19,206,0
+XGBoost,60,Sideway,23,26,25,111,0
+XGBoost,60,Bear,1,5,0,41,0
+XGBoost,60,Stress,48,0,0,50,0
+Random Forest,60,Bull,25,85,29,155,0
+Random Forest,60,Sideway,75,66,1,43,0
+Random Forest,60,Bear,29,5,0,13,0
+Random Forest,60,Stress,88,0,0,10,0
+MACD probabilistic,60,Bull,294,0,0,0,0
+MACD probabilistic,60,Sideway,185,0,0,0,0
+MACD probabilistic,60,Bear,47,0,0,0,0
+MACD probabilistic,60,Stress,98,0,0,0,0
+Bayesian regime head,60,Bull,72,99,1,122,0
+Bayesian regime head,60,Sideway,113,53,0,19,0
+Bayesian regime head,60,Bear,40,0,0,7,0
+Bayesian regime head,60,Stress,60,9,0,29,0
+Bayesian regime head calibrated,60,Bull,72,99,1,122,0
+Bayesian regime head calibrated,60,Sideway,113,53,0,19,0
+Bayesian regime head calibrated,60,Bear,40,0,0,7,0
+Bayesian regime head calibrated,60,Stress,60,9,0,29,0
+EBM,60,Bull,65,46,31,45,1
+EBM,60,Sideway,93,46,61,45,1
+EBM,60,Bear,14,13,4,10,1
+EBM,60,Stress,54,16,31,51,1
+EBM calibrated,60,Bull,65,46,31,45,1
+EBM calibrated,60,Sideway,93,46,61,45,1
+EBM calibrated,60,Bear,14,13,4,10,1
+EBM calibrated,60,Stress,54,16,31,51,1
+XGBoost,60,Bull,60,47,14,66,1
+XGBoost,60,Sideway,47,50,21,127,1
+XGBoost,60,Bear,12,15,2,12,1
+XGBoost,60,Stress,40,33,4,75,1
+Random Forest,60,Bull,54,79,20,34,1
+Random Forest,60,Sideway,56,108,36,45,1
+Random Forest,60,Bear,4,29,4,4,1
+Random Forest,60,Stress,40,74,17,21,1
+MACD probabilistic,60,Bull,157,30,0,0,1
+MACD probabilistic,60,Sideway,177,68,0,0,1
+MACD probabilistic,60,Bear,27,14,0,0,1
+MACD probabilistic,60,Stress,95,57,0,0,1
+Bayesian regime head,60,Bull,76,79,0,32,1
+Bayesian regime head,60,Sideway,72,162,0,11,1
+Bayesian regime head,60,Bear,18,19,0,4,1
+Bayesian regime head,60,Stress,108,19,0,25,1
+Bayesian regime head calibrated,60,Bull,76,79,0,32,1
+Bayesian regime head calibrated,60,Sideway,72,162,0,11,1
+Bayesian regime head calibrated,60,Bear,18,19,0,4,1
+Bayesian regime head calibrated,60,Stress,108,19,0,25,1
+EBM,60,Bull,216,57,2,0,2
+EBM,60,Sideway,153,82,7,0,2
+EBM,60,Bear,15,11,3,0,2
+EBM,60,Stress,67,11,1,0,2
+EBM calibrated,60,Bull,216,57,2,0,2
+EBM calibrated,60,Sideway,153,82,7,0,2
+EBM calibrated,60,Bear,15,11,3,0,2
+EBM calibrated,60,Stress,67,11,1,0,2
+XGBoost,60,Bull,266,0,5,4,2
+XGBoost,60,Sideway,232,8,2,0,2
+XGBoost,60,Bear,29,0,0,0,2
+XGBoost,60,Stress,76,0,3,0,2
+Random Forest,60,Bull,86,144,17,28,2
+Random Forest,60,Sideway,84,110,28,20,2
+Random Forest,60,Bear,9,18,2,0,2
+Random Forest,60,Stress,54,10,11,4,2
+MACD probabilistic,60,Bull,60,215,0,0,2
+MACD probabilistic,60,Sideway,57,185,0,0,2
+MACD probabilistic,60,Bear,9,20,0,0,2
+MACD probabilistic,60,Stress,10,69,0,0,2
+Bayesian regime head,60,Bull,135,135,0,5,2
+Bayesian regime head,60,Sideway,197,45,0,0,2
+Bayesian regime head,60,Bear,18,11,0,0,2
+Bayesian regime head,60,Stress,67,12,0,0,2

@@ -1,0 +1,127 @@
+extends: laptop.yaml
+
+runtime:
+  mode: cpu-smoke
+  device: cpu
+  seed: 42
+  max_threads: 2
+  memory_budget_mb: 4096
+  cache_features: true
+  cache_dir: outputs/cache/downside_cpu
+  multiprocessing: false
+
+tuning:
+  enabled: false
+
+bayesian:
+  enabled: false
+
+hmm:
+  # Một seed cố định cho profile CPU; baseline và candidate dùng cùng fit.
+  seeds: [42]
+
+models:
+  ebm:
+    max_bins: 32
+    interactions: 0
+    learning_rate: 0.04
+    max_rounds: 20
+    outer_bags: 1
+    min_samples_leaf: 5
+
+monte_carlo:
+  paths: 200
+  chunk_size: 100
+  store_paths: false
+
+bootstrap:
+  metric_replicates: 50
+  block_length: 20
+
+features:
+  missing_threshold: 0.40
+  correlation_threshold: 0.98
+  downside_features:
+    enabled: true
+
+downside_experiment:
+  mode: smoke
+  output_root: outputs/experiments/downside_cpu
+  horizons: [20]
+  folds: 1
+  inner_folds: 1
+  inner_validation_size: 180
+  test_fraction: 0.20
+  validation_fraction: 0.08
+  feature_groups: [base_plus_downside_all]
+  model_kinds: [logistic]
+  run_legacy_audit: false
+
+risk_off:
+  enabled: true
+  sample_weight:
+    positive_cost: 2.0
+    negative_cost: 1.0
+    severity_lambda: 1.0
+    severity_cap: 4.0
+    min_weight: 0.25
+    max_weight: 12.0
+  models:
+    logistic:
+      C: 1.0
+      max_iter: 400
+    hist_gradient_boosting:
+      learning_rate: 0.05
+      max_iter: 30
+      max_depth: 3
+      min_samples_leaf: 20
+      l2_regularization: 1.0
+      importance_sample_size: 200
+    ebm:
+      max_bins: 32
+      interactions: 0
+      max_rounds: 20
+      learning_rate: 0.04
+      outer_bags: 1
+      min_samples_leaf: 5
+  threshold_selection:
+    objective: expected_cost
+    start: 0.05
+    stop: 0.80
+    step: 0.01
+    min_precision: 0.25
+    min_recall: 0.40
+    fn_cost_multiplier: 3.0
+    fp_cost_multiplier: 1.0
+  objective:
+    expected_cost_scale: 0.05
+    weights:
+      recall: 0.25
+      pr_auc: 0.20
+      expected_cost: 0.20
+      macro_f1: 0.10
+      brier: 0.10
+      ece: 0.05
+      false_positive_exposure: 0.10
+  constraints:
+    min_precision: 0.25
+    brier_tolerance: 0.02
+    macro_f1_tolerance: 0.03
+  acceptance_criteria:
+    minimum_recall_gain: 0.10
+    minimum_precision: 0.25
+    minimum_cost_reduction: 0.10
+    brier_tolerance: 0.02
+    macro_f1_tolerance: 0.03
+
+risk_overlay:
+  enabled: true
+  probability_bands:
+    - max_probability: 0.25
+      multiplier: 1.00
+    - max_probability: 0.40
+      multiplier: 0.75
+    - max_probability: 0.55
+      multiplier: 0.50
+    - max_probability: 1.00
+      multiplier: 0.25

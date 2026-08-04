@@ -1,0 +1,17 @@
+LICENSE PLACEHOLDER
+===================
+
+No license has been selected for DynamicGraph yet.
+
+Until a license is chosen and this file is replaced, treat this project as
+ALL RIGHTS RESERVED: it may not be copied, distributed, modified or used
+outside the originating organisation.
+
+Before distributing, replace this file with the intended license text (for
+example MIT, Apache-2.0 or BSD-3-Clause) and update the `license` field in
+pyproject.toml to match.
+
+Note on data: DynamicGraph reads a third-party market-data database. Whatever
+license is chosen for this source code, it does not grant any right to
+redistribute the underlying market data. Check the data vendor's own terms
+before publishing derived artifacts.

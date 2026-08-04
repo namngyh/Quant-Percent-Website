@@ -1,0 +1,10 @@
+extends: ../laptop.yaml
+
+runtime:
+  mode: comparison-posterior-mean-mc
+
+monte_carlo:
+  scenario_mode: posterior_mean_mc
+
+bayesian:
+  enabled: true

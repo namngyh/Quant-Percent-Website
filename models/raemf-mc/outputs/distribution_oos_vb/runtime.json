@@ -1,0 +1,37 @@
+{
+  "seconds": 34.5941290999981,
+  "peak_python_traced_memory_bytes": 86698010,
+  "paths_per_origin": 300,
+  "mc_seeds": [
+    11,
+    42,
+    73
+  ],
+  "horizons": [
+    20,
+    40,
+    60
+  ],
+  "folds": 3,
+  "origin_rows": 50760,
+  "unique_forecast_origins": 5640,
+  "data_sha256": "962c2c8e69821b572ca20034c40c4254656405b1ba9b75410396753b6d0697c5",
+  "data_metadata": {
+    "rows_loaded": 6306,
+    "duplicate_dates": 0,
+    "exact_duplicate_records_removed": 0,
+    "conflicting_duplicate_records_aggregated": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-13",
+    "sha256": "962c2c8e69821b572ca20034c40c4254656405b1ba9b75410396753b6d0697c5"
+  }
+}

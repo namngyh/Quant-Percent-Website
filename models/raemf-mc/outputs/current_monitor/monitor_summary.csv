@@ -1,0 +1,4 @@
+horizon,forecast_origin,observed_through,sessions_observed,sessions_remaining,status,forecast_class,forecast_confidence,actual_class,class_correct,actual_close,partial_return,median_error_pct,estimated_percentile,forecast_band
+20,2026-07-01,2026-07-13,8,12,"Đang theo dõi, chưa đủ phiên",Sideway,Uncertain,,,1800.54,-0.03475449910741568,-0.044248399730799304,0.059445532600457034,Đuôi thấp của vùng 95%
+40,2026-07-01,2026-07-13,8,32,"Đang theo dõi, chưa đủ phiên",Sideway,Uncertain,,,1800.54,-0.03475449910741568,-0.04662870276779896,0.04683613985546284,Đuôi thấp của vùng 95%
+60,2026-07-01,2026-07-13,8,52,"Đang theo dõi, chưa đủ phiên",Sideway,Uncertain,,,1800.54,-0.03475449910741568,-0.04722308321862978,0.05098735366765105,Đuôi thấp của vùng 95%

@@ -1,0 +1,619 @@
+{
+  "meta": {
+    "siteName": "Quant Percent",
+    "home": {
+      "title": "Quant Percent: Hiểu thị trường Việt Nam bằng dữ liệu",
+      "description": "Quant Percent xây dựng các mô hình giúp nhà đầu tư hiểu rõ hơn xu hướng, rủi ro và những kịch bản có thể xảy ra trên thị trường Việt Nam."
+    },
+    "market": {
+      "title": "Phân tích thị trường",
+      "description": "Bảng phân tích công khai về xu hướng, xác suất, biến động và rủi ro của VN-Index, VN30 và VN30F1M."
+    },
+    "models": {
+      "title": "Các mô hình phân tích",
+      "description": "Các mô hình Quant Percent dùng để dự báo, nhận biết trạng thái thị trường và đo lường rủi ro."
+    },
+    "performance": {
+      "title": "Hiệu suất",
+      "description": "Kết quả mô phỏng được trình bày cùng giai đoạn dữ liệu, cách kiểm tra, mức giảm từ đỉnh và những giới hạn cần lưu ý."
+    },
+    "about": {
+      "title": "Về chúng tôi",
+      "description": "Quant Percent là nhóm nghiên cứu thị trường bằng dữ liệu, tập trung vào các công cụ phân tích và quản lý rủi ro cho thị trường Việt Nam."
+    },
+    "contact": {
+      "title": "Liên hệ",
+      "description": "Liên hệ Quant Percent về hợp tác nghiên cứu, dữ liệu, công nghệ hoặc đăng ký quan tâm."
+    },
+    "legal": {
+      "title": "Thông tin pháp lý",
+      "description": "Điều khoản sử dụng và các cảnh báo quan trọng về nội dung nghiên cứu của Quant Percent."
+    },
+    "privacy": {
+      "title": "Chính sách bảo mật",
+      "description": "Cách Quant Percent thu thập, sử dụng và bảo vệ dữ liệu cá nhân của bạn."
+    },
+    "status": {
+      "title": "Trạng thái hệ thống",
+      "description": "Trạng thái vận hành của các dịch vụ dữ liệu và mô hình Quant Percent."
+    },
+    "login": {
+      "title": "Đăng nhập",
+      "description": "Đăng nhập để xem đầy đủ đầu ra của các mô hình Quant Percent."
+    },
+    "register": {
+      "title": "Đăng ký",
+      "description": "Tạo tài khoản để theo dõi đầy đủ các mô hình nghiên cứu của Quant Percent."
+    },
+    "forgotPassword": {
+      "title": "Quên mật khẩu",
+      "description": "Khôi phục quyền truy cập tài khoản Quant Percent của bạn."
+    }
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "market": "Phân tích thị trường",
+    "models": "Mô hình",
+    "performance": "Hiệu suất",
+    "about": "Về chúng tôi",
+    "contact": "Liên hệ",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu",
+    "language": "Ngôn ngữ"
+  },
+  "footer": {
+    "tagline": "Hiểu thị trường Việt Nam bằng dữ liệu.",
+    "philosophy": "Dữ liệu rõ ràng. Kiểm định nghiêm túc. Rủi ro minh bạch.",
+    "nav": "Điều hướng",
+    "resources": "Tài nguyên",
+    "legalNav": "Pháp lý",
+    "systemStatus": "Trạng thái hệ thống",
+    "legal": "Thông tin pháp lý",
+    "privacy": "Chính sách bảo mật",
+    "disclaimer": "Quant Percent hiện là một nhóm nghiên cứu. Nội dung trên website chỉ cung cấp thông tin tham khảo, không phải khuyến nghị mua bán, lời mời đầu tư hoặc cam kết lợi nhuận.",
+    "copyright": "© {year} Quant Percent. Bảo lưu mọi quyền."
+  },
+  "common": {
+    "mockNotice": "Dữ liệu tại mục Phân tích thị trường hiện dùng để minh họa giao diện. Kết quả tại mục Mô hình và Hiệu suất được lấy từ báo cáo nghiên cứu, có ghi rõ nguồn và giới hạn.",
+    "illustrative": "Minh họa",
+    "researchOutput": "Kết quả nghiên cứu",
+    "dataState": {
+      "loading": "Đang tải dữ liệu…",
+      "error": "Không tải được dữ liệu. Vui lòng thử lại.",
+      "empty": "Chưa có dữ liệu để hiển thị.",
+      "stale": "Dữ liệu chưa được cập nhật mới nhất.",
+      "partial": "Một phần dữ liệu tạm thời không khả dụng.",
+      "maintenance": "Hệ thống đang bảo trì. Vui lòng quay lại sau.",
+      "unavailable": "Mô hình tạm thời không khả dụng.",
+      "retry": "Thử lại"
+    },
+    "freshness": {
+      "dataAsOf": "Dữ liệu đến",
+      "generatedAt": "Tạo lúc",
+      "updated": "Cập nhật",
+      "delayedBy": "Trễ {minutes} phút",
+      "source": "Nguồn",
+      "modelVersion": "Phiên bản mô hình"
+    },
+    "regime": {
+      "bullish": "Xu hướng tăng",
+      "bullish_transition": "Đang chuyển sang tăng",
+      "bearish": "Xu hướng giảm",
+      "bearish_transition": "Đang chuyển sang giảm",
+      "sideways": "Đi ngang",
+      "turbulent": "Biến động mạnh"
+    },
+    "riskState": {
+      "low": "Thấp",
+      "moderate": "Trung bình",
+      "elevated": "Cao hơn bình thường",
+      "high": "Cao"
+    },
+    "signal": {
+      "bullish": "Xu hướng tăng",
+      "neutral": "Trung lập",
+      "defensive": "Thận trọng",
+      "high_risk": "Rủi ro cao",
+      "low_conviction": "Độ tin cậy thấp"
+    },
+    "modelStatus": {
+      "active": "Đã có bản nghiên cứu",
+      "paper_trading": "Giao dịch thử nghiệm",
+      "experimental": "Nghiên cứu",
+      "archived": "Đã lưu trữ"
+    },
+    "resultType": {
+      "backtest": "Thử nghiệm trên dữ liệu quá khứ",
+      "out_of_sample": "Kiểm tra trên dữ liệu mới",
+      "walk_forward": "Kiểm tra lần lượt theo thời gian",
+      "paper_trading": "Giao dịch thử nghiệm",
+      "live": "Giao dịch thực tế"
+    },
+    "horizonDays": "{count} ngày",
+    "viewDetails": "Xem chi tiết",
+    "viewAll": "Xem tất cả",
+    "learnMore": "Tìm hiểu thêm",
+    "comingSoon": "Sắp có",
+    "notAvailable": "Chưa có dữ liệu",
+    "search": "Tìm kiếm",
+    "all": "Tất cả",
+    "previous": "Trước",
+    "next": "Sau",
+    "page": "Trang {page} / {total}"
+  },
+  "glossary": {
+    "regime": "Cách mô hình mô tả thị trường tại một thời điểm: tăng, giảm, đi ngang hoặc biến động mạnh.",
+    "probabilityUp": "Khả năng thị trường tăng trong khoảng thời gian đang xem, theo ước tính của mô hình.",
+    "volatility": "Mức độ giá lên xuống mạnh hay nhẹ. Biến động càng cao thì rủi ro ngắn hạn thường càng lớn.",
+    "riskState": "Mức rủi ro tổng hợp dựa trên biến động, mức giảm từ đỉnh và trạng thái thị trường.",
+    "forecastInterval": "Phạm vi kết quả có thể xảy ra. Khoảng càng rộng cho thấy mô hình càng không chắc chắn.",
+    "drawdown": "Mức giảm tính từ đỉnh gần nhất. Ví dụ, giảm 10% từ đỉnh tương ứng mức sụt giảm 10%.",
+    "var": "VaR là ngưỡng lỗ ước tính trong điều kiện thông thường với một mức tin cậy nhất định. Đây không phải mức lỗ lớn nhất có thể xảy ra.",
+    "es": "Tổn thất kỳ vọng là mức lỗ trung bình trong những trường hợp xấu hơn ngưỡng VaR.",
+    "sharpe": "Sharpe cho biết lợi nhuận đạt được so với mức biến động phải chấp nhận. Chỉ nên so sánh khi các báo cáo dùng cùng cách tính.",
+    "sortino": "Sortino tương tự Sharpe nhưng tập trung vào những biến động gây thua lỗ.",
+    "calmar": "Calmar so sánh lợi nhuận hằng năm với mức giảm lớn nhất từ đỉnh.",
+    "profitFactor": "Tổng lãi chia tổng lỗ. Trên 1 nghĩa là có lãi ròng.",
+    "winRate": "Tỷ lệ giao dịch có lãi trên tổng số giao dịch.",
+    "turnover": "Tần suất thay đổi danh mục. Giao dịch càng nhiều thì chi phí thường càng lớn.",
+    "exposure": "Tỷ lệ thời gian hệ thống nắm giữ vị thế trên thị trường.",
+    "basis": "Chênh lệch giữa giá hợp đồng tương lai và chỉ số cơ sở.",
+    "coverage": "Tỷ lệ kết quả thực tế nằm trong phạm vi mô hình đã dự báo. Chỉ số này cho biết khoảng dự báo có đáng tin cậy hay không.",
+    "monteCarlo": "Mô phỏng Monte Carlo tạo ra nhiều kịch bản khác nhau để ước lượng phạm vi kết quả và rủi ro có thể xảy ra.",
+    "bootstrap": "Phương pháp lấy mẫu lại nhiều lần từ dữ liệu cũ để kiểm tra một kết quả có ổn định hay chỉ xuất hiện do ngẫu nhiên.",
+    "downsideProbability": "Xác suất mô hình ước lượng cho trường hợp lợi suất âm trong thời hạn đánh giá.",
+    "modelConsensus": "Mức độ đồng thuận giữa các mô hình độc lập về trạng thái thị trường hiện tại."
+  },
+  "home": {
+    "hero": {
+      "title": "Hiểu thị trường Việt Nam bằng dữ liệu.",
+      "description": "Quant Percent giúp nhà đầu tư nhìn rõ hơn xu hướng, rủi ro và các kịch bản có thể xảy ra. Mỗi kết quả đều nêu rõ dữ liệu sử dụng, cách kiểm tra và những giới hạn cần biết.",
+      "primaryCta": "Xem thị trường hôm nay",
+      "secondaryCta": "Tìm hiểu các mô hình"
+    },
+    "pulse": {
+      "title": "Tổng quan thị trường",
+      "regime": "Trạng thái thị trường",
+      "probabilityUp": "Xác suất tăng",
+      "volatility": "Biến động",
+      "riskState": "Trạng thái rủi ro"
+    },
+    "numbers": {
+      "eyebrow": "Những gì đang công bố",
+      "title": "Nghiên cứu có số liệu và giới hạn rõ ràng",
+      "models": "mô hình đang được theo dõi",
+      "strategies": "báo cáo kiểm tra của Model Modus",
+      "horizons": "thời hạn dự báo từ 1 đến 60 phiên",
+      "validation": "Nhiều cách kiểm tra độ ổn định của kết quả",
+      "focus": "Tập trung vào thị trường Việt Nam"
+    },
+    "systems": {
+      "eyebrow": "Các mô hình",
+      "title": "Mỗi mô hình trả lời một câu hỏi cụ thể",
+      "description": "Có mô hình ước lượng xu hướng, có mô hình đo rủi ro hoặc cho thấy các cổ phiếu đang liên kết với nhau ra sao. Mỗi trang đều giải thích kết quả bằng ngôn ngữ dễ hiểu.",
+      "viewAllModels": "Xem tất cả mô hình"
+    },
+    "performance": {
+      "eyebrow": "Kết quả đã kiểm tra",
+      "title": "Không chỉ nói về lợi nhuận",
+      "description": "Mỗi báo cáo trình bày cả lợi nhuận, mức thua lỗ lớn nhất, chi phí giao dịch, giai đoạn dữ liệu và những điểm chưa chắc chắn.",
+      "cta": "Xem kết quả và rủi ro"
+    },
+    "cta": {
+      "title": "Bạn muốn hiểu rõ hơn về mô hình hoặc trao đổi cơ hội hợp tác?",
+      "contact": "Liên hệ với chúng tôi",
+      "register": "Để lại thông tin"
+    }
+  },
+  "market": {
+    "title": "Phân tích thị trường",
+    "description": "Theo dõi xu hướng, khả năng tăng giảm, mức biến động và rủi ro của thị trường. Mỗi chỉ số đều có phần giải thích để người xem hiểu đúng ý nghĩa.",
+    "tabs": {
+      "overview": "Tổng quan",
+      "vnindex": "VN-Index",
+      "vn30": "VN30",
+      "vn30f1m": "VN30F1M",
+      "stocks": "Cổ phiếu VN30",
+      "risk": "Rủi ro"
+    },
+    "overview": {
+      "marketState": "Xu hướng hiện tại",
+      "modelConsensus": "Mức đồng thuận giữa các mô hình",
+      "systemStatus": "Trạng thái hệ thống",
+      "operational": "Hoạt động bình thường",
+      "probabilityDown": "Xác suất giảm",
+      "signal": "Trạng thái công khai"
+    },
+    "chart": {
+      "price": "Giá",
+      "volume": "Khối lượng",
+      "return": "Lợi suất",
+      "history": "Lịch sử giá",
+      "forecastTitle": "Các kịch bản theo từng thời hạn",
+      "forecastCenter": "Giá trị ở giữa khoảng dự báo",
+      "interval": "Phạm vi dự báo {level}",
+      "actual": "Giá thực tế",
+      "currentDrawdown": "Mức giảm so với đỉnh gần nhất",
+      "riskScore": "Điểm rủi ro",
+      "forecastHistory": "Lịch sử dự báo",
+      "expectedReturn": "Mức tăng hoặc giảm ước tính",
+      "viewModel": "Xem mô hình"
+    },
+    "vn30f1m": {
+      "notice": "Trang này chỉ hiển thị thông tin tổng hợp về giá, biến động, rủi ro và kết quả nghiên cứu của VN30F1M. Website không công khai tín hiệu mua bán, vị thế đang nắm giữ hoặc quy tắc giao dịch chi tiết.",
+      "basis": "Chênh lệch giữa giá hợp đồng và VN30",
+      "systemState": "Trạng thái hệ thống công khai",
+      "aggregatePerformance": "Hiệu suất tổng hợp"
+    },
+    "stocks": {
+      "searchPlaceholder": "Tìm mã cổ phiếu…",
+      "columns": {
+        "ticker": "Mã",
+        "price": "Giá",
+        "change": "Thay đổi",
+        "regime": "Trạng thái",
+        "probabilityUp": "Xác suất tăng",
+        "volatility": "Biến động",
+        "risk": "Rủi ro",
+        "rank": "Hạng"
+      },
+      "filterRegime": "Lọc theo trạng thái thị trường",
+      "noResults": "Không có mã nào khớp bộ lọc."
+    },
+    "risk": {
+      "title": "Tổng quan rủi ro",
+      "currentDrawdown": "Mức giảm so với đỉnh gần nhất",
+      "rollingDrawdown": "Mức giảm lớn nhất trong 60 phiên",
+      "volatility": "Biến động",
+      "var": "Ngưỡng lỗ ước tính 95% trong 1 ngày (VaR)",
+      "es": "Mức lỗ trung bình trong các trường hợp xấu",
+      "downsideProbability": "Xác suất giảm",
+      "mcDistribution": "Mức giảm có thể xảy ra trong các kịch bản mô phỏng",
+      "mcDescription": "Mô hình tạo {n} kịch bản cho 250 phiên tiếp theo để ước lượng danh mục có thể giảm bao nhiêu từ đỉnh.",
+      "stress": "Điều gì xảy ra khi thị trường xấu đi?",
+      "stressDescription": "Mức thay đổi ước tính của danh mục khi thị trường gặp các tình huống bất lợi.",
+      "riskRegime": "Trạng thái rủi ro",
+      "scenarios": {
+        "vol_shock": "Biến động tăng đột ngột",
+        "gap_down": "Giảm mạnh ngay khi mở cửa",
+        "liquidity_drought": "Thanh khoản giảm mạnh",
+        "regime_flip": "Trạng thái thị trường thay đổi đột ngột"
+      }
+    }
+  },
+  "models": {
+    "title": "Mô hình",
+    "description": "Mỗi mô hình dưới đây giải quyết một câu hỏi khác nhau về thị trường. Bạn có thể xem mô hình dùng để làm gì, đã được kiểm tra ra sao, kết quả cho thấy điều gì và còn hạn chế ở đâu.",
+    "filters": {
+      "market": "Thị trường",
+      "category": "Mục đích",
+      "status": "Trạng thái"
+    },
+    "categories": {
+      "forecasting": "Dự báo",
+      "regime": "Nhận biết xu hướng",
+      "trading_system": "Hệ thống giao dịch",
+      "ranking": "Xếp hạng",
+      "volatility": "Biến động",
+      "risk": "Rủi ro"
+    },
+    "card": {
+      "market": "Thị trường",
+      "category": "Mục đích",
+      "updated": "Cập nhật",
+      "keyOutput": "Kết quả chính"
+    },
+    "locked": {
+      "badge": "Cần đăng nhập",
+      "cardHint": "Đăng nhập để mở khóa mô hình này",
+      "bannerTitle": "Bạn đang xem {preview} mô hình công khai",
+      "bannerText": "Đăng nhập để xem thêm {locked} mô hình và phần kết quả chi tiết.",
+      "detailTitle": "Nội dung dành cho thành viên",
+      "detailText": "Kết quả chi tiết của mô hình này chỉ hiển thị sau khi đăng nhập. Đăng ký hiện miễn phí và không yêu cầu thông tin thanh toán."
+    },
+    "detail": {
+      "overview": "Tổng quan mô hình",
+      "problem": "Mục đích",
+      "assets": "Thị trường áp dụng",
+      "horizons": "Thời hạn dự báo",
+      "version": "Phiên bản",
+      "currentOutput": "Kết quả mới nhất",
+      "forecastChart": "Biểu đồ dự báo",
+      "historicalForecasts": "Lịch sử dự báo",
+      "historicalDescription": "So sánh dự báo tại từng thời điểm với giá trị thực tế sau đó.",
+      "forecastAt": "Thời điểm dự báo",
+      "predicted": "Dự báo",
+      "actual": "Thực tế",
+      "error": "Sai số",
+      "inInterval": "Trong khoảng",
+      "coverage": "Tỷ lệ kết quả thực tế nằm trong phạm vi dự báo {level}",
+      "description": "Mô tả mô hình",
+      "objective": "Mục tiêu",
+      "intuition": "Cách hiểu đơn giản",
+      "modelType": "Cách mô hình hoạt động",
+      "validation": "Cách kiểm tra kết quả",
+      "outputs": "Kết quả cung cấp",
+      "limitations": "Hạn chế",
+      "architecture": "Các phần chính của hệ thống",
+      "architectureNote": "Phần này giải thích vai trò của từng thành phần. Dữ liệu chi tiết, tham số và quy tắc mua bán không được công khai.",
+      "validatedPerformance": "Kết quả đã được kiểm tra",
+      "validatedPerformanceNote": "Các lần kiểm tra độc lập của cùng một hệ thống. Mỗi kết quả đều ghi rõ loại dữ liệu và giai đoạn đánh giá.",
+      "disclosureNote": "Để bảo vệ tài sản nghiên cứu, Quant Percent không công khai dữ liệu chi tiết, trọng số, tham số hoặc quy tắc giao dịch của mô hình.",
+      "notFound": "Không tìm thấy mô hình."
+    }
+  },
+  "performance": {
+    "title": "Kết quả thử nghiệm",
+    "description": "Kết quả nghiên cứu của Model Modus trên hợp đồng tương lai VN30F1M. Mỗi báo cáo ghi rõ giai đoạn dữ liệu, cách thử nghiệm và các chi phí đã tính. Những báo cáo dùng cách kiểm tra khác nhau được trình bày riêng.",
+    "labelNote": "Toàn bộ số liệu hiện tại đến từ mô phỏng trên dữ liệu quá khứ, không phải giao dịch thật và không bảo đảm kết quả tương lai. Mô hình có thể hoạt động kém hơn khi điều kiện thị trường thay đổi.",
+    "restatementNote": "Các số liệu dưới đây được tạo trước khi cách mô phỏng khớp lệnh được sửa vào ngày 04/07/2026. Cách tính mới thận trọng hơn; báo cáo sẽ được cập nhật sau khi chạy lại hoàn tất.",
+    "reportsHeading": "Các lần thử nghiệm",
+    "system": {
+      "eyebrow": "Hệ thống",
+      "reportsLead": "{count} báo cáo dưới đây là {count} lần thử nghiệm riêng của cùng một hệ thống. Chúng khác nhau về giai đoạn và cách chia dữ liệu, không phải các sản phẩm khác nhau.",
+      "learnMore": "Tìm hiểu {name}",
+      "market": "Thị trường",
+      "timeframe": "Khung thời gian",
+      "evaluated": "Giai đoạn được kiểm tra",
+      "runs": "Số lần thử nghiệm",
+      "curveCaption": "Mức thay đổi vốn của lần chạy có kết quả ở giữa, sử dụng dữ liệu 2025–2026"
+    },
+    "strategyCard": {
+      "period": "Giai đoạn",
+      "asset": "Tài sản",
+      "benchmark": "Cách đầu tư dùng để so sánh",
+      "seeds": "Số lần chạy"
+    },
+    "detail": {
+      "reportInfo": "Thông tin báo cáo",
+      "period": "Khoảng thời gian",
+      "asset": "Tài sản",
+      "timeframe": "Khung dữ liệu",
+      "benchmark": "Cách đầu tư dùng để so sánh",
+      "fees": "Phí giao dịch",
+      "slippage": "Chênh lệch giá khi khớp lệnh",
+      "split": "Chia dữ liệu",
+      "status": "Loại kết quả",
+      "updated": "Ngày cập nhật",
+      "seeds": "Số lần chạy",
+      "modelVersion": "Phiên bản mô hình",
+      "codeVersion": "Phiên bản mã nguồn",
+      "source": "Nguồn dữ liệu",
+      "caveatsTitle": "Những điều cần lưu ý khi đọc báo cáo",
+      "equityCurve": "Mức thay đổi vốn theo thời gian",
+      "drawdown": "Mức giảm so với đỉnh gần nhất",
+      "returnDistribution": "Phân phối lợi nhuận từng lệnh",
+      "tradeAxis": "Số thứ tự lệnh",
+      "pointsAxis": "Điểm chỉ số",
+      "costAxis": "Chi phí mỗi lệnh (điểm)",
+      "pointsUnit": "điểm",
+      "tradesShort": "{count} lệnh",
+      "tradeIndexNote": "Trục ngang là số thứ tự lệnh đã đóng. Lần chạy gốc ghi lợi nhuận theo từng lệnh, không kèm mốc thời gian.",
+      "seriesNote": "Đường vốn của lần chạy có kết quả ở giữa (#{seed}) trong {total} lần; trục ngang là số thứ tự lệnh đã đóng.",
+      "foldTitle": "Kết quả theo từng giai đoạn",
+      "foldNote": "Ở mỗi giai đoạn, mô hình chỉ học từ dữ liệu đã có trước đó rồi được kiểm tra trên năm tiếp theo. Kết quả của các giai đoạn được giữ riêng để tránh tạo ấn tượng sai về mức tăng vốn.",
+      "foldNet": "Mức tăng hoặc giảm của giai đoạn",
+      "foldTrain": "Huấn luyện",
+      "foldTest": "Kiểm tra",
+      "partialYear": "năm khuyết",
+      "exitReasonsTitle": "Lý do thoát lệnh",
+      "exitReasonsNote": "Tỷ trọng các lệnh được đóng bởi từng cơ chế.",
+      "exitReasons": {
+        "sl": "Dừng lỗ",
+        "signal": "Tín hiệu đảo chiều",
+        "brain": "Mô hình quyết định thoát",
+        "expiry": "Đáo hạn hợp đồng",
+        "trail": "Dừng lỗ bám theo giá"
+      },
+      "seedDistribution": "Kết quả thay đổi ra sao qua nhiều lần chạy?",
+      "seedDistributionNote": "Mô hình được chạy {seeds} lần trên cùng bộ dữ liệu; {positive} lần có kết quả dương. Hướng giao dịch chưa ổn định: {long} lần nghiêng về mua và {short} lần nghiêng về bán.",
+      "seedStats": {
+        "profitMean": "Trung bình",
+        "profitMedian": "Kết quả ở giữa",
+        "profitMin": "Thấp nhất",
+        "profitMax": "Cao nhất"
+      },
+      "bootstrapTitle": "Kết quả có ổn định khi dữ liệu thay đổi nhẹ không?",
+      "bootstrapNote": "Chuỗi lợi nhuận được lấy mẫu lại {n} lần để ước lượng phạm vi kết quả có thể thay đổi.",
+      "bootstrapMedian": "Kết quả ở giữa",
+      "bootstrapVar": "Mốc 5% kết quả thấp nhất",
+      "bootstrapPayoff": "Tỷ lệ lãi/lỗ trung bình (phạm vi tin cậy 90%)",
+      "bootstrapProb": "Xác suất tỷ lệ lãi/lỗ lớn hơn 1",
+      "costStress": "Chi phí giao dịch ảnh hưởng thế nào?",
+      "costStressNote": "Mức tham chiếu gồm phí và thuế {fee} điểm cho một vòng mua bán, cùng chênh lệch khớp lệnh {slippage} điểm mỗi chiều. Bảng dưới cho biết lợi nhuận thay đổi khi chi phí tăng hoặc giảm.",
+      "costPerTrade": "Chi phí mỗi lệnh",
+      "pctPositive": "Tỷ lệ số lần chạy có kết quả dương",
+      "ci95": "Khoảng tin cậy 95%",
+      "ciTitle": "Phạm vi ước tính 95% qua nhiều lần chạy",
+      "ciNote": "Phạm vi được ước tính bằng cách lấy mẫu lại kết quả của từng lần chạy.",
+      "metricColumn": "Chỉ số",
+      "meanColumn": "Trung bình",
+      "metrics": "Chỉ số",
+      "metricNames": {
+        "totalReturn": "Tổng lợi suất",
+        "annualizedReturn": "Lợi suất năm hóa",
+        "maxDrawdown": "Mức giảm lớn nhất so với đỉnh",
+        "winRate": "Tỷ lệ thắng",
+        "exposure": "Thời gian nắm giữ",
+        "pctMonths": "Tháng dương",
+        "wrLong": "Tỷ lệ thắng (mua)",
+        "wrShort": "Tỷ lệ thắng (bán)",
+        "netPoints": "Lợi nhuận ròng",
+        "maxDrawdownPoints": "Mức giảm lớn nhất so với đỉnh (điểm)",
+        "expectancy": "Kỳ vọng mỗi lệnh",
+        "avgWin": "Lãi trung bình",
+        "avgLoss": "Lỗ trung bình",
+        "longPnl": "Lợi nhuận vị thế mua",
+        "shortPnl": "Lợi nhuận vị thế bán",
+        "sharpe": "Lợi nhuận so với biến động (Sharpe)",
+        "sortino": "Lợi nhuận so với rủi ro giảm (Sortino)",
+        "calmar": "Lợi nhuận so với mức giảm lớn nhất (Calmar)",
+        "profitFactor": "Tỷ lệ tổng lãi/tổng lỗ",
+        "payoff": "Tỷ lệ lãi/lỗ trung bình",
+        "ulcer": "Mức độ giảm sâu và kéo dài (Ulcer)",
+        "upi": "Lợi nhuận sau khi xét mức giảm (UPI)",
+        "equityR2": "Độ ổn định của đường vốn (R²)",
+        "trades": "Số lệnh",
+        "maxConsecutiveLosses": "Chuỗi thua dài nhất",
+        "benchmarkReturn": "Lợi nhuận của phương án dùng để so sánh"
+      },
+      "notFound": "Không tìm thấy chiến lược."
+    }
+  },
+  "about": {
+    "title": "Về chúng tôi",
+    "whatTitle": "Quant Percent là gì",
+    "whatText": "Quant Percent là nhóm nghiên cứu thị trường bằng dữ liệu. Chúng tôi xây dựng các mô hình giúp nhận biết xu hướng, ước lượng rủi ro và kiểm tra các phương pháp giao dịch trên thị trường Việt Nam.",
+    "whyTitle": "Lý do thành lập",
+    "whyText": "Quant Percent được xây dựng để nhà đầu tư có thể xem kết quả cùng với cách kiểm tra và rủi ro đi kèm. Chúng tôi công bố cả điểm mạnh, điểm yếu và những kết quả chưa đạt, thay vì chỉ chọn các con số thuận lợi.",
+    "focusTitle": "Thị trường tập trung",
+    "focusText": "Chúng tôi tập trung vào chỉ số VN-Index, rổ cổ phiếu VN30 và hợp đồng tương lai VN30F1M. Phạm vi này giúp việc thu thập dữ liệu, xây dựng và kiểm tra mô hình được thực hiện nhất quán.",
+    "philosophyTitle": "Triết lý nghiên cứu",
+    "philosophyText": "Mọi kết luận đều phải cho biết dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào và còn hạn chế gì. Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro và mọi mô hình đều có lúc hoạt động kém.",
+    "approachTitle": "Quy trình nghiên cứu",
+    "approachText": "Tùy từng mô hình, chúng tôi kiểm tra chất lượng dữ liệu, thử mô hình trên giai đoạn chưa được dùng để xây dựng, mô phỏng nhiều tình huống thị trường và theo dõi độ ổn định của kết quả. Model Modus hiện mới có kết quả mô phỏng, chưa giao dịch thật.",
+    "visionTitle": "Tầm nhìn dài hạn",
+    "visionText": "Xây dựng một tổ chức quản lý tài sản tại Việt Nam, nơi quyết định đầu tư dựa trên dữ liệu, công nghệ và quy trình quản lý rủi ro rõ ràng.",
+    "developingTitle": "Các lĩnh vực đang phát triển",
+    "developingItems": ["Dự báo chỉ số và cổ phiếu theo nhiều khoảng thời gian", "Hệ thống giao dịch có quy tắc cho thị trường phái sinh", "Công cụ phân tích và so sánh cổ phiếu", "Công cụ đo lường các tình huống rủi ro", "Hệ thống dữ liệu và theo dõi chất lượng mô hình"],
+    "note": "Quant Percent hiện chưa triển khai hoạt động quản lý vốn chính thức và không huy động hoặc nhận ủy thác vốn thông qua website này."
+  },
+  "contact": {
+    "title": "Liên hệ",
+    "description": "Bạn muốn tìm hiểu mô hình, trao đổi cơ hội hợp tác hoặc nhận thông tin khi có sản phẩm mới? Hãy để lại lời nhắn để Quant Percent phản hồi đúng nhu cầu của bạn.",
+    "form": {
+      "name": "Họ tên",
+      "email": "Email",
+      "phone": "Số điện thoại (tùy chọn)",
+      "organization": "Tổ chức (tùy chọn)",
+      "inquiryType": "Loại yêu cầu",
+      "inquiryTypes": {
+        "investor_interest": "Tôi muốn tìm hiểu mô hình và cơ hội trong tương lai",
+        "research_collaboration": "Hợp tác nghiên cứu",
+        "data_partnership": "Hợp tác dữ liệu",
+        "technology_partnership": "Hợp tác công nghệ",
+        "general": "Câu hỏi chung"
+      },
+      "message": "Nội dung",
+      "consent": "Tôi đồng ý với chính sách bảo mật của Quant Percent.",
+      "submit": "Gửi lời nhắn",
+      "sending": "Đang gửi…",
+      "success": "Cảm ơn bạn. Chúng tôi đã nhận được lời nhắn và sẽ phản hồi sớm.",
+      "errorGeneric": "Không gửi được lời nhắn. Vui lòng thử lại sau.",
+      "errorRateLimit": "Bạn gửi quá nhanh. Vui lòng thử lại sau ít phút.",
+      "validation": {
+        "nameRequired": "Vui lòng nhập họ tên",
+        "emailRequired": "Vui lòng nhập email",
+        "emailInvalid": "Email không hợp lệ",
+        "inquiryRequired": "Vui lòng chọn loại yêu cầu",
+        "messageRequired": "Vui lòng nhập nội dung",
+        "messageTooShort": "Nội dung tối thiểu 10 ký tự",
+        "consentRequired": "Bạn cần đồng ý chính sách bảo mật để gửi"
+      }
+    },
+    "registerNote": "Việc để lại thông tin không phải cam kết đầu tư. Quant Percent hiện không huy động hoặc nhận ủy thác vốn; thông tin của bạn chỉ được dùng để phản hồi và trao đổi về nghiên cứu hoặc hợp tác trong tương lai."
+  },
+  "legal": {
+    "title": "Thông tin pháp lý",
+    "intro": "Vui lòng đọc kỹ các điều khoản dưới đây trước khi sử dụng nội dung trên website Quant Percent.",
+    "items": [
+      { "title": "Bản chất nội dung", "text": "Quant Percent hiện là một nhóm nghiên cứu. Nội dung trên website chỉ cung cấp thông tin tham khảo, không phải khuyến nghị mua bán, lời mời đầu tư hoặc cam kết lợi nhuận." },
+      { "title": "Bất định của dự báo", "text": "Mọi dự báo đều có bất định. Khoảng dự báo và xác suất là ước lượng thống kê, không phải cam kết về kết quả." },
+      { "title": "Kết quả quá khứ", "text": "Kết quả trong quá khứ, bao gồm mô phỏng trên dữ liệu lịch sử và giao dịch thử nghiệm, không đảm bảo kết quả tương lai." },
+      { "title": "Giới hạn của mô phỏng lịch sử", "text": "Mô phỏng trên dữ liệu lịch sử có thể chịu ảnh hưởng của việc mô hình quá phù hợp với dữ liệu cũ, sai lệch lựa chọn và các giả định về khớp lệnh." },
+      { "title": "Giao dịch thử nghiệm", "text": "Giao dịch thử nghiệm không sử dụng vốn thật và vẫn khác giao dịch thực tế về khớp lệnh, thanh khoản, chi phí và yếu tố tâm lý." },
+      { "title": "Độ trễ và điều chỉnh dữ liệu", "text": "Dữ liệu hiển thị có thể bị trễ so với thời gian thực và có thể được điều chỉnh khi nguồn dữ liệu cập nhật." },
+      { "title": "Thay đổi mô hình", "text": "Các mô hình được nghiên cứu liên tục và có thể thay đổi, tạm dừng hoặc gỡ bỏ mà không cần thông báo trước." },
+      { "title": "Trách nhiệm của người dùng", "text": "Người dùng tự chịu trách nhiệm đối với mọi quyết định đầu tư của mình. Giao dịch chứng khoán và phái sinh tiềm ẩn rủi ro mất vốn." },
+      { "title": "Không thay thế tư vấn chuyên môn", "text": "Thông tin trên website không thay thế tư vấn đầu tư, pháp lý hoặc thuế từ người có chuyên môn được cấp phép." }
+    ],
+    "reviewNote": "Nội dung này cần được chuyên gia pháp lý tại Việt Nam rà soát trước khi website vận hành chính thức."
+  },
+  "privacy": {
+    "title": "Chính sách bảo mật",
+    "intro": "Chính sách này mô tả cách Quant Percent thu thập, sử dụng và bảo vệ dữ liệu cá nhân của bạn khi sử dụng website.",
+    "sections": [
+      { "title": "Dữ liệu chúng tôi thu thập", "text": "Khi bạn gửi biểu mẫu liên hệ, chúng tôi thu thập họ tên, email, số điện thoại và tổ chức (nếu bạn cung cấp), loại yêu cầu và nội dung lời nhắn. Website không yêu cầu tạo tài khoản trong phiên bản hiện tại." },
+      { "title": "Mục đích sử dụng", "text": "Dữ liệu liên hệ chỉ được dùng để phản hồi yêu cầu của bạn và, nếu bạn đăng ký quan tâm, để thông báo về các cơ hội nghiên cứu và hợp tác trong tương lai. Chúng tôi không bán hoặc chia sẻ dữ liệu của bạn cho bên thứ ba vì mục đích quảng cáo." },
+      { "title": "Lưu trữ và bảo vệ", "text": "Dữ liệu được lưu trữ có kiểm soát truy cập và chỉ những người có trách nhiệm mới được xử lý. Chúng tôi áp dụng các biện pháp kỹ thuật hợp lý để chống truy cập trái phép." },
+      { "title": "Thời gian lưu", "text": "Dữ liệu liên hệ được lưu trong thời gian cần thiết để xử lý yêu cầu và tối đa 24 tháng kể từ lần liên hệ cuối, trừ khi pháp luật yêu cầu khác." },
+      { "title": "Quyền của bạn", "text": "Bạn có quyền yêu cầu truy cập, chỉnh sửa hoặc xóa dữ liệu cá nhân của mình bằng cách liên hệ qua biểu mẫu trên website." },
+      { "title": "Cookie", "text": "Website chỉ sử dụng cookie kỹ thuật cần thiết cho hoạt động (ví dụ ghi nhớ ngôn ngữ). Không sử dụng cookie quảng cáo hoặc theo dõi bên thứ ba." }
+    ]
+  },
+  "status": {
+    "title": "Trạng thái hệ thống",
+    "description": "Trạng thái vận hành của các dịch vụ dữ liệu và mô hình. Trang này đang phản ánh môi trường dữ liệu minh họa trong giai đoạn phát triển.",
+    "services": "Dịch vụ",
+    "serviceNames": {
+      "market_data": "Dữ liệu thị trường",
+      "model_output": "Kết quả mô hình",
+      "performance": "Dữ liệu thử nghiệm",
+      "public_api": "Cổng dữ liệu công khai",
+      "contact": "Biểu mẫu liên hệ"
+    },
+    "dataFreshness": "Độ mới dữ liệu",
+    "modelStatus": "Trạng thái mô hình",
+    "operational": "Hoạt động",
+    "degraded": "Suy giảm",
+    "down": "Gián đoạn",
+    "lastChecked": "Kiểm tra lúc"
+  },
+  "auth": {
+    "nav": {
+      "signIn": "Đăng nhập",
+      "signUp": "Đăng ký",
+      "signOut": "Đăng xuất",
+      "account": "Tài khoản"
+    },
+    "mockNotice": "Tính năng tài khoản đang ở giai đoạn thử nghiệm. Phiên đăng nhập chỉ được lưu trên trình duyệt này và chưa xác thực thông tin với máy chủ.",
+    "login": {
+      "title": "Đăng nhập",
+      "description": "Đăng nhập để xem đầy đủ đầu ra của các mô hình.",
+      "submit": "Đăng nhập",
+      "submitting": "Đang đăng nhập…",
+      "forgot": "Quên mật khẩu?",
+      "noAccount": "Chưa có tài khoản?",
+      "toRegister": "Đăng ký"
+    },
+    "register": {
+      "title": "Tạo tài khoản",
+      "description": "Đăng ký miễn phí để mở khóa toàn bộ mô hình nghiên cứu.",
+      "submit": "Tạo tài khoản",
+      "submitting": "Đang tạo tài khoản…",
+      "hasAccount": "Đã có tài khoản?",
+      "toLogin": "Đăng nhập"
+    },
+    "forgot": {
+      "title": "Quên mật khẩu",
+      "description": "Tính năng khôi phục mật khẩu đang ở giai đoạn thử nghiệm và chưa gửi email thật.",
+      "submit": "Kiểm tra tính năng",
+      "submitting": "Đang xử lý…",
+      "sent": "Đây là bản thử nghiệm nên chưa có email khôi phục nào được gửi.",
+      "backToLogin": "Quay lại đăng nhập"
+    },
+    "fields": {
+      "name": "Họ tên",
+      "email": "Email",
+      "password": "Mật khẩu",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "consent": "Tôi đồng ý với thông tin pháp lý và chính sách bảo mật của Quant Percent."
+    },
+    "validation": {
+      "nameRequired": "Vui lòng nhập họ tên",
+      "emailRequired": "Vui lòng nhập email",
+      "emailInvalid": "Email không hợp lệ",
+      "passwordRequired": "Vui lòng nhập mật khẩu",
+      "passwordTooShort": "Mật khẩu tối thiểu 8 ký tự",
+      "confirmRequired": "Vui lòng xác nhận mật khẩu",
+      "confirmMismatch": "Mật khẩu xác nhận không khớp",
+      "consentRequired": "Bạn cần đồng ý để tạo tài khoản"
+    },
+    "error": "Không thể xử lý yêu cầu. Vui lòng thử lại."
+  },
+  "notFound": {
+    "title": "Không tìm thấy trang",
+    "description": "Trang bạn tìm không tồn tại hoặc đã được di chuyển.",
+    "backHome": "Về trang chủ"
+  }
+}

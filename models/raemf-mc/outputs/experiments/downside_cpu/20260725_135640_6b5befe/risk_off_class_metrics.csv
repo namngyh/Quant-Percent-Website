@@ -1,0 +1,5 @@
+model,horizon,fold,class,recall,support,precision,f1
+multiclass_probability_sum,20,0,Safe,0.5204359673024523,734,,
+multiclass_probability_sum,20,0,Risk-off,0.4153846153846154,260,0.23478260869565218,0.3
+candidate_risk_off,20,0,Safe,0.6907356948228883,734,,
+candidate_risk_off,20,0,Risk-off,0.28846153846153844,260,0.24834437086092714,0.2669039145907473

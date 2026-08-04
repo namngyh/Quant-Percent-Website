@@ -1,0 +1,13 @@
+MSDP initial test run
+Date: 2026-07-20 (Asia/Saigon)
+Command: .\.venv\Scripts\python.exe -m pytest -q
+
+.........                                                                [100%]
+9 passed in 2.75s
+Process exit code: 0
+Wall-clock measured by PowerShell: 3.57 seconds
+
+Important: passing this small suite did not validate target scaling, negative MDD outputs,
+non-negative conformal scores, causal convolution, real tuning, multi-seed ensemble,
+ablation, bootstrap, production retraining, or README/result consistency.
+

@@ -1,0 +1,11 @@
+# Optional per-ticker sector OVERRIDE.
+#
+# DynamicGraph derives `sector` from the ICB classification code stored in the
+# database when one is available (see src/dynamicgraph/constants.py ->
+# ICB_SUPERSECTOR_NAMES). Tickers listed here override that derivation.
+#
+# Tickers with neither a database classification nor a row here are labelled
+# UNKNOWN. Sectors are never guessed from the company name.
+#
+# Format: ticker,sector
+ticker,sector

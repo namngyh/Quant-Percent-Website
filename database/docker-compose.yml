@@ -1,0 +1,61 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: qp-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - tsdb_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: qp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  ingestion:
+    build: ./ingestion
+    container_name: qp-ingestion
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # container gọi DataPro.Client trên máy host
+    environment:
+      DATAPRO_API_KEY: ${DATAPRO_API_KEY}
+      DATAPRO_REST_URL: ${DATAPRO_REST_URL:-http://host.docker.internal:6789}
+      DATAPRO_MODE: ${DATAPRO_MODE:-mock}
+      SYMBOLS: ${SYMBOLS:-VN30F1M}
+      STOCK_SYMBOLS: ${STOCK_SYMBOLS:-}
+      SNAPSHOT_INTERVAL: ${SNAPSHOT_INTERVAL:-1.0}
+      BAR_SPACING: ${BAR_SPACING:-1.5}
+      PG_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PARQUET_DIR: /data/raw
+    volumes:
+      - ./data/raw:/data/raw
+
+volumes:
+  tsdb_data:

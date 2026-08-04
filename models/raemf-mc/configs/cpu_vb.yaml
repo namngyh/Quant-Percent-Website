@@ -1,0 +1,27 @@
+extends: cpu_experiment.yaml
+
+runtime:
+  mode: cpu-vb
+  device: cpu
+  max_threads: 4
+
+downside_experiment:
+  mode: cpu-vb-reference
+
+bayesian:
+  enabled: true
+  backend: pytorch_cpu
+  device: cpu
+  require_gpu: false
+  method: meanfield_advi
+  hierarchical: true
+  seeds: [42]
+  advi_steps: 2500
+  min_steps: 750
+  posterior_draws: 600
+  posterior_predictive_draws: 200
+  vi_samples_per_step: 2
+  early_stopping_patience: 500
+  convergence_window: 200
+  dtype: float32
+  fallback_to_point_estimate: true

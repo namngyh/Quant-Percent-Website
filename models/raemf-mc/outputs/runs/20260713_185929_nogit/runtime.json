@@ -1,0 +1,20 @@
+{
+  "seconds": 231.55371952056885,
+  "rows": 6298,
+  "data_meta": {
+    "rows_loaded": 6298,
+    "duplicate_dates": 0,
+    "malformed_rows": [],
+    "columns": [
+      "date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "start_date": "2000-07-28",
+    "end_date": "2026-07-01",
+    "sha256": "40db5e75e396d7fcb4cb59f72b291058e49b3cf12efea192cddf4e0d43223704"
+  }
+}
