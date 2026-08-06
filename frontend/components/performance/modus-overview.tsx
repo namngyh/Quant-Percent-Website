@@ -3,7 +3,6 @@
 import { useTranslations, useLocale } from "next-intl";
 import { useApi } from "@/lib/api/fetcher";
 import { DataState } from "@/components/states/data-state";
-import { Link } from "@/i18n/navigation";
 import type { StrategyMetrics, PerformanceSeries } from "@/lib/api/types";
 import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -32,32 +31,23 @@ const NOTIONAL_POINTS = 1000;
 type Metrics = StrategyMetrics["metrics"];
 type MetricKey = keyof Metrics;
 
-/** Every metric the report carries, ordered from result to detail. */
+/** The ten figures a reader can actually judge the system by.
+ *
+ * The table previously carried all twenty-four the report exports. Long-only
+ * and short-only breakdowns, Ulcer, UPI, equity R-squared and the rest are
+ * detail that few readers can act on, and their volume pushed the headline
+ * risk measures out of view. */
 const TABLE_KEYS: MetricKey[] = [
   "totalReturn",
   "annualizedReturn",
-  "netPoints",
   "maxDrawdown",
-  "maxDrawdownPoints",
-  "ulcer",
   "sharpe",
   "sortino",
   "calmar",
-  "upi",
   "profitFactor",
-  "payoff",
-  "expectancy",
   "winRate",
+  "payoff",
   "trades",
-  "avgWin",
-  "avgLoss",
-  "maxConsecutiveLosses",
-  "exposure",
-  "equityR2",
-  "longPnl",
-  "shortPnl",
-  "wrLong",
-  "wrShort",
 ];
 
 /** Metrics that are a share of something, so they render as percentages. */
@@ -289,63 +279,41 @@ export function ModusOverview() {
               {t("overview.tableNote")}
             </p>
 
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[34rem] border-collapse text-sm">
-                <caption className="sr-only">{t("overview.tableHeading")}</caption>
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th scope="col" className="py-2.5 pr-4 text-xs font-medium uppercase tracking-[0.06em] text-dim">
-                      {t("overview.colMetric")}
-                    </th>
-                    <th scope="col" className="py-2.5 pr-4 text-right text-xs font-medium uppercase tracking-[0.06em] text-dim">
-                      {t("overview.colValue")}
-                    </th>
-                    <th scope="col" className="py-2.5 text-xs font-medium uppercase tracking-[0.06em] text-dim">
-                      {t("overview.colMeaning")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TABLE_KEYS.map((key) => {
-                    const text = formatMetric(
-                      key,
-                      m[key] as number | null,
-                      locale,
-                      pointsUnit,
-                    );
-                    // A metric the run did not export is left out entirely
-                    // rather than shown as a dash the reader must interpret.
-                    if (text === null) return null;
-                    return (
-                      <tr key={key} className="border-b border-border/70">
-                        <th scope="row" className="py-3 pr-4 text-left font-normal">
-                          {names(key)}
-                        </th>
-                        <td className="figure py-3 pr-4 text-right font-medium">
-                          {text}
-                        </td>
-                        <td className="py-3 text-[13px] leading-relaxed text-dim">
-                          {t(`overview.meaning.${key}` as never)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {/* Two columns of five rather than one long table. Ten rows in a
+                single column runs past the fold on a laptop and reads as a
+                data dump; paired columns keep the whole set in one view. */}
+            <dl className="mt-5 grid gap-x-12 gap-y-0 sm:grid-cols-2">
+              {TABLE_KEYS.map((key) => {
+                const text = formatMetric(
+                  key,
+                  m[key] as number | null,
+                  locale,
+                  pointsUnit,
+                );
+                // A metric the run did not export is left out rather than
+                // shown as a dash the reader has to interpret.
+                if (text === null) return null;
+                return (
+                  <div
+                    key={key}
+                    className="flex items-baseline justify-between gap-6 border-b border-border py-3.5"
+                  >
+                    <dt className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {names(key)}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-snug text-dim">
+                        {t(`overview.meaning.${key}` as never)}
+                      </span>
+                    </dt>
+                    <dd className="figure shrink-0 text-lg font-semibold">
+                      {text}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
           </div>
-
-          {/* `flex w-fit` rather than `inline-flex`: the toggle button above is
-              also inline and the two would otherwise run together on one line. */}
-          <Link
-            href={`/performance/${WALK_FORWARD}`}
-            className="arrow-link mt-6 flex w-fit items-center gap-2 text-[13px] font-medium text-brand underline-offset-4 hover:text-brand-strong hover:underline"
-          >
-            {t("overview.fullReport")}{" "}
-            <span aria-hidden="true" data-arrow>
-              →
-            </span>
-          </Link>
           </>
         )}
       </DataState>
