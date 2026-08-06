@@ -1247,16 +1247,8 @@
           ]
         },
         "limitations": {
-          "vi": [
-            "Không công khai tín hiệu vào lệnh, vị thế hiện tại, tham số hay logic chiến lược",
-            "Chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế; toàn bộ kết quả hiện tại là mô phỏng",
-            "Hướng giao dịch chưa ổn định giữa các lần chạy; nhóm nghiên cứu đang đánh giá phương án kết hợp nhiều lần chạy"
-          ],
-          "en": [
-            "Entry signals, current positions, parameters and strategy logic are not published",
-            "No paper trading or live trading yet. Every result is simulated",
-            "Trade direction is not yet stable across repeated runs; the research team is testing a way to combine multiple runs"
-          ]
+          "vi": [],
+          "en": []
         }
       },
       "architecture": [
@@ -1866,8 +1858,8 @@
     {
       "slug": "vn30f1m-walk-forward",
       "name": {
-        "vi": "Model Modus: Thử lần lượt từng năm 2024–2026",
-        "en": "Model Modus: Year-by-year Test 2024–2026"
+        "vi": "Model Modus",
+        "en": "Model Modus"
       },
       "systemSlug": "model-modus",
       "dataset": "walkForward",

@@ -69,7 +69,14 @@ export default async function AboutPage({
           {sections.map((s, i) => (
             <Reveal key={s.title} index={i}>
               <h2 className="title-md">{s.title}</h2>
-              <p className="mt-4 leading-relaxed text-ink">{s.text}</p>
+              {/* Blank lines in the message become paragraphs. A single
+                  block of prose collapses a three-beat statement into a
+                  wall of text. */}
+              {s.text.split(/\n{2,}/).map((para) => (
+                <p key={para} className="mt-4 leading-relaxed text-ink">
+                  {para}
+                </p>
+              ))}
             </Reveal>
           ))}
         </div>

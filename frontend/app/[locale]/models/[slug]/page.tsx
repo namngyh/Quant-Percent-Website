@@ -155,6 +155,7 @@ export default async function ModelDetailPage({
                   </ul>
                 </dd>
               </div>
+              {description.limitations[l].length > 0 && (
               <div>
                 <dt className="text-sm font-semibold">
                   {t("detail.limitations")}
@@ -172,6 +173,7 @@ export default async function ModelDetailPage({
                   </ul>
                 </dd>
               </div>
+              )}
             </dl>
             <p className="mt-8 max-w-3xl border-l-2 border-lightgray pl-4 text-sm text-dim">
               {t("detail.disclosureNote")}

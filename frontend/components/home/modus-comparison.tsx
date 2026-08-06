@@ -59,17 +59,22 @@ export function ModusComparison() {
     // project quotes it; the index compounds, the way an index does.
     const labels = [t("start"), ...folds.map((f) => String(f.test_year))];
 
-    let modusRunning = 0;
-    const modus = [0, ...folds.map((f) => +((modusRunning += f.net_pct * 100).toFixed(2)))];
+    // Each running total is derived from the entry before it, so no binding
+    // outside the callback is reassigned during render.
+    const modus: number[] = [0];
+    folds.forEach((f) => {
+      modus.push(Number((modus[modus.length - 1] + f.net_pct * 100).toFixed(2)));
+    });
 
-    let indexRunning = 1;
-    const index = [
-      0,
-      ...folds.map((f) => {
-        indexRunning *= 1 + (f.benchmark_pct ?? 0);
-        return +((indexRunning - 1) * 100).toFixed(2);
-      }),
-    ];
+    // The index compounds, so the previous total is turned back into a factor
+    // before the year's return is applied.
+    const index: number[] = [0];
+    folds.forEach((f) => {
+      const factor = 1 + index[index.length - 1] / 100;
+      index.push(
+        Number(((factor * (1 + (f.benchmark_pct ?? 0)) - 1) * 100).toFixed(2)),
+      );
+    });
 
     const line = (
       name: string,
@@ -138,7 +143,6 @@ export function ModusComparison() {
         line("Model Modus", modus, CHART.brand, true),
       ],
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folds, locale, benchmark, t]);
 
   const drawdownRatio =

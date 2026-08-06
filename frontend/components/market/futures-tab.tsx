@@ -260,7 +260,7 @@ export function FuturesTab() {
             </dl>
             <p className="mt-4 text-xs text-dim">{tperf("labelNote")}</p>
             <Link
-              href={`/performance/${FEATURED_STRATEGY}`}
+              href="/performance"
               className="mt-4 inline-block text-[13px] font-medium underline-offset-4 hover:underline"
             >
               {tc("viewDetails")} →

@@ -4,6 +4,7 @@ import { getModel } from "@/config/models";
 import { strategiesForSystem } from "@/config/strategies";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/market/badges";
+import { ModusMascot } from "@/components/modus-mascot";
 import { Sparkline } from "@/components/sparkline";
 import { getSeries } from "@/lib/performance/reports";
 
@@ -48,7 +49,10 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
       <div className="grid gap-px bg-border desk:grid-cols-[1.35fr_1fr]">
         <div className="bg-background p-7">
           <p className="eyebrow">{t("eyebrow")}</p>
+          {/* Mascot sits with the name rather than floating on its own, so it
+              reads as this system's mark and not as generic decoration. */}
           <div className="mt-3 flex flex-wrap items-center gap-3">
+            <ModusMascot className="size-14 shrink-0 rounded-xl" />
             <h2 className="title-md">{model.name}</h2>
             <span className="figure text-[11px] uppercase tracking-[0.08em] text-dim">
               {model.code} · v{model.version}

@@ -113,9 +113,12 @@ export const STRATEGIES: StrategyConfig[] = [
   },
   {
     slug: "vn30f1m-walk-forward",
+    // The period and the test method are stated in the facts beneath the
+    // heading; repeating them in the title made it a sentence rather than a
+    // name.
     name: {
-      vi: "Model Modus: Thử lần lượt từng năm 2024–2026",
-      en: "Model Modus: Year-by-year Test 2024–2026",
+      vi: "Model Modus",
+      en: "Model Modus",
     },
     systemSlug: "model-modus",
     dataset: "walkForward",

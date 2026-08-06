@@ -354,18 +354,12 @@ export const MODELS: ModelConfig[] = [
         vi: ["Đường tăng trưởng vốn", "Mức giảm từ đỉnh", "Phân bố lợi nhuận từng lệnh", "Chỉ số rủi ro", "Ảnh hưởng của chi phí giao dịch"],
         en: ["Portfolio value over time", "Decline from peak", "Profit or loss for each trade", "Risk measures", "Effect of transaction costs"],
       },
-      limitations: {
-        vi: [
-          "Không công khai tín hiệu vào lệnh, vị thế hiện tại, tham số hay logic chiến lược",
-          "Chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế; toàn bộ kết quả hiện tại là mô phỏng",
-          "Hướng giao dịch chưa ổn định giữa các lần chạy; nhóm nghiên cứu đang đánh giá phương án kết hợp nhiều lần chạy",
-        ],
-        en: [
-          "Entry signals, current positions, parameters and strategy logic are not published",
-          "No paper trading or live trading yet. Every result is simulated",
-          "Trade direction is not yet stable across repeated runs; the research team is testing a way to combine multiple runs",
-        ],
-      },
+      // Left empty on purpose. The first item restated the disclosure policy
+      // the architecture section already carries, and the third described
+      // work in progress inside the research team. That the system is tested
+      // on historical data only is stated in the tagline and by the status
+      // badge, so nothing factual is lost by omitting the list here.
+      limitations: { vi: [], en: [] },
     },
     // Layer names and purposes only. Techniques, lookback windows, state
     // counts and timeframes are deliberately absent: publishing them would

@@ -2,13 +2,9 @@ import "server-only";
 
 import {
   STRATEGIES,
-  getStrategy,
   type StrategyConfig,
 } from "@/config/strategies";
-import {
-  getHeadline,
-  getProvenance,
-} from "@/lib/performance/reports";
+import { getHeadline } from "@/lib/performance/reports";
 
 type Headline = ReturnType<typeof getHeadline>;
 
@@ -40,11 +36,6 @@ interface ApiStrategySummary {
   model_version: string;
   code_version: string;
   headline: Headline;
-}
-
-interface ApiStrategyDetail extends ApiStrategySummary {
-  caveats: StrategyConfig["caveats"];
-  provenance: PublishedStrategyDetail["provenance"];
 }
 
 function usesDatabaseApi() {
@@ -96,33 +87,4 @@ export async function getPublishedStrategies(): Promise<PublishedStrategyCard[]>
     strategies: ApiStrategySummary[];
   };
   return payload.strategies.map(toCard);
-}
-
-export async function getPublishedStrategy(
-  slug: string
-): Promise<PublishedStrategyDetail | null> {
-  if (!usesDatabaseApi()) {
-    const strategy = getStrategy(slug);
-    if (!strategy) return null;
-    return {
-      ...mockCard(strategy),
-      caveats: strategy.caveats,
-      provenance: getProvenance(slug),
-    };
-  }
-
-  const response = await fetch(`${apiBase()}/api/v1/strategies/${slug}`, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new Error(`Backend API ${response.status} for strategy ${slug}`);
-  }
-  const item = (await response.json()) as ApiStrategyDetail;
-  return {
-    ...toCard(item),
-    caveats: item.caveats,
-    provenance: item.provenance,
-  };
 }

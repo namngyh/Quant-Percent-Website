@@ -25,7 +25,6 @@ const ROUTES = [
   "/vi/models/msdp",
   "/vi/models/raemf-mc",
   "/vi/performance",
-  "/vi/performance/vn30f1m-walk-forward",
   "/vi/quant-portfolio",
   "/vi/about",
   "/vi/contact",

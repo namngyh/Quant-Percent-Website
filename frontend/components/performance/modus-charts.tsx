@@ -123,8 +123,10 @@ export function ModusCharts() {
 
   /** Running total across the three test years. */
   const cumulativeOption = useMemo<EChartsCoreOption>(() => {
-    let running = 0;
-    const cumulative = folds.map((f) => (running += f.net_points));
+    const cumulative: number[] = [];
+    folds.forEach((f, i) => {
+      cumulative.push((i === 0 ? 0 : cumulative[i - 1]) + f.net_points);
+    });
     return {
       animationDuration: 450,
       grid: { left: 8, right: 18, top: 28, bottom: 8, containLabel: true },

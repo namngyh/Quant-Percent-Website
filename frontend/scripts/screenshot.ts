@@ -38,7 +38,6 @@ const PAGES = [
   "/en/models/dynamic-graph",
   "/vi/models/rarf-fhe",
   "/vi/performance",
-  "/vi/performance/vn30f1m-walk-forward",
   // Empty-state only: the filled result panel needs a submitted portfolio,
   // which `npm run check:portfolio` drives end to end.
   "/vi/quant-portfolio",

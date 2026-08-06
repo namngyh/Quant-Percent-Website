@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { strategiesForSystem } from "@/config/strategies";
+import { FEATURED_STRATEGY, strategiesForSystem } from "@/config/strategies";
 import { getHeadline } from "@/lib/performance/reports";
 import { Link } from "@/i18n/navigation";
 import { fmtDate, fmtNumber, fmtSignedPercent } from "@/lib/format";
@@ -11,7 +11,11 @@ export async function ValidatedPerformance({
 }: {
   systemSlug: string;
 }) {
-  const reports = strategiesForSystem(systemSlug);
+  // Only the run the performance page publishes. The other two evaluations
+  // are internal; listing them here advertised reports a reader cannot open.
+  const reports = strategiesForSystem(systemSlug).filter(
+    (r) => r.slug === FEATURED_STRATEGY
+  );
   if (reports.length === 0) return null;
 
   const locale = (await getLocale()) as "vi" | "en";
@@ -32,7 +36,7 @@ export async function ValidatedPerformance({
           return (
             <li key={r.slug}>
               <Link
-                href={`/performance/${r.slug}`}
+                href="/performance"
                 className="flex flex-wrap items-center justify-between gap-4 p-5 transition-colors hover:bg-surface"
               >
                 <div className="min-w-0">
