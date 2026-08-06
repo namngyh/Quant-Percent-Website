@@ -14,6 +14,13 @@ export interface ResearchChartSeries {
   type?: "line" | "bar";
   color: string;
   stack?: string;
+  /**
+   * The level this series was supposed to reach, drawn as a dashed line in the
+   * series colour. Use this rather than `baseline` when each series is judged
+   * against a different target — a single shared line would flatter whichever
+   * series has the higher one.
+   */
+  target?: number;
 }
 
 export interface ResearchChart {
@@ -30,10 +37,7 @@ export interface ResearchChart {
 
 export interface ModelResearchProfile {
   slug: string;
-  repoUrl: string;
-  sourceCommit: string;
   artifactDate: string;
-  runId?: string;
   verdict: {
     eyebrow: Localized;
     title: Localized;
@@ -54,33 +58,30 @@ export interface ModelResearchProfile {
 export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
   "raemf-mc": {
     slug: "raemf-mc",
-    repoUrl:
-      "https://github.com/namngyh/RAEMF-MC-Regime-Aware-Explainable-Multi-Horizon-Forecasting-with-Monte-Carlo-",
-    sourceCommit: "c9c3f9082dd09cd3a23d4e62a5b80992d483fcf0",
-    artifactDate: "2026-07-25",
+    artifactDate: "2026-08-06",
     verdict: {
       eyebrow: { vi: "Kết quả chính", en: "Main result" },
       title: {
-        vi: "Mô hình ước lượng phạm vi kết quả tốt hơn, nhưng vẫn đánh giá rủi ro thấp hơn thực tế.",
-        en: "The model estimates the range of outcomes better, but still understates real-world risk.",
+        vi: "Mô hình ước lượng phạm vi kết quả tốt hơn, nhưng độ tin cậy chưa đồng đều giữa các thời hạn.",
+        en: "The model estimates the range of outcomes better, but its reliability is uneven across periods.",
       },
       body: {
-        vi: "Phiên bản M2 dự báo phạm vi kết quả tốt hơn phiên bản chỉ đưa ra một giá trị. Tuy nhiên, phạm vi này vẫn còn hẹp: kết quả thực tế rơi ra ngoài nhiều hơn mức mong đợi và rủi ro thua lỗ lớn bị đánh giá thấp. Vì vậy, Quant Percent chỉ công bố M2 như một kết quả nghiên cứu, chưa dùng làm phiên bản mặc định.",
-        en: "M2 estimates possible outcomes better than the version that gives a single value. Its forecast range is still too narrow: actual outcomes fall outside more often than expected and large losses are understated. Quant Percent therefore presents M2 as research, not as the default model.",
+        vi: "Phiên bản M2 dự báo phạm vi kết quả tốt hơn phiên bản chỉ đưa ra một giá trị. Ở thời hạn 60 phiên, phạm vi 95% đạt đúng mục tiêu; nhưng ở thời hạn 40 phiên, kết quả thực tế rơi ra ngoài nhiều hơn hẳn mức mong đợi. Vì độ tin cậy chưa ổn định giữa các thời hạn, Quant Percent chỉ công bố M2 như một kết quả nghiên cứu, chưa dùng làm phiên bản mặc định.",
+        en: "M2 estimates possible outcomes better than the version that gives a single value. At the 60-session period its 95% range meets the target, but at 40 sessions actual outcomes fall outside far more often than expected. Because that reliability is not consistent across periods, Quant Percent presents M2 as research, not as the default model.",
       },
     },
     metrics: [
       {
         label: { vi: "Dữ liệu", en: "Dataset" },
-        value: { vi: "6.306 phiên", en: "6,306 sessions" },
+        value: { vi: "6.324 phiên", en: "6,324 sessions" },
         note: {
-          vi: "VN-Index, 28/07/2000–13/07/2026",
-          en: "VN-Index, 28 Jul 2000–13 Jul 2026",
+          vi: "VN-Index, 28/07/2000–06/08/2026",
+          en: "VN-Index, 28 Jul 2000–6 Aug 2026",
         },
       },
       {
         label: { vi: "Dữ liệu dùng để kiểm tra", en: "Data used for testing" },
-        value: { vi: "1.874–1.886", en: "1,874–1,886" },
+        value: { vi: "1.880–1.892", en: "1,880–1,892" },
         note: {
           vi: "mốc dự báo cho mỗi thời hạn",
           en: "test points for each forecast period",
@@ -88,18 +89,18 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
       },
       {
         label: { vi: "Tỷ lệ dự báo đúng tăng/giảm", en: "Correct up-or-down forecasts" },
-        value: { vi: "54,6–64,6%", en: "54.6–64.6%" },
+        value: { vi: "53,8–58,5%", en: "53.8–58.5%" },
         note: {
-          vi: "tăng dần từ 20 đến 60 phiên",
-          en: "from 20 to 60 sessions",
+          vi: "cao nhất ở thời hạn 40 phiên",
+          en: "highest at the 40-session period",
         },
       },
       {
         label: { vi: "Kết quả nằm trong phạm vi 95%", en: "Actual outcomes inside the 95% range" },
-        value: { vi: "86,2–87,1%", en: "86.2–87.1%" },
+        value: { vi: "82,8–95,0%", en: "82.8–95.0%" },
         note: {
-          vi: "thấp hơn mục tiêu 95%",
-          en: "below the nominal 95% target",
+          vi: "chỉ thời hạn 60 phiên đạt mục tiêu 95%",
+          en: "only the 60-session period reaches the 95% target",
         },
       },
     ],
@@ -121,12 +122,12 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
       vi: [
         "Cả 9 lần chạy cho ba thời hạn 20, 40 và 60 phiên đều hoàn tất ổn định.",
         "Mô hình còn nhận biết kém các giai đoạn thị trường giảm. Xác suất trạng thái không nên được xem là tín hiệu mua bán.",
-        "Dự báo tạo ngày 13/07/2026 chưa đến đủ thời hạn để so sánh với thực tế, nên không được dùng để chứng minh hiệu quả.",
+        "Dự báo tạo ngày 06/08/2026 chưa đến đủ thời hạn để so sánh với thực tế, nên không được dùng để chứng minh hiệu quả.",
       ],
       en: [
         "All nine runs across the 20, 40 and 60-session periods completed reliably.",
         "The model still struggles to identify falling markets. Market-state probabilities are not trading signals.",
-        "Forecasts issued on 13 Jul 2026 have not reached their full periods and are not used as performance evidence.",
+        "Forecasts issued on 6 Aug 2026 have not reached their full periods and are not used as performance evidence.",
       ],
     },
     charts: [
@@ -147,23 +148,25 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         series: [
           {
             name: { vi: "Phạm vi dự báo 90%", en: "90% interval" },
-            data: [79.11, 80.73, 81.66],
+            data: [86.75, 74.94, 92.32],
             type: "bar",
-            color: "#087f78",
+            color: "#3a72c4",
+            target: 90,
           },
           {
             name: { vi: "Phạm vi dự báo 95%", en: "95% interval" },
-            data: [86.23, 87.07, 87.07],
+            data: [92.6, 82.77, 95.0],
             type: "bar",
-            color: "#d97706",
+            color: "#ad7519",
+            target: 95,
           },
         ],
       },
       {
         id: "raemf-regimes",
         title: {
-          vi: "Mô hình nhìn nhận thị trường ngày 13/07/2026 ra sao?",
-          en: "How did the model view the market on 13 Jul 2026?",
+          vi: "Mô hình nhìn nhận thị trường ngày 06/08/2026 ra sao?",
+          en: "How did the model view the market on 6 Aug 2026?",
         },
         note: {
           vi: "Không trạng thái nào có xác suất vượt trội, nên kết quả được xếp là “không chắc chắn”. Biểu đồ chỉ mô tả thị trường, không phải khuyến nghị mua bán.",
@@ -176,46 +179,43 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         series: [
           {
             name: { vi: "Tăng", en: "Bull" },
-            data: [21.96, 23.27, 23.66],
+            data: [22.68, 20.26, 19.45],
             type: "bar",
-            color: "#16805d",
+            color: "#14795a",
             stack: "regime",
           },
           {
             name: { vi: "Đi ngang", en: "Sideway" },
-            data: [22.65, 19.08, 22.28],
+            data: [29.54, 35.69, 36.8],
             type: "bar",
-            color: "#9caaa6",
+            color: "#94a3b8",
             stack: "regime",
           },
           {
             name: { vi: "Giảm", en: "Bear" },
-            data: [23.9, 22.49, 18.22],
+            data: [24.57, 25.28, 23.0],
             type: "bar",
-            color: "#d97706",
+            color: "#ad7519",
             stack: "regime",
           },
           {
             name: { vi: "Căng thẳng", en: "Stress" },
-            data: [31.49, 35.16, 35.85],
+            data: [23.21, 18.77, 20.75],
             type: "bar",
-            color: "#c64032",
+            color: "#a93b32",
             stack: "regime",
           },
         ],
       },
     ],
     provenance: {
-      vi: "Số liệu lấy từ báo cáo và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
-      en: "Figures come from the report and result files in the repository at the cited code version. The website has not independently rerun the full model-building process.",
+      vi: "Số liệu được trích trực tiếp từ tệp kết quả của lần chạy nghiên cứu ghi nhận ở trên, không nhập lại bằng tay.",
+      en: "Figures are read directly from the result files of the recorded research run, not re-entered by hand.",
     },
   },
   "rarf-fhe": {
     slug: "rarf-fhe",
-    repoUrl:
-      "https://github.com/namngyh/RARF-FHE-Regime-Aware-Random-Forest-Forecasting-Hybrid-Engine",
-    sourceCommit: "6215511c84f02b356135d959883459c8e8f565fe",
-    artifactDate: "2026-07-15",
+    artifactDate: "2026-08-06",
     verdict: {
       eyebrow: { vi: "Kết quả chính", en: "Main result" },
       title: {
@@ -230,18 +230,18 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     metrics: [
       {
         label: { vi: "Dữ liệu", en: "Dataset" },
-        value: { vi: "6.306 phiên", en: "6,306 sessions" },
+        value: { vi: "6.324 phiên", en: "6,324 sessions" },
         note: {
-          vi: "VN-Index, 28/07/2000–13/07/2026",
-          en: "VN-Index, 28 Jul 2000–13 Jul 2026",
+          vi: "VN-Index, 28/07/2000–06/08/2026",
+          en: "VN-Index, 28 Jul 2000–6 Aug 2026",
         },
       },
       {
         label: { vi: "Tiêu chí đã đạt", en: "Checks passed" },
-        value: { vi: "7/9", en: "7/9" },
+        value: { vi: "6/9", en: "6/9" },
         note: {
           vi: "tiêu chí kiểm tra; bản A0 vẫn được giữ",
-          en: "7 of 9 checks passed; the safer version was kept",
+          en: "6 of 9 checks passed; the safer version was kept",
         },
       },
       {
@@ -249,10 +249,10 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           vi: "Kết quả nằm trong phạm vi 95%",
           en: "Actual outcomes inside the 95% range",
         },
-        value: { vi: "95,26%", en: "95.26%" },
+        value: { vi: "95,19%", en: "95.19%" },
         note: {
-          vi: "sau hiệu chỉnh, từ mức 86,29%",
-          en: "after adjustment, up from 86.29%",
+          vi: "sau hiệu chỉnh, từ mức 85,99%",
+          en: "after adjustment, up from 85.99%",
         },
       },
       {
@@ -281,12 +281,12 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     findings: {
       vi: [
         "Sai số tăng khi thời hạn dài hơn. Biểu đồ thể hiện kết quả của cách dự báo cơ sở được hệ thống chọn, không phải thành tích riêng của Random Forest.",
-        "Mô phỏng ngày 13/07/2026 ước tính khả năng VN-Index giảm hơn 5% từ đỉnh trong 20 phiên là 35,03%. Đây là xác suất mô phỏng, không phải điều chắc chắn xảy ra.",
+        "Mô phỏng ngày 06/08/2026 ước tính khả năng VN-Index giảm hơn 5% từ đỉnh trong 20 phiên là 74,40%. Đây là xác suất mô phỏng, không phải điều chắc chắn xảy ra.",
         "Kết quả dựa trên giả định các biến động từng xảy ra trong quá khứ vẫn còn hữu ích cho tương lai. Độ chính xác có thể giảm khi thị trường thay đổi mạnh.",
       ],
       en: [
         "Forecast error increases over longer periods. The chart shows the simple method selected by the system, not the Random Forest on its own.",
-        "The 13 Jul 2026 simulation estimated a 35.03% chance that VN-Index would fall more than 5% from a peak within 20 sessions. This is a simulated probability, not a certainty.",
+        "The 6 Aug 2026 simulation estimated a 74.40% chance that VN-Index would fall more than 5% from a peak within 20 sessions. This is a simulated probability, not a certainty.",
         "The result assumes that past market movements remain useful for understanding the future. Accuracy may fall when the market changes sharply.",
       ],
     },
@@ -307,9 +307,9 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         series: [
           {
             name: { vi: "Sai số dự báo (RMSE)", en: "Forecast error (RMSE)" },
-            data: [1.23, 2.82, 3.99, 5.73, 8.17, 9.84],
+            data: [1.24, 2.86, 4.05, 5.79, 8.19, 9.88],
             type: "line",
-            color: "#087f78",
+            color: "#3a72c4",
           },
         ],
       },
@@ -320,8 +320,8 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           en: "What was the chance of a decline from a peak in the latest simulation?",
         },
         note: {
-          vi: "Mỗi cột cho biết khả năng VN-Index giảm quá một ngưỡng nhất định so với đỉnh, trong 5, 10 hoặc 20 phiên kể từ ngày 13/07/2026.",
-          en: "Each bar shows the chance that VN-Index falls beyond a stated level from a previous peak within 5, 10 or 20 sessions from 13 Jul 2026.",
+          vi: "Mỗi cột cho biết khả năng VN-Index giảm quá một ngưỡng nhất định so với đỉnh, trong 5, 10 hoặc 20 phiên kể từ ngày 06/08/2026.",
+          en: "Each bar shows the chance that VN-Index falls beyond a stated level from a previous peak within 5, 10 or 20 sessions from 6 Aug 2026.",
         },
         categories: ["3%", "5%", "7%", "10%", "15%"],
         valueSuffix: "%",
@@ -329,35 +329,36 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         series: [
           {
             name: { vi: "Trong 5 phiên", en: "Within 5 sessions" },
-            data: [17.72, 4.2, 0.79, 0.02, 0],
+            data: [45.42, 21.98, 9.45, 2.3, 0.17],
             type: "bar",
-            color: "#9caaa6",
+            color: "#94a3b8",
           },
           {
             name: { vi: "Trong 10 phiên", en: "Within 10 sessions" },
-            data: [39.22, 14.2, 4.32, 0.5, 0.01],
+            data: [73.3, 46.43, 26.94, 10.44, 1.42],
             type: "bar",
-            color: "#d97706",
+            color: "#ad7519",
           },
           {
             name: { vi: "Trong 20 phiên", en: "Within 20 sessions" },
-            data: [67.81, 35.03, 15.87, 3.78, 0.19],
+            data: [93.24, 74.4, 53.39, 29.5, 8.28],
             type: "bar",
-            color: "#c64032",
+            color: "#a93b32",
           },
         ],
       },
     ],
     provenance: {
-      vi: "Số liệu lấy từ báo cáo và các bảng kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
-      en: "Figures come from the reports and result tables in the repository at the cited code version. The website has not independently rerun the full model-building process.",
+      vi: "Số liệu được trích trực tiếp từ tệp kết quả của lần chạy nghiên cứu ghi nhận ở trên, không nhập lại bằng tay.",
+      en: "Figures are read directly from the result files of the recorded research run, not re-entered by hand.",
     },
   },
   "dynamic-graph": {
     slug: "dynamic-graph",
-    repoUrl: "https://github.com/namngyh/Dynamic-Graph",
-    sourceCommit: "bde76b714b05fed4b3ff1becdf420ad0e390844d",
-    artifactDate: "2026-07-29",
+    // Full publication run on 2026-08-06. The stress classifiers still run
+    // as part of that pipeline, but their output is not published: the page
+    // presents market structure only.
+    artifactDate: "2026-08-06",
     verdict: {
       eyebrow: { vi: "Kết quả chính", en: "Main result" },
       title: {
@@ -365,30 +366,30 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         en: "Useful for seeing how VN30 stocks move together, but not for predicting prices.",
       },
       body: {
-        vi: "DynamicGraph cho biết cổ phiếu nào thường biến động cùng nhau và mức độ thị trường đang tập trung vào một số nhóm cổ phiếu. Khi được thử trên dữ liệu mới, phần dự báo căng thẳng không tốt hơn cách dùng tần suất lịch sử. Vì vậy, công cụ này chỉ dùng để quan sát cấu trúc thị trường, không đưa ra dự báo giá hay tín hiệu mua bán.",
-        en: "DynamicGraph shows which stocks often move together and whether the market is becoming concentrated in a few groups. On newer test data, its stress forecast was not better than a simple method based on historical frequency. The website therefore uses it only to observe market structure, not to predict prices or give buy and sell signals.",
+        vi: "DynamicGraph cho biết cổ phiếu nào thường biến động cùng nhau và mức độ thị trường đang tập trung vào một số nhóm cổ phiếu. Đây là công cụ quan sát cấu trúc thị trường: nó không đưa ra dự báo giá và không phải tín hiệu mua bán.",
+        en: "DynamicGraph shows which stocks often move together and whether the market is becoming concentrated in a few groups. It is a tool for observing market structure: it does not forecast prices and is not a buy or sell signal.",
       },
     },
     metrics: [
       {
         label: { vi: "Phạm vi", en: "Coverage" },
-        value: { vi: "30 cổ phiếu", en: "30 stocks" },
+        value: { vi: "29 cổ phiếu", en: "29 stocks" },
         note: {
-          vi: "danh sách VN30 hiện tại, cộng chỉ số VN30",
-          en: "current VN30 constituents plus the VN30 index",
+          vi: "rổ VN30 sau đảo rổ; TCX chưa đủ lịch sử giá",
+          en: "VN30 after the rebalance; TCX lacks price history",
         },
       },
       {
         label: { vi: "Điểm căng thẳng", en: "Stress score" },
-        value: { vi: "84,62/100", en: "84.62/100" },
+        value: { vi: "77,04/100", en: "77.04/100" },
         note: {
-          vi: "ngày 24/07/2026, trạng thái căng thẳng cao",
-          en: "24 Jul 2026, high-stress state",
+          vi: "ngày 06/08/2026, trạng thái căng thẳng trên mức bình thường",
+          en: "6 Aug 2026, elevated stress state",
         },
       },
       {
         label: { vi: "So với lịch sử", en: "Compared with history" },
-        value: { vi: "92,82%", en: "92.82%" },
+        value: { vi: "86,22%", en: "86.22%" },
         note: {
           vi: "so với lịch sử có sẵn",
           en: "relative to available history",
@@ -419,13 +420,13 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     },
     findings: {
       vi: [
-        "Ngày 24/07/2026, VIC, FPT và VHM là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
-        "Trong thử nghiệm phân bổ, cách ưu tiên giảm biến động đạt mức biến động năm 16,44%, thấp hơn mức 20,34% của danh mục chia đều. Tuy nhiên, riêng kỹ thuật Graphical Lasso chưa cho thấy lợi ích rõ ràng.",
+        "Ngày 06/08/2026, VIC, VHM và GAS là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
+        "Trong thử nghiệm phân bổ, cách ưu tiên giảm biến động đạt mức biến động năm 15,63%, thấp hơn mức 19,72% của danh mục chia đều. Tuy nhiên, riêng kỹ thuật Graphical Lasso chưa cho thấy lợi ích rõ ràng: 15,65% so với 15,70% của cách ước lượng thông thường.",
         "Thử nghiệm dùng danh sách VN30 hiện tại cho cả dữ liệu quá khứ, nên có thể bỏ sót các cổ phiếu từng bị loại khỏi VN30. Kết quả chưa thể xem là một chiến lược có thể giao dịch thực tế.",
       ],
       en: [
-        "VIC, FPT and VHM were the three most connected stocks in the network on 24 Jul 2026. Being highly connected does not mean their prices will rise.",
-        "In the allocation test, the approach focused on reducing fluctuations recorded 16.44% annual volatility, compared with 20.34% for an equally weighted portfolio. The Graphical Lasso technique did not show a clear additional benefit.",
+        "VIC, VHM and GAS were the three most connected stocks in the network on 6 Aug 2026. Being highly connected does not mean their prices will rise.",
+        "In the allocation test, the approach focused on reducing fluctuations recorded 15.63% annual volatility, compared with 19.72% for an equally weighted portfolio. The Graphical Lasso technique did not show a clear additional benefit: 15.65% against 15.70% for the ordinary estimator.",
         "The test applies today's VN30 list to past data, so it may omit stocks that previously left the index. The result should not be treated as a ready-to-trade strategy.",
       ],
     },
@@ -437,62 +438,35 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           en: "Recent connection and stress level in VN30",
         },
         note: {
-          vi: "Điểm cao cho thấy các cổ phiếu đang liên kết chặt hơn hoặc khả năng đa dạng hóa đang giảm. Đây không phải xác suất thị trường đi xuống.",
-          en: "A high score means stocks are more tightly connected or diversification may be weaker. It is not the probability of a market decline.",
+          vi: "Mỗi điểm là một phiên giao dịch. Điểm cao cho thấy các cổ phiếu đang liên kết chặt hơn hoặc khả năng đa dạng hóa đang giảm. Đây không phải xác suất thị trường đi xuống.",
+          en: "Each point is one trading session. A high score means stocks are more tightly connected or diversification may be weaker. It is not the probability of a market decline.",
         },
         categories: [
-          "09/07",
-          "10/07",
-          "13/07",
-          "14/07",
-          "15/07",
-          "16/07",
-          "17/07",
-          "20/07",
-          "21/07",
           "22/07",
           "23/07",
           "24/07",
+          "27/07",
+          "28/07",
+          "29/07",
+          "30/07",
+          "31/07",
+          "03/08",
+          "04/08",
+          "05/08",
+          "06/08",
         ],
         valueSuffix: "/100",
         minimum: 70,
-        maximum: 100,
+        maximum: 92,
         series: [
           {
             name: { vi: "Điểm căng thẳng", en: "Stress score" },
             data: [
-              82.47, 80.37, 83.83, 81.72, 86.08, 83.77, 83.5, 86.24, 83.35,
-              85.35, 80.71, 84.62,
+              86.71, 81.66, 84.68, 83.79, 80.31, 81.9, 84.36, 76.22, 79.0,
+              82.09, 81.52, 77.04,
             ],
             type: "line",
-            color: "#d97706",
-          },
-        ],
-      },
-      {
-        id: "dynamic-skill",
-        title: {
-          vi: "Phần dự báo có tốt hơn cách đơn giản không?",
-          en: "Did the forecast beat a simple method?",
-        },
-        note: {
-          vi: "Mức trên 0% mới tốt hơn cách dự báo dựa trên tần suất lịch sử. Tất cả thời hạn đều dưới 0%, nên phần này chưa đủ tốt để sử dụng như một sản phẩm dự báo.",
-          en: "Only values above 0% would beat a forecast based on historical frequency. Every period is below 0%, so this part is not presented as a forecasting product.",
-        },
-        categories: ["5", "10", "20", "40"],
-        valueSuffix: "%",
-        minimum: -75,
-        maximum: 5,
-        baseline: 0,
-        series: [
-          {
-            name: {
-              vi: "Mức cải thiện so với cách đơn giản",
-              en: "Improvement over the simple method",
-            },
-            data: [-12.16, -54.76, -61.82, -66.83],
-            type: "bar",
-            color: "#c64032",
+            color: "#ad7519",
           },
         ],
       },
@@ -509,17 +483,16 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
       },
     },
     provenance: {
-      vi: "Số liệu lấy từ báo cáo và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
-      en: "Figures come from the reports and result files in the repository at the cited code version. The website has not independently rerun the full model-building process.",
+      vi: "Toàn bộ số liệu trên trang này đến từ một lần chạy đầy đủ trên dữ liệu đến ngày 06/08/2026: bản đồ liên kết, bảng xếp hạng và điểm căng thẳng. Số liệu được trích trực tiếp từ tệp kết quả, không nhập lại bằng tay.",
+      en: "Every figure on this page comes from a single full run on data through 6 Aug 2026: the relationship map, the ranking table and the stress score. All figures are read directly from the result files, not re-entered by hand.",
     },
   },
   msdp: {
     slug: "msdp",
-    repoUrl:
-      "https://github.com/namngyh/MSDP-Multi-Scale-Distributional-Predictor-for-VN-Index",
-    sourceCommit: "8c359449bb018b0ab13255c0f3e0c3a761b814a0",
-    artifactDate: "2026-07-22",
-    runId: "20260722_154609_gpu",
+    // The forecast below is re-run daily. The validation figures are not:
+    // they come from the recorded training run and only change when the model
+    // is retrained, which the provenance note states outright.
+    artifactDate: "2026-08-06",
     verdict: {
       eyebrow: { vi: "Kết quả chính", en: "Main result" },
       title: {
@@ -615,21 +588,21 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
             name: { vi: "Trước hiệu chỉnh", en: "Before adjustment" },
             data: [87.83, 86.75, 86.14],
             type: "bar",
-            color: "#9caaa6",
+            color: "#94a3b8",
           },
           {
             name: { vi: "Sau hiệu chỉnh", en: "After adjustment" },
             data: [90.24, 88.55, 87.95],
             type: "bar",
-            color: "#087f78",
+            color: "#3a72c4",
           },
         ],
       },
       {
         id: "msdp-latest",
         title: {
-          vi: "VN-Index có thể tăng hoặc giảm bao nhiêu từ ngày 13/07/2026?",
-          en: "How far could VN-Index rise or fall from 13 Jul 2026?",
+          vi: "VN-Index có thể tăng hoặc giảm bao nhiêu từ ngày 06/08/2026?",
+          en: "How far could VN-Index rise or fall from 6 Aug 2026?",
         },
         note: {
           vi: "Đường giữa là kết quả ở trung tâm; hai đường ngoài là phạm vi sau hiệu chỉnh. Ba điểm chỉ thể hiện kết quả ở từng thời hạn, không phải đường đi tương lai của VN-Index.",
@@ -637,34 +610,40 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         },
         categories: ["5", "20", "60"],
         valueSuffix: "%",
-        minimum: -25,
-        maximum: 25,
+        minimum: -30,
+        maximum: 20,
         baseline: 0,
+        // Read from the 2026-08-06 inference: the outer lines are
+        // `calibrated_interval`, matching the "sau hiệu chỉnh" wording in the
+        // note, and the centre is the median of `return_quantiles`.
         series: [
           {
             name: { vi: "Mức thấp của phạm vi", en: "Lower end of range" },
-            data: [-5.93, -11.88, -21.19],
+            data: [-7.41, -15.15, -27.23],
             type: "line",
-            color: "#c64032",
+            color: "#c0433a",
           },
           {
+            // The centre line is the forecast itself, so it takes the brand
+            // colour. The two edges previously sat one shade apart on the same
+            // green and could not be told from each other in the legend.
             name: { vi: "Kết quả ở trung tâm", en: "Central result" },
-            data: [-0.5, -0.96, -1.56],
+            data: [-1.78, -4.22, -7.5],
             type: "line",
-            color: "#0d1110",
+            color: "#3a72c4",
           },
           {
             name: { vi: "Mức cao của phạm vi", en: "Upper end of range" },
-            data: [4.03, 9.68, 18.74],
+            data: [3.99, 7.4, 15.15],
             type: "line",
-            color: "#16805d",
+            color: "#158f66",
           },
         ],
       },
     ],
     provenance: {
-      vi: "Số liệu lấy từ lần chạy GPU ngày 22/07/2026 và các tệp kết quả trong repo tại phiên bản mã nguồn nêu trên. Báo cáo thử nhanh cũ không được dùng. Website chưa tự chạy lại toàn bộ quá trình xây dựng mô hình.",
-      en: "Figures come from the completed GPU test and result files in the repository at the cited code version. An older quick test was excluded. The website has not independently rerun the full model-building process.",
+      vi: "Phần dự báo được tính lại trên dữ liệu đến ngày 06/08/2026. Các số liệu kiểm tra phía trên đến từ lần huấn luyện và kiểm định gần nhất; chúng chỉ thay đổi khi mô hình được huấn luyện lại, nên không cập nhật theo ngày. Mọi số liệu được trích trực tiếp từ tệp kết quả, không nhập lại bằng tay.",
+      en: "The forecast is recomputed on data through 6 Aug 2026. The test results above come from the most recent training and validation run; they change only when the model is retrained and so are not updated daily. All figures are read directly from the result files, not re-entered by hand.",
     },
   },
 };

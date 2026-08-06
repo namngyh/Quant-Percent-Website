@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.freshness import build_freshness
@@ -127,6 +127,57 @@ async def _metric_map(session: AsyncSession, slug: str) -> dict[str, float]:
     return {r.metric: r.value for r in rows}
 
 
+# VN-Index: the benchmark Vietnamese investors actually quote and can verify.
+#
+# VN30F1M is technically written on VN30, so VN30 is the closer underlying.
+# VN-Index is the index a reader will check the claim against, which is what
+# makes the comparison useful to them. The basis note on the page says the
+# two instruments differ.
+BENCHMARK_SYMBOL = "VNINDEX"
+
+
+async def _benchmark_by_year(
+    session: AsyncSession, folds, period_end
+) -> dict[int, float]:
+    """Index return over exactly the dates each fold was tested on.
+
+    Bounded by the fold's own year and by the report's end date, so a partial
+    final year is compared against the same partial period rather than against
+    a full calendar year it never traded.
+    """
+    if not folds:
+        return {}
+
+    out: dict[int, float] = {}
+    for f in folds:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT (array_agg(close ORDER BY trading_date))[1] AS first_close,
+                           (array_agg(close ORDER BY trading_date DESC))[1] AS last_close
+                    FROM api.v_history_1d
+                    WHERE symbol = :symbol
+                      AND trading_date >= make_date(:yr, 1, 1)
+                      AND trading_date <= LEAST(
+                            make_date(:yr, 12, 31), CAST(:period_end AS date)
+                          )
+                    """
+                ),
+                {
+                    "symbol": BENCHMARK_SYMBOL,
+                    "yr": f.test_year,
+                    "period_end": period_end,
+                },
+            )
+        ).mappings().first()
+        if row and row["first_close"] and float(row["first_close"]) > 0:
+            out[f.test_year] = round(
+                float(row["last_close"]) / float(row["first_close"]) - 1.0, 6
+            )
+    return out
+
+
 async def get_series(
     session: AsyncSession, strategy: Strategy
 ) -> PerformanceSeries:
@@ -156,6 +207,10 @@ async def get_series(
             .order_by(ReportFold.fold)
         )
     ).all()
+
+    benchmarks = await _benchmark_by_year(
+        session, fold_rows, strategy.period_end
+    )
 
     exit_rows = (
         await session.scalars(
@@ -210,6 +265,8 @@ async def get_series(
                     payoff=f.payoff,
                     max_drawdown_points=f.max_drawdown_points,
                     partial_year=f.partial_year,
+                    benchmark_pct=benchmarks.get(f.test_year),
+                    benchmark_symbol=BENCHMARK_SYMBOL if f.test_year in benchmarks else None,
                 )
                 for f in fold_rows
             ]

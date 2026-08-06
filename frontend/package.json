@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "catalogue:export": "tsx scripts/export-catalogue.ts",
-    "check:api": "tsx scripts/check-api.ts"
+    "check:api": "tsx scripts/check-api.ts",
+    "check:ui": "tsx scripts/screenshot.ts",
+    "research:sync": "tsx scripts/sync-research.ts",
+    "check:portfolio": "tsx scripts/check-portfolio.ts",
+    "check:copy": "tsx scripts/check-copy.ts",
+    "check:fonts": "tsx scripts/check-fonts.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -35,6 +40,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^16.3.0",
+    "puppeteer-core": "^25.5.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.5",
     "typescript": "^5"

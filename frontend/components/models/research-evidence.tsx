@@ -1,23 +1,55 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, GitCommit, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
+import { cn } from "@/lib/utils";
 import { DynamicNetwork } from "@/components/models/dynamic-network";
+import { ForecastFan } from "@/components/models/forecast-fan";
+import { NetworkClusters } from "@/components/models/network-clusters";
+import { NetworkRanking } from "@/components/models/network-ranking";
+import { RiskProfile } from "@/components/models/risk-profile";
 import type {
   ModelResearchProfile,
   ResearchChart,
   ResearchLocale,
 } from "@/config/model-research";
 
+/** A dashed horizontal reference at `value`, labelled with the target itself. */
+function targetLine(
+  value: number,
+  suffix: string,
+  color: string,
+  locale: ResearchLocale,
+) {
+  return {
+    silent: true,
+    symbol: "none",
+    label: {
+      formatter: `${value.toLocaleString(locale)}${suffix}`,
+      color,
+      fontFamily: CHART.mono,
+      fontSize: 11,
+      position: "insideEndTop" as const,
+    },
+    lineStyle: { color, type: "dashed" as const, width: 1.5, opacity: 0.7 },
+    data: [{ yAxis: value }],
+  };
+}
+
 function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreOption {
   const suffix = chart.valueSuffix ?? "";
+  const stacked = chart.series.some((s) => s.stack);
+  const barCount = chart.series.filter((s) => (s.type ?? "line") === "bar").length;
 
   return {
     animationDuration: 450,
+    // EvidenceChart renders the legend as HTML above the canvas, so the
+    // built-in one would be a second copy of the same swatches.
     legend: { show: false },
-    grid: { left: 8, right: 14, top: 12, bottom: 8, containLabel: true },
+    // Headroom at the top for the value labels printed above the tallest mark.
+    grid: { left: 8, right: 16, top: 22, bottom: 8, containLabel: true },
     xAxis: {
       type: "category",
       data: chart.categories,
@@ -31,7 +63,8 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
       max: chart.maximum,
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: CHART.border } },
+      // Grid lines recede behind the data rather than competing with it.
+      splitLine: { lineStyle: { color: CHART.surface } },
       axisLabel: {
         color: CHART.dim,
         formatter: `{value}${suffix}`,
@@ -42,39 +75,71 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
       valueFormatter: (value: unknown) =>
         typeof value === "number" ? `${value.toLocaleString(locale)}${suffix}` : String(value),
     },
-    series: chart.series.map((series, index) => ({
-      name: series.name[locale],
-      type: series.type ?? "line",
-      data: series.data,
-      stack: series.stack,
-      smooth: false,
-      symbol: "circle",
-      symbolSize: 7,
-      showSymbol: series.type !== "line" || series.data.length <= 12,
-      lineStyle: { width: 2.5, color: series.color },
-      itemStyle: {
-        color: series.color,
-        borderColor: "#ffffff",
-        borderWidth: series.type === "line" ? 2 : 0,
-        borderRadius: series.type === "bar" ? [4, 4, 0, 0] : 0,
-      },
-      emphasis: { focus: "series" },
-      ...(index === 0 && chart.baseline !== undefined
-        ? {
-            markLine: {
-              silent: true,
-              symbol: "none",
-              label: {
-                formatter: `${chart.baseline}${suffix}`,
-                color: CHART.dim,
-                position: "insideEndTop",
-              },
-              lineStyle: { color: CHART.faint, type: "dashed", width: 1 },
-              data: [{ yAxis: chart.baseline }],
-            },
-          }
-        : {}),
-    })),
+    series: chart.series.map((series, index) => {
+      const type = series.type ?? "line";
+      const isBar = type === "bar";
+      // Labels are worth printing on a handful of marks. A dozen of them
+      // stamped along a trend line turns the line into a wall of digits, and
+      // the tooltip already answers "what is this point worth".
+      const labelled = isBar || series.data.length <= 8;
+      return {
+        name: series.name[locale],
+        type,
+        // Bars that run below zero need their label under the bar; ECharts
+        // reads "top" literally and would park it on the zero line.
+        data:
+          isBar && !stacked
+            ? series.data.map((value) =>
+                value < 0 ? { value, label: { position: "bottom" as const } } : value,
+              )
+            : series.data,
+        stack: series.stack,
+        smooth: false,
+        symbol: "circle",
+        symbolSize: 8,
+        showSymbol: type !== "line" || series.data.length <= 12,
+        lineStyle: { width: 2, color: series.color },
+        // Slim bars with room between the groups. Thick blocks read as filler
+        // and crowd out the numbers printed on them.
+        ...(isBar
+          ? { barWidth: barCount > 1 ? "26%" : "34%", barGap: "24%" }
+          : {}),
+        itemStyle: {
+          color: series.color,
+          // A white edge separates stacked segments and keeps overlapping
+          // line markers legible against neighbouring marks.
+          borderColor: "#ffffff",
+          borderWidth: isBar ? (stacked ? 2 : 0) : 2,
+          borderRadius: isBar && !stacked ? [4, 4, 0, 0] : 0,
+        },
+        label: {
+          show: labelled,
+          position: stacked ? "inside" : "top",
+          distance: 6,
+          color: stacked ? "#ffffff" : CHART.ink,
+          fontFamily: CHART.mono,
+          fontSize: 11,
+          formatter: (p: { value: number }) =>
+            `${p.value.toLocaleString(locale)}${suffix}`,
+        },
+        // Where bars are narrow and values are small, neighbouring labels
+        // collide. Dropping the ones that would overlap keeps the rest
+        // readable; the tooltip still reports every value.
+        labelLayout: { hideOverlap: true },
+        emphasis: { focus: "series" },
+        // A target line belongs to the series it judges; a shared baseline is
+        // drawn once, on the first series, so it is not stamped repeatedly.
+        ...(series.target !== undefined
+          ? {
+              markLine: targetLine(series.target, suffix, series.color, locale),
+            }
+          : index === 0 && chart.baseline !== undefined
+            ? {
+                markLine: targetLine(chart.baseline, suffix, CHART.faint, locale),
+              }
+            : {}),
+      };
+    }),
   };
 }
 
@@ -108,11 +173,33 @@ function EvidenceChart({
       <EChart
         option={chartOption(chart, locale)}
         ariaLabel={`${chart.title[locale]}. ${chart.note[locale]}`}
-        className="mt-2 h-72 sm:h-80"
+        className="mt-2 h-96 sm:h-[26rem]"
       />
     </figure>
   );
 }
+
+/**
+ * Only the network model ships a per-stock research export, so the ranking
+ * table and cluster charts key off the same marker the relationship map uses.
+ */
+const NETWORK_VISUAL = "/research/dynamic-graph-network.png";
+
+/** The Monte-Carlo model owns the market-wide risk run. */
+const RISK_MODEL = "rarf-fhe";
+
+/**
+ * Which index each research model forecasts.
+ *
+ * `dynamic-graph` is deliberately absent. It describes market structure and
+ * publishes no forecast, so there is no distribution for the fan chart to
+ * draw and the block is skipped entirely rather than rendering empty.
+ */
+const FORECAST_SYMBOL: Record<string, string> = {
+  "raemf-mc": "VNINDEX",
+  "rarf-fhe": "VNINDEX",
+  msdp: "VNINDEX",
+};
 
 export function ResearchEvidence({
   profile,
@@ -121,7 +208,8 @@ export function ResearchEvidence({
   profile: ModelResearchProfile;
   locale: ResearchLocale;
 }) {
-  const sourceCommit = profile.sourceCommit.slice(0, 8);
+  // Absent means the model publishes no forecast, not "default to the index".
+  const forecastSymbol = FORECAST_SYMBOL[profile.slug];
 
   return (
     <>
@@ -141,24 +229,17 @@ export function ResearchEvidence({
       </section>
 
       <section aria-labelledby="research-metrics">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
-              {locale === "vi" ? "Số liệu kiểm tra" : "Test results"}
-            </p>
-            <h2 id="research-metrics" className="title-md mt-2">
-              {locale === "vi" ? "Mô hình đã được kiểm tra ra sao?" : "How was the model tested?"}
-            </h2>
-          </div>
-          <a
-            href={profile.repoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="arrow-link inline-flex min-h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-brand hover:border-brand hover:bg-brand-soft"
-          >
-            {locale === "vi" ? "Xem dữ liệu và mã nguồn" : "View data and source code"}
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-          </a>
+        {/* No link to the model repository. The methodology below is what is
+            published; the implementation is not. */}
+        <div>
+          <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
+            {locale === "vi" ? "Số liệu kiểm tra" : "Test results"}
+          </p>
+          <h2 id="research-metrics" className="title-md mt-2">
+            {locale === "vi"
+              ? "Mô hình đã được kiểm tra ra sao?"
+              : "How was the model tested?"}
+          </h2>
         </div>
 
         <dl className="mt-7 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
@@ -171,12 +252,36 @@ export function ResearchEvidence({
           ))}
         </dl>
 
-        <div className="mt-8 grid gap-6 desk:grid-cols-2">
+        <div
+          className={cn(
+            "mt-8 grid gap-6",
+            // A single chart spans the row; two or more share it.
+            profile.charts.length > 1 && "desk:grid-cols-2",
+          )}
+        >
           {profile.charts.map((chart) => (
             <EvidenceChart key={chart.id} chart={chart} locale={locale} />
           ))}
         </div>
       </section>
+
+      {/* Each model gets the view that matches what it publishes. The network
+          model ranks stocks; the forecasting models publish a distribution,
+          and each block removes itself when its model publishes nothing. */}
+      {profile.visual?.src === NETWORK_VISUAL && (
+        <>
+          <NetworkRanking locale={locale} asOf={profile.artifactDate} />
+          <NetworkClusters locale={locale} />
+        </>
+      )}
+      {forecastSymbol && (
+        <ForecastFan
+          slug={profile.slug}
+          symbol={forecastSymbol}
+          locale={locale}
+        />
+      )}
+      {profile.slug === RISK_MODEL && <RiskProfile locale={locale} />}
 
       {profile.visual && (
         <section aria-labelledby="research-visual">
@@ -235,14 +340,19 @@ export function ResearchEvidence({
         </div>
       </section>
 
-      <section className="border-t border-border pt-6" aria-label={locale === "vi" ? "Nguồn và cách đối chiếu" : "Sources and verification"}>
+      {/* Provenance without internals. The date tells a reader how current the
+          figures are, which is the part that concerns them. Commit hashes and
+          internal run identifiers are build detail and are not published. */}
+      <section
+        className="border-t border-border pt-6"
+        aria-label={locale === "vi" ? "Nguồn số liệu" : "Data provenance"}
+      >
         <div className="flex flex-wrap gap-x-6 gap-y-3 text-xs text-dim">
           <span className="inline-flex items-center gap-2">
-            <GitCommit className="h-4 w-4" aria-hidden="true" />
-            commit {sourceCommit}
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            {locale === "vi" ? "Kết quả cập nhật" : "Results updated"}:{" "}
+            {profile.artifactDate}
           </span>
-          <span>{locale === "vi" ? "Kết quả cập nhật" : "Results updated"}: {profile.artifactDate}</span>
-          {profile.runId && <span>run {profile.runId}</span>}
         </div>
         <p className="mt-3 max-w-4xl text-xs leading-relaxed text-dim">
           {profile.provenance[locale]}

@@ -16,6 +16,12 @@ interface DataStateProps {
   empty?: boolean;
   /** Freshness block from the payload. Renders a notice when is_stale. */
   freshness?: Freshness;
+  /**
+   * Drop the block entirely instead of reporting anything. For content the
+   * API declines to publish by design — a model with no forecast — where an
+   * error or "no data" panel would describe a fault that does not exist.
+   */
+  hidden?: boolean;
   skeletonRows?: number;
   className?: string;
   children: React.ReactNode;
@@ -32,11 +38,14 @@ export function DataState({
   onRetry,
   empty,
   freshness,
+  hidden,
   skeletonRows = 4,
   className,
   children,
 }: DataStateProps) {
   const t = useTranslations("common.dataState");
+
+  if (hidden) return null;
 
   if (loading) {
     return (

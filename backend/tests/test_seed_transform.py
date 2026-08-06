@@ -12,7 +12,22 @@ import pytest
 
 from scripts.seed_catalogue import NOTIONAL_POINTS, _metric_rows, load_catalogue
 
-FRONTEND = Path(__file__).resolve().parents[2] / "quantpercentFE"
+
+def _find_frontend() -> Path:
+    """Locate the website repo next to this one.
+
+    It is `frontend/` in the monorepo and `quantpercentFE/` in the older
+    split-repo layout. Picking the wrong name does not fail loudly — the
+    whole module just skips, which is how these checks stopped running.
+    """
+    root = Path(__file__).resolve().parents[2]
+    for name in ("frontend", "quantpercentFE"):
+        if (root / name / "config" / "catalogue.json").exists():
+            return root / name
+    return root / "frontend"
+
+
+FRONTEND = _find_frontend()
 CATALOGUE = FRONTEND / "config" / "catalogue.json"
 
 pytestmark = pytest.mark.skipif(

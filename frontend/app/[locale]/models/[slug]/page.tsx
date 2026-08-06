@@ -8,6 +8,7 @@ import { MemberGate } from "@/components/models/member-gate";
 import { Architecture } from "@/components/models/architecture";
 import { ValidatedPerformance } from "@/components/models/validated-performance";
 import { ResearchEvidence } from "@/components/models/research-evidence";
+import { cn } from "@/lib/utils";
 import {
   CurrentOutput,
   ForecastChart,
@@ -48,16 +49,23 @@ export default async function ModelDetailPage({
   const overviewRows: { label: string; value: React.ReactNode }[] = [
     { label: t("detail.problem"), value: t(`categories.${model.category}`) },
     { label: t("detail.assets"), value: model.markets.join(", ") },
-    {
-      label: t("detail.horizons"),
-      value: model.horizons
-        .map((h) =>
-          research
-            ? `${h} ${l === "vi" ? "phiên" : h === 1 ? "session" : "sessions"}`
-            : tc("horizonDays", { count: h })
-        )
-        .join(" · "),
-    },
+    // A model that publishes no forecast has no forecast horizons. Showing
+    // the label above an empty cell reads as missing data rather than as a
+    // field that does not apply, so the row is dropped instead.
+    ...(model.horizons.length > 0
+      ? [
+          {
+            label: t("detail.horizons"),
+            value: model.horizons
+              .map((h) =>
+                research
+                  ? `${h} ${l === "vi" ? "phiên" : h === 1 ? "session" : "sessions"}`
+                  : tc("horizonDays", { count: h })
+              )
+              .join(" · "),
+          },
+        ]
+      : []),
     { label: t("detail.version"), value: `v${model.version}` },
   ];
 
@@ -85,7 +93,15 @@ export default async function ModelDetailPage({
           <StatusBadge status={model.status} />
         </div>
 
-        <dl className="mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
+        {/* Column count follows the number of facts. A fixed four-column
+            grid leaves an empty white cell when a model has no forecast
+            horizons to report, which reads as a rendering fault. */}
+        <dl
+          className={cn(
+            "mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2",
+            overviewRows.length >= 4 ? "desk:grid-cols-4" : "desk:grid-cols-3",
+          )}
+        >
           {overviewRows.map((row) => (
             <div key={row.label} className="bg-background p-5">
               <dt className="text-[11px] uppercase tracking-[0.08em] text-dim">

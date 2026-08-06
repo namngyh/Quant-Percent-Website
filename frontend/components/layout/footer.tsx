@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { key: "market", href: "/market-intelligence" },
   { key: "models", href: "/models" },
   { key: "performance", href: "/performance" },
+  { key: "portfolio", href: "/quant-portfolio" },
   { key: "about", href: "/about" },
   { key: "contact", href: "/contact" },
 ] as const;
@@ -21,8 +22,8 @@ export async function Footer() {
         <div className="grid gap-10 desk:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <Brand />
+            {/* One brand line, nothing beneath it. */}
             <p className="mt-3 text-[15px] text-white/75">{t("tagline")}</p>
-            <p className="figure mt-2 text-[13px] text-white/50">{t("philosophy")}</p>
           </div>
           <nav aria-label={t("nav")}>
             <p className="eyebrow text-brand-soft">{t("nav")}</p>

@@ -9,9 +9,10 @@ import { IndexTab } from "@/components/market/index-tab";
 import { FuturesTab } from "@/components/market/futures-tab";
 import { StocksTab } from "@/components/market/stocks-tab";
 import { RiskTab } from "@/components/market/risk-tab";
+import { LIVE_SECTIONS } from "@/config/live-sections";
 import { cn } from "@/lib/utils";
 
-const TABS = [
+const ALL_TABS = [
   { id: "overview", key: "overview" },
   { id: "vnindex", key: "vnindex" },
   { id: "vn30", key: "vn30" },
@@ -20,7 +21,14 @@ const TABS = [
   { id: "risk", key: "risk" },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof ALL_TABS)[number]["id"];
+
+/** Tabs whose data the model pipeline has not produced yet stay hidden. */
+const TABS = ALL_TABS.filter(
+  (tab) =>
+    (tab.id !== "risk" || LIVE_SECTIONS.risk) &&
+    (tab.id !== "stocks" || LIVE_SECTIONS.stockRankings)
+);
 
 /** Active tab lives in ?tab= so views are linkable. */
 export function MarketTabs() {

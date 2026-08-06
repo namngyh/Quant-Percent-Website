@@ -37,16 +37,25 @@ class History(Freshness):
 
 
 class MarketOverview(Freshness):
+    """Index quotes plus the model's read on the market.
+
+    Quotes come from the ingestion feed and are always present. Everything
+    below them is produced by the model pipeline and is null until a run has
+    written to quant.market_state — a missing regime must read as missing,
+    never as a neutral-looking default (spec: a metric the run did not
+    produce serialises as null, never 0).
+    """
+
     quotes: list[Quote]
-    regime: Regime
-    regime_probability: float
-    probability_up: float
-    probability_down: float
-    volatility: float
-    risk_state: RiskState
-    risk_score: int
-    model_consensus: float
-    public_signal: PublicSignal
+    regime: Regime | None = None
+    regime_probability: float | None = None
+    probability_up: float | None = None
+    probability_down: float | None = None
+    volatility: float | None = None
+    risk_state: RiskState | None = None
+    risk_score: int | None = None
+    model_consensus: float | None = None
+    public_signal: PublicSignal | None = None
 
 
 class StockRow(ApiModel):
@@ -85,3 +94,17 @@ class RiskDashboard(Freshness):
     mc_drawdown_distribution: list[McBucket]
     mc_paths: int
     stress_scenarios: list[StressScenario]
+
+
+class TradableSymbol(ApiModel):
+    """A stock the portfolio tools can price, with the depth of its history."""
+
+    symbol: str
+    name: str
+    exchange: str
+    sector: str | None
+    sessions: int
+
+
+class TradableSymbols(Freshness):
+    rows: list[TradableSymbol]

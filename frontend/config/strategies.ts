@@ -49,14 +49,14 @@ export interface StrategyConfig {
 /** Shared caveats. Every published run predates the 2026-07-04 fill fix. */
 const COMMON_CAVEATS: LocalizedList = {
   vi: [
-    "Đây là kết quả mô phỏng, không phải giao dịch thật. Quant Percent chưa vận hành giao dịch thử nghiệm hoặc giao dịch thực tế cho hệ thống này.",
-    "Số liệu được tạo trước khi cách mô phỏng khớp lệnh được sửa ngày 04/07/2026. Cách tính mới thận trọng hơn khi giá mở cửa vượt qua mức dừng lỗ. Vì kết quả cũ có thể tốt hơn thực tế, toàn bộ báo cáo sẽ được chạy và công bố lại.",
+    "Kết quả mô phỏng trên dữ liệu lịch sử. Hệ thống chưa được đưa vào giao dịch thật.",
+    "Số liệu chạy trên phương pháp mô phỏng khớp lệnh trước ngày 04/07/2026. Phương pháp hiện tại xử lý thận trọng hơn với các phiên mở cửa vượt mức dừng lỗ; vì phương pháp cũ có thể cho kết quả thuận lợi hơn, báo cáo đang được chạy lại theo chuẩn hiện tại.",
     "Lợi nhuận công bố chưa trừ chi phí giao dịch. Ảnh hưởng của chi phí được trình bày riêng trong báo cáo chạy nhiều lần.",
     "Tỷ lệ phần trăm được tính trên mức vốn giả định 1.000 điểm chỉ số, tương đương 100.000.000 VND theo mệnh giá 100.000 VND mỗi điểm. Mức giảm từ đỉnh được tính trên đường tăng trưởng vốn.",
   ],
   en: [
-    "Simulated results, not live trading. Quant Percent has not run paper trading or live trading for this system.",
-    "These figures were produced before the order simulation was corrected on 4 July 2026. The new method is more cautious when the opening price moves beyond a stop level. Because the earlier figures may be too optimistic, every report will be rerun and republished.",
+    "Simulated results on historical data. The system has not been put into live trading.",
+    "These figures ran under the order-fill method used before 4 July 2026. The current method treats sessions that open beyond a stop level more conservatively; because the earlier method can read more favourably, the reports are being rerun to the current standard.",
     "Published profit does not include transaction costs. A separate 50-run report shows how costs affect the result.",
     "Percentages use an assumed starting value of 1,000 index points, equal to 100,000,000 VND at 100,000 VND per point. The largest decline is measured from the highest previous portfolio value.",
   ],

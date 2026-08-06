@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useApi } from "@/lib/api/fetcher";
-import type { StrategyMetrics } from "@/lib/api/types";
+import type { PerformanceSeries, StrategyMetrics } from "@/lib/api/types";
 import { FEATURED_STRATEGY } from "@/config/strategies";
 import { DataState } from "@/components/states/data-state";
 import { DataFreshnessLabel } from "@/components/states/data-freshness-label";
@@ -19,6 +19,12 @@ export function PerformancePreview() {
   const metrics = useApi<StrategyMetrics>(
     `/api/v1/strategies/${FEATURED_STRATEGY}/metrics`
   );
+  // The per-year breakdown sits beside the headline so a visitor sees the
+  // losing year here rather than having to open the report to find it.
+  const series = useApi<PerformanceSeries>(
+    `/api/v1/strategies/${FEATURED_STRATEGY}/performance`
+  );
+  const folds = series.data?.folds ?? [];
 
   const m = metrics.data?.metrics;
 
@@ -80,7 +86,40 @@ export function PerformancePreview() {
                   ))}
                 </dl>
 
-                <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-dim">
+                {folds.length > 0 && (
+                  <div className="mt-6 border-t border-border pt-5">
+                    <p className="text-[11px] uppercase tracking-[0.06em] text-dim">
+                      {t("byYear")}
+                    </p>
+                    <ul className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+                      {folds.map((f) => (
+                        <li key={f.fold}>
+                          <span className="figure text-xs text-dim">
+                            {f.test_year}
+                            {f.partial_year ? "*" : ""}
+                          </span>
+                          <span
+                            className={
+                              f.net_points < 0
+                                ? "figure ml-2 text-sm font-semibold text-negative"
+                                : "figure ml-2 text-sm font-semibold text-positive"
+                            }
+                          >
+                            {fmtNumber(f.net_points, locale, {
+                              maximumFractionDigits: 0,
+                              signDisplay: "always",
+                            })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {folds.some((f) => f.partial_year) && (
+                      <p className="mt-2 text-xs text-dim">{t("partialNote")}</p>
+                    )}
+                  </div>
+                )}
+
+                <p className="mt-5 border-t border-border pt-4 text-xs leading-relaxed text-dim">
                   {tp("labelNote")}
                 </p>
                 <DataFreshnessLabel

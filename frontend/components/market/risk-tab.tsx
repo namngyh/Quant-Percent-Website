@@ -139,7 +139,7 @@ export function RiskTab() {
             <EChart
               option={mcOption}
               ariaLabel={t("mcDistribution")}
-              className="mt-4 h-64"
+              className="mt-4 h-[26rem]"
             />
           </div>
 

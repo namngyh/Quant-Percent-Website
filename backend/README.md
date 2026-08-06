@@ -284,6 +284,46 @@ Chi tiết từng endpoint — tham số, trường trả về, mã lỗi, giớ
 
 Đây mới là lớp khoá thật; hiệu ứng làm mờ trên website chỉ là trình bày.
 
+## Gửi email
+
+Biểu mẫu liên hệ **luôn lưu vào database**; email chỉ là thông báo thêm. Không
+cấu hình gì thì không có email nào được gửi và không có gì hỏng.
+
+Hai cách, chọn một. Điền cả hai thì Resend được ưu tiên.
+
+| | Resend | Gmail SMTP |
+|---|---|---|
+| Cần | Verify domain bằng bản ghi DNS | App Password của Google |
+| Địa chỉ gửi | Bất kỳ `@quantpercent.com` | Bắt buộc là chính hộp Gmail đó |
+| Hợp khi | Đã có quyền quản lý DNS | Muốn chạy ngay, chưa đụng DNS |
+
+### Gmail SMTP
+
+1. Bật **xác thực 2 bước** cho tài khoản Google.
+2. Vào <https://myaccount.google.com/apppasswords>, tạo App Password mới.
+3. Điền vào `.env`:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=quantpercent@gmail.com
+SMTP_PASSWORD=<16 ky tu App Password>
+CONTACT_NOTIFY_EMAIL=quantpercent@gmail.com
+```
+
+Khởi động lại backend.
+
+Gmail chỉ chấp nhận `From` trùng hộp thư đã đăng nhập. `EMAIL_FROM` mặc định là
+`noreply@quantpercent.com` nên backend **tự thay địa chỉ** bằng `SMTP_USER` và
+giữ nguyên tên hiển thị — nếu không, Gmail lặng lẽ nuốt thư. Hành vi này được
+khoá bằng test trong `tests/test_email.py`.
+
+Giới hạn Gmail: khoảng 500 thư/ngày với tài khoản thường. Đủ cho biểu mẫu liên
+hệ và email đặt lại mật khẩu.
+
+Gửi thư dùng thư viện chuẩn `smtplib` chạy trong worker thread, nên máy chủ mail
+chậm không làm nghẽn request.
+
 ## Auth
 
 - Mật khẩu băm bằng **Argon2id**, không bao giờ ghi log.

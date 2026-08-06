@@ -12,6 +12,9 @@ import { getSeries } from "@/lib/performance/reports";
  * reports read as "here is Model Modus and how it performed" rather than
  * three unexplained cards.
  */
+/** The run this page publishes. */
+const WALK_FORWARD = "vn30f1m-walk-forward";
+
 export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
   const model = getModel(systemSlug);
   if (!model) return null;
@@ -19,10 +22,13 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
   const locale = (await getLocale()) as "vi" | "en";
   const t = await getTranslations("performance.system");
 
-  const reports = strategiesForSystem(systemSlug);
-  const periods = reports.flatMap((r) => [r.periodStart, r.periodEnd]).sort();
+  // The page publishes one run: the walk-forward test spanning 2024-2026.
+  const report = strategiesForSystem(systemSlug).find(
+    (r) => r.slug === WALK_FORWARD
+  );
 
-  // Real equity curve of the walk-forward-adjacent run, as a quiet visual
+  // Real equity curve of the seed study, as a quiet visual. It is a different
+  // run from the one this page reports, which the caption states.
   const curve = getSeries("vn30f1m-multiseed-test")?.points ?? [];
 
   const facts = [
@@ -30,9 +36,11 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
     { label: t("timeframe"), value: locale === "vi" ? "5 phút" : "5 minutes" },
     {
       label: t("evaluated"),
-      value: `${periods[0].slice(0, 4)}–${periods[periods.length - 1].slice(0, 4)}`,
+      value: report
+        ? `${report.periodStart.slice(0, 4)}–${report.periodEnd.slice(0, 4)}`
+        : "—",
     },
-    { label: t("runs"), value: String(reports.length) },
+    { label: t("method"), value: t("methodValue") },
   ];
 
   return (
@@ -52,7 +60,7 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
             {model.tagline[locale]}
           </p>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-dim">
-            {t("reportsLead", { count: reports.length })}
+            {t("reportsLead")}
           </p>
 
           <Link

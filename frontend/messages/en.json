@@ -48,6 +48,10 @@
     "forgotPassword": {
       "title": "Forgot password",
       "description": "Recover access to your Quant Percent account."
+    },
+    "portfolio": {
+      "title": "Quant Portfolio — portfolio risk analysis",
+      "description": "Enter a stock portfolio to see its value, profit, volatility, potential loss and which holding contributes most of the risk."
     }
   },
   "nav": {
@@ -59,11 +63,11 @@
     "contact": "Contact",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "language": "Language"
+    "language": "Language",
+    "portfolio": "Quant Portfolio"
   },
   "footer": {
-    "tagline": "Understand Vietnam's Markets Through Data.",
-    "philosophy": "Clear data. Rigorous testing. Transparent risk.",
+    "tagline": "Quant Percent, One Percent",
     "nav": "Navigation",
     "resources": "Resources",
     "legalNav": "Legal",
@@ -74,7 +78,7 @@
     "copyright": "© {year} Quant Percent. All rights reserved."
   },
   "common": {
-    "mockNotice": "The Market Analysis section currently uses illustrative data. Models and Performance use published research results with sources and limitations stated.",
+    "mockNotice": "Market data is updated from Quant Percent's own collection system. Model output and performance figures come from research reports, each stating its data period and scope.",
     "illustrative": "Illustrative",
     "researchOutput": "Research output",
     "dataState": {
@@ -182,7 +186,7 @@
       "eyebrow": "What we publish",
       "title": "Research with clear evidence and limits",
       "models": "models in the research catalogue",
-      "strategies": "Model Modus validation reports",
+      "strategies": "years tested: 2024, 2025, 2026",
       "horizons": "forecast periods from 1 to 60 sessions",
       "validation": "multiple checks of result stability",
       "focus": "Vietnam-focused research"
@@ -197,12 +201,49 @@
       "eyebrow": "Test results",
       "title": "More than a return number",
       "description": "Each report shows returns alongside losses from peak, trading costs, the data period and remaining uncertainty.",
-      "cta": "View Results and Risks"
+      "cta": "View Results and Risks",
+      "byYear": "Year by year",
+      "partialNote": "* 2026 has data through 30 June only"
     },
     "cta": {
       "title": "Want to discuss a model or a research partnership?",
       "contact": "Talk to Us",
       "register": "Leave Your Details"
+    },
+    "portfolio": {
+      "eyebrow": "Quant Portfolio",
+      "title": "Where is your portfolio carrying risk?",
+      "description": "An account statement shows what share of the portfolio each holding represents, but not which holding contributes most of the risk. The two figures often diverge substantially. Enter your holdings and the system measures them against the price history of those stocks.",
+      "example": "An actual result from the tool: “VIC represents 36.2% of portfolio value but contributes 74.0% of total risk.”",
+      "cta": "Analyse my portfolio",
+      "noSignup": "No sign-up, nothing stored",
+      "step1": {
+        "title": "Enter what you hold",
+        "body": "Ticker and share count. Every stock listed on HOSE is supported. Cost basis is optional."
+      },
+      "step2": {
+        "title": "See where the risk sits",
+        "body": "Compare each holding's share of capital against its share of risk, the effective level of diversification, and the most correlated pair."
+      },
+      "step3": {
+        "title": "Know the possible loss",
+        "body": "Loss thresholds, the deepest decline and the probability of a decline ahead, expressed in dong alongside percentages."
+      }
+    },
+    "comparison": {
+      "eyebrow": "Against the market",
+      "title": "Higher return than the market, at lower risk",
+      "description": "From the start of 2024 to mid 2026, Model Modus achieved a higher increase in capital than {benchmark} while holding a position about a fifth of the time and recording a materially smaller decline. That combination is what merits attention in a rule-based system.",
+      "start": "Start 2024",
+      "benchmarkLabel": "{benchmark} index",
+      "drawdownLabel": "Deepest fall",
+      "drawdownNote": "Over the same period {benchmark} declined {benchmarkValue}, roughly {ratio} times deeper. This is the loss a holder had to absorb before the portfolio recovered.",
+      "exposureLabel": "Share of time holding a position",
+      "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
+      "sharpeLabel": "Return against volatility",
+      "sharpeNote": "The Sharpe ratio, measuring return earned per unit of volatility accepted. A value above 1 is generally considered good.",
+      "basisNote": "The two lines are not the same kind of number. Model Modus trades the leveraged VN30F1M futures contract, quoted on 1,000 points of assumed capital and before transaction costs; {benchmark} is an unleveraged index return, compounded yearly. What they share is the period and the trading days. The index return is computed from Quant Percent's own price data and was not part of the original run. These are simulated results on historical data, not live trading, and not a promise about the future. The 2026 period runs to 30 June.",
+      "cta": "See the full test results"
     }
   },
   "market": {
@@ -344,19 +385,19 @@
   },
   "performance": {
     "title": "Test Results",
-    "description": "Research results for Model Modus on VN30F1M futures. Each report states the data period, testing method and included costs. Different test designs are shown separately.",
-    "labelNote": "All current figures come from historical simulation, not real trading, and do not guarantee future results. The model may perform worse when market conditions change.",
-    "restatementNote": "The figures below were produced before the 4 July 2026 execution-fill correction, which makes fill assumptions stricter. All reports will be re-run and restated once that work completes.",
-    "reportsHeading": "Test runs",
+    "description": "Model Modus is Quant Percent's main trading system, running on VN30F1M futures. This page publishes its 2024–2026 test: the model learned only from earlier years and was then tested on the following one, so the result does not depend on knowing the future.",
+    "labelNote": "Every figure on this page comes from simulation on historical data. These are research results, not live trading, and not a commitment about future performance.",
+    "restatementNote": "The order-fill simulation was tightened on 4 July 2026 to treat sessions that open beyond a stop level more conservatively. The reports below were produced under the earlier method and are being rerun to the new standard.",
     "system": {
       "eyebrow": "System",
-      "reportsLead": "The {count} reports below are separate tests of the same system. They differ in data period and test design, not in product.",
+      "reportsLead": "The result below comes from a single evaluation spanning the whole 2024–2026 period, tested in chronological order.",
       "learnMore": "Explore {name}",
       "market": "Market",
       "timeframe": "Timeframe",
       "evaluated": "Evaluated",
-      "runs": "Test runs",
-      "curveCaption": "Capital change from the middle-ranked run, using 2025–2026 data"
+      "curveCaption": "Illustration: capital of a separate run on 2025–2026 data",
+      "method": "Test method",
+      "methodValue": "Chronological"
     },
     "strategyCard": {
       "period": "Period",
@@ -377,9 +418,8 @@
       "updated": "Last updated",
       "seeds": "Runs",
       "modelVersion": "Model version",
-      "codeVersion": "Code revision",
       "source": "Data source",
-      "caveatsTitle": "What to know before reading the report",
+      "caveatsTitle": "Scope and limitations",
       "equityCurve": "Capital change over time",
       "drawdown": "Decline from the latest peak",
       "returnDistribution": "Per-trade profit distribution",
@@ -457,7 +497,46 @@
         "maxConsecutiveLosses": "Longest losing streak",
         "benchmarkReturn": "Benchmark return"
       },
-      "notFound": "Strategy not found."
+      "notFound": "Strategy not found.",
+      "metricGroups": {
+        "headline": "Headline results",
+        "headlineNote": "The four figures that matter most in this test.",
+        "returns": "Returns",
+        "returnsNote": "What the system made, and how that compares with a simple benchmark.",
+        "risk": "Risk taken",
+        "riskNote": "The deepest fall from a peak, and how steady the equity curve was.",
+        "tradeQuality": "Trade quality",
+        "tradeQualityNote": "Average win and loss per trade, and the ratio between them.",
+        "riskAdjusted": "Return per unit of risk",
+        "riskAdjustedNote": "Measures that weigh return against the risk taken. Only comparable between reports that compute them the same way.",
+        "breakdown": "Long and short breakdown",
+        "breakdownNote": "Results split by long positions, short positions and time in market.",
+        "showDetail": "Show detailed metrics",
+        "hideDetail": "Collapse"
+      }
+    },
+    "overview": {
+      "eyebrow": "2024–2026 result",
+      "heading": "What did Model Modus do over 2024–2026?",
+      "lead": "This is the only evaluation covering the whole 2024–2026 period. In each year the model learned only from earlier data and was then tested on the following year, so the result does not depend on knowing the future.",
+      "totalReturnNote": "on 1,000 points of assumed capital, before transaction costs",
+      "annualNote": "expressed as an average year",
+      "drawdownNote": "{points}, measured against the equity peak at the time. Restated on the 1,000-point starting capital — the same base as the total return — that is {onNotional}.",
+      "tradesNote": "total trades taken over the period",
+      "byYear": "Year by year",
+      "byYearNote": "A single total for the period can obscure a losing year. The table below separates each one. 2026 has data through 30 June only and is currently at a loss.",
+      "fullReport": "Read the full 2024–2026 report"
+    },
+    "charts": {
+      "heading": "Year by year over 2024–2026",
+      "lead": "The three charts below describe the same run, at the level of detail that run recorded: a summary per test year.",
+      "cumulativeTitle": "Cumulative capital across the three test years",
+      "cumulativeNote": "Cumulative profit in index points, accumulated across the test years. The 2026 result reduces this total.",
+      "yearlyTitle": "Each year on its own",
+      "yearlyNote": "Each bar is one year's independent result, not a running total. The red bar marks the year that recorded a loss.",
+      "qualityTitle": "Win rate against payoff",
+      "qualityNote": "The system wins fewer than half its trades. Profit comes from winning trades being larger than losing ones; when that ratio deteriorates, the year turns negative.",
+      "seriesCaveat": "The 2024–2026 run stored a summary per test year rather than the profit of each individual trade, so a detailed equity curve cannot be drawn for this period. The deepest fall within a single year was {drawdown}."
     }
   },
   "about": {
@@ -465,7 +544,7 @@
     "whatTitle": "What Quant Percent is",
     "whatText": "Quant Percent is a data-driven market research group. We build models to understand market direction, estimate risk and test rule-based trading methods in Vietnam.",
     "whyTitle": "Why we exist",
-    "whyText": "Quant Percent was created so investors can see results together with how they were tested and what risks remain. We publish weaknesses and unsuccessful findings, not only favourable numbers.",
+    "whyText": "Quant Percent exists so investors can see results together with how they were tested and the risk involved. Every report states its data period, validation method and scope.",
     "focusTitle": "Market focus",
     "focusText": "We focus on the VN-Index, the VN30 equity basket and VN30F1M index futures. This defined scope helps us keep data collection, model development and validation consistent.",
     "philosophyTitle": "Research philosophy",
@@ -475,7 +554,13 @@
     "visionTitle": "Long-term vision",
     "visionText": "To build an asset management organization in Vietnam where decisions are based on data, technology and a clear risk process.",
     "developingTitle": "Areas under development",
-    "developingItems": ["Multi-horizon forecasting for indices and stocks", "Quantitative trading systems for derivatives", "Equity analytics and ranking platform", "Risk measurement and simulation tools", "Data infrastructure and model monitoring"],
+    "developingItems": [
+      "Multi-horizon forecasting for indices and stocks",
+      "Quantitative trading systems for derivatives",
+      "Equity analytics and ranking platform",
+      "Risk measurement and simulation tools",
+      "Data infrastructure and model monitoring"
+    ],
     "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website."
   },
   "contact": {
@@ -517,15 +602,42 @@
     "title": "Legal",
     "intro": "Please read the following terms carefully before using content on the Quant Percent website.",
     "items": [
-      { "title": "Nature of content", "text": "Quant Percent is currently a quantitative research group. Content on this website is provided for informational and research purposes only and does not constitute personalized investment advice, an offer to invest, or any guarantee of returns." },
-      { "title": "Forecast uncertainty", "text": "All forecasts carry uncertainty. Forecast intervals and probabilities are statistical estimates, not commitments about outcomes." },
-      { "title": "Past results", "text": "Past results, including backtests and paper trading, do not guarantee future outcomes." },
-      { "title": "Backtest limitations", "text": "Backtests are built on historical data and may be affected by overfitting, selection bias and execution assumptions." },
-      { "title": "Paper trading", "text": "Paper trading is simulated operation and differs from live trading in execution, liquidity, costs and psychology." },
-      { "title": "Data delays and revisions", "text": "Displayed data may lag real time and may be revised as data sources update." },
-      { "title": "Model changes", "text": "Models are under continuous research and may change, be paused or be removed without notice." },
-      { "title": "User responsibility", "text": "Users are solely responsible for their own investment decisions. Trading securities and derivatives carries risk of capital loss." },
-      { "title": "No substitute for professional advice", "text": "Information on this website does not replace investment, legal or tax advice from licensed professionals." }
+      {
+        "title": "Nature of content",
+        "text": "Quant Percent is currently a quantitative research group. Content on this website is provided for informational and research purposes only and does not constitute personalized investment advice, an offer to invest, or any guarantee of returns."
+      },
+      {
+        "title": "Forecast uncertainty",
+        "text": "All forecasts carry uncertainty. Forecast intervals and probabilities are statistical estimates, not commitments about outcomes."
+      },
+      {
+        "title": "Past results",
+        "text": "Past results, including backtests and paper trading, do not guarantee future outcomes."
+      },
+      {
+        "title": "Backtest limitations",
+        "text": "Backtests are built on historical data and may be affected by overfitting, selection bias and execution assumptions."
+      },
+      {
+        "title": "Paper trading",
+        "text": "Paper trading is simulated operation and differs from live trading in execution, liquidity, costs and psychology."
+      },
+      {
+        "title": "Data delays and revisions",
+        "text": "Displayed data may lag real time and may be revised as data sources update."
+      },
+      {
+        "title": "Model changes",
+        "text": "Models are under continuous research and may change, be paused or be removed without notice."
+      },
+      {
+        "title": "User responsibility",
+        "text": "Users are solely responsible for their own investment decisions. Trading securities and derivatives carries risk of capital loss."
+      },
+      {
+        "title": "No substitute for professional advice",
+        "text": "Information on this website does not replace investment, legal or tax advice from licensed professionals."
+      }
     ],
     "reviewNote": "This content requires review by qualified legal counsel in Vietnam before the website goes into production."
   },
@@ -533,12 +645,30 @@
     "title": "Privacy Policy",
     "intro": "This policy describes how Quant Percent collects, uses and protects your personal data when you use this website.",
     "sections": [
-      { "title": "Data we collect", "text": "When you submit the contact form, we collect your name, email, phone and organization (if provided), inquiry type and message. The current version of the website does not require accounts." },
-      { "title": "How we use it", "text": "Contact data is used only to respond to your inquiry and, if you registered interest, to inform you about future research and partnership opportunities. We do not sell or share your data with third parties for advertising." },
-      { "title": "Storage and protection", "text": "Data is stored with access control and processed only by responsible personnel. We apply reasonable technical measures against unauthorized access." },
-      { "title": "Retention", "text": "Contact data is retained for as long as needed to handle your inquiry and at most 24 months after the last contact, unless the law requires otherwise." },
-      { "title": "Your rights", "text": "You may request access to, correction of, or deletion of your personal data by contacting us through the website form." },
-      { "title": "Cookies", "text": "This website uses only technical cookies necessary for operation (such as remembering your language). No advertising or third-party tracking cookies are used." }
+      {
+        "title": "Data we collect",
+        "text": "When you submit the contact form, we collect your name, email, phone and organization (if provided), inquiry type and message. The current version of the website does not require accounts."
+      },
+      {
+        "title": "How we use it",
+        "text": "Contact data is used only to respond to your inquiry and, if you registered interest, to inform you about future research and partnership opportunities. We do not sell or share your data with third parties for advertising."
+      },
+      {
+        "title": "Storage and protection",
+        "text": "Data is stored with access control and processed only by responsible personnel. We apply reasonable technical measures against unauthorized access."
+      },
+      {
+        "title": "Retention",
+        "text": "Contact data is retained for as long as needed to handle your inquiry and at most 24 months after the last contact, unless the law requires otherwise."
+      },
+      {
+        "title": "Your rights",
+        "text": "You may request access to, correction of, or deletion of your personal data by contacting us through the website form."
+      },
+      {
+        "title": "Cookies",
+        "text": "This website uses only technical cookies necessary for operation (such as remembering your language). No advertising or third-party tracking cookies are used."
+      }
     ]
   },
   "status": {
@@ -615,5 +745,132 @@
     "title": "Page not found",
     "description": "The page you are looking for does not exist or has been moved.",
     "backHome": "Back to home"
+  },
+  "portfolio": {
+    "eyebrow": "Quant Portfolio",
+    "title": "Where is your portfolio concentrating risk?",
+    "description": "Enter your holdings and the system measures the portfolio against the price history of those exact stocks: value, profit, volatility, potential loss and, most importantly, which holding contributes most of the risk. Every stock listed on HOSE is supported.",
+    "scopeNote": "This is a measurement tool, not investment advice. It does not recommend buying or selling anything. Every figure is computed from prices that have already happened, except the one block that names the model it came from.",
+    "form": {
+      "heading": "Current holdings",
+      "lead": "Enter a ticker and a share count. Every stock listed on HOSE is supported. Cost basis may be left blank when analysing a hypothetical portfolio; the profit columns then remain empty rather than showing inaccurate figures.",
+      "symbol": "Ticker",
+      "symbolPlaceholder": "FPT",
+      "quantity": "Shares",
+      "costBasis": "Cost basis (VND/share)",
+      "optional": "optional",
+      "remove": "Remove row",
+      "addRow": "Add a stock",
+      "cash": "Cash in the portfolio (VND)",
+      "cashNote": "Cash counts towards portfolio value but carries no risk.",
+      "horizon": "Investment period",
+      "horizonNote": "Used for the forward decline estimate.",
+      "horizons": {
+        "m1": "1 month",
+        "m3": "3 months",
+        "m6": "6 months",
+        "y1": "1 year"
+      },
+      "analyse": "Analyse portfolio",
+      "analysing": "Analysing…",
+      "privacy": "Your holdings are not retained. The data is sent for calculation and then discarded, never written to the database and never placed in the page URL.",
+      "errors": {
+        "quantity": "The share count for {symbol} is not valid.",
+        "duplicate": "{symbol} was entered twice.",
+        "empty": "At least one stock is needed to analyse."
+      },
+      "unknownSymbol": "not in the data",
+      "symbolHint": "Type a ticker or pick from the suggestions."
+    },
+    "errors": {
+      "notAnalysable": "The holdings do not share enough common price history to measure risk. Please remove recently listed or thinly traded stocks.",
+      "unknownSymbol": "One of the tickers was not found in the data.",
+      "contract": "The response did not match the expected format.",
+      "generic": "The analysis could not run just now. Please try again."
+    },
+    "result": {
+      "unpriced": "{count} ticker(s) lack enough price history and were left out: {symbols}. The figures below cover the rest of the portfolio.",
+      "overviewHeading": "Portfolio overview",
+      "totalValue": "Portfolio value",
+      "totalValueNote": "stocks {invested}, cash {cash}",
+      "profit": "Current profit",
+      "profitNote": "equal to {amount}",
+      "noCostBasis": "Not available",
+      "noCostBasisNote": "a cost basis is needed to compute profit",
+      "riskLevel": "Risk level",
+      "riskLevelNote": "annual volatility {vol}",
+      "riskState": {
+        "low": "Low",
+        "moderate": "Moderate",
+        "elevated": "Elevated",
+        "high": "High"
+      },
+      "beta": "Versus VN-Index",
+      "betaAbove": "moves about {pct} more than the market",
+      "betaBelow": "moves about {pct} less than the market",
+      "betaMissing": "not enough index data to compare",
+      "notAvailable": "Not available",
+      "standout": "{symbol} represents {weight} of portfolio value but contributes {risk} of total risk, owing to high volatility ({vol} a year) and a tendency to move with the rest of the portfolio.",
+      "contributionHeading": "Which holding concentrates the risk?",
+      "contributionLead": "Share of capital reflects the money allocated to each holding. Share of risk reflects that holding's responsibility for the movement of the whole portfolio. The two rarely coincide.",
+      "weightSeries": "Share of money",
+      "riskSeries": "Share of risk",
+      "colSymbol": "Ticker",
+      "colSector": "Sector",
+      "colPrice": "Price",
+      "colValue": "Value",
+      "colWeight": "Weight",
+      "colRisk": "Risk share",
+      "colVol": "Volatility",
+      "colBeta": "Beta",
+      "colProfit": "Profit",
+      "diversificationHeading": "Effective diversification",
+      "diversificationLead": "The portfolio holds {positions} stocks, but once co-movement between them is taken into account, its diversification is equivalent to about {bets} independent positions.",
+      "positions": "Holdings",
+      "positionsNote": "largest is {largest}",
+      "effectiveBets": "Independent positions",
+      "effectiveBetsNote": "after accounting for co-movement between holdings",
+      "avgCorrelation": "Average correlation",
+      "avgCorrelationNote": "the closer to 1, the more the holdings move together",
+      "topSector": "Largest sector",
+      "topSectorNote": "in {sector}",
+      "sectorMissing": "no sector data for these tickers",
+      "closestPair": "The most correlated pair is {a} and {b}, at {value}. Holding both is close to doubling a single position.",
+      "lossHeading": "Potential loss the portfolio may absorb",
+      "lossLead": "The figures below are measured on this portfolio's own last {days} sessions (about {months} months). They are recorded results, not forecasts.",
+      "var95": "95% loss threshold",
+      "es95": "Average loss beyond it",
+      "var95Note": "on the worst 5% of sessions, the one-day loss exceeds {amount}",
+      "es95Note": "the average loss across those worst 5% of sessions, about {amount}",
+      "maxDrawdown": "Deepest fall",
+      "maxDrawdownNote": "measured from the highest point in the period",
+      "downside": "Downside volatility",
+      "downsideNote": "counting declining sessions only",
+      "forwardHeading": "Chance of a decline ahead",
+      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios) and carries it across to the portfolio using a beta of {beta}.",
+      "colDecline": "Decline",
+      "colChance": "Chance",
+      "declineRow": "falls more than {pct} (about {amount})",
+      "forwardCaveat": "This is an indirect estimate: it carries the index's risk across by beta, so it does not capture risk specific to the individual holdings. A simulated probability is not a certainty.",
+      "provenanceLabel": "Data provenance",
+      "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions, current to {asOf}. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
+      "glossaryHeading": "How to read these figures",
+      "glossaryLead": "Explained using the portfolio just entered.",
+      "explain": {
+        "var95": "On average about one session in twenty is adverse. The 95% loss threshold indicates that on such a session the loss is typically {pct} or more, around {amount}. It marks where the adverse range begins, not the maximum loss.",
+        "es95": "A threshold identifies where the adverse range begins but not how severe it becomes. This figure is the average loss across those adverse sessions: about {pct}, or {amount}.",
+        "maxDrawdown": "Had this portfolio been held throughout the measured period, its value at one point stood {pct} below the peak previously reached, around {amount}. This is a recorded decline, not an estimate.",
+        "downside": "Overall volatility ({total}) counts rising and declining sessions alike. The {pct} figure counts declining sessions only, which better reflects the risk that concerns an investor.",
+        "riskContribution": "Share of capital is the money allocated to a holding. Share of risk is that holding's responsibility for the movement of the whole portfolio, depending both on its own volatility and on how closely it moves with the others. A holding representing a quarter of capital can contribute more than half of total risk.",
+        "effectiveBets": "The portfolio holds {positions} stocks, but if they move together then in risk terms the diversification achieved is equivalent to fewer holdings. Accounting for this, the portfolio is equivalent to about {bets} independent positions.",
+        "beta": "A beta of {beta} means that when VN-Index moves 10%, this portfolio typically moves about {move} in the same direction. Above 1 is more sensitive than the market, below 1 less.",
+        "betaMissing": "Not enough index data on the same dates as the portfolio to compute this.",
+        "correlation": "The figure {value} is the average correlation across every pair of stocks in the portfolio. Closer to 1 means the holdings move together and diversification is less effective; closer to 0 means they are more independent."
+      },
+      "exceedanceTitle": "Chance of exceeding each decline",
+      "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not.",
+      "lossScaleTitle": "In money, on your portfolio",
+      "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded."
+    }
   }
 }

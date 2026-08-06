@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { key: "market", href: "/market-intelligence" },
   { key: "models", href: "/models" },
   { key: "performance", href: "/performance" },
+  { key: "portfolio", href: "/quant-portfolio" },
   { key: "about", href: "/about" },
 ] as const;
 

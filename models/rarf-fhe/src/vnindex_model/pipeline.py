@@ -1055,11 +1055,32 @@ Structural break, sparse Stress class, calibration drift, proxy lịch ngày là
 
 def run_pipeline(config_path: str | Path = "configs/default.yaml") -> dict:
     started = time.perf_counter()
-    root = Path(".").resolve()
-    _configure_logging(root / "reports/diagnostics")
     config = load_config(config_path)
+    # `project.output_root` ships in every config but used to be ignored: the
+    # root was hardcoded to the working directory. Every stage overwrites its
+    # artifacts in place, so a single experimental run replaced the committed
+    # publication-grade results with no way to tell from the output. Honour the
+    # setting so a trial run can be pointed somewhere harmless.
+    cwd = Path(".").resolve()
+    root = Path(config["project"].get("output_root") or ".").resolve()
+    # Stages write straight into these with pandas, which refuses to create
+    # missing parents. In the repository they already exist because they are
+    # committed, so nothing created them; a fresh output root needs them made.
+    for relative in (
+        "artifacts/forecasts",
+        "artifacts/metadata",
+        "artifacts/models",
+        "data/processed",
+        "reports/diagnostics",
+        "reports/figures",
+        "reports/tables",
+    ):
+        (root / relative).mkdir(parents=True, exist_ok=True)
+    _configure_logging(root / "reports/diagnostics")
     advanced_enabled = config["project"].get("pipeline_mode", "baseline") == "experimental"
-    data_path = Path(config["project"].get("data_path") or discover_data_file(root))
+    # Inputs are always looked up next to the repository, never under the
+    # output root, which may be an empty scratch directory.
+    data_path = Path(config["project"].get("data_path") or discover_data_file(cwd))
     seed = int(config["project"]["seed"])
     np.random.seed(seed)
     (root / "artifacts/metadata").mkdir(parents=True, exist_ok=True)

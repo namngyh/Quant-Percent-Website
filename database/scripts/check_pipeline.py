@@ -3,18 +3,24 @@
     pip install "psycopg[binary]"
     python scripts/check_pipeline.py
 
-Đọc PG_DSN từ env, mặc định trỏ localhost (port map trong docker-compose).
+Đọc PG_DSN từ biến môi trường; không có thì dừng và hướng dẫn cách đặt.
 """
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import sys
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
 
 import psycopg
 
-PG_DSN = os.environ.get(
-    "PG_DSN", "postgresql://quant:qp_local_dev_2026@localhost:5432/market")
+# Scripts here run under several different virtualenvs, so the shared
+# helper is imported by path rather than as a package.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _db import dsn_from_env  # noqa: E402
+
+PG_DSN = None  # resolved lazily by dsn_from_env()
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
@@ -36,7 +42,7 @@ def main() -> None:
           f"{'TRONG' if trading else 'NGOAI'} gio giao dich")
     print("=" * 70)
 
-    with psycopg.connect(PG_DSN) as conn, conn.cursor() as cur:
+    with psycopg.connect(dsn_from_env()) as conn, conn.cursor() as cur:
         # 1) Tick 5 phút gần nhất
         cur.execute("""
             SELECT symbol, count(*), max(ts)

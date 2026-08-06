@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
+from datetime import time as dtime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.freshness import build_freshness
 from app.schemas.market import (
     Constituents,
@@ -15,6 +15,8 @@ from app.schemas.market import (
     OhlcvBar,
     Quote,
     RiskDashboard,
+    TradableSymbol,
+    TradableSymbols,
     StockRow,
     StressScenario,
 )
@@ -127,24 +129,13 @@ async def get_overview(session: AsyncSession) -> MarketOverview:
     ).mappings().first()
 
     if state is None:
-        # No model output yet: report the quotes we have and say so,
-        # rather than inventing a market state
+        # No model output yet: report the quotes we have and leave every
+        # model-derived field null. Returning "sideways"/"moderate"/0 here
+        # would render as a real reading on the website.
         freshness = build_freshness(
             max((q.data_as_of for q in quotes), default=None)
         )
-        return MarketOverview(
-            **freshness.model_dump(),
-            quotes=quotes,
-            regime="sideways",
-            regime_probability=0.0,
-            probability_up=0.0,
-            probability_down=0.0,
-            volatility=0.0,
-            risk_state="moderate",
-            risk_score=0,
-            model_consensus=0.0,
-            public_signal="low_conviction",
-        )
+        return MarketOverview(**freshness.model_dump(), quotes=quotes)
 
     freshness = build_freshness(state["ts"], state["generated_at"])
     return MarketOverview(
@@ -278,8 +269,62 @@ async def last_trading_day(session: AsyncSession) -> date | None:
     return row[0] if row else None
 
 
-def delayed_cutoff() -> datetime:
-    """Publication delay we are allowed to show data with."""
-    return datetime.now(UTC) - timedelta(
-        minutes=settings.market_delay_minutes
+# `delayed_cutoff()` used to live here: it computed a publication cutoff that
+# no query ever used, while every payload announced a 15-minute delay. Removed
+# rather than left as a hook, so nobody mistakes its presence for enforcement.
+# See MARKET_DELAY_MINUTES in app/core/config.py.
+
+
+async def get_tradable_symbols(session: AsyncSession) -> TradableSymbols:
+    """Stocks with enough daily history for the portfolio tools to measure.
+
+    The session count is returned rather than hidden: a reader picking a
+    recently listed ticker should be able to see that its history is thin
+    before the analysis tells them the same thing.
+    """
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT s.symbol,
+                       s.name,
+                       s.exchange,
+                       s.sector,
+                       count(b.trading_date) AS sessions,
+                       max(b.trading_date) AS last_session
+                FROM web.symbols s
+                -- Through the api view, not bars_1d: the web role is granted
+                -- read access to the api schema only, and the view already
+                -- resolves feed_symbol and the is_public filter.
+                JOIN api.v_history_1d b ON b.symbol = s.symbol
+                WHERE s.kind = 'stock' AND s.is_public
+                GROUP BY s.symbol, s.name, s.exchange, s.sector
+                HAVING count(b.trading_date) >= 60
+                ORDER BY s.symbol
+                """
+            )
+        )
+    ).mappings().all()
+
+    freshness = build_freshness(
+        max(
+            (
+                datetime.combine(r["last_session"], dtime(0, 0), tzinfo=UTC)
+                for r in rows
+            ),
+            default=None,
+        )
+    )
+    return TradableSymbols(
+        **freshness.model_dump(),
+        rows=[
+            TradableSymbol(
+                symbol=r["symbol"],
+                name=r["name"],
+                exchange=r["exchange"],
+                sector=r["sector"],
+                sessions=int(r["sessions"]),
+            )
+            for r in rows
+        ],
     )

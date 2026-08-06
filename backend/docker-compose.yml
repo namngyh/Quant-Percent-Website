@@ -2,14 +2,16 @@
 # (see README.md) — the DB project already publishes 5432/6379 to the
 # host, so there is no networking to set up and you get hot reload.
 #
-# The database and Redis live in the Database-Onr-Percent compose project;
-# this file only adds the API and its worker and joins that project's
-# network, so the data pipeline keeps a single owner.
+# The database and Redis live in the database/ compose project; this file
+# only adds the API and its worker and joins that project's network, so the
+# data pipeline keeps a single owner.
 #
-# The network is created by the DB project as <folder>_default, i.e.
-# `database-onr-percent_default`. Start that project first, then:
+# Compose names that network <project>_default, and the project name comes
+# from the folder the DB compose file sits in. On the current workstation
+# the folder is `D:\Database - QuantPercent`, giving
+# `database-quantpercent_default`. Start that project first, then:
 #   docker compose up -d --build
-# Override QP_NETWORK if your checkout folder has a different name.
+# Check yours with `docker network ls` and set QP_NETWORK in .env to match.
 
 services:
   api:
@@ -48,4 +50,4 @@ services:
 networks:
   qp-net:
     external: true
-    name: ${QP_NETWORK:-database-onr-percent_default}
+    name: ${QP_NETWORK:-database-quantpercent_default}

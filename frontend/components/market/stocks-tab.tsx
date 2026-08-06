@@ -171,13 +171,13 @@ export function StocksTab() {
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.ticker} className="border-b border-border last:border-0">
-                        <td className="figure px-4 py-3 font-semibold">{r.ticker}</td>
-                        <td className="figure px-4 py-3 text-right">
+                        <td className="tick px-4 py-3 font-semibold">{r.ticker}</td>
+                        <td className="tick px-4 py-3 text-right">
                           {fmtPrice(r.price, locale)}
                         </td>
                         <td
                           className={cn(
-                            "figure px-4 py-3 text-right",
+                            "tick px-4 py-3 text-right",
                             r.change_percent > 0 && "text-positive",
                             r.change_percent < 0 && "text-negative"
                           )}
@@ -190,16 +190,16 @@ export function StocksTab() {
                         <td className="px-4 py-3">
                           <RegimeBadge regime={r.regime} />
                         </td>
-                        <td className="figure px-4 py-3 text-right">
+                        <td className="tick px-4 py-3 text-right">
                           {fmtPercent(r.probability_up, locale)}
                         </td>
-                        <td className="figure px-4 py-3 text-right">
+                        <td className="tick px-4 py-3 text-right">
                           {fmtPercent(r.volatility, locale)}
                         </td>
                         <td className="px-4 py-3">
                           <RiskBadge risk={r.risk_state} />
                         </td>
-                        <td className="figure px-4 py-3 text-right">{r.rank}</td>
+                        <td className="tick px-4 py-3 text-right">{r.rank}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -211,14 +211,14 @@ export function StocksTab() {
                 {rows.map((r) => (
                   <li key={r.ticker} className="qp-panel p-4">
                     <div className="flex items-center justify-between">
-                      <p className="figure text-base font-semibold">{r.ticker}</p>
-                      <p className="figure text-sm">
+                      <p className="tick text-base font-semibold">{r.ticker}</p>
+                      <p className="tick text-sm">
                         #{r.rank} · {fmtPrice(r.price, locale)}
                       </p>
                     </div>
                     <p
                       className={cn(
-                        "figure mt-1 text-sm",
+                        "tick mt-1 text-sm",
                         r.change_percent > 0 && "text-positive",
                         r.change_percent < 0 && "text-negative"
                       )}
@@ -232,7 +232,7 @@ export function StocksTab() {
                       <RegimeBadge regime={r.regime} />
                       <RiskBadge risk={r.risk_state} />
                     </div>
-                    <p className="figure mt-3 text-xs text-dim">
+                    <p className="tick mt-3 text-xs text-dim">
                       {t("columns.probabilityUp")}:{" "}
                       {fmtPercent(r.probability_up, locale)} ·{" "}
                       {t("columns.volatility")}: {fmtPercent(r.volatility, locale)}

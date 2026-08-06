@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: market
     volumes:
       - database_data:/var/lib/postgresql/data
-      - ../../../Database-Onr-Percent/db/init:/docker-entrypoint-initdb.d:ro
+      - ../../database/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U quant -d market"]
       interval: 5s
@@ -86,7 +86,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       CONTACT_NOTIFY_EMAIL: ${CONTACT_NOTIFY_EMAIL:-}
       EMAIL_FROM: ${EMAIL_FROM:-Quant Percent <noreply@quantpercent.com>}
-      MARKET_DELAY_MINUTES: ${MARKET_DELAY_MINUTES:-15}
+      MARKET_DELAY_MINUTES: ${MARKET_DELAY_MINUTES:-0}
       STALE_AFTER_MINUTES: ${STALE_AFTER_MINUTES:-90}
     command:
       - uvicorn
@@ -101,7 +101,7 @@ services:
       timescaledb: { condition: service_healthy }
       redis: { condition: service_healthy }
     volumes:
-      - ../../quantpercentFE/config:/catalogue/config:ro
+      - ../../frontend/config:/catalogue/config:ro
     networks: [private]
 
   worker:
@@ -117,7 +117,7 @@ services:
 
   frontend:
     build:
-      context: ../../quantpercentFE
+      context: ../../frontend
       args:
         NEXT_PUBLIC_AUTH_MODE: api
         NEXT_PUBLIC_API_BASE_URL: ""

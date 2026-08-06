@@ -13,7 +13,11 @@ import { CHART, EChart } from "@/components/charts/echart";
 import { DataState } from "@/components/states/data-state";
 import { DataFreshnessLabel } from "@/components/states/data-freshness-label";
 import { InfoTip } from "@/components/info-tip";
-import { METRIC_FORMAT, METRIC_ORDER } from "@/lib/performance/metrics";
+import {
+  HEADLINE_METRICS,
+  METRIC_FORMAT,
+  METRIC_GROUPS,
+} from "@/lib/performance/metrics";
 import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { cn } from "@/lib/utils";
@@ -70,7 +74,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
         name: t("tradeAxis"),
         nameLocation: "middle",
         nameGap: 26,
-        nameTextStyle: { color: CHART.dim, fontSize: 10 },
+        nameTextStyle: { color: CHART.dim, fontSize: 12 },
         axisLine: { lineStyle: { color: CHART.border } },
         axisLabel: { color: CHART.dim, interval: isMobile ? 29 : 19 },
         axisTick: { show: false },
@@ -146,7 +150,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
         name: t("pointsAxis"),
         nameLocation: "middle",
         nameGap: 26,
-        nameTextStyle: { color: CHART.dim, fontSize: 10 },
+        nameTextStyle: { color: CHART.dim, fontSize: 12 },
         axisLine: { lineStyle: { color: CHART.border } },
         axisLabel: { color: CHART.dim },
         axisTick: { show: false },
@@ -219,7 +223,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
         name: t("pointsAxis"),
         nameLocation: "middle",
         nameGap: 26,
-        nameTextStyle: { color: CHART.dim, fontSize: 10 },
+        nameTextStyle: { color: CHART.dim, fontSize: 12 },
         axisLine: { lineStyle: { color: CHART.border } },
         axisLabel: { color: CHART.dim },
         axisTick: { show: false },
@@ -251,7 +255,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
         name: t("costAxis"),
         nameLocation: "middle",
         nameGap: 26,
-        nameTextStyle: { color: CHART.dim, fontSize: 10 },
+        nameTextStyle: { color: CHART.dim, fontSize: 12 },
         axisLine: { lineStyle: { color: CHART.border } },
         axisLabel: { color: CHART.dim },
         axisTick: { show: false },
@@ -315,22 +319,82 @@ export function StrategyCharts({ slug }: { slug: string }) {
     >
       {series.data && (
         <div className="space-y-6">
-          {/* Metrics include only values the run actually produced. */}
+          {/* Metrics include only values the run actually produced.
+              Twenty-six tiles in one flat grid read as noise to anyone who is
+              not a quant, so the four headline figures come first and the
+              rest sit behind one disclosure, grouped by what they answer. */}
           {m && (
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-3 desk:grid-cols-5">
-              {METRIC_ORDER.filter(
-                (k) => m[k as keyof typeof m] !== null
-              ).map((k) => (
-                <div key={k} className="bg-background p-4">
-                  <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-dim">
-                    {t(`metricNames.${k}`)}
-                    {metricTips[k] && <InfoTip text={metricTips[k]} />}
-                  </p>
-                  <p className="figure mt-1.5 text-lg font-medium">
-                    {formatMetric(k, m[k as keyof typeof m] as number)}
-                  </p>
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-sm font-medium">
+                  {t("metricGroups.headline")}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-dim">
+                  {t("metricGroups.headlineNote")}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm desk:grid-cols-4">
+                  {HEADLINE_METRICS.filter(
+                    (k) => m[k as keyof typeof m] != null
+                  ).map((k) => (
+                    <div key={k} className="bg-background p-5">
+                      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-dim">
+                        {t(`metricNames.${k}`)}
+                        {metricTips[k] && <InfoTip text={metricTips[k]} />}
+                      </p>
+                      <p className="figure mt-2 text-2xl font-medium">
+                        {formatMetric(k, m[k as keyof typeof m] as number)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              <details className="group qp-panel p-5">
+                <summary className="cursor-pointer list-none text-sm font-medium text-brand hover:text-brand-strong">
+                  <span className="group-open:hidden">
+                    {t("metricGroups.showDetail")}
+                  </span>
+                  <span className="hidden group-open:inline">
+                    {t("metricGroups.hideDetail")}
+                  </span>
+                </summary>
+                <div className="mt-5 space-y-6">
+                  {METRIC_GROUPS.map((group) => {
+                    const available = group.metrics.filter(
+                      (k) => m[k as keyof typeof m] != null
+                    );
+                    if (available.length === 0) return null;
+                    return (
+                      <div key={group.titleKey}>
+                        <h4 className="text-[13px] font-medium">
+                          {t(`metricGroups.${group.titleKey}`)}
+                        </h4>
+                        <p className="mt-1 text-xs leading-relaxed text-dim">
+                          {t(`metricGroups.${group.titleKey}Note`)}
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 desk:grid-cols-5">
+                          {available.map((k) => (
+                            <div key={k} className="bg-background p-4">
+                              <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-dim">
+                                {t(`metricNames.${k}`)}
+                                {metricTips[k] && (
+                                  <InfoTip text={metricTips[k]} />
+                                )}
+                              </p>
+                              <p className="figure mt-1.5 text-lg font-medium">
+                                {formatMetric(
+                                  k,
+                                  m[k as keyof typeof m] as number
+                                )}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
             </div>
           )}
 
@@ -340,7 +404,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
               <EChart
                 option={foldOption}
                 ariaLabel={t("foldTitle")}
-                className="mt-3 h-56"
+                className="mt-3 h-[26rem]"
               />
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[640px] text-[13px]">
@@ -420,7 +484,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
                 <EChart
                   option={equityOption}
                   ariaLabel={t("equityCurve")}
-                  className="mt-3 h-80"
+                  className="mt-3 h-[26rem]"
                 />
               </Panel>
 
@@ -428,7 +492,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
                 <EChart
                   option={drawdownOption}
                   ariaLabel={t("drawdown")}
-                  className="mt-3 h-52"
+                  className="mt-3 h-96"
                 />
               </Panel>
 
@@ -436,7 +500,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
                 <EChart
                   option={distributionOption}
                   ariaLabel={t("returnDistribution")}
-                  className="mt-3 h-64"
+                  className="mt-3 h-[26rem]"
                 />
               </Panel>
             </>
@@ -484,7 +548,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
                 <EChart
                   option={seedOption}
                   ariaLabel={t("seedDistribution")}
-                  className="mt-3 h-64"
+                  className="mt-3 h-[26rem]"
                 />
                 <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 desk:grid-cols-4">
                   {[
@@ -567,7 +631,7 @@ export function StrategyCharts({ slug }: { slug: string }) {
                 <EChart
                   option={costOption}
                   ariaLabel={t("costStress")}
-                  className="mt-3 h-56"
+                  className="mt-3 h-[26rem]"
                 />
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[560px] text-[13px]">

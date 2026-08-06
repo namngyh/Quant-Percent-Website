@@ -24,6 +24,38 @@ const MOCK_MODE = process.argv.includes("--mock") || BASE.includes(":3000");
 
 let failures = 0;
 
+/**
+ * Endpoints whose data comes from the `quant` schema, which stays empty until
+ * an inference runner writes to it. A 503 there is the designed answer, not a
+ * regression — but the payload must still validate once data arrives, so the
+ * schema check runs whenever the endpoint does return 200.
+ */
+async function checkPendingPipeline(path: string, schema: z.ZodTypeAny) {
+  try {
+    const res = await fetch(`${BASE}${path}`);
+    if (res.status === 503) {
+      console.log(`○ ${path} → 503 (chưa có model pipeline, đúng thiết kế)`);
+      return;
+    }
+    if (res.status !== 200) {
+      failures++;
+      console.error(`✗ ${path} — expected 200 or 503, got ${res.status}`);
+      return;
+    }
+    const parsed = schema.safeParse(await res.json());
+    if (!parsed.success) {
+      failures++;
+      console.error(`✗ ${path} — schema mismatch:`);
+      console.error(parsed.error.issues.slice(0, 5));
+    } else {
+      console.log(`✓ ${path}`);
+    }
+  } catch (e) {
+    failures++;
+    console.error(`✗ ${path} — ${(e as Error).message}`);
+  }
+}
+
 async function check(path: string, schema: z.ZodTypeAny, expectStatus = 200) {
   try {
     const res = await fetch(`${BASE}${path}`);
@@ -126,7 +158,7 @@ async function main() {
   await check("/api/v1/market/VN30F1M/quote", QuoteSchema);
   await check("/api/v1/market/VNINDEX/history?count=250", HistorySchema);
   await check("/api/v1/market/vn30/constituents", ConstituentsSchema);
-  await check("/api/v1/market/risk", RiskDashboardSchema);
+  await checkPendingPipeline("/api/v1/market/risk", RiskDashboardSchema);
   await check("/api/v1/models", ModelsListSchema);
   for (const slug of ["raemf-mc", "rarf-fhe", "dynamic-graph", "msdp"]) {
     await check(`/api/v1/models/${slug}`, ModelDetailSchema);

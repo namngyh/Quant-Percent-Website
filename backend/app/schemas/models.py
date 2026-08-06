@@ -31,14 +31,16 @@ class ForecastRecord(Freshness):
     forecast_return: float
     probability_up: float
     probability_down: float
-    regime: Regime
-    regime_probability: float
     volatility: float
     interval_level: float
     interval_lower: float
     interval_upper: float
-    risk_score: int
-    risk_state: RiskState
+    # A model that forecasts a distribution and makes no regime call leaves
+    # these null rather than having the loader invent one.
+    regime: Regime | None = None
+    regime_probability: float | None = None
+    risk_score: int | None = None
+    risk_state: RiskState | None = None
     status: ModelStatus
 
 

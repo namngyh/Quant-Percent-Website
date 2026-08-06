@@ -50,7 +50,8 @@ export default async function StrategyPage({
     { label: t("detail.status"), value: tc(`resultType.${s.resultType}`) },
     { label: t("detail.seeds"), value: s.seedNote[l] },
     { label: t("detail.modelVersion"), value: s.modelVersion },
-    { label: t("detail.codeVersion"), value: s.codeVersion },
+    // The internal code-version tag is build detail, and the note above the
+    // report already states which order-fill method produced these figures.
     {
       label: t("detail.source"),
       value: provenance?.source_project ?? (l === "vi" ? "Chưa có dữ liệu" : "Not available"),

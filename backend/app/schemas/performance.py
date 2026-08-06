@@ -30,6 +30,12 @@ class WalkForwardFold(ApiModel):
     payoff: float
     max_drawdown_points: float
     partial_year: bool
+    # Index return over exactly the same dates, so a reader can see whether
+    # the system beat simply holding the market. Computed from this database,
+    # not exported by the original run — the run carried no benchmark, which
+    # is why the report still says so.
+    benchmark_pct: float | None = None
+    benchmark_symbol: str | None = None
 
 
 class ExitReason(ApiModel):

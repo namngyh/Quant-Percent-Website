@@ -50,14 +50,24 @@ export function CurrentOutput({
       >
         {first && (
           <>
-            <div className="flex flex-wrap items-center gap-2">
-              <RegimeBadge regime={first.regime} />
-              <RiskBadge risk={first.risk_state} />
-              <span className="figure text-xs text-dim">
-                {locale === "vi" ? "Khả năng của trạng thái này" : "State probability"} ={" "}
-                {fmtPercent(first.regime_probability, locale)}
-              </span>
-            </div>
+            {/* A distributional model makes no regime call and assigns no
+                risk grade; the row is left out rather than filled in. */}
+            {(first.regime !== null || first.risk_state !== null) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {first.regime !== null && <RegimeBadge regime={first.regime} />}
+                {first.risk_state !== null && (
+                  <RiskBadge risk={first.risk_state} />
+                )}
+                {first.regime_probability !== null && (
+                  <span className="figure text-xs text-dim">
+                    {locale === "vi"
+                      ? "Khả năng của trạng thái này"
+                      : "State probability"}{" "}
+                    = {fmtPercent(first.regime_probability, locale)}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
               {records.map((r) => (
                 <div key={r.horizon} className="bg-background p-5">
@@ -251,7 +261,7 @@ export function ForecastChart({
             <EChart
               option={option}
               ariaLabel={`${symbol}: ${t("forecastChart")}`}
-              className="h-80"
+              className="h-[26rem]"
             />
           </div>
         )}

@@ -55,6 +55,7 @@
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
@@ -66,57 +67,81 @@
 }
 
 /*
- * Quant Percent light, minimal and scientific visual system.
- * Single light theme; restrained palette per spec §15.1.
+ * Quant Percent visual system: institutional, restrained, single light theme.
+ *
+ * Navy carries the brand. Research desks read as serious in deep blue-grey,
+ * and it leaves the warm end of the spectrum free to mean something.
+ *
+ * The important rule here is that amber is not decoration. `--signal` used to
+ * be amber and sat under ordinary notices — the legal disclosure strip, the
+ * public-signal tile — so pages that were merely informative looked like they
+ * were reporting a fault. Informational accents are now slate blue.
+ * `--caution` stays warm and is reserved for genuine warnings: a stale feed,
+ * a degraded service, a failed action. If everything is amber, nothing is.
  */
 :root {
   --font-ui: var(--font-geist);
   --background: #ffffff;
-  --foreground: #0d1110;
-  --surface: #f4f7f6;
-  --ink: #26302e;
-  --dim: #65706d;
-  --lightgray: #cfdbd8;
-  --brand: #087f78;
-  --brand-strong: #075f5a;
-  --brand-soft: #dff4f1;
-  --signal: #d97706;
-  --signal-strong: #995108;
-  --signal-soft: #fff1d6;
+  --foreground: #0f1b2a;
+  --surface: #f5f7fa;
+  --ink: #24344a;
+  --dim: #64748b;
+  --lightgray: #cbd5e1;
+  --brand: #1e4a72;
+  --brand-strong: #14324f;
+  --brand-soft: #e7eef5;
+  /* Informational, never alarming. */
+  --signal: #4a6da3;
+  --signal-strong: #33507c;
+  --signal-soft: #ebf1f8;
   --card: #ffffff;
-  --card-foreground: #0d1110;
+  --card-foreground: #0f1b2a;
   --popover: #ffffff;
-  --popover-foreground: #0d1110;
-  --primary: #0d1110;
+  --popover-foreground: #0f1b2a;
+  --primary: #0f1b2a;
   --primary-foreground: #ffffff;
-  --secondary: #f4f7f6;
-  --secondary-foreground: #0d1110;
-  --muted: #f4f7f6;
-  --muted-foreground: #65706d;
-  --accent: #dff4f1;
-  --accent-foreground: #075f5a;
+  --secondary: #f5f7fa;
+  --secondary-foreground: #0f1b2a;
+  --muted: #f5f7fa;
+  --muted-foreground: #64748b;
+  --accent: #e7eef5;
+  --accent-foreground: #14324f;
   /* State colors are never the only carrier of meaning. */
-  --positive: #16805d;
-  --negative: #c64032;
-  --caution: #995108;
-  --destructive: #c64032;
-  --border: #dfe7e5;
-  --input: #d8e2df;
-  --ring: #087f78;
-  --chart-1: #087f78;
-  --chart-2: #d97706;
-  --chart-3: #0d1110;
-  --chart-4: #16805d;
-  --chart-5: #c64032;
+  --positive: #14795a;
+  --negative: #a93b32;
+  /* Reserved for real warnings, not for ordinary notices. */
+  --caution: #8a6218;
+  --caution-soft: #fbf2df;
+  --destructive: #a93b32;
+  --border: #e2e8f0;
+  --input: #d6dee8;
+  --ring: #1e4a72;
   --radius: 8px;
-  --sidebar: #f4f7f6;
-  --sidebar-foreground: #0d1110;
-  --sidebar-primary: #087f78;
+  --sidebar: #f5f7fa;
+  --sidebar-foreground: #0f1b2a;
+  --sidebar-primary: #1e4a72;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #dff4f1;
-  --sidebar-accent-foreground: #075f5a;
-  --sidebar-border: #dfe7e5;
-  --sidebar-ring: #087f78;
+  --sidebar-accent: #e7eef5;
+  --sidebar-accent-foreground: #14324f;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #1e4a72;
+
+  /*
+   * Categorical chart series, in fixed order — never cycled, never reordered
+   * by rank. Verified with the palette validator against a white surface:
+   * every step sits inside the lightness band, clears the chroma floor,
+   * holds ΔE 8.2 for the worst adjacent pair under protanopia and 17.2 for
+   * normal vision, and reaches 3:1 contrast. The brand navy is deliberately
+   * NOT among them: at L 0.40 it read as grey and failed separation.
+   *
+   * Profit and loss keep --positive / --negative. Status colour is reserved
+   * and is never spent on "series 6".
+   */
+  --chart-1: #3a72c4;
+  --chart-2: #ad7519;
+  --chart-3: #158f66;
+  --chart-4: #8a4fbd;
+  --chart-5: #c0433a;
 }
 
 html[lang="vi"] {
@@ -167,7 +192,26 @@ html[lang="en"] {
   }
 
   /* Numeric figures use monospace and tabular digits. */
+  /* Figures line up in columns without switching typeface.
+   *
+   * This used to be `font-mono tabular-nums`, and it is applied to whole
+   * labels, not just digits — so Vietnamese prose like "Tổng quan thị trường"
+   * and "Dữ liệu đến: 14:45 6 thg 8" rendered in IBM Plex Mono. Monospaced
+   * Vietnamese sits badly: the diacritics are squeezed into a fixed advance
+   * width and the text reads as a rendering fault rather than a style.
+   *
+   * `tabular-nums` alone gives every digit the same width, which is the part
+   * that actually matters for a column of numbers. Monospace is kept for the
+   * market board, where the terminal look is deliberate — see `.tick`. */
   .figure {
+    @apply tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  /* Deliberate terminal styling: live prices, tickers, machine identifiers.
+   * Use this only where the content is numeric or a symbol code, never on a
+   * sentence. */
+  .tick {
     @apply font-mono tabular-nums;
   }
 

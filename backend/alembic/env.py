@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
@@ -54,6 +55,11 @@ def run_migrations_offline() -> None:
 
 
 def _do_run(connection) -> None:
+    # Alembic writes its version table into WEB_SCHEMA, and it does so before
+    # the first revision runs. On a fresh database that schema does not exist
+    # yet, so create it here. Revision 0001 repeats this with IF NOT EXISTS,
+    # which keeps both paths idempotent.
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{WEB_SCHEMA}"'))
     _configure(connection)
     with context.begin_transaction():
         context.run_migrations()

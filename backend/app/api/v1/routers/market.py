@@ -10,6 +10,7 @@ from app.schemas.market import (
     MarketOverview,
     Quote,
     RiskDashboard,
+    TradableSymbols,
 )
 from app.services import market as service
 
@@ -81,4 +82,19 @@ async def history(
         return History.model_validate(cached)
     result = await service.get_history(session, symbol, count)
     await cache_set(key, result.model_dump(mode="json"), 60)
+    return result
+
+
+@router.get("/symbols", response_model=TradableSymbols)
+async def symbols(session: SessionDep) -> TradableSymbols:
+    """Every stock the portfolio tools can price.
+
+    Cached for an hour: the list changes when a company lists or delists,
+    not during a session.
+    """
+    cached = await cache_get("market:symbols")
+    if cached:
+        return TradableSymbols.model_validate(cached)
+    result = await service.get_tradable_symbols(session)
+    await cache_set("market:symbols", result.model_dump(mode="json"), 3600)
     return result

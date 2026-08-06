@@ -79,14 +79,16 @@ export const ForecastRecordSchema = FreshnessSchema.extend({
   forecast_return: z.number(),
   probability_up: z.number(),
   probability_down: z.number(),
-  regime: RegimeSchema,
-  regime_probability: z.number(),
   volatility: z.number(),
   interval_level: z.number(),
   interval_lower: z.number(),
   interval_upper: z.number(),
-  risk_score: z.number(),
-  risk_state: RiskStateSchema,
+  // A purely distributional model makes no regime call and assigns no risk
+  // grade; those arrive as null instead of an invented value.
+  regime: RegimeSchema.nullable().default(null),
+  regime_probability: z.number().nullable().default(null),
+  risk_score: z.number().nullable().default(null),
+  risk_state: RiskStateSchema.nullable().default(null),
   status: z.enum(["active", "paper_trading", "experimental", "archived"]),
 });
 export type ForecastRecord = z.infer<typeof ForecastRecordSchema>;
@@ -113,17 +115,23 @@ export const ForecastHistorySchema = FreshnessSchema.extend({
 });
 export type ForecastHistory = z.infer<typeof ForecastHistorySchema>;
 
+/**
+ * Quotes come from the ingestion feed and are always present. Every field
+ * below them is produced by the model pipeline and is null until a run has
+ * written to `quant.market_state` — a reading the model never produced must
+ * arrive as null, not as a neutral-looking default.
+ */
 export const MarketOverviewSchema = FreshnessSchema.extend({
   quotes: z.array(QuoteSchema),
-  regime: RegimeSchema,
-  regime_probability: z.number(),
-  probability_up: z.number(),
-  probability_down: z.number(),
-  volatility: z.number(),
-  risk_state: RiskStateSchema,
-  risk_score: z.number(),
-  model_consensus: z.number(),
-  public_signal: PublicSignalSchema,
+  regime: RegimeSchema.nullable().default(null),
+  regime_probability: z.number().nullable().default(null),
+  probability_up: z.number().nullable().default(null),
+  probability_down: z.number().nullable().default(null),
+  volatility: z.number().nullable().default(null),
+  risk_state: RiskStateSchema.nullable().default(null),
+  risk_score: z.number().nullable().default(null),
+  model_consensus: z.number().nullable().default(null),
+  public_signal: PublicSignalSchema.nullable().default(null),
 });
 export type MarketOverview = z.infer<typeof MarketOverviewSchema>;
 
@@ -199,6 +207,9 @@ export const WalkForwardFoldSchema = z.object({
   payoff: z.number(),
   max_drawdown_points: z.number(),
   partial_year: z.boolean(),
+  /** Index return over the same dates. Null when no index data covers them. */
+  benchmark_pct: z.number().nullable().optional(),
+  benchmark_symbol: z.string().nullable().optional(),
 });
 export type WalkForwardFold = z.infer<typeof WalkForwardFoldSchema>;
 
@@ -377,3 +388,109 @@ export const ContactPayloadSchema = z.object({
   website: z.string().max(0).optional().or(z.literal("")),
 });
 export type ContactPayload = z.infer<typeof ContactPayloadSchema>;
+
+/* ------------------------------------------------------------------ *
+ * Quant Portfolio
+ *
+ * Money is in dong throughout. Prices from the feed are quoted in
+ * thousands, and the backend converts before returning anything here,
+ * so nothing on this contract needs to know about that.
+ * ------------------------------------------------------------------ */
+
+export const HoldingInputSchema = z.object({
+  symbol: z.string().trim().min(1).max(20),
+  quantity: z.number().positive(),
+  cost_basis: z.number().positive().nullable().optional(),
+});
+export type HoldingInput = z.infer<typeof HoldingInputSchema>;
+
+export const PortfolioRequestSchema = z.object({
+  holdings: z.array(HoldingInputSchema).min(1).max(50),
+  cash: z.number().min(0),
+  horizon_days: z.number().int().min(21).max(252),
+  lookback_days: z.number().int().min(60).max(1000).optional(),
+});
+export type PortfolioRequestPayload = z.infer<typeof PortfolioRequestSchema>;
+
+export const PositionRiskSchema = z.object({
+  symbol: z.string(),
+  quantity: z.number(),
+  price: z.number(),
+  market_value: z.number(),
+  weight: z.number(),
+  cost_basis: z.number().nullable(),
+  profit: z.number().nullable(),
+  profit_percent: z.number().nullable(),
+  volatility: z.number(),
+  beta: z.number().nullable(),
+  risk_contribution: z.number(),
+  sector: z.string().nullable(),
+  observations: z.number(),
+});
+export type PositionRisk = z.infer<typeof PositionRiskSchema>;
+
+export const ConcentrationSchema = z.object({
+  positions: z.number(),
+  largest_weight: z.number(),
+  top_three_weight: z.number(),
+  herfindahl: z.number(),
+  effective_assets: z.number(),
+  effective_bets: z.number(),
+  average_correlation: z.number(),
+  max_pair_correlation: z.number().nullable(),
+  max_pair: z.array(z.string()).nullable(),
+  sector_weights: z.record(z.string(), z.number()),
+});
+export type Concentration = z.infer<typeof ConcentrationSchema>;
+
+export const ForwardRiskSchema = z.object({
+  source_model: z.string(),
+  forecast_origin: z.string(),
+  horizon_days: z.number(),
+  paths: z.number(),
+  portfolio_beta: z.number(),
+  var_95: z.number(),
+  expected_shortfall_95: z.number(),
+  drawdown_probabilities: z.array(
+    z.object({ threshold: z.number(), probability: z.number() })
+  ),
+});
+export type ForwardRisk = z.infer<typeof ForwardRiskSchema>;
+
+export const PortfolioAnalysisSchema = FreshnessSchema.extend({
+  total_value: z.number(),
+  invested_value: z.number(),
+  cash: z.number(),
+  cash_weight: z.number(),
+  total_cost: z.number().nullable(),
+  profit: z.number().nullable(),
+  profit_percent: z.number().nullable(),
+  lookback_days: z.number(),
+  observations: z.number(),
+  volatility: z.number(),
+  downside_deviation: z.number(),
+  max_drawdown: z.number(),
+  beta: z.number().nullable(),
+  var_95: z.number(),
+  expected_shortfall_95: z.number(),
+  risk_state: z.enum(["low", "moderate", "elevated", "high"]),
+  positions: z.array(PositionRiskSchema),
+  concentration: ConcentrationSchema,
+  forward: ForwardRiskSchema.nullable(),
+  unpriced: z.array(z.string()),
+});
+export type PortfolioAnalysis = z.infer<typeof PortfolioAnalysisSchema>;
+
+export const TradableSymbolSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+  exchange: z.string(),
+  sector: z.string().nullable(),
+  sessions: z.number(),
+});
+export type TradableSymbol = z.infer<typeof TradableSymbolSchema>;
+
+export const TradableSymbolsSchema = FreshnessSchema.extend({
+  rows: z.array(TradableSymbolSchema),
+});
+export type TradableSymbols = z.infer<typeof TradableSymbolsSchema>;

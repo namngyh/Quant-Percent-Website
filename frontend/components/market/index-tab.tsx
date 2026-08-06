@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { EChartsCoreOption } from "echarts/core";
 import { Link } from "@/i18n/navigation";
-import { useApi } from "@/lib/api/fetcher";
+import { ApiError, useApi } from "@/lib/api/fetcher";
 import type { ForecastRecord, History } from "@/lib/api/types";
 import { CHART, EChart } from "@/components/charts/echart";
 import { DataState } from "@/components/states/data-state";
@@ -105,6 +105,10 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
 
   const records = latest.data?.records ?? [];
   const first = records[0];
+  // 404 from /latest means the model does not publish forecasts, which is a
+  // configuration choice rather than an outage.
+  const forecastUnavailable =
+    latest.error instanceof ApiError && latest.error.status === 404;
 
   // Current drawdown from the price series
   const drawdown = useMemo(() => {
@@ -134,18 +138,31 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
             <EChart
               option={priceOption}
               ariaLabel={`${symbol}: ${t("history")}`}
-              className="mt-4 h-80"
+              className="mt-4 h-[26rem]"
             />
             <DataFreshnessLabel freshness={history.data} />
           </div>
         )}
       </DataState>
 
+      {/*
+        A 404 here is not a failure. Models that publish no forecast return
+        "not_available" by design, and rendering that as "could not load the
+        data, please retry" put a red error panel with a dead retry button
+        under a perfectly healthy chart. When the model publishes nothing,
+        the section is simply absent, and it comes back on its own once the
+        model starts publishing.
+      */}
       <DataState
         loading={latest.isLoading}
-        error={latest.error}
+        error={forecastUnavailable ? undefined : latest.error}
         onRetry={() => latest.mutate()}
-        empty={latest.data && records.length === 0}
+        empty={
+          forecastUnavailable || (latest.data && records.length === 0)
+            ? false
+            : undefined
+        }
+        hidden={forecastUnavailable}
         skeletonRows={4}
       >
         {first && (
@@ -155,32 +172,35 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
                 {t("forecastTitle")} <InfoTip text={g("forecastInterval")} />
               </h3>
               <div className="flex flex-wrap items-center gap-2">
-                <RegimeBadge regime={first.regime} />
-                <RiskBadge risk={first.risk_state} />
+                {/* Null when the model forecasts a distribution only. */}
+                {first.regime !== null && <RegimeBadge regime={first.regime} />}
+                {first.risk_state !== null && (
+                  <RiskBadge risk={first.risk_state} />
+                )}
               </div>
             </div>
 
             <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
               {records.map((r) => (
                 <div key={r.horizon} className="bg-background p-5">
-                  <p className="figure text-xs uppercase tracking-[0.08em] text-dim">
+                  <p className="tick text-xs uppercase tracking-[0.08em] text-dim">
                     {tc("horizonDays", { count: r.horizon })}
                   </p>
-                  <p className="figure mt-2 text-2xl font-medium">
+                  <p className="tick mt-2 text-2xl font-medium">
                     {fmtPrice(r.forecast_value, locale)}
                   </p>
-                  <p className="figure mt-1 text-sm text-ink">
+                  <p className="tick mt-1 text-sm text-ink">
                     {t("expectedReturn")}:{" "}
                     {fmtSignedPercent(r.forecast_return, locale)}
                   </p>
-                  <p className="figure mt-2 text-xs text-dim">
+                  <p className="tick mt-2 text-xs text-dim">
                     {t("interval", {
                       level: fmtPercent(r.interval_level, locale, 0),
                     })}
                     : {fmtPrice(r.interval_lower, locale)} –{" "}
                     {fmtPrice(r.interval_upper, locale)}
                   </p>
-                  <p className="figure mt-1 text-xs text-dim">
+                  <p className="tick mt-1 text-xs text-dim">
                     P(↑) = {fmtPercent(r.probability_up, locale)}
                   </p>
                 </div>
@@ -192,7 +212,7 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
                 <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
                   {t("currentDrawdown")} <InfoTip text={g("drawdown")} />
                 </p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {fmtPercent(drawdown, locale)}
                 </p>
               </div>
@@ -200,7 +220,7 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
                 <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
                   {tp("volatility")} <InfoTip text={g("volatility")} />
                 </p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {fmtPercent(first.volatility, locale)}
                 </p>
               </div>
@@ -208,7 +228,7 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
                 <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
                   {t("riskScore")} <InfoTip text={g("riskState")} />
                 </p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {first.risk_score}/100
                 </p>
               </div>

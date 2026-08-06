@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import smtplib
+import ssl
+from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 import httpx
 
@@ -9,31 +14,91 @@ from app.core.config import settings
 log = logging.getLogger(__name__)
 
 
+async def _send_via_resend(to: str, subject: str, text: str) -> bool:
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+            json={
+                "from": settings.email_from,
+                "to": [to],
+                "subject": subject,
+                "text": text,
+            },
+        )
+    if resp.status_code >= 400:
+        log.error("email provider rejected: %s %s", resp.status_code, resp.text)
+        return False
+    return True
+
+
+def _smtp_send(to: str, subject: str, text: str) -> None:
+    """Blocking send. Called through a worker thread, never on the loop.
+
+    Uses the standard library so mail costs the project no new dependency to
+    audit and pin.
+    """
+    message = EmailMessage()
+    display, address = parseaddr(settings.email_from)
+    if address.lower() != (settings.smtp_user or "").lower():
+        # Gmail — and most mailbox providers — only accept a From that matches
+        # the authenticated mailbox. Anything else is silently rewritten or
+        # rejected, which looks like mail vanishing. Keep the display name and
+        # send from the real mailbox.
+        log.info(
+            "SMTP From %r does not match the authenticated mailbox; "
+            "sending as %s",
+            settings.email_from,
+            settings.smtp_user,
+        )
+        message["From"] = formataddr(
+            (display or "Quant Percent", settings.smtp_user)
+        )
+    else:
+        message["From"] = settings.email_from
+    message["To"] = to
+    message["Subject"] = subject
+    message.set_content(text)
+
+    context = ssl.create_default_context()
+    if settings.smtp_use_ssl:
+        client = smtplib.SMTP_SSL(
+            settings.smtp_host, settings.smtp_port, timeout=15, context=context
+        )
+    else:
+        client = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15)
+    with client:
+        if not settings.smtp_use_ssl:
+            client.starttls(context=context)
+        client.login(settings.smtp_user, settings.smtp_password)
+        client.send_message(message)
+
+
+async def _send_via_smtp(to: str, subject: str, text: str) -> bool:
+    # smtplib blocks; a slow or unreachable mail server would otherwise stall
+    # every request served by this worker.
+    await asyncio.to_thread(_smtp_send, to, subject, text)
+    return True
+
+
 async def send_email(to: str, subject: str, text: str) -> bool:
     """Best-effort delivery.
 
     Returns False instead of raising: a failed notification must never
     lose a stored contact submission or block a password reset.
+
+    Resend is preferred when configured; SMTP is the fallback for setups
+    without a verified sending domain.
     """
-    if not settings.resend_api_key:
+    if settings.resend_api_key:
+        send = _send_via_resend
+    elif settings.smtp_configured:
+        send = _send_via_smtp
+    else:
         log.info("email skipped (no provider configured): %s -> %s", subject, to)
         return False
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-                json={
-                    "from": settings.email_from,
-                    "to": [to],
-                    "subject": subject,
-                    "text": text,
-                },
-            )
-        if resp.status_code >= 400:
-            log.error("email provider rejected: %s %s", resp.status_code, resp.text)
-            return False
-        return True
+        return await send(to, subject, text)
     except Exception as exc:  # pragma: no cover - network dependent
         log.error("email send failed: %s", exc)
         return False

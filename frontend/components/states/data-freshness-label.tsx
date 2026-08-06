@@ -5,14 +5,21 @@ import type { Freshness } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 
 /**
- * Timestamp rendered under every data block (spec §20). Market data is
- * mock and says so; performance reports carry real research output and
- * pass `illustrative={false}`.
+ * Timestamp rendered under every data block (spec §20).
+ *
+ * The "illustrative" tag used to default to true, from when the market
+ * section was placeholder data. It is not any more — quotes, history and
+ * freshness all come from the ingestion feed — so the default now follows
+ * the data mode and only says "illustrative" when the site really is serving
+ * mock data. A live figure labelled as an illustration understates real work;
+ * the reverse would be worse.
  */
+const MOCK_MODE = process.env.NEXT_PUBLIC_DATA_MODE === "mock";
+
 export function DataFreshnessLabel({
   freshness,
   modelVersion,
-  illustrative = true,
+  illustrative = MOCK_MODE,
 }: {
   freshness: Freshness;
   modelVersion?: string;

@@ -39,3 +39,7 @@ database/backups/
 # Local deployment secrets/backups
 backend/deploy/.env.production
 backend/deploy/backups/
+
+# Nhat ky chay tu dong va artifact trung gian cua model
+logs/
+artifacts/

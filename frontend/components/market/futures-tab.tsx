@@ -107,12 +107,12 @@ export function FuturesTab() {
             <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
               <div className="bg-background p-5">
                 <p className="text-xs font-medium text-dim">{quote.data.name}</p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {fmtPrice(quote.data.price, locale)}
                 </p>
                 <p
                   className={cn(
-                    "figure mt-1 text-sm",
+                    "tick mt-1 text-sm",
                     quote.data.change_percent > 0 && "text-positive",
                     quote.data.change_percent < 0 && "text-negative"
                   )}
@@ -127,7 +127,7 @@ export function FuturesTab() {
                 <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
                   {t("basis")} <InfoTip text={g("basis")} />
                 </p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {basis === null
                     ? locale === "vi"
                       ? "Chưa có"
@@ -139,30 +139,46 @@ export function FuturesTab() {
                 <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
                   {tm("volume")}
                 </p>
-                <p className="figure mt-2 text-2xl font-medium">
+                <p className="tick mt-2 text-2xl font-medium">
                   {fmtNumber(quote.data.volume, locale, {
                     notation: "compact",
                   })}
                 </p>
               </div>
-              <div className="bg-background p-5">
-                <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
-                  {tp("volatility")} <InfoTip text={g("volatility")} />
-                </p>
-                <p className="figure mt-2 text-2xl font-medium">
-                  {fmtPercent(overview.data.volatility, locale)}
-                </p>
-              </div>
+              {overview.data.volatility !== null && (
+                <div className="bg-background p-5">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-dim">
+                    {tp("volatility")} <InfoTip text={g("volatility")} />
+                  </p>
+                  <p className="tick mt-2 text-2xl font-medium">
+                    {fmtPercent(overview.data.volatility, locale)}
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <RegimeBadge regime={overview.data.regime} />
-              <RiskBadge risk={overview.data.risk_state} />
-              <span className="mx-1 text-xs text-dim">
-                {t("systemState")}:
-              </span>
-              <SignalBadge signal={overview.data.public_signal} />
-            </div>
+            {/* Model-derived badges; the whole row disappears until an
+                inference runner has written quant.market_state. */}
+            {(overview.data.regime !== null ||
+              overview.data.risk_state !== null ||
+              overview.data.public_signal !== null) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {overview.data.regime !== null && (
+                  <RegimeBadge regime={overview.data.regime} />
+                )}
+                {overview.data.risk_state !== null && (
+                  <RiskBadge risk={overview.data.risk_state} />
+                )}
+                {overview.data.public_signal !== null && (
+                  <>
+                    <span className="mx-1 text-xs text-dim">
+                      {t("systemState")}:
+                    </span>
+                    <SignalBadge signal={overview.data.public_signal} />
+                  </>
+                )}
+              </div>
+            )}
             <DataFreshnessLabel freshness={quote.data} />
           </>
         )}
@@ -181,7 +197,7 @@ export function FuturesTab() {
             <EChart
               option={priceOption}
               ariaLabel={`VN30F1M: ${tm("history")}`}
-              className="mt-4 h-72"
+              className="mt-4 h-96"
             />
           </div>
         )}
@@ -208,7 +224,7 @@ export function FuturesTab() {
                   <dt className="text-[11px] uppercase tracking-[0.08em] text-dim">
                     {tperf("detail.metricNames.annualizedReturn")}
                   </dt>
-                  <dd className="figure mt-1 text-lg">
+                  <dd className="tick mt-1 text-lg">
                     {fmtPercent(m.annualizedReturn, locale)}
                   </dd>
                 </div>
@@ -218,7 +234,7 @@ export function FuturesTab() {
                   <dt className="text-[11px] uppercase tracking-[0.08em] text-dim">
                     {tperf("detail.metricNames.maxDrawdown")}
                   </dt>
-                  <dd className="figure mt-1 text-lg">
+                  <dd className="tick mt-1 text-lg">
                     {fmtPercent(m.maxDrawdown, locale)}
                   </dd>
                 </div>
@@ -228,7 +244,7 @@ export function FuturesTab() {
                   <dt className="text-[11px] uppercase tracking-[0.08em] text-dim">
                     {tperf("detail.metricNames.sharpe")}
                   </dt>
-                  <dd className="figure mt-1 text-lg">{m.sharpe}</dd>
+                  <dd className="tick mt-1 text-lg">{m.sharpe}</dd>
                 </div>
               )}
               {m.winRate !== null && (
@@ -236,7 +252,7 @@ export function FuturesTab() {
                   <dt className="text-[11px] uppercase tracking-[0.08em] text-dim">
                     {tperf("detail.metricNames.winRate")}
                   </dt>
-                  <dd className="figure mt-1 text-lg">
+                  <dd className="tick mt-1 text-lg">
                     {fmtPercent(m.winRate, locale)}
                   </dd>
                 </div>

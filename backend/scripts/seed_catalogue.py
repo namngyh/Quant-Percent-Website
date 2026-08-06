@@ -5,10 +5,13 @@ the website. Rather than parsing TypeScript here, the website exports a
 resolved snapshot and this script consumes it, so helpers and derived
 values on that side can never break seeding.
 
-    # in the website repo
-    npx tsx scripts/export-catalogue.ts
-    # here
-    python -m scripts.seed_catalogue --frontend ../quantpercent
+    # in frontend/
+    npm run catalogue:export
+    # in backend/
+    python -m scripts.seed_catalogue
+
+`--frontend` defaults to the sibling `frontend/` directory; pass it only when
+seeding from a checkout laid out differently.
 
 Re-runnable: rows are upserted by primary key.
 """
@@ -21,7 +24,7 @@ from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.redis import cache_delete_prefix, close_redis
@@ -80,7 +83,15 @@ async def seed_symbols(session) -> None:
             "kind": "index",
             "point_value": None,
         },
-        {"symbol": "VN30", "name": "VN30", "kind": "index", "point_value": None},
+        {
+            "symbol": "VN30",
+            # DataPro delivers the VN30 index under a different name; the
+            # website keeps publishing it as VN30.
+            "feed_symbol": "VN30INDEX",
+            "name": "VN30",
+            "kind": "index",
+            "point_value": None,
+        },
         {
             "symbol": "VN30F1M",
             "name": "VN30F1M",
@@ -89,9 +100,9 @@ async def seed_symbols(session) -> None:
         },
     ]
     vn30 = [
-        "ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG",
-        "MBB", "MCH", "MSN", "MWG", "POW", "SAB", "SHB", "SSB", "SSI", "STB",
-        "TCB", "TCX", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE",
+        "ACB", "BID", "CTG", "DGC", "FPT", "GAS", "GVR", "HDB", "HPG", "LPB",
+        "MBB", "MCH", "MSN", "MWG", "SAB", "SHB", "SSB", "SSI", "STB", "TCB",
+        "TCX", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VPL", "VRE",
     ]
     rows += [
         {"symbol": t, "name": t, "kind": "stock", "point_value": None}
@@ -99,29 +110,38 @@ async def seed_symbols(session) -> None:
     ]
 
     for row in rows:
+        # Most tickers carry the same name in the feed as on the website.
+        row.setdefault("feed_symbol", row["symbol"])
         stmt = insert(Symbol).values(**row)
         await session.execute(
             stmt.on_conflict_do_update(
                 index_elements=[Symbol.symbol],
-                set_={"name": stmt.excluded.name, "kind": stmt.excluded.kind},
+                set_={
+                    "name": stmt.excluded.name,
+                    "kind": stmt.excluded.kind,
+                    "feed_symbol": stmt.excluded.feed_symbol,
+                },
             )
         )
 
     # HOSE rebalanced the VN30 basket on 2026-08-03 (TPB, PLX out; MCH, TCX in)
     valid_from = date(2026, 8, 3)
-    existing = await session.scalar(
-        select(IndexConstituent).where(
+    # Replace the membership for this date rather than skipping when rows
+    # already exist. The previous version inserted only when the date was
+    # absent, so a corrected list could never reach a database that had
+    # already been seeded with a wrong one — which is exactly what happened.
+    await session.execute(
+        delete(IndexConstituent).where(
             IndexConstituent.index_symbol == "VN30",
             IndexConstituent.valid_from == valid_from,
         )
     )
-    if existing is None:
-        session.add_all(
-            IndexConstituent(
-                index_symbol="VN30", member_symbol=t, valid_from=valid_from
-            )
-            for t in vn30
+    session.add_all(
+        IndexConstituent(
+            index_symbol="VN30", member_symbol=t, valid_from=valid_from
         )
+        for t in vn30
+    )
 
 
 async def seed_trading_calendar(session, year: int) -> None:
@@ -163,10 +183,15 @@ async def seed_models(session, entries: list[dict[str, Any]]) -> int:
             "sparkline": entry.get("sparkline"),
             "sparkline_label": entry.get("sparklineLabel"),
             "research_profile": entry.get("researchProfile"),
-            "updated_at": datetime.fromisoformat(
-                entry["updatedAt"].replace("Z", "+00:00")
-            ),
         }
+        # `updatedAt` is optional in the website's ModelConfig. When a model
+        # does not declare one, leave the column to its now() default instead
+        # of failing the whole seed run.
+        updated_at = entry.get("updatedAt")
+        if updated_at:
+            values["updated_at"] = datetime.fromisoformat(
+                updated_at.replace("Z", "+00:00")
+            )
         stmt = insert(Model).values(**values)
         await session.execute(
             stmt.on_conflict_do_update(
@@ -458,8 +483,8 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--frontend",
-        default="../quantpercentFE",
-        help="path to the Next.js repository holding config/",
+        default=str(Path(__file__).resolve().parents[2] / "frontend"),
+        help="path to the Next.js project holding config/",
     )
     parser.add_argument("--year", type=int, default=date.today().year)
     args = parser.parse_args()

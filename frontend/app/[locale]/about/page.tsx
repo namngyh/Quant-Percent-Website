@@ -51,14 +51,14 @@ export default async function AboutPage({
               y1={160}
               x2={i * 30}
               y2={160 - (40 + Math.abs(Math.sin(i * 1.7)) * 100)}
-              stroke={i % 5 === 0 ? "#d97706" : "#cfdbd8"}
+              stroke={i % 5 === 0 ? "#ad7519" : "#cbd5e1"}
               strokeWidth="1.5"
             />
           ))}
           <polyline
             points={Array.from({ length: 41 }, (_, i) => `${i * 30},${110 - Math.sin(i * 0.55) * 32 - i * 0.6}`).join(" ")}
             fill="none"
-            stroke="#087f78"
+            stroke="#3a72c4"
             strokeWidth="2"
           />
         </svg>

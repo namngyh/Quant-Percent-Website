@@ -131,13 +131,21 @@ async def latest_forecasts(
                 forecast_return=float(r["forecast_return"]),
                 probability_up=float(r["probability_up"]),
                 probability_down=float(r["probability_down"]),
-                regime=r["regime"],
-                regime_probability=float(r["regime_probability"]),
                 volatility=float(r["volatility"]),
                 interval_level=float(r["interval_level"]),
                 interval_lower=float(r["interval_lower"]),
                 interval_upper=float(r["interval_upper"]),
-                risk_score=int(r["risk_score"]),
+                # A model that forecasts a distribution and calls no regime
+                # leaves these null; do not coerce, or None becomes 0.
+                regime=r["regime"],
+                regime_probability=(
+                    None
+                    if r["regime_probability"] is None
+                    else float(r["regime_probability"])
+                ),
+                risk_score=(
+                    None if r["risk_score"] is None else int(r["risk_score"])
+                ),
                 risk_state=r["risk_state"],
                 status=r["status"],
             )

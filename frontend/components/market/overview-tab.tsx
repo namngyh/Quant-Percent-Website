@@ -66,46 +66,67 @@ export function OverviewTab() {
       {data && (
         <>
           <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-3">
-            <Tile label={t("marketState")} tip={g("regime")} accent="brand">
-              <div className="flex flex-wrap items-center gap-2">
-                <RegimeBadge regime={data.regime} />
-                <span className="figure text-xs text-dim">
-                  {locale === "vi" ? "Xác suất" : "Probability"}:{" "}
-                  {fmtPercent(data.regime_probability, locale)}
-                </span>
-              </div>
-            </Tile>
-            <Tile label={t("signal")} accent="signal">
-              <SignalBadge signal={data.public_signal} />
-            </Tile>
-            <Tile label={t("modelConsensus")} tip={g("modelConsensus")} accent="brand">
-              <p className="figure text-2xl font-medium text-brand-strong">
-                {fmtPercent(data.model_consensus, locale)}
-              </p>
-            </Tile>
-            <Tile label={tp("probabilityUp")} tip={g("probabilityUp")} accent="positive">
-              <p className="figure text-2xl font-medium text-positive">
-                {fmtPercent(data.probability_up, locale)}
-              </p>
-            </Tile>
-            <Tile label={t("probabilityDown")} tip={g("downsideProbability")} accent="negative">
-              <p className="figure text-2xl font-medium text-negative">
-                {fmtPercent(data.probability_down, locale)}
-              </p>
-            </Tile>
-            <Tile label={tp("volatility")} tip={g("volatility")} accent="signal">
-              <p className="figure text-2xl font-medium text-signal-strong">
-                {fmtPercent(data.volatility, locale)}
-              </p>
-            </Tile>
-            <Tile label={tp("riskState")} tip={g("riskState")} accent="negative">
-              <div className="flex flex-wrap items-center gap-2">
-                <RiskBadge risk={data.risk_state} />
-                <span className="figure text-xs text-dim">
-                  {data.risk_score}/100
-                </span>
-              </div>
-            </Tile>
+            {/* Model-derived tiles. Each renders only when the pipeline has
+                produced that value; a missing reading is shown as missing by
+                leaving the tile out entirely. */}
+            {data.regime !== null && (
+              <Tile label={t("marketState")} tip={g("regime")} accent="brand">
+                <div className="flex flex-wrap items-center gap-2">
+                  <RegimeBadge regime={data.regime} />
+                  {data.regime_probability !== null && (
+                    <span className="figure text-xs text-dim">
+                      {locale === "vi" ? "Xác suất" : "Probability"}:{" "}
+                      {fmtPercent(data.regime_probability, locale)}
+                    </span>
+                  )}
+                </div>
+              </Tile>
+            )}
+            {data.public_signal !== null && (
+              <Tile label={t("signal")} accent="signal">
+                <SignalBadge signal={data.public_signal} />
+              </Tile>
+            )}
+            {data.model_consensus !== null && (
+              <Tile label={t("modelConsensus")} tip={g("modelConsensus")} accent="brand">
+                <p className="figure text-2xl font-medium text-brand-strong">
+                  {fmtPercent(data.model_consensus, locale)}
+                </p>
+              </Tile>
+            )}
+            {data.probability_up !== null && (
+              <Tile label={tp("probabilityUp")} tip={g("probabilityUp")} accent="positive">
+                <p className="figure text-2xl font-medium text-positive">
+                  {fmtPercent(data.probability_up, locale)}
+                </p>
+              </Tile>
+            )}
+            {data.probability_down !== null && (
+              <Tile label={t("probabilityDown")} tip={g("downsideProbability")} accent="negative">
+                <p className="figure text-2xl font-medium text-negative">
+                  {fmtPercent(data.probability_down, locale)}
+                </p>
+              </Tile>
+            )}
+            {data.volatility !== null && (
+              <Tile label={tp("volatility")} tip={g("volatility")} accent="signal">
+                <p className="figure text-2xl font-medium text-signal-strong">
+                  {fmtPercent(data.volatility, locale)}
+                </p>
+              </Tile>
+            )}
+            {data.risk_state !== null && (
+              <Tile label={tp("riskState")} tip={g("riskState")} accent="negative">
+                <div className="flex flex-wrap items-center gap-2">
+                  <RiskBadge risk={data.risk_state} />
+                  {data.risk_score !== null && (
+                    <span className="figure text-xs text-dim">
+                      {data.risk_score}/100
+                    </span>
+                  )}
+                </div>
+              </Tile>
+            )}
             {data.quotes.map((q) => (
               <Tile key={q.symbol} label={q.name}>
                 <p className="figure text-2xl font-medium">

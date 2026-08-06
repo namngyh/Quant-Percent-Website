@@ -440,6 +440,11 @@ class Symbol(Base):
     __table_args__ = {"schema": WEB_SCHEMA}
 
     symbol: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # Name this symbol carries in the ingestion feed. Usually identical to
+    # `symbol`, but the website publishes the VN30 index as "VN30" while
+    # DataPro delivers it as "VN30INDEX". Kept unique so the api views can
+    # join on it without multiplying rows.
+    feed_symbol: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     kind: Mapped[str] = mapped_column(String(20), nullable=False)  # index|future|stock
     exchange: Mapped[str] = mapped_column(String(10), default="HOSE", nullable=False)
@@ -515,14 +520,18 @@ class ModelForecast(Base):
     forecast_return: Mapped[float] = mapped_column(Float, nullable=False)
     probability_up: Mapped[float] = mapped_column(Float, nullable=False)
     probability_down: Mapped[float] = mapped_column(Float, nullable=False)
-    regime: Mapped[str] = mapped_column(String(30), nullable=False)
-    regime_probability: Mapped[float] = mapped_column(Float, nullable=False)
     volatility: Mapped[float] = mapped_column(Float, nullable=False)
     interval_level: Mapped[float] = mapped_column(Float, nullable=False)
     interval_lower: Mapped[float] = mapped_column(Float, nullable=False)
     interval_upper: Mapped[float] = mapped_column(Float, nullable=False)
-    risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
-    risk_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Not every model produces a regime call or a risk grade. MSDP forecasts a
+    # return distribution and nothing else; requiring these would force the
+    # loader to invent a regime, which reads on the page as a real call. A
+    # model that does produce them fills them in.
+    regime: Mapped[str | None] = mapped_column(String(30))
+    regime_probability: Mapped[float | None] = mapped_column(Float)
+    risk_score: Mapped[int | None] = mapped_column(Integer)
+    risk_state: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     # Realised value, filled in later so forecast error and interval
     # coverage can be computed honestly

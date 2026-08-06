@@ -36,13 +36,22 @@ type GraphEdge = {
   };
 };
 
+/**
+ * One colour per detected community, in fixed order.
+ *
+ * The first five are the validated categorical series, so the map and the
+ * cluster list beside it name the same group with the same colour. Two extra
+ * steps follow for runs that split the index further; they sit outside the
+ * validated set, which is acceptable here because a node also carries its
+ * ticker label — colour is not the only way to tell communities apart.
+ */
 const COMMUNITY_COLORS = [
-  "#087f78",
-  "#d97706",
-  "#3168a6",
-  "#9a5bb5",
-  "#c64032",
-  "#16805d",
+  "#3a72c4",
+  "#ad7519",
+  "#158f66",
+  "#8a4fbd",
+  "#c0433a",
+  "#3f7d8c",
   "#8a5a44",
 ];
 

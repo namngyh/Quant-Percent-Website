@@ -80,14 +80,25 @@ async def test_quote_maps_a_real_row() -> None:
 
 
 async def test_overview_without_model_output_is_honest() -> None:
-    """No market_state row yet: report what we have and flag low
-    conviction rather than inventing a regime."""
+    """No market_state row yet: report the quotes and leave the model's
+    read on the market null, rather than inventing a regime.
+
+    This used to return "sideways" / "moderate" / "low_conviction" with
+    zeroed probabilities, which the website rendered as a genuine reading.
+    """
     # three quote lookups (all empty), then the market_state query
     session = _FakeSession([], [], [], [])
     overview = await market.get_overview(session)
     assert overview.quotes == []
-    assert overview.public_signal == "low_conviction"
-    assert overview.regime_probability == 0.0
+    assert overview.regime is None
+    assert overview.regime_probability is None
+    assert overview.probability_up is None
+    assert overview.probability_down is None
+    assert overview.volatility is None
+    assert overview.risk_state is None
+    assert overview.risk_score is None
+    assert overview.model_consensus is None
+    assert overview.public_signal is None
     # An empty payload must never be presented as fresh
     assert overview.is_stale is True
     assert overview.source_status == "unavailable"

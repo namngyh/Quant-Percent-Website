@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
 import { ArrowRight } from "lucide-react";
-import { strategyCount } from "@/config/strategies";
 import {
   getPublishedModels,
   usesDatabaseApi,
@@ -17,38 +16,50 @@ export async function ByTheNumbers() {
   const models = await getPublishedModels();
   const figures = [
     { value: models.length, label: t("models") },
-    { value: strategyCount(), label: t("strategies") },
+    // Years of Model Modus's published test, not a count of reports: the
+    // performance page now publishes one run covering 2024-2026, so "3
+    // reports" described a page that no longer exists.
+    { value: 3, label: t("strategies") },
     { value: 4, label: t("horizons") },
   ];
   return (
+    /*
+      Heading and figures sit side by side rather than stacked, and the
+      figures are separated by rules instead of boxed in a grid of equal
+      cells. Three identical boxes gave every number the same weight and
+      read as filler; a row of large numerals against a short heading reads
+      as a statement.
+    */
     <section className="container-qp section-pad">
-      <p className="eyebrow">{t("eyebrow")}</p>
-      <h2 className="title-lg mt-4 max-w-2xl">{t("title")}</h2>
-      <div className="mt-12 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-3">
-        {figures.map((f, i) => (
-          <div key={f.label} className="bg-background p-8">
-            <Reveal index={i}>
-              <p
-                className={`figure text-5xl font-medium ${
-                  i === 1 ? "text-signal-strong" : "text-brand"
-                }`}
-              >
-                <MetricCounter value={f.value} />
-              </p>
-              <p className="mt-3 text-sm text-dim">{f.label}</p>
+      <div className="grid gap-12 desk:grid-cols-[0.9fr_1.1fr] desk:gap-16">
+        <div className="desk:sticky desk:top-24 desk:self-start">
+          <p className="eyebrow">{t("eyebrow")}</p>
+          <h2 className="title-lg mt-4">{t("title")}</h2>
+          <ul className="mt-8 space-y-3 text-sm text-ink">
+            {[t("validation"), t("focus")].map((line) => (
+              <li key={line} className="flex gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-2 h-px w-5 shrink-0 bg-brand"
+                />
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <dl className="divide-y divide-border border-y border-border">
+          {figures.map((f, i) => (
+            <Reveal key={f.label} index={i}>
+              <div className="flex items-baseline gap-6 py-7 desk:gap-10">
+                <dd className="figure w-24 shrink-0 text-right text-5xl font-medium leading-none text-brand desk:w-32 desk:text-6xl">
+                  <MetricCounter value={f.value} />
+                </dd>
+                <dt className="text-sm leading-relaxed text-ink">{f.label}</dt>
+              </div>
             </Reveal>
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 grid gap-4 text-sm text-ink desk:grid-cols-2">
-        <p className="flex gap-3">
-          <span aria-hidden="true" className="text-brand">•</span>
-          {t("validation")}
-        </p>
-        <p className="flex gap-3">
-          <span aria-hidden="true" className="text-brand">•</span>
-          {t("focus")}
-        </p>
+          ))}
+        </dl>
       </div>
     </section>
   );

@@ -6,6 +6,10 @@ and enum values on this side, so a rename here fails here rather than in
 production.
 """
 
+from datetime import UTC, datetime
+
+import pytest
+
 from app.main import app
 from app.schemas.common import Freshness
 from app.schemas.market import MarketOverview, Quote
@@ -61,6 +65,87 @@ def test_metrics_are_all_optional() -> None:
     # A metric the run did not produce must serialise as null, never 0
     for name, field in Metrics.model_fields.items():
         assert not field.is_required(), name
+
+
+def test_market_overview_model_fields_are_optional() -> None:
+    """The same rule applies to the model's read on the market.
+
+    quant.market_state is empty until an inference runner fills it. If these
+    were required the service would have to invent a regime, and a made-up
+    "sideways / moderate / 0" is indistinguishable from a real reading on
+    the page. Quotes stay required — they come from the ingestion feed.
+    """
+    model_derived = {
+        "regime",
+        "regime_probability",
+        "probability_up",
+        "probability_down",
+        "volatility",
+        "risk_state",
+        "risk_score",
+        "model_consensus",
+        "public_signal",
+    }
+    for name in model_derived:
+        assert name in MarketOverview.model_fields, name
+        assert not MarketOverview.model_fields[name].is_required(), name
+    assert MarketOverview.model_fields["quotes"].is_required()
+
+
+def test_market_overview_without_model_state_has_no_invented_values() -> None:
+    overview = MarketOverview(
+        data_as_of=datetime(2026, 8, 4, tzinfo=UTC),
+        generated_at=datetime(2026, 8, 4, tzinfo=UTC),
+        source_status="ok",
+        is_stale=False,
+        delay_minutes=15,
+        quotes=[],
+    )
+    dumped = overview.model_dump()
+    assert dumped["regime"] is None
+    assert dumped["risk_state"] is None
+    assert dumped["risk_score"] is None
+    assert dumped["probability_up"] is None
+
+
+def test_declared_market_delay_is_actually_applied() -> None:
+    """The published delay must match what the API withholds.
+
+    It used to announce 15 minutes on every payload while serving the newest
+    bar — about a minute old — because the cutoff helper was never called from
+    any query. Nothing implements withholding today, so the only honest value
+    is 0, and the settings model refuses anything else.
+    """
+    from pydantic import ValidationError
+
+    from app.core.config import Settings, settings
+
+    assert settings.market_delay_minutes == 0
+    with pytest.raises(ValidationError):
+        Settings(market_delay_minutes=15)
+
+
+def test_forecast_regime_and_risk_are_optional() -> None:
+    """A distributional model publishes without calling a regime.
+
+    MSDP forecasts return quantiles and a calibrated interval and makes no
+    regime call. If these were required the loader would have to invent one,
+    and an invented regime renders on the model page exactly like a real one.
+    The forecast itself stays required — without a value and an interval the
+    row is not a forecast.
+    """
+    for name in ("regime", "regime_probability", "risk_score", "risk_state"):
+        assert not ForecastRecord.model_fields[name].is_required(), name
+    for name in (
+        "forecast_value",
+        "forecast_return",
+        "probability_up",
+        "probability_down",
+        "volatility",
+        "interval_lower",
+        "interval_upper",
+    ):
+        assert ForecastRecord.model_fields[name].is_required(), name
 
 
 def test_forecast_record_excludes_internal_fields() -> None:
