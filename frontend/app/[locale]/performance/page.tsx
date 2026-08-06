@@ -49,7 +49,6 @@ export default async function PerformancePage({
         <p className="mt-4 max-w-3xl leading-relaxed text-ink">
           {t("description")}
         </p>
-        <p className="mt-3 max-w-3xl text-sm text-dim">{t("labelNote")}</p>
         <p className="mt-3 max-w-3xl border-l-2 border-signal pl-4 text-sm text-dim">
           {t("restatementNote")}
         </p>

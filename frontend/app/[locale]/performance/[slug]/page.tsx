@@ -106,7 +106,6 @@ export default async function StrategyPage({
               </div>
             ))}
           </dl>
-          <p className="mt-4 max-w-2xl text-sm text-dim">{t("labelNote")}</p>
         </section>
 
         <section className="mt-10">

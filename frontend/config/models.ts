@@ -367,47 +367,50 @@ export const MODELS: ModelConfig[] = [
         ],
       },
     },
+    // Layer names and purposes only. Techniques, lookback windows, state
+    // counts and timeframes are deliberately absent: publishing them would
+    // amount to publishing the model.
     architecture: [
       {
         title: { vi: "Tầng tín hiệu", en: "Signal layer" },
         text: {
-          vi: "Ba nhóm tín hiệu cùng quan sát chu kỳ, xu hướng và sức mạnh của chuyển động giá. Chúng cung cấp nhiều góc nhìn trước khi hệ thống đưa ra quyết định.",
-          en: "Three independent signal systems view the market through cycle, trend and momentum, giving the central model a multi-angle view.",
+          vi: "Nhiều nhóm chỉ báo độc lập cùng quan sát thị trường ở các khía cạnh khác nhau. Việc kết hợp nhiều góc nhìn giúp hệ thống ít phụ thuộc vào một cách đọc thị trường duy nhất.",
+          en: "Several independent indicator groups observe the market from different angles. Combining multiple views reduces the system's dependence on any single reading of the market.",
         },
       },
       {
-        title: { vi: "Bộ não quyết định", en: "Decision core" },
+        title: { vi: "Tầng ra quyết định", en: "Decision layer" },
         text: {
-          vi: "Mô hình đọc 255 khoảng dữ liệu 5 phút gần nhất để tìm mẫu biến động. Sau đó, phương pháp học từ thử–sai (PPO) chọn thời điểm vào hoặc thoát lệnh theo mức tin cậy của hệ thống.",
-          en: "An LSTM network processes the latest 255 five-minute intervals, combined with PPO reinforcement learning to produce entry and exit decisions based on the model's confidence.",
+          vi: "Một mô hình học máy tổng hợp các tín hiệu thành quyết định vào hoặc thoát lệnh, kèm mức độ tin cậy. Lệnh chỉ được thực hiện khi mức tin cậy vượt ngưỡng đã đặt trước.",
+          en: "A machine-learning model consolidates the signals into entry and exit decisions with an associated confidence level. A trade is taken only when that confidence clears a predefined threshold.",
         },
       },
       {
         title: { vi: "Nhận diện trạng thái thị trường", en: "Market regime detection" },
         text: {
-          vi: "Hệ thống nhận biết bốn trạng thái: tăng, giảm, đi ngang và biến động mạnh. Phiên sáng và phiên chiều được xử lý riêng vì hành vi thị trường có thể khác nhau.",
-          en: "A Hidden Markov model classifies the data into four market states: bullish flow, bearish flow, sideways and turbulent. Morning and afternoon sessions use separate models.",
+          vi: "Hệ thống phân loại điều kiện thị trường hiện tại và điều chỉnh cách hành xử theo từng trạng thái. Cùng một tín hiệu có thể dẫn tới quyết định khác nhau tùy bối cảnh thị trường.",
+          en: "The system classifies prevailing market conditions and adjusts its behaviour accordingly. The same signal can lead to a different decision depending on the market context.",
         },
       },
       {
         title: { vi: "Quản trị rủi ro thích ứng", en: "Adaptive risk management" },
         text: {
-          vi: "Mức dừng lỗ được nới hoặc thu hẹp theo mức biến động dự kiến: thị trường biến động mạnh thì khoảng dừng rộng hơn. Điều kiện dừng được kiểm tra từng phút.",
-          en: "Stop-loss and trailing-stop levels adjust to forecast volatility using GARCH. Stop conditions are evaluated on one-minute data rather than every five minutes.",
+          vi: "Mức dừng lỗ được nới hoặc thu hẹp theo mức biến động dự kiến: thị trường biến động mạnh thì khoảng dừng rộng hơn để tránh bị dừng sớm bởi nhiễu giá.",
+          en: "Stop levels widen or tighten with expected volatility: a more volatile market gets more room, so a position is not closed early by ordinary price noise.",
         },
       },
       {
-        title: { vi: "Mô phỏng khớp lệnh", en: "Execution simulation" },
+        title: { vi: "Mô phỏng khớp lệnh thận trọng", en: "Conservative execution simulation" },
         text: {
-          vi: "Mô phỏng khớp lệnh tại giá mở cửa khi thị trường vượt qua mức dừng, chuyển lệnh phát sinh trong phiên ATC sang giá mở cửa hôm sau, tất toán vào ngày đáo hạn và tính chi phí giao dịch.",
-          en: "The simulation fills at the open when the market gaps through a stop, defers orders arising in the ATC session to the next day's open, settles positions on expiry days and applies transaction costs.",
+          vi: "Mô phỏng giả định khớp lệnh ở mức bất lợi khi thị trường mở cửa vượt qua mức dừng, xử lý riêng lệnh phát sinh trong phiên ATC, tất toán vào ngày đáo hạn và tính đầy đủ chi phí giao dịch.",
+          en: "The simulation assumes an unfavourable fill when the market opens beyond a stop level, handles orders arising in the ATC session separately, settles positions on expiry days and applies full transaction costs.",
         },
       },
       {
         title: { vi: "Không nhìn trước tương lai", en: "Anti-leakage discipline" },
         text: {
-          vi: "Mô hình chỉ được học từ dữ liệu đã có trong quá khứ. Dữ liệu dùng để kiểm tra không được dùng để điều chỉnh mô hình, và bộ dữ liệu cuối chỉ được mở một lần.",
-          en: "Every component that learns from data sees only data before the training cutoff. Validation and test sets are sealed off from tuning; the test set is opened exactly once.",
+          vi: "Mọi thành phần học từ dữ liệu chỉ được thấy dữ liệu có trước thời điểm huấn luyện. Bộ dữ liệu kiểm tra cuối cùng được niêm phong và chỉ mở đúng một lần.",
+          en: "Every component that learns from data sees only data preceding the training cutoff. The final test set is sealed and opened exactly once.",
         },
       },
     ],

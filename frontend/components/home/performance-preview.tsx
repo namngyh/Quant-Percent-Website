@@ -6,7 +6,6 @@ import { useApi } from "@/lib/api/fetcher";
 import type { PerformanceSeries, StrategyMetrics } from "@/lib/api/types";
 import { FEATURED_STRATEGY } from "@/config/strategies";
 import { DataState } from "@/components/states/data-state";
-import { DataFreshnessLabel } from "@/components/states/data-freshness-label";
 import { Button } from "@/components/ui/button";
 import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
 
@@ -119,13 +118,6 @@ export function PerformancePreview() {
                   </div>
                 )}
 
-                <p className="mt-5 border-t border-border pt-4 text-xs leading-relaxed text-dim">
-                  {tp("labelNote")}
-                </p>
-                <DataFreshnessLabel
-                  freshness={metrics.data}
-                  illustrative={false}
-                />
               </div>
             )}
           </DataState>

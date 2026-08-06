@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useApi } from "@/lib/api/fetcher";
 import { DataState } from "@/components/states/data-state";
@@ -33,35 +32,33 @@ const NOTIONAL_POINTS = 1000;
 type Metrics = StrategyMetrics["metrics"];
 type MetricKey = keyof Metrics;
 
-const RETURN_KEYS: MetricKey[] = [
+/** Every metric the report carries, ordered from result to detail. */
+const TABLE_KEYS: MetricKey[] = [
   "totalReturn",
   "annualizedReturn",
   "netPoints",
-  "expectancy",
-];
-const RISK_KEYS: MetricKey[] = [
   "maxDrawdown",
   "maxDrawdownPoints",
   "ulcer",
-  "maxConsecutiveLosses",
-];
-const RISK_ADJUSTED_KEYS: MetricKey[] = [
   "sharpe",
   "sortino",
   "calmar",
   "upi",
   "profitFactor",
-  "equityR2",
-];
-const TRADE_KEYS: MetricKey[] = [
-  "trades",
-  "winRate",
   "payoff",
+  "expectancy",
+  "winRate",
+  "trades",
   "avgWin",
   "avgLoss",
+  "maxConsecutiveLosses",
   "exposure",
+  "equityR2",
+  "longPnl",
+  "shortPnl",
+  "wrLong",
+  "wrShort",
 ];
-const SIDE_KEYS: MetricKey[] = ["longPnl", "shortPnl", "wrLong", "wrShort"];
 
 /** Metrics that are a share of something, so they render as percentages. */
 const PERCENT_KEYS = new Set<MetricKey>([
@@ -104,46 +101,10 @@ function formatMetric(
   return fmtNumber(value, locale, { maximumFractionDigits: 2 });
 }
 
-function MetricRows({
-  keys,
-  metrics,
-  locale,
-  pointsUnit,
-  names,
-}: {
-  keys: MetricKey[];
-  metrics: Metrics;
-  locale: string;
-  pointsUnit: string;
-  names: (key: string) => string;
-}) {
-  const rows = keys
-    .map((key) => ({
-      key,
-      text: formatMetric(key, metrics[key] as number | null, locale, pointsUnit),
-    }))
-    // A metric the run did not export is left out rather than shown as zero.
-    .filter((row) => row.text !== null);
-
-  if (rows.length === 0) return null;
-
-  return (
-    <dl className="divide-y divide-border">
-      {rows.map((row) => (
-        <div key={row.key} className="flex items-baseline justify-between gap-4 py-2.5">
-          <dt className="text-[13px] leading-snug text-dim">{names(row.key)}</dt>
-          <dd className="figure shrink-0 text-sm">{row.text}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export function ModusOverview() {
   const locale = useLocale();
   const t = useTranslations("performance");
   const tc = useTranslations("common");
-  const [open, setOpen] = useState(false);
 
   const metrics = useApi<StrategyMetrics>(
     `/api/v1/strategies/${WALK_FORWARD}/metrics`,
@@ -319,46 +280,60 @@ export function ModusOverview() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className="mt-8 inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-brand transition-colors hover:border-brand hover:bg-brand-soft"
-          >
-            {open ? t("detail.metricGroups.hideDetail") : t("detail.metricGroups.showDetail")}
-          </button>
+          {/* One table rather than five expandable groups. A reader
+              comparing this system with another wants every figure in one
+              place to scan down, not a disclosure widget to open first. */}
+          <div className="mt-10">
+            <h3 className="text-base font-semibold">{t("overview.tableHeading")}</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-dim">
+              {t("overview.tableNote")}
+            </p>
 
-          {open && (
-            <div className="mt-6 grid gap-x-10 gap-y-8 sm:grid-cols-2 desk:grid-cols-3">
-              {(
-                [
-                  ["returns", RETURN_KEYS],
-                  ["risk", RISK_KEYS],
-                  ["riskAdjusted", RISK_ADJUSTED_KEYS],
-                  ["tradeQuality", TRADE_KEYS],
-                  ["breakdown", SIDE_KEYS],
-                ] as const
-              ).map(([group, keys]) => (
-                <div key={group}>
-                  <h3 className="text-sm font-semibold">
-                    {t(`detail.metricGroups.${group}` as never)}
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-dim">
-                    {t(`detail.metricGroups.${group}Note` as never)}
-                  </p>
-                  <div className="mt-3 border-t border-border">
-                    <MetricRows
-                      keys={[...keys]}
-                      metrics={m}
-                      locale={locale}
-                      pointsUnit={pointsUnit}
-                      names={names}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[34rem] border-collapse text-sm">
+                <caption className="sr-only">{t("overview.tableHeading")}</caption>
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th scope="col" className="py-2.5 pr-4 text-xs font-medium uppercase tracking-[0.06em] text-dim">
+                      {t("overview.colMetric")}
+                    </th>
+                    <th scope="col" className="py-2.5 pr-4 text-right text-xs font-medium uppercase tracking-[0.06em] text-dim">
+                      {t("overview.colValue")}
+                    </th>
+                    <th scope="col" className="py-2.5 text-xs font-medium uppercase tracking-[0.06em] text-dim">
+                      {t("overview.colMeaning")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TABLE_KEYS.map((key) => {
+                    const text = formatMetric(
+                      key,
+                      m[key] as number | null,
+                      locale,
+                      pointsUnit,
+                    );
+                    // A metric the run did not export is left out entirely
+                    // rather than shown as a dash the reader must interpret.
+                    if (text === null) return null;
+                    return (
+                      <tr key={key} className="border-b border-border/70">
+                        <th scope="row" className="py-3 pr-4 text-left font-normal">
+                          {names(key)}
+                        </th>
+                        <td className="figure py-3 pr-4 text-right font-medium">
+                          {text}
+                        </td>
+                        <td className="py-3 text-[13px] leading-relaxed text-dim">
+                          {t(`overview.meaning.${key}` as never)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
 
           {/* `flex w-fit` rather than `inline-flex`: the toggle button above is
               also inline and the two would otherwise run together on one line. */}
