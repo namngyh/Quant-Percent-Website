@@ -11,7 +11,10 @@
  * `label` on the rare occasion the mascot stands alone.
  */
 
-const CREAM = "#F2EFE8";
+/** The plate and the percent sign share one colour: white, matching the panel
+ *  the mark sits on. The original artwork used a cream plate, which read as a
+ *  patch of a different palette against the site's white surfaces. */
+const PLATE = "#FFFFFF";
 const NAVY = "#121826";
 const MINT = "#2FE0A0";
 const GREY = "#98A2AE";
@@ -24,7 +27,8 @@ export function ModusMascot({
   className?: string;
   /** Announce the image with this name; omit to treat it as decorative. */
   label?: string;
-  /** The rounded cream plate behind the figure. */
+  /** The rounded white plate behind the figure. Keep it on coloured panels;
+   *  it is invisible, and harmless, on the white ones. */
   showBackdrop?: boolean;
 }) {
   return (
@@ -37,7 +41,7 @@ export function ModusMascot({
       focusable="false"
     >
       {showBackdrop && (
-        <rect x="0" y="0" width="512" height="512" rx="96" fill={CREAM} />
+        <rect x="0" y="0" width="512" height="512" rx="96" fill={PLATE} />
       )}
 
       {/* Antennae. The centre one is an open capsule; the outer pair are
@@ -87,7 +91,7 @@ export function ModusMascot({
         cy="208"
         r="39"
         fill="none"
-        stroke={CREAM}
+        stroke={PLATE}
         strokeWidth="26"
       />
       <circle
@@ -95,7 +99,7 @@ export function ModusMascot({
         cy="272"
         r="39"
         fill="none"
-        stroke={CREAM}
+        stroke={PLATE}
         strokeWidth="26"
       />
       <line

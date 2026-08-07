@@ -342,7 +342,9 @@
       "market": "Thị trường",
       "category": "Mục đích",
       "updated": "Cập nhật",
-      "keyOutput": "Kết quả chính"
+      "keyOutput": "Kết quả chính",
+      "rangeLow": "Thấp nhất",
+      "rangeHigh": "Cao nhất"
     },
     "locked": {
       "badge": "Cần đăng nhập",
@@ -556,14 +558,10 @@
     "title": "Về chúng tôi",
     "whatTitle": "Quant Percent là gì",
     "whatText": "Quant Percent là nhóm nghiên cứu thị trường bằng dữ liệu. Chúng tôi xây dựng các mô hình giúp nhận biết xu hướng, ước lượng rủi ro và kiểm tra các phương pháp giao dịch trên thị trường Việt Nam.",
-    "whyTitle": "Lý do thành lập",
-    "whyText": "Chúng tôi bắt đầu từ một niềm tin đơn giản: thị trường để lại dấu vết trong dữ liệu, và toán học đọc được những dấu vết đó.\n\nTừ đam mê với các mô hình định lượng, Quant Percent ra đời để đưa cách đầu tư dựa trên dữ liệu và trí tuệ nhân tạo — vốn lâu nay là đặc quyền của các tổ chức lớn — đến gần hơn với mọi nhà đầu tư, từ quỹ chuyên nghiệp đến người mở tài khoản đầu tiên.\n\nKhông phải bằng những lời hứa, mà bằng những con số ai cũng kiểm chứng được.",
     "focusTitle": "Thị trường tập trung",
-    "focusText": "Chúng tôi tập trung vào chỉ số VN-Index, rổ cổ phiếu VN30 và hợp đồng tương lai VN30F1M. Phạm vi này giúp việc thu thập dữ liệu, xây dựng và kiểm tra mô hình được thực hiện nhất quán.",
+    "focusText": "Chúng tôi tập trung vào chỉ số VN-Index, cổ phiếu niêm yết trên HOSE và hợp đồng tương lai VN30F1M. Phạm vi này giúp việc thu thập dữ liệu, xây dựng và kiểm tra mô hình được thực hiện nhất quán.",
     "philosophyTitle": "Triết lý nghiên cứu",
-    "philosophyText": "Mọi kết luận đều phải cho biết dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào và còn hạn chế gì. Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro và mọi mô hình đều có lúc hoạt động kém.",
-    "approachTitle": "Quy trình nghiên cứu",
-    "approachText": "Tùy từng mô hình, chúng tôi kiểm tra chất lượng dữ liệu, thử mô hình trên giai đoạn chưa được dùng để xây dựng, mô phỏng nhiều tình huống thị trường và theo dõi độ ổn định của kết quả. Model Modus hiện mới có kết quả mô phỏng, chưa giao dịch thật.",
+    "philosophyText": "Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro, và mọi mô hình đều có giai đoạn hoạt động kém. Mọi kết luận trên website đều nêu rõ dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào và còn giới hạn gì.",
     "visionTitle": "Tầm nhìn dài hạn",
     "visionText": "Xây dựng một tổ chức quản lý tài sản tại Việt Nam, nơi quyết định đầu tư dựa trên dữ liệu, công nghệ và quy trình quản lý rủi ro rõ ràng.",
     "developingTitle": "Các lĩnh vực đang phát triển",
@@ -574,7 +572,15 @@
       "Công cụ đo lường các tình huống rủi ro",
       "Hệ thống dữ liệu và theo dõi chất lượng mô hình"
     ],
-    "note": "Quant Percent hiện chưa triển khai hoạt động quản lý vốn chính thức và không huy động hoặc nhận ủy thác vốn thông qua website này."
+    "note": "Quant Percent hiện chưa triển khai hoạt động quản lý vốn chính thức và không huy động hoặc nhận ủy thác vốn thông qua website này.",
+    "lead": "Chúng tôi xây dựng công cụ định lượng cho thị trường Việt Nam, và công bố cả những gì chưa hoạt động. Phần lớn kết quả nghiên cứu định lượng không sống sót khi gặp dữ liệu mới — chúng tôi cho rằng điều đó nên được nói ra thay vì giấu đi.",
+    "stageTitle": "Giai đoạn hiện tại",
+    "stageText": "Quant Percent đang ở giai đoạn nghiên cứu và kiểm định. Bốn mô hình đã hoàn tất chu trình kiểm tra độc lập theo thứ tự thời gian, hệ thống dữ liệu vận hành hằng ngày trên toàn bộ cổ phiếu niêm yết HOSE, và Model Modus đã trải qua ba năm kiểm định.\n\nBước tiếp theo là đưa hệ thống vào vận hành có giám sát trước khi mở rộng quy mô.",
+    "publishTitle": "Chúng tôi công bố gì",
+    "publishText": "Mỗi báo cáo nêu rõ giai đoạn dữ liệu, cách kiểm định và đầy đủ chỉ số hiệu quả cùng rủi ro. Kết quả được tách theo từng giai đoạn, kể cả giai đoạn thua lỗ.\n\nMột phiên bản mô hình chỉ được đưa vào sử dụng sau khi vượt các tiêu chí kiểm định độc lập.",
+    "ctaTitle": "Quan tâm đến hướng nghiên cứu này?",
+    "ctaText": "Chúng tôi trao đổi với nhà đầu tư tổ chức, đối tác dữ liệu và cộng tác viên nghiên cứu.",
+    "ctaButton": "Liên hệ với chúng tôi"
   },
   "contact": {
     "title": "Liên hệ",

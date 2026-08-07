@@ -12,6 +12,7 @@ import { NetworkRanking } from "@/components/models/network-ranking";
 import { RiskProfile } from "@/components/models/risk-profile";
 import type {
   ModelResearchProfile,
+  ResearchBand,
   ResearchChart,
   ResearchLocale,
 } from "@/config/model-research";
@@ -38,10 +39,42 @@ function targetLine(
   };
 }
 
+/**
+ * A shaded range, built as the pair of stacked lines ECharts needs.
+ *
+ * The lower boundary is drawn invisibly and the visible series carries only
+ * the distance up to the upper boundary, so the fill starts where the range
+ * starts rather than at the axis. Both are marked `silent` — the tooltip
+ * reports the boundaries from the named series above them, and a second set
+ * of entries for the same numbers reads as duplicate data.
+ */
+function bandSeries(band: ResearchBand, index: number, locale: ResearchLocale) {
+  const stack = `band-${index}`;
+  const base = {
+    type: "line" as const,
+    stack,
+    smooth: false,
+    symbol: "none" as const,
+    silent: true,
+    lineStyle: { width: 0 },
+    emphasis: { disabled: true },
+  };
+  return [
+    { ...base, name: `${stack}-lower`, data: band.lower, areaStyle: { opacity: 0 } },
+    {
+      ...base,
+      name: band.name[locale],
+      data: band.upper.map((v, i) => Number((v - band.lower[i]).toFixed(4))),
+      areaStyle: { color: band.color, opacity: band.opacity ?? 0.18 },
+    },
+  ];
+}
+
 function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreOption {
   const suffix = chart.valueSuffix ?? "";
   const stacked = chart.series.some((s) => s.stack);
   const barCount = chart.series.filter((s) => (s.type ?? "line") === "bar").length;
+  const bands = (chart.bands ?? []).flatMap((b, i) => bandSeries(b, i, locale));
 
   return {
     animationDuration: 450,
@@ -49,13 +82,30 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
     // built-in one would be a second copy of the same swatches.
     legend: { show: false },
     // Headroom at the top for the value labels printed above the tallest mark.
-    grid: { left: 8, right: 16, top: 22, bottom: 8, containLabel: true },
+    grid: {
+      left: 8,
+      right: 16,
+      top: 22,
+      bottom: chart.xAxisLabel ? 26 : 8,
+      containLabel: true,
+    },
     xAxis: {
       type: "category",
       data: chart.categories,
+      // A band chart runs edge to edge; the default gap leaves a strip of
+      // blank plot at each end that reads as missing data.
+      boundaryGap: bands.length === 0,
+      name: chart.xAxisLabel?.[locale],
+      nameLocation: "middle" as const,
+      nameGap: 34,
+      nameTextStyle: { color: CHART.dim, fontSize: 11 },
       axisLine: { lineStyle: { color: CHART.border } },
       axisTick: { show: false },
-      axisLabel: { color: CHART.dim, margin: 12 },
+      axisLabel: {
+        color: CHART.dim,
+        margin: 12,
+        interval: chart.categoryLabelInterval ?? "auto",
+      },
     },
     yAxis: {
       type: "value",
@@ -72,16 +122,51 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
     },
     tooltip: {
       trigger: "axis",
-      valueFormatter: (value: unknown) =>
-        typeof value === "number" ? `${value.toLocaleString(locale)}${suffix}` : String(value),
+      // The invisible lower boundary of a band carries no meaning on its own
+      // and its stacked partner reports a width, not a level. Both are left
+      // out; the named series above them answer the question.
+      formatter: (params: unknown) => {
+        const rows = (Array.isArray(params) ? params : [params]) as {
+          axisValue?: string;
+          seriesName?: string;
+          value?: unknown;
+          color?: string;
+        }[];
+        const shown = rows.filter(
+          (r) => r.seriesName && !/^band-\d+-lower$/.test(r.seriesName),
+        );
+        if (shown.length === 0) return "";
+        const head = shown[0].axisValue ?? "";
+        const body = shown
+          .map((r) => {
+            const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.color};margin-right:6px"></span>`;
+            const v =
+              typeof r.value === "number"
+                ? `${r.value.toLocaleString(locale)}${suffix}`
+                : String(r.value ?? "");
+            return `${dot}${r.seriesName}: <b>${v}</b>`;
+          })
+          .join("<br/>");
+        return `${head}<br/>${body}`;
+      },
     },
-    series: chart.series.map((series, index) => {
+    series: [
+      ...bands,
+      ...chart.series.map((series, index) => {
       const type = series.type ?? "line";
       const isBar = type === "bar";
       // Labels are worth printing on a handful of marks. A dozen of them
       // stamped along a trend line turns the line into a wall of digits, and
       // the tooltip already answers "what is this point worth".
-      const labelled = isBar || series.data.length <= 8;
+      //
+      // The count that matters is marks on the canvas, not points in this
+      // series: six categories against two series is twelve numbers competing
+      // for the same strip of chart. `hideOverlap` cannot rescue that — it
+      // resolves collisions within a series, so labels from neighbouring
+      // series still print on top of each other. Stacked bars are exempt;
+      // their labels sit inside their own segment and cannot collide.
+      const marks = isBar ? series.data.length * barCount : series.data.length;
+      const labelled = stacked || marks <= 8;
       return {
         name: series.name[locale],
         type,
@@ -100,9 +185,20 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
         showSymbol: type !== "line" || series.data.length <= 12,
         lineStyle: { width: 2, color: series.color },
         // Slim bars with room between the groups. Thick blocks read as filler
-        // and crowd out the numbers printed on them.
+        // and crowd out the numbers printed on them — but stacked series share
+        // one column instead of standing side by side, so the count must not
+        // narrow them: at 15% the segment labels no longer fit inside.
         ...(isBar
-          ? { barWidth: barCount > 1 ? "26%" : "34%", barGap: "24%" }
+          ? {
+              barWidth: stacked
+                ? "26%"
+                : barCount > 3
+                  ? "15%"
+                  : barCount > 1
+                    ? "26%"
+                    : "34%",
+              barGap: !stacked && barCount > 3 ? "12%" : "24%",
+            }
           : {}),
         itemStyle: {
           color: series.color,
@@ -138,25 +234,49 @@ function chartOption(chart: ResearchChart, locale: ResearchLocale): EChartsCoreO
                 markLine: targetLine(chart.baseline, suffix, CHART.faint, locale),
               }
             : {}),
-      };
-    }),
+        };
+      }),
+    ],
   };
 }
 
 function EvidenceChart({
   chart,
   locale,
+  className,
 }: {
   chart: ResearchChart;
   locale: ResearchLocale;
+  className?: string;
 }) {
   return (
-    <figure className="min-w-0 overflow-hidden rounded-lg border border-border bg-background p-5 shadow-sm sm:p-6">
+    <figure
+      className={cn(
+        "min-w-0 overflow-hidden rounded-lg border border-border bg-background p-5 shadow-sm sm:p-6",
+        className,
+      )}
+    >
       <figcaption>
         <h3 className="text-base font-semibold">{chart.title[locale]}</h3>
         <p className="mt-2 text-sm leading-relaxed text-dim">{chart.note[locale]}</p>
       </figcaption>
       <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2" aria-hidden="true">
+        {(chart.bands ?? []).map((band) => (
+          <span
+            key={band.name[locale]}
+            className="inline-flex items-center gap-2 text-xs text-dim"
+          >
+            {/* A square reads as an area; the round swatches mark lines. */}
+            <span
+              className="h-2.5 w-3.5 rounded-[2px]"
+              style={{
+                backgroundColor: band.color,
+                opacity: (band.opacity ?? 0.18) + 0.22,
+              }}
+            />
+            {band.name[locale]}
+          </span>
+        ))}
         {chart.series.map((series) => (
           <span
             key={series.name[locale]}
@@ -259,8 +379,20 @@ export function ResearchEvidence({
             profile.charts.length > 1 && "desk:grid-cols-2",
           )}
         >
-          {profile.charts.map((chart) => (
-            <EvidenceChart key={chart.id} chart={chart} locale={locale} />
+          {profile.charts.map((chart, i) => (
+            <EvidenceChart
+              key={chart.id}
+              chart={chart}
+              locale={locale}
+              // An odd count leaves the last chart beside an empty half-row,
+              // which reads as a panel that failed to load. It takes the
+              // width instead.
+              className={cn(
+                profile.charts.length % 2 === 1 &&
+                  i === profile.charts.length - 1 &&
+                  "desk:col-span-2",
+              )}
+            />
           ))}
         </div>
       </section>

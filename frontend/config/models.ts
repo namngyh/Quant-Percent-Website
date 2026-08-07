@@ -36,6 +36,22 @@ export interface ModelConfig {
   updatedAt?: string;
   sparkline?: number[];
   sparklineLabel?: Localized;
+  /**
+   * How the card figure should be read.
+   *
+   * Present means `sparkline` holds one value per entry in `horizons`, and the
+   * card draws a labelled bar per horizon against this scale. Absent means the
+   * values are a sequence over time and keep the trend line — the only case
+   * where a line without an axis says something true.
+   */
+  sparklineScale?: {
+    min: number;
+    max: number;
+    suffix?: string;
+    /** The level the metric is meant to reach, marked with a hairline. */
+    reference?: number;
+    referenceLabel?: Localized;
+  };
   horizons: number[];
   show_performance: boolean;
   show_forecast: boolean;
@@ -74,6 +90,7 @@ export type ModelCardData = Pick<
   | "updatedAt"
   | "sparkline"
   | "sparklineLabel"
+  | "sparklineScale"
   | "horizons"
   | "tagline"
   | "keyOutput"
@@ -94,8 +111,18 @@ export const MODELS: ModelConfig[] = [
     updatedAt: "2026-08-06T00:00:00.000Z",
     sparkline: [53.84, 58.47, 53.85],
     sparklineLabel: {
-      vi: "Tỷ lệ dự báo đúng tăng hoặc giảm",
-      en: "Correct up-or-down forecasts by period",
+      vi: "Tỷ lệ dự báo đúng tăng/giảm, theo số phiên",
+      en: "Correct up-or-down calls, by sessions ahead",
+    },
+    sparklineScale: {
+      min: 40,
+      max: 70,
+      suffix: "%",
+      reference: 50,
+      referenceLabel: {
+        vi: "Vạch đứng là mức 50% — ngang với đoán ngẫu nhiên.",
+        en: "The tick marks 50% — the level of a coin flip.",
+      },
     },
     horizons: [20, 40, 60],
     show_performance: false,
@@ -150,8 +177,17 @@ export const MODELS: ModelConfig[] = [
     updatedAt: "2026-08-06T00:00:00.000Z",
     sparkline: [1.24, 2.86, 4.05, 5.79, 8.19, 9.88],
     sparklineLabel: {
-      vi: "Sai số dự báo theo từng thời hạn",
-      en: "Forecast error by period",
+      vi: "Sai số dự báo, theo số phiên",
+      en: "Forecast error, by sessions ahead",
+    },
+    sparklineScale: {
+      min: 0,
+      max: 12,
+      suffix: "%",
+      referenceLabel: {
+        vi: "Sai số càng thấp càng tốt.",
+        en: "Lower error is better.",
+      },
     },
     horizons: [1, 5, 10, 20, 40, 60],
     show_performance: false,
@@ -265,8 +301,18 @@ export const MODELS: ModelConfig[] = [
     updatedAt: "2026-08-06T00:00:00.000Z",
     sparkline: [90.24, 88.55, 87.95],
     sparklineLabel: {
-      vi: "Độ tin cậy của phạm vi dự báo",
-      en: "Reliability of the forecast range",
+      vi: "Độ tin cậy của phạm vi dự báo, theo số phiên",
+      en: "Reliability of the forecast range, by sessions ahead",
+    },
+    sparklineScale: {
+      min: 80,
+      max: 100,
+      suffix: "%",
+      reference: 90,
+      referenceLabel: {
+        vi: "Vạch đứng là mức 90% cần đạt.",
+        en: "The tick marks the 90% target.",
+      },
     },
     horizons: [5, 20, 60],
     show_performance: false,

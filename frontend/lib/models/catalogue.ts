@@ -88,6 +88,11 @@ function toCard(model: ApiModelSummary): ModelCardData {
     updatedAt: model.updated_at,
     sparkline: model.sparkline ?? undefined,
     sparklineLabel: model.sparkline_label ?? undefined,
+    // How to scale the card figure and where its reference sits. This
+    // describes how a number is drawn, not what the number is, so it
+    // stays in the front-end config instead of making the round trip
+    // through the database.
+    sparklineScale: getModel(model.slug)?.sparklineScale,
     horizons: model.horizons,
     tagline: model.tagline,
     keyOutput: model.key_output,

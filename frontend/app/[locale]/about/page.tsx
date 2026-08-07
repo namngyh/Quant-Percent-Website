@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { localeAlternates } from "@/lib/seo";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Reveal } from "@/components/reveal";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 
 export async function generateMetadata({
   params,
@@ -22,12 +24,14 @@ export default async function AboutPage({
   setRequestLocale(locale);
   const t = await getTranslations("about");
 
+  // "Lý do thành lập" is now the lead line under the title rather than a
+  // block of its own, and "Quy trình nghiên cứu" is replaced by what the
+  // reports actually contain.
   const sections = [
     { title: t("whatTitle"), text: t("whatText") },
-    { title: t("whyTitle"), text: t("whyText") },
-    { title: t("focusTitle"), text: t("focusText") },
+    { title: t("publishTitle"), text: t("publishText") },
     { title: t("philosophyTitle"), text: t("philosophyText") },
-    { title: t("approachTitle"), text: t("approachText") },
+    { title: t("focusTitle"), text: t("focusText") },
     { title: t("visionTitle"), text: t("visionText") },
   ];
 
@@ -35,6 +39,9 @@ export default async function AboutPage({
     <main>
       <section className="container-qp section-pad">
         <h1 className="title-xl max-w-3xl">{t("title")}</h1>
+        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink">
+          {t("lead")}
+        </p>
       </section>
 
       {/* Abstract data graphic instead of office/staff imagery (§12) */}
@@ -65,6 +72,19 @@ export default async function AboutPage({
       </div>
 
       <section className="container-qp section-pad">
+        {/* Operating stage, given its own panel rather than a line inside
+            another block: it is the first thing an investor checks. */}
+        <div className="mb-16 rounded-lg border border-border bg-surface/60 p-7 shadow-sm desk:p-9">
+          <h2 className="title-md">{t("stageTitle")}</h2>
+          {t("stageText")
+            .split(/\n{2,}/)
+            .map((para) => (
+              <p key={para} className="mt-4 max-w-3xl leading-relaxed text-ink">
+                {para}
+              </p>
+            ))}
+        </div>
+
         <div className="grid gap-x-16 gap-y-14 desk:grid-cols-2">
           {sections.map((s, i) => (
             <Reveal key={s.title} index={i}>
@@ -98,6 +118,18 @@ export default async function AboutPage({
         <p className="mt-16 max-w-3xl border-l-2 border-brand pl-4 text-sm text-dim">
           {t("note")}
         </p>
+
+        {/* The page previously ended without telling a reader what to do
+            next. The contact form already carries an enquiry type for this. */}
+        <Reveal className="mt-16 rounded-lg border border-brand/40 bg-brand-soft p-8 desk:p-10">
+          <h2 className="title-md">{t("ctaTitle")}</h2>
+          <p className="mt-3 max-w-2xl leading-relaxed text-ink">
+            {t("ctaText")}
+          </p>
+          <Button asChild className="mt-7">
+            <Link href="/contact?type=investor_interest">{t("ctaButton")}</Link>
+          </Button>
+        </Reveal>
       </section>
     </main>
   );

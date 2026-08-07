@@ -342,7 +342,9 @@
       "market": "Market",
       "category": "Purpose",
       "updated": "Updated",
-      "keyOutput": "Main result"
+      "keyOutput": "Main result",
+      "rangeLow": "Low",
+      "rangeHigh": "High"
     },
     "locked": {
       "badge": "Sign-in required",
@@ -556,14 +558,10 @@
     "title": "About",
     "whatTitle": "What Quant Percent is",
     "whatText": "Quant Percent is a data-driven market research group. We build models to understand market direction, estimate risk and test rule-based trading methods in Vietnam.",
-    "whyTitle": "Why we exist",
-    "whyText": "We started from a simple conviction: markets leave traces in data, and mathematics can read them.\n\nBorn out of a passion for quantitative models, Quant Percent exists to bring data-driven investing and applied AI — long the preserve of large institutions — within reach of every investor, from professional funds to someone opening their first account.\n\nNot through promises, but through numbers anyone can verify.",
     "focusTitle": "Market focus",
-    "focusText": "We focus on the VN-Index, the VN30 equity basket and VN30F1M index futures. This defined scope helps us keep data collection, model development and validation consistent.",
+    "focusText": "We focus on the VN-Index, stocks listed on HOSE and the VN30F1M futures contract. Keeping the scope fixed lets data collection, model building and testing stay consistent.",
     "philosophyTitle": "Research philosophy",
-    "philosophyText": "Every conclusion should state its data, test period and limitations. Forecasts are never certain, returns always involve risk and every model can underperform.",
-    "approachTitle": "How we work",
-    "approachText": "Depending on the model, the process may include data-quality checks, validation on unseen data, scenario simulation and paper trading. The website reports only stages that have actually been completed; Model Modus currently has simulated results only.",
+    "philosophyText": "Forecasts are never certain, return always comes with risk, and every model has periods when it works poorly. Every conclusion on this site states where the data came from, which period it was tested on and what its limits are.",
     "visionTitle": "Long-term vision",
     "visionText": "To build an asset management organization in Vietnam where decisions are based on data, technology and a clear risk process.",
     "developingTitle": "Areas under development",
@@ -574,7 +572,15 @@
       "Risk measurement and simulation tools",
       "Data infrastructure and model monitoring"
     ],
-    "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website."
+    "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website.",
+    "lead": "We build quantitative tools for the Vietnamese market, and publish what does not work alongside what does. Most quantitative research does not survive contact with new data — we think that is worth saying rather than hiding.",
+    "stageTitle": "Where we are",
+    "stageText": "Quant Percent is in its research and validation phase. Four models have completed independent chronological testing, the data system runs daily across every stock listed on HOSE, and Model Modus has been through three years of validation.\n\nThe next step is supervised operation before any increase in scale.",
+    "publishTitle": "What we publish",
+    "publishText": "Every report states the data period, the validation method and a full set of performance and risk metrics. Results are broken out by period, including periods that lost money.\n\nA model version enters use only after clearing independent validation criteria.",
+    "ctaTitle": "Interested in this line of research?",
+    "ctaText": "We speak with institutional investors, data partners and research collaborators.",
+    "ctaButton": "Get in touch"
   },
   "contact": {
     "title": "Contact",

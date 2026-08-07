@@ -2,6 +2,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { ModelCardData } from "@/config/models";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/market/badges";
+import { MetricStrip } from "@/components/models/metric-strip";
 import { Sparkline } from "@/components/sparkline";
 import { fmtDate } from "@/lib/format";
 import { lastTradingDay } from "@/lib/mock/market";
@@ -13,6 +14,21 @@ export async function ModelCard({ model }: { model: ModelCardData }) {
   const tc = await getTranslations("common");
 
   const updated = model.updatedAt ?? lastTradingDay().toISOString();
+
+  // A scale is only meaningful when there is exactly one value per horizon.
+  // Anything else falls back to the trend line rather than inventing labels.
+  const scale =
+    model.sparkline &&
+    model.sparklineScale &&
+    model.sparkline.length === model.horizons.length
+      ? model.sparklineScale
+      : undefined;
+  const bars = scale
+    ? model.horizons.map((h, i) => ({
+        label: String(h),
+        value: model.sparkline![i],
+      }))
+    : undefined;
 
   return (
     <article className="qp-panel-interactive min-w-0 overflow-hidden flex flex-col p-6 hover:border-brand">
@@ -38,16 +54,47 @@ export async function ModelCard({ model }: { model: ModelCardData }) {
       {model.sparkline && (
         <div className="mt-5">
           {model.sparklineLabel && (
-            <p className="mb-2 text-[11px] text-dim">{model.sparklineLabel[locale]}</p>
+            <p className="mb-2.5 text-[11px] text-dim">
+              {model.sparklineLabel[locale]}
+            </p>
           )}
-          <div className="text-brand">
-            <Sparkline
-              values={model.sparkline}
-              width={280}
-              height={48}
-              className="h-12 w-full"
+          {/* One value per horizon is a comparison, not a trend, so it is
+              drawn as labelled bars on a stated scale. A sequence over time
+              is a trend and keeps the line. */}
+          {scale && bars ? (
+            <MetricStrip
+              bars={bars}
+              suffix={scale.suffix}
+              min={scale.min}
+              max={scale.max}
+              reference={scale.reference}
+              referenceLabel={scale.referenceLabel?.[locale]}
+              locale={locale}
             />
-          </div>
+          ) : (
+            <div className="text-brand">
+              <Sparkline
+                values={model.sparkline}
+                width={280}
+                height={48}
+                className="h-12 w-full"
+              />
+              <p className="figure mt-1.5 flex justify-between text-[10px] text-dim">
+                <span>
+                  {t("card.rangeLow")}{" "}
+                  {Math.min(...model.sparkline).toLocaleString(locale, {
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+                <span>
+                  {t("card.rangeHigh")}{" "}
+                  {Math.max(...model.sparkline).toLocaleString(locale, {
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       )}
 

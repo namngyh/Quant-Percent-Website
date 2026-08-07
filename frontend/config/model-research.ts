@@ -23,16 +23,39 @@ export interface ResearchChartSeries {
   target?: number;
 }
 
+/**
+ * A shaded range between two boundaries, one pair of values per category.
+ *
+ * Simulation output is a distribution, not a line. Drawing the quantiles as
+ * separate lines makes a reader trace which one belongs to which; shading the
+ * space between them says "the outcome lands in here" in one glance.
+ */
+export interface ResearchBand {
+  name: Localized;
+  lower: number[];
+  upper: number[];
+  color: string;
+  /** Fill strength, 0 to 1. Nest bands by giving the inner one more. */
+  opacity?: number;
+}
+
 export interface ResearchChart {
   id: string;
   title: Localized;
   note: Localized;
   categories: string[];
   series: ResearchChartSeries[];
+  bands?: ResearchBand[];
   valueSuffix?: string;
   minimum?: number;
   maximum?: number;
   baseline?: number;
+  /** Label for the horizontal axis, printed under it when the categories are
+   *  not self-explanatory. */
+  xAxisLabel?: Localized;
+  /** Draw every nth category label. Use on a long axis where every tick
+   *  would overlap its neighbour. */
+  categoryLabelInterval?: number;
 }
 
 export interface ModelResearchProfile {
@@ -207,6 +230,82 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           },
         ],
       },
+      {
+        id: "raemf-fan",
+        title: {
+          vi: "Mô phỏng Monte Carlo: kết quả rơi vào đâu theo từng phiên?",
+          en: "Monte Carlo simulation: where do outcomes land session by session?",
+        },
+        note: {
+          vi: "Dải màu là nửa giữa của 1.200 đường mô phỏng, đường liền là trung vị. Chỉ vẽ nửa giữa vì phần đuôi của phân bố còn rất rộng — đây cũng là lý do mô hình vẫn ở trạng thái nghiên cứu. Mô phỏng chạy trên dữ liệu đến 13/07/2026, không phải dự báo hiện hành.",
+          en: "The shaded area is the middle half of 1,200 simulated paths and the line is the median. Only the middle half is drawn because the tails of this distribution are very wide — which is why the model stays in research. Simulated on data to 13 Jul 2026; this is not a current forecast.",
+        },
+        categories: ["0", "4", "8", "12", "16", "20", "24", "28", "32", "36", "40", "44", "48", "52", "56", "60"],
+        valueSuffix: "%",
+        minimum: -8,
+        maximum: 14,
+        baseline: 0,
+        xAxisLabel: { vi: "Số phiên kể từ ngày mô phỏng", en: "Sessions from the simulation date" },
+        bands: [
+          {
+            name: { vi: "Nửa giữa của các kịch bản", en: "Middle half of scenarios" },
+            lower: [0, -0.71, -0.91, -1.12, -1.21, -1.4, -1.54, -2.19, -2.07, -2.63, -2.91, -3.0, -3.77, -5.22, -5.5, -6.56],
+            upper: [0, 1.06, 1.75, 2.31, 3.04, 3.72, 4.37, 4.57, 5.7, 6.46, 7.0, 8.2, 9.48, 10.0, 10.27, 11.62],
+            color: "#3a72c4",
+            opacity: 0.16,
+          },
+        ],
+        series: [
+          {
+            name: { vi: "Trung vị", en: "Median" },
+            data: [0, 0.16, 0.47, 0.46, 0.79, 1.17, 1.15, 1.15, 1.46, 1.68, 1.78, 1.92, 2.14, 2.0, 2.1, 2.25],
+            type: "line",
+            color: "#3a72c4",
+          },
+        ],
+      },
+      {
+        id: "raemf-drawdown",
+        title: {
+          vi: "Khả năng giảm từ đỉnh trong từng thời hạn",
+          en: "Chance of a decline from a peak, by period",
+        },
+        note: {
+          vi: "Mỗi cột là khả năng VN-Index giảm quá mức tương ứng so với đỉnh trong thời hạn đó. Nhìn càng xa, khả năng gặp một đợt giảm càng cao. Mô phỏng chạy trên dữ liệu đến 13/07/2026.",
+          en: "Each bar is the chance that VN-Index falls beyond that level from a previous peak within the period. The further out, the more likely a decline is met. Simulated on data to 13 Jul 2026.",
+        },
+        categories: ["20", "40", "60"],
+        valueSuffix: "%",
+        minimum: 0,
+        maximum: 80,
+        xAxisLabel: { vi: "Số phiên", en: "Sessions ahead" },
+        series: [
+          {
+            name: { vi: "Giảm từ 5%", en: "Fall of 5% or more" },
+            data: [36.17, 60.74, 72.85],
+            type: "bar",
+            color: "#94a3b8",
+          },
+          {
+            name: { vi: "Giảm từ 10%", en: "Fall of 10% or more" },
+            data: [20.24, 40.44, 53.86],
+            type: "bar",
+            color: "#ad7519",
+          },
+          {
+            name: { vi: "Giảm từ 15%", en: "Fall of 15% or more" },
+            data: [16.05, 30.98, 42.38],
+            type: "bar",
+            color: "#c2603f",
+          },
+          {
+            name: { vi: "Giảm từ 20%", en: "Fall of 20% or more" },
+            data: [13.14, 27.44, 37.57],
+            type: "bar",
+            color: "#a93b32",
+          },
+        ],
+      },
     ],
     provenance: {
       vi: "Số liệu được trích trực tiếp từ tệp kết quả của lần chạy nghiên cứu ghi nhận ở trên, không nhập lại bằng tay.",
@@ -344,6 +443,37 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
             data: [93.24, 74.4, 53.39, 29.5, 8.28],
             type: "bar",
             color: "#a93b32",
+          },
+        ],
+      },
+      {
+        id: "rarf-coverage",
+        title: {
+          vi: "Khoảng dự báo có đáng tin ở mọi thời hạn không?",
+          en: "Is the forecast range trustworthy at every horizon?",
+        },
+        note: {
+          vi: "Một khoảng dự báo 90% đúng nghĩa phải chứa kết quả thực tế khoảng 90 lần trên 100. Trước bước hiệu chỉnh, tỷ lệ này tụt mạnh khi nhìn xa hơn: ở 60 phiên chỉ còn 28%. Sau hiệu chỉnh, cả sáu thời hạn đều bám sát mức 90%. Đo trên toàn bộ giai đoạn kiểm tra.",
+          en: "A genuine 90% interval should contain the actual outcome about 90 times in 100. Before calibration the rate falls away with the horizon — at 60 sessions only 28% — and after it, all six horizons sit close to 90%. Measured across the whole test period.",
+        },
+        categories: ["1", "5", "10", "20", "40", "60"],
+        valueSuffix: "%",
+        minimum: 0,
+        maximum: 100,
+        baseline: 90,
+        xAxisLabel: { vi: "Số phiên", en: "Sessions ahead" },
+        series: [
+          {
+            name: { vi: "Trước hiệu chỉnh", en: "Before calibration" },
+            data: [90.09, 74.35, 71.22, 78.51, 74.87, 28.46],
+            type: "bar",
+            color: "#94a3b8",
+          },
+          {
+            name: { vi: "Sau hiệu chỉnh", en: "After calibration" },
+            data: [89.84, 92.06, 91.28, 91.46, 92.69, 89.14],
+            type: "bar",
+            color: "#14795a",
           },
         ],
       },
