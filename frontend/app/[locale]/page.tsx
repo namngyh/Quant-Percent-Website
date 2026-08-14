@@ -88,9 +88,15 @@ export default async function HomePage({
                 </div>
               </Reveal>
             </div>
-            <Reveal delay={0.2}>
-              <LiveBoard />
-            </Reveal>
+            {/* `qp-intro-reveal` is driven by the opening sequence in CSS, so
+                the board resolves as the mark docks into the header. On a
+                repeat visit the class does nothing and the scroll reveal runs
+                on its own. */}
+            <div className="qp-intro-reveal">
+              <Reveal delay={0.2}>
+                <LiveBoard />
+              </Reveal>
+            </div>
           </div>
         </div>
       </section>

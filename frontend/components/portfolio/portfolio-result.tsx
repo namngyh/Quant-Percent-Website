@@ -213,7 +213,6 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         },
       ],
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forward, locale]);
 
   /** The same thresholds expressed as money, next to the portfolio's value. */
@@ -270,7 +269,6 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         },
       ],
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forward, locale, data.invested_value]);
 
   return (
@@ -675,6 +673,8 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
               beta: fmtNumber(data.forward.portfolio_beta, locale),
               paths: fmtNumber(data.forward.paths, locale),
               origin: data.forward.forecast_origin,
+              baseDays: data.forward.base_horizon_days,
+              horizonDays: data.forward.horizon_days,
             })}
           </p>
           <div className="mt-7 grid gap-6 desk:grid-cols-2">
@@ -741,7 +741,9 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             </table>
           </div>
           <p className="mt-5 max-w-4xl text-xs leading-relaxed text-dim">
-            {t("forwardCaveat")}
+            {t("forwardCaveat", {
+              baseDays: data.forward.base_horizon_days,
+            })}
           </p>
         </section>
       )}

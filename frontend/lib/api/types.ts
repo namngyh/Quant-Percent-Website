@@ -447,6 +447,8 @@ export const ForwardRiskSchema = z.object({
   source_model: z.string(),
   forecast_origin: z.string(),
   horizon_days: z.number(),
+  base_horizon_days: z.number(),
+  horizon_scale: z.number(),
   paths: z.number(),
   portfolio_beta: z.number(),
   var_95: z.number(),

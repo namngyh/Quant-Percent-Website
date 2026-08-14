@@ -5,7 +5,6 @@ import { StatusBadge } from "@/components/market/badges";
 import { MetricStrip } from "@/components/models/metric-strip";
 import { Sparkline } from "@/components/sparkline";
 import { fmtDate } from "@/lib/format";
-import { lastTradingDay } from "@/lib/mock/market";
 
 /** Model card fed by the database in production and the fixture in mock mode. */
 export async function ModelCard({ model }: { model: ModelCardData }) {
@@ -13,7 +12,13 @@ export async function ModelCard({ model }: { model: ModelCardData }) {
   const t = await getTranslations("models");
   const tc = await getTranslations("common");
 
-  const updated = model.updatedAt ?? lastTradingDay().toISOString();
+  // The date a reader wants here is "when did this model last produce
+  // something", and only quant.model_forecasts can answer it. The row used to
+  // fall back to `updatedAt` — the day the catalogue entry was edited — and
+  // then to `lastTradingDay()`, a date computed from the calendar. Eleven of
+  // the twelve models have never published output, so that fallback printed a
+  // fresh-looking date under an "Updated" label for models that had never run.
+  const lastOutput = model.lastOutputAt ?? null;
 
   // A scale is only meaningful when there is exactly one value per horizon.
   // Anything else falls back to the trend line rather than inventing labels.
@@ -112,13 +117,15 @@ export async function ModelCard({ model }: { model: ModelCardData }) {
           <dd className="min-w-0 break-words text-right">{model.keyOutput[locale]}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-dim">{t("card.updated")}</dt>
+          <dt className="text-dim">{t("card.lastOutput")}</dt>
           <dd className="figure text-right">
             {model.status === "archived"
               ? locale === "vi"
                 ? "Đã lưu trữ"
                 : "Archived"
-              : fmtDate(updated, locale)}
+              : lastOutput
+                ? fmtDate(lastOutput, locale)
+                : t("card.noOutput")}
           </dd>
         </div>
       </dl>

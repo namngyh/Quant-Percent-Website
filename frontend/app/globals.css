@@ -422,3 +422,269 @@ html[lang="en"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- Opening sequence ----------------------------------------------------
+ *
+ * A light shutter holds the page while the mark assembles itself, then opens
+ * to the site as the lockup docks into the header.
+ *
+ * Two earlier versions failed, and both failures shaped this one:
+ *
+ *   * A framer-motion overlay mounted only after hydration, so the page
+ *     painted in full and the panels then closed over it — the sequence ran
+ *     backwards. CSS keyframes start with the first paint and cannot be late.
+ *   * The mark was an <img> tinted white with `brightness(0) invert(1)`, but
+ *     `quant-percent-mark.svg` carries an opaque white background rect, so the
+ *     filter turned the whole square white and the logo vanished into a blank
+ *     block. The mark is now inline SVG: no background to fight, and each of
+ *     its three shapes can be animated on its own.
+ *
+ * The markup is server-rendered but `display: none` until the inline script in
+ * the layout adds `data-intro="play"` to <html>, which happens only on the
+ * first page of a session with motion allowed. Nothing can leave the page
+ * covered: without JavaScript the shutter is never shown, and every animation
+ * ends `forwards` at opacity 0 with pointer events off.
+ */
+
+.qp-intro {
+  display: none;
+}
+
+:root[data-intro="play"] .qp-intro {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Light, not the dark navy the site uses for the hero: this sits in front of
+ * every page, and a dark slab in front of a white page reads as a load error
+ * for the half second before anything moves. */
+.qp-intro-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5vw; /* overlap at the seam so no hairline shows between them */
+  background: var(--background);
+}
+
+/* The shorthand carries its own name in each rule. Declaring the timing once
+ * on `.qp-intro-panel` with a nameless `animation:` shorthand and adding only
+ * `animation-name` here does not work: a shorthand without a name resolves to
+ * `animation: none`, which resets duration and delay to zero, and the shutter
+ * snapped open in the same frame it appeared. */
+.qp-intro-panel-l {
+  left: 0;
+  border-right: 1px solid var(--brand-soft);
+  animation: qp-intro-part-l 0.85s cubic-bezier(0.76, 0, 0.24, 1) 1.55s both;
+}
+
+.qp-intro-panel-r {
+  right: 0;
+  border-left: 1px solid var(--brand-soft);
+  animation: qp-intro-part-r 0.85s cubic-bezier(0.76, 0, 0.24, 1) 1.55s both;
+}
+
+@keyframes qp-intro-part-l {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes qp-intro-part-r {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.qp-intro-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* The lockup travels to where the header brand sits. The landing point comes
+ * from the layout rather than a guess: `.container-qp` is centred with a
+ * 1320px cap and 1.5rem of padding, and the header is 4rem tall. */
+.qp-intro-lockup {
+  --qp-dock-x: calc(max(1.5rem, (100vw - 1320px) / 2 + 1.5rem) + 60px - 50vw);
+  --qp-dock-y: calc(2rem - 50vh);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: qp-intro-dock 0.8s cubic-bezier(0.6, 0, 0.3, 1) 1.95s both;
+}
+
+@keyframes qp-intro-dock {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  55% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--qp-dock-x), var(--qp-dock-y)) scale(0.22);
+  }
+}
+
+.qp-intro-mark {
+  width: 132px;
+  height: 132px;
+  overflow: visible;
+}
+
+@media (max-width: 640px) {
+  .qp-intro-mark {
+    width: 92px;
+    height: 92px;
+  }
+  .qp-intro-lockup {
+    gap: 16px;
+  }
+}
+
+.qp-intro-mark rect,
+.qp-intro-mark path {
+  fill: var(--foreground);
+}
+
+/* The two squares arrive from opposite corners and the slash grows between
+ * them, so the mark assembles rather than fading in as a finished picture. */
+.qp-intro-sq-a {
+  animation: qp-intro-drop 0.55s cubic-bezier(0.34, 1.4, 0.5, 1) 0.1s both;
+}
+
+.qp-intro-sq-b {
+  animation: qp-intro-rise 0.55s cubic-bezier(0.34, 1.4, 0.5, 1) 0.48s both;
+}
+
+.qp-intro-slash {
+  transform-origin: 74px 18px;
+  animation: qp-intro-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
+}
+
+@keyframes qp-intro-drop {
+  from {
+    opacity: 0;
+    transform: translate(-16px, -22px) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+}
+
+@keyframes qp-intro-rise {
+  from {
+    opacity: 0;
+    transform: translate(16px, 22px) rotate(12deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+}
+
+@keyframes qp-intro-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.04);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A rule draws out from the centre under the mark, then the wordmark rises
+ * through it letter by letter. */
+.qp-intro-rule {
+  width: 168px;
+  height: 2px;
+  background: var(--brand);
+  transform-origin: center;
+  animation: qp-intro-rule 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.85s both;
+}
+
+@media (max-width: 640px) {
+  .qp-intro-rule {
+    width: 120px;
+  }
+}
+
+@keyframes qp-intro-rule {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.qp-intro-word {
+  display: flex;
+  overflow: hidden;
+  font-size: clamp(20px, 3.4vw, 30px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+  line-height: 1.15;
+}
+
+.qp-intro-word span {
+  display: inline-block;
+  white-space: pre;
+  animation: qp-intro-letter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes qp-intro-letter {
+  from {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The header brand fades up as the travelling lockup fades out, so the eye
+ * reads one object arriving rather than two marks crossing. */
+:root[data-intro="play"] .brand-link {
+  animation: qp-intro-brand-in 2.75s ease-out both;
+}
+
+@keyframes qp-intro-brand-in {
+  0%,
+  80% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The market board resolves as the lockup docks, so the two halves of the
+ * opening land together. */
+:root[data-intro="play"] .qp-intro-reveal {
+  animation: qp-intro-reveal 3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes qp-intro-reveal {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -240,10 +240,10 @@
       "drawdownNote": "Over the same period {benchmark} declined {benchmarkValue}, roughly {ratio} times deeper. This is the loss a holder had to absorb before the portfolio recovered.",
       "exposureLabel": "Share of time holding a position",
       "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
-      "sharpeLabel": "Return against volatility",
-      "sharpeNote": "The Sharpe ratio, measuring return earned per unit of volatility accepted. A value above 1 is generally considered good.",
       "basisNote": "Model Modus trades a leveraged futures contract; {benchmark} is an unleveraged index return. Both lines cover the same period and the same trading days.",
-      "cta": "See the full test results"
+      "cta": "See the full test results",
+      "payoffLabel": "Average win against average loss",
+      "payoffNote": "Each winning trade is that many times the size of a losing one. Only {winRate} of trades profit — the system makes money on the size gap, not on winning often."
     }
   },
   "market": {
@@ -341,10 +341,11 @@
     "card": {
       "market": "Market",
       "category": "Purpose",
-      "updated": "Updated",
       "keyOutput": "Main result",
       "rangeLow": "Low",
-      "rangeHigh": "High"
+      "rangeHigh": "High",
+      "lastOutput": "Latest output",
+      "noOutput": "No output yet"
     },
     "locked": {
       "badge": "Sign-in required",
@@ -552,34 +553,55 @@
       "qualityTitle": "Win rate against payoff",
       "qualityNote": "The system wins fewer than half its trades; profit comes from winners being larger than losers.",
       "seriesCaveat": "This run stored yearly summaries rather than individual trades, so a detailed equity curve cannot be drawn. Deepest fall within one year: {drawdown}."
+    },
+    "plain": {
+      "heading": "Read this before the tables",
+      "lead": "Three things decide whether a system is usable, and none of them is the headline return.",
+      "splitTitle": "Which numbers are evidence",
+      "split": {
+        "train": "The model learned from this stretch, then was closed and never changed again.",
+        "tune": "Used to settle the entry and exit settings. The model had seen this data, so the year reads better than reality — do not treat it as evidence.",
+        "test": "Never seen by the model before scoring. This is the part worth trusting."
+      },
+      "splitResult": "Across {years} — the part it had never seen — the system made {points} points over {trades} trades.",
+      "asymmetryTitle": "It loses more often than it wins, and still profits",
+      "winRateLabel": "of trades were profitable",
+      "bar": {
+        "win": "Average gain on a winning trade",
+        "loss": "Average loss on a losing trade"
+      },
+      "asymmetryNote": "About 6 trades in every 10 lose money. The system profits anyway because each winner is {payoff} times the size of each loser. A high win rate is not the same thing as making money.",
+      "painTitle": "What the worst stretch looks like",
+      "streakLabel": "Longest run of consecutive losses",
+      "drawdownLabel": "Deepest fall within a single year",
+      "painNote": "This is the part that makes people quit halfway. Anyone intending to follow a system like this needs to be able to sit through that losing run before they start.",
+      "caveat": "Every figure here is simulated on historical data, before fees, tax and execution slippage, and comes from a single run. The full set of limits is in the notes at the foot of this page."
     }
   },
   "about": {
-    "title": "About",
-    "whatTitle": "What Quant Percent is",
-    "whatText": "Quant Percent is a data-driven market research group. We build models to understand market direction, estimate risk and test rule-based trading methods in Vietnam.",
-    "focusTitle": "Market focus",
-    "focusText": "We focus on the VN-Index, stocks listed on HOSE and the VN30F1M futures contract. Keeping the scope fixed lets data collection, model building and testing stay consistent.",
-    "philosophyTitle": "Research philosophy",
-    "philosophyText": "Forecasts are never certain, return always comes with risk, and every model has periods when it works poorly. Every conclusion on this site states where the data came from, which period it was tested on and what its limits are.",
-    "visionTitle": "Long-term vision",
-    "visionText": "To build an asset management organization in Vietnam where decisions are based on data, technology and a clear risk process.",
-    "developingTitle": "Areas under development",
-    "developingItems": [
-      "Multi-horizon forecasting for indices and stocks",
-      "Quantitative trading systems for derivatives",
-      "Equity analytics and ranking platform",
-      "Risk measurement and simulation tools",
-      "Data infrastructure and model monitoring"
-    ],
-    "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website.",
-    "lead": "We build quantitative tools for the Vietnamese market, and publish what does not work alongside what does. Most quantitative research does not survive contact with new data — we think that is worth saying rather than hiding.",
-    "stageTitle": "Where we are",
-    "stageText": "Quant Percent is in its research and validation phase. Four models have completed independent chronological testing, the data system runs daily across every stock listed on HOSE, and Model Modus has been through three years of validation.\n\nThe next step is supervised operation before any increase in scale.",
+    "title": "About us",
+    "lead": "Quant Percent is a quantitative research group working on the Vietnamese market. We build models, test them on data they have never seen, and publish the ones that do not work alongside the ones that do. Most quantitative research does not survive contact with new data — we think that should be said out loud rather than hidden.",
+    "whatTitle": "Who we are",
+    "whatText": "A quantitative research group — not an asset manager. We take no capital, run no portfolios for anyone else, and sell no buy-or-sell recommendations.\n\nWhat we produce is models, testing methodology, and public reports carrying enough data for a reader to judge the work themselves instead of taking our word for it.",
     "publishTitle": "What we publish",
-    "publishText": "Every report states the data period, the validation method and a full set of performance and risk metrics. Results are broken out by period, including periods that lost money.\n\nA model version enters use only after clearing independent validation criteria.",
-    "ctaTitle": "Interested in this line of research?",
-    "ctaText": "We speak with institutional investors, data partners and research collaborators.",
+    "publishText": "Every report states the data period, the testing method, and the full set of performance and risk figures. Results are broken out by period, including the losing ones.\n\nWhere the data is not enough to conclude something, we say it is not enough rather than filling in a plausible-looking number.",
+    "philosophyTitle": "Research principles",
+    "philosophyText": "A forecast is never certain, return always travels with risk, and every model has a stretch where it performs badly.\n\nEvery conclusion on this site states where the data came from, which period it was tested over, and what its limits are. A result without those three is not ready to publish.",
+    "focusTitle": "Research scope",
+    "focusText": "We concentrate on the VN-Index, stocks listed on HOSE, and the VN30F1M futures contract.\n\nThe narrow scope is deliberate: it lets data collection, model construction and validation stay consistent, rather than covering everything and going shallow everywhere.",
+    "stageTitle": "Where we are now",
+    "stageText": "Quant Percent is at the research and validation stage. Four models have completed an independent, time-ordered testing cycle, the data system runs daily across every stock listed on HOSE, and Model Modus has been through three years of validation.\n\nThe next step is supervised operation: running the models in real time and comparing live results against the tested ones, for long enough to know how far apart the two are.",
+    "developingTitle": "Areas in development",
+    "developingItems": [
+      "Index and stock forecasts across multiple time frames",
+      "Rule-based trading systems for the derivatives market",
+      "Stock analysis and comparison tools",
+      "Risk scenario measurement tools",
+      "Data infrastructure and model quality monitoring"
+    ],
+    "note": "Quant Percent does not currently operate a formal capital management business and does not raise or accept discretionary funds through this website.",
+    "ctaTitle": "Interested in working on this?",
+    "ctaText": "We talk to research groups, data partners, and quantitative practitioners with an interest in the Vietnamese market.",
     "ctaButton": "Get in touch"
   },
   "contact": {
@@ -783,7 +805,7 @@
       "cash": "Cash in the portfolio (VND)",
       "cashNote": "Cash counts towards portfolio value but carries no risk.",
       "horizon": "Investment period",
-      "horizonNote": "Used for the forward decline estimate.",
+      "horizonNote": "Changing the period changes every probability in the forward decline estimate.",
       "horizons": {
         "m1": "1 month",
         "m3": "3 months",
@@ -866,11 +888,11 @@
       "downside": "Downside volatility",
       "downsideNote": "counting declining sessions only",
       "forwardHeading": "Chance of a decline ahead",
-      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios) and carries it across to the portfolio using a beta of {beta}.",
+      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios, {baseDays} sessions each) and carries it across to the portfolio: scaled by a beta of {beta} for how closely the book tracks the index, then stretched by square-root-of-time to answer for the {horizonDays} sessions you picked. The decline levels below are fixed — what moves with the portfolio and the period is the probability.",
       "colDecline": "Decline",
       "colChance": "Chance",
       "declineRow": "falls more than {pct} (about {amount})",
-      "forwardCaveat": "This is an indirect estimate: it carries the index's risk across by beta, so it does not capture risk specific to the individual holdings. A simulated probability is not a certainty.",
+      "forwardCaveat": "This is an indirect estimate. It carries the index's risk across by beta, so it does not capture risk specific to the individual holdings, and the square-root-of-time stretch ignores both drift and volatility clustering — the further from the {baseDays}-session simulation, the looser it gets. A simulated probability is not a certainty.",
       "provenanceLabel": "Data provenance",
       "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions, current to {asOf}. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
       "glossaryHeading": "How to read these figures",
@@ -887,7 +909,7 @@
         "correlation": "The figure {value} is the average correlation across every pair of stocks in the portfolio. Closer to 1 means the holdings move together and diversification is less effective; closer to 0 means they are more independent."
       },
       "exceedanceTitle": "Chance of exceeding each decline",
-      "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not.",
+      "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not. The horizontal axis is fixed, so two portfolios — or one portfolio at two periods — can be read against the same scale.",
       "lossScaleTitle": "In money, on your portfolio",
       "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded."
     }

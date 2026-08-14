@@ -12,14 +12,17 @@ import math
 import numpy as np
 import pytest
 
+from app.schemas.common import RiskState
 from app.services.portfolio import (
+    DRAWDOWN_THRESHOLDS,
+    MC_BASE_HORIZON_DAYS,
     _aligned_returns,
     _concentration,
+    _exceedance_at,
     _ledoit_wolf,
     _max_drawdown,
     _risk_state,
 )
-from app.schemas.common import RiskState
 
 
 def _returns(seed: int, n: int, loadings: np.ndarray) -> np.ndarray:
@@ -193,3 +196,111 @@ class TestRiskState:
     )
     def test_grades(self, vol, dd, expected):
         assert _risk_state(vol, dd) is expected
+
+
+# The curve the RARF-FHE run published on 2026-08-06, as depth/probability
+# pairs. Real numbers rather than round ones, so a regression that happens to
+# work on a synthetic curve still gets caught.
+LIVE_CURVE = [(0.03, 0.932425), (0.05, 0.744), (0.07, 0.5339), (0.10, 0.295025)]
+
+
+class TestExceedanceCurve:
+    def test_anchored_at_certainty(self):
+        """A fall of at least nothing is certain.
+
+        The anchor is what a long horizon interpolates against: it pulls the
+        lookup depth towards zero, and without (0, 1) on the left there is
+        nothing there.
+        """
+        assert _exceedance_at(LIVE_CURVE, 0.0) == 1.0
+        assert _exceedance_at(LIVE_CURVE, -0.01) == 1.0
+
+    def test_reproduces_published_points(self):
+        for depth, probability in LIVE_CURVE:
+            assert _exceedance_at(LIVE_CURVE, depth) == pytest.approx(
+                probability, rel=1e-9
+            )
+
+    def test_monotone_decreasing(self):
+        depths = [d / 1000 for d in range(0, 300, 3)]
+        values = [_exceedance_at(LIVE_CURVE, d) for d in depths]
+        assert all(a >= b for a, b in zip(values, values[1:], strict=False))
+
+    def test_stays_a_probability_past_the_deepest_point(self):
+        """Extrapolation extends the tail; it must not leave [0, 1]."""
+        for depth in (0.15, 0.30, 0.80, 5.0):
+            assert 0.0 <= _exceedance_at(LIVE_CURVE, depth) <= 1.0
+
+    def test_interpolates_below_the_endpoints(self):
+        """Log-linear, so the midpoint sits under the arithmetic mean."""
+        mid = _exceedance_at(LIVE_CURVE, 0.04)
+        assert 0.744 < mid < 0.932425
+        assert mid < (0.744 + 0.932425) / 2
+
+    def test_empty_curve_yields_no_probability(self):
+        assert _exceedance_at([], 0.05) == 0.0
+
+
+class TestForwardScaling:
+    """The two transformations that made the panel inert before.
+
+    Previously `horizon_days` was echoed back unused and `probability` was
+    copied straight from the index run, so neither the holdings nor the horizon
+    changed a single plotted value. These assert that both now move.
+    """
+
+    @staticmethod
+    def _probabilities(beta: float, horizon: int) -> list[float]:
+        scale = math.sqrt(horizon / MC_BASE_HORIZON_DAYS)
+        return [
+            _exceedance_at(LIVE_CURVE, depth / abs(beta) / scale)
+            for depth in DRAWDOWN_THRESHOLDS
+        ]
+
+    def test_longer_horizon_raises_every_probability(self):
+        short = self._probabilities(1.0, 21)
+        long = self._probabilities(1.0, 252)
+        assert all(b > a for a, b in zip(short, long, strict=False))
+
+    def test_higher_beta_raises_every_probability(self):
+        calm = self._probabilities(0.6, 63)
+        punchy = self._probabilities(1.4, 63)
+        assert all(b > a for a, b in zip(calm, punchy, strict=False))
+
+    def test_base_horizon_and_unit_beta_return_the_run_unchanged(self):
+        """At beta 1 over the simulated horizon there is nothing to scale.
+
+        Only the depths the run actually published are checked; the grid
+        continues past them into extrapolated territory.
+        """
+        published = dict(LIVE_CURVE)
+        # strict: one probability per threshold, or the grid and the
+        # computation have drifted apart.
+        scaled = dict(
+            zip(
+                DRAWDOWN_THRESHOLDS,
+                self._probabilities(1.0, MC_BASE_HORIZON_DAYS),
+                strict=True,
+            )
+        )
+        for depth, probability in published.items():
+            assert scaled[depth] == pytest.approx(probability, rel=1e-9)
+
+    def test_thresholds_are_a_fixed_ascending_grid(self):
+        """The axis must not move, or two books cannot be compared."""
+        assert all(0.0 < d < 1.0 for d in DRAWDOWN_THRESHOLDS)
+        assert list(DRAWDOWN_THRESHOLDS) == sorted(DRAWDOWN_THRESHOLDS)
+        assert len(set(DRAWDOWN_THRESHOLDS)) == len(DRAWDOWN_THRESHOLDS)
+        # The published curve has to be inside the grid, otherwise every
+        # plotted point is an extrapolation.
+        assert set(d for d, _ in LIVE_CURVE) <= set(DRAWDOWN_THRESHOLDS)
+
+    def test_grid_keeps_a_readable_spread_at_every_horizon(self):
+        """A curve pinned near 100% across the board tells a reader nothing.
+
+        This is why the grid runs past 10%: over a year a 3% fall is close to
+        certain, and a shallow grid draws a flat line just under the top.
+        """
+        for horizon in (21, 63, 126, 252):
+            values = self._probabilities(1.0, horizon)
+            assert max(values) - min(values) > 0.4

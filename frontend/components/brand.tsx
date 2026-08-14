@@ -9,7 +9,7 @@ export function Brand({
   priority?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("inline-flex items-center gap-2.5 whitespace-nowrap", className)}>
       <Image
         src="/quant-percent-mark.svg"
         alt=""

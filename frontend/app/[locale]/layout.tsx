@@ -7,6 +7,7 @@ import { routing } from "@/i18n/routing";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { SiteIntro } from "@/components/intro/site-intro";
 import { localeAlternates, SITE_URL } from "@/lib/seo";
 import "../globals.css";
 
@@ -89,6 +90,7 @@ export default async function LocaleLayout({
         />
         <NextIntlClientProvider>
           <AuthProvider>
+            <SiteIntro />
             <Header />
             <div className="flex-1">{children}</div>
             <Footer />

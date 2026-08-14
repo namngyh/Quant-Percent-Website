@@ -3,6 +3,7 @@ import { localeAlternates } from "@/lib/seo";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DisclosureBanner } from "@/components/layout/disclosure-banner";
 import { SystemIntro } from "@/components/performance/system-intro";
+import { ModusPlain } from "@/components/performance/modus-plain";
 import { ModusOverview } from "@/components/performance/modus-overview";
 import { ModusCharts } from "@/components/performance/modus-charts";
 
@@ -55,6 +56,7 @@ export default async function PerformancePage({
 
         <SystemIntro systemSlug="model-modus" />
 
+        <ModusPlain />
         <ModusOverview />
 
         <ModusCharts />

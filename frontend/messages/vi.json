@@ -240,10 +240,10 @@
       "drawdownNote": "Trong cùng giai đoạn, {benchmark} sụt giảm {benchmarkValue}, tương đương mức sâu gấp khoảng {ratio} lần. Đây là mức lỗ mà nhà đầu tư nắm giữ phải chịu trước khi danh mục hồi phục.",
       "exposureLabel": "Tỷ lệ thời gian nắm giữ vị thế",
       "exposureNote": "Thời gian còn lại hệ thống không nắm giữ vị thế và không chịu rủi ro biến động của thị trường.",
-      "sharpeLabel": "Lợi nhuận so với biến động",
-      "sharpeNote": "Hệ số Sharpe, đo lợi nhuận thu được trên mỗi đơn vị biến động phải chấp nhận. Mức trên 1 thường được đánh giá là tốt.",
       "basisNote": "Model Modus giao dịch hợp đồng tương lai có đòn bẩy; {benchmark} là lợi suất chỉ số không đòn bẩy. Hai đường dùng chung khoảng thời gian và ngày giao dịch.",
-      "cta": "Xem toàn bộ kết quả kiểm tra"
+      "cta": "Xem toàn bộ kết quả kiểm tra",
+      "payoffLabel": "Lãi trung bình so với lỗ",
+      "payoffNote": "Mỗi lệnh thắng lớn gấp chừng đó lần mỗi lệnh thua. Chỉ {winRate} số lệnh có lãi — hệ thống kiếm tiền nhờ chênh lệch độ lớn, không nhờ thắng nhiều."
     }
   },
   "market": {
@@ -341,10 +341,11 @@
     "card": {
       "market": "Thị trường",
       "category": "Mục đích",
-      "updated": "Cập nhật",
       "keyOutput": "Kết quả chính",
       "rangeLow": "Thấp nhất",
-      "rangeHigh": "Cao nhất"
+      "rangeHigh": "Cao nhất",
+      "lastOutput": "Kết quả gần nhất",
+      "noOutput": "Chưa có kết quả"
     },
     "locked": {
       "badge": "Cần đăng nhập",
@@ -552,19 +553,45 @@
       "qualityTitle": "Tỷ lệ thắng và tỷ lệ lãi/lỗ",
       "qualityNote": "Hệ thống thắng dưới một nửa số lệnh; lợi nhuận đến từ việc lệnh thắng lớn hơn lệnh thua.",
       "seriesCaveat": "Lần chạy này lưu tổng hợp theo năm, không lưu từng lệnh, nên không vẽ được đường vốn chi tiết. Mức giảm sâu nhất trong một năm: {drawdown}."
+    },
+    "plain": {
+      "heading": "Đọc nhanh trước khi xem bảng số",
+      "lead": "Ba điều quyết định một hệ thống có dùng được không, và không điều nào là con số lợi nhuận tổng.",
+      "splitTitle": "Số nào mới là bằng chứng",
+      "split": {
+        "train": "Mô hình học từ giai đoạn này, rồi được đóng lại và không sửa nữa.",
+        "tune": "Dùng để chốt các tham số vào/ra lệnh. Đã nhìn thấy dữ liệu này nên số của năm này đẹp hơn thực tế — đừng dùng làm bằng chứng.",
+        "test": "Mô hình chưa từng thấy trước khi chấm điểm. Đây mới là phần đáng tin."
+      },
+      "splitResult": "Trên {years} — phần chưa từng thấy — hệ thống đạt {points} điểm qua {trades} lệnh.",
+      "asymmetryTitle": "Thua nhiều hơn thắng, vẫn có lãi",
+      "winRateLabel": "số lệnh có lãi",
+      "bar": {
+        "win": "Lãi trung bình mỗi lệnh thắng",
+        "loss": "Lỗ trung bình mỗi lệnh thua"
+      },
+      "asymmetryNote": "Cứ 10 lệnh thì khoảng 6 lệnh lỗ. Hệ thống vẫn lãi vì mỗi lệnh thắng lớn gấp {payoff} lần mỗi lệnh thua. Tỷ lệ thắng cao không đồng nghĩa với kiếm được tiền.",
+      "painTitle": "Lúc tệ nhất trông như thế nào",
+      "streakLabel": "Số lệnh thua liên tiếp dài nhất",
+      "drawdownLabel": "Sụt sâu nhất trong một năm",
+      "painNote": "Đây là phần khiến người ta bỏ cuộc giữa chừng. Ai định đi theo một hệ thống như thế này cần chấp nhận được chuỗi thua đó trước khi bắt đầu.",
+      "caveat": "Toàn bộ số liệu là mô phỏng trên dữ liệu lịch sử, chưa trừ phí, thuế và chênh lệch giá khớp lệnh, và đến từ một lần chạy duy nhất. Xem đầy đủ giới hạn ở phần ghi chú cuối trang."
     }
   },
   "about": {
     "title": "Về chúng tôi",
-    "whatTitle": "Quant Percent là gì",
-    "whatText": "Quant Percent là nhóm nghiên cứu thị trường bằng dữ liệu. Chúng tôi xây dựng các mô hình giúp nhận biết xu hướng, ước lượng rủi ro và kiểm tra các phương pháp giao dịch trên thị trường Việt Nam.",
-    "focusTitle": "Thị trường tập trung",
-    "focusText": "Chúng tôi tập trung vào chỉ số VN-Index, cổ phiếu niêm yết trên HOSE và hợp đồng tương lai VN30F1M. Phạm vi này giúp việc thu thập dữ liệu, xây dựng và kiểm tra mô hình được thực hiện nhất quán.",
-    "philosophyTitle": "Triết lý nghiên cứu",
-    "philosophyText": "Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro, và mọi mô hình đều có giai đoạn hoạt động kém. Mọi kết luận trên website đều nêu rõ dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào và còn giới hạn gì.",
-    "visionTitle": "Tầm nhìn dài hạn",
-    "visionText": "Xây dựng một tổ chức quản lý tài sản tại Việt Nam, nơi quyết định đầu tư dựa trên dữ liệu, công nghệ và quy trình quản lý rủi ro rõ ràng.",
-    "developingTitle": "Các lĩnh vực đang phát triển",
+    "lead": "Quant Percent là nhóm nghiên cứu định lượng cho thị trường Việt Nam. Chúng tôi xây dựng mô hình, kiểm định chúng trên dữ liệu chưa từng thấy, và công bố cả những gì không hoạt động. Phần lớn kết quả nghiên cứu định lượng không sống sót khi gặp dữ liệu mới — chúng tôi cho rằng điều đó nên được nói ra thay vì giấu đi.",
+    "whatTitle": "Chúng tôi là ai",
+    "whatText": "Một nhóm nghiên cứu định lượng — không phải công ty quản lý tài sản. Chúng tôi không nhận vốn, không quản lý danh mục cho người khác và không bán khuyến nghị mua bán.\n\nThứ chúng tôi tạo ra là mô hình, phương pháp kiểm định, và các báo cáo công khai kèm đủ dữ liệu để người đọc tự đánh giá thay vì phải tin lời chúng tôi.",
+    "publishTitle": "Chúng tôi công bố gì",
+    "publishText": "Mỗi báo cáo nêu rõ giai đoạn dữ liệu, cách kiểm định, và đầy đủ chỉ số hiệu quả cùng rủi ro. Kết quả được tách theo từng giai đoạn, kể cả giai đoạn thua lỗ.\n\nChỗ nào dữ liệu chưa đủ để kết luận, chúng tôi ghi là chưa đủ, thay vì điền vào một con số trông hợp lý.",
+    "philosophyTitle": "Nguyên tắc nghiên cứu",
+    "philosophyText": "Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro, và mọi mô hình đều có giai đoạn hoạt động kém.\n\nMọi kết luận trên website đều nêu rõ dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào, và còn giới hạn gì. Một kết quả không kèm ba thứ đó thì chưa đủ để công bố.",
+    "focusTitle": "Phạm vi nghiên cứu",
+    "focusText": "Chúng tôi tập trung vào chỉ số VN-Index, cổ phiếu niêm yết trên HOSE và hợp đồng tương lai VN30F1M.\n\nPhạm vi hẹp là lựa chọn có chủ đích: nó cho phép thu thập dữ liệu, xây dựng và kiểm định mô hình một cách nhất quán, thay vì phủ rộng mà chỗ nào cũng nông.",
+    "stageTitle": "Giai đoạn hiện tại",
+    "stageText": "Quant Percent đang ở giai đoạn nghiên cứu và kiểm định. Bốn mô hình đã hoàn tất chu trình kiểm tra độc lập theo thứ tự thời gian, hệ thống dữ liệu vận hành hằng ngày trên toàn bộ cổ phiếu niêm yết HOSE, và Model Modus đã trải qua ba năm kiểm định.\n\nBước tiếp theo là vận hành có giám sát: chạy mô hình theo thời gian thực và đối chiếu kết quả thực tế với kết quả kiểm định, đủ lâu để biết khoảng cách giữa hai bên là bao nhiêu.",
+    "developingTitle": "Các hướng đang phát triển",
     "developingItems": [
       "Dự báo chỉ số và cổ phiếu theo nhiều khoảng thời gian",
       "Hệ thống giao dịch có quy tắc cho thị trường phái sinh",
@@ -573,13 +600,8 @@
       "Hệ thống dữ liệu và theo dõi chất lượng mô hình"
     ],
     "note": "Quant Percent hiện chưa triển khai hoạt động quản lý vốn chính thức và không huy động hoặc nhận ủy thác vốn thông qua website này.",
-    "lead": "Chúng tôi xây dựng công cụ định lượng cho thị trường Việt Nam, và công bố cả những gì chưa hoạt động. Phần lớn kết quả nghiên cứu định lượng không sống sót khi gặp dữ liệu mới — chúng tôi cho rằng điều đó nên được nói ra thay vì giấu đi.",
-    "stageTitle": "Giai đoạn hiện tại",
-    "stageText": "Quant Percent đang ở giai đoạn nghiên cứu và kiểm định. Bốn mô hình đã hoàn tất chu trình kiểm tra độc lập theo thứ tự thời gian, hệ thống dữ liệu vận hành hằng ngày trên toàn bộ cổ phiếu niêm yết HOSE, và Model Modus đã trải qua ba năm kiểm định.\n\nBước tiếp theo là đưa hệ thống vào vận hành có giám sát trước khi mở rộng quy mô.",
-    "publishTitle": "Chúng tôi công bố gì",
-    "publishText": "Mỗi báo cáo nêu rõ giai đoạn dữ liệu, cách kiểm định và đầy đủ chỉ số hiệu quả cùng rủi ro. Kết quả được tách theo từng giai đoạn, kể cả giai đoạn thua lỗ.\n\nMột phiên bản mô hình chỉ được đưa vào sử dụng sau khi vượt các tiêu chí kiểm định độc lập.",
-    "ctaTitle": "Quan tâm đến hướng nghiên cứu này?",
-    "ctaText": "Chúng tôi trao đổi với nhà đầu tư tổ chức, đối tác dữ liệu và cộng tác viên nghiên cứu.",
+    "ctaTitle": "Cùng làm nghiên cứu?",
+    "ctaText": "Chúng tôi trao đổi với các nhóm nghiên cứu, đối tác dữ liệu và những người làm định lượng quan tâm tới thị trường Việt Nam.",
     "ctaButton": "Liên hệ với chúng tôi"
   },
   "contact": {
@@ -783,7 +805,7 @@
       "cash": "Tiền mặt trong danh mục (đồng)",
       "cashNote": "Tiền mặt được tính vào giá trị danh mục nhưng không tạo ra rủi ro.",
       "horizon": "Thời gian đầu tư",
-      "horizonNote": "Dùng cho phần ước lượng khả năng sụt giảm phía trước.",
+      "horizonNote": "Đổi kỳ hạn sẽ đổi toàn bộ xác suất ở phần ước lượng sụt giảm phía trước.",
       "horizons": {
         "m1": "1 tháng",
         "m3": "3 tháng",
@@ -866,11 +888,11 @@
       "downside": "Biến động chiều giảm",
       "downsideNote": "chỉ tính các phiên giảm, không tính các phiên tăng",
       "forwardHeading": "Khả năng sụt giảm phía trước",
-      "forwardLead": "Phần này lấy phân phối mô phỏng của VN-Index ngày {origin} ({paths} kịch bản) và quy về danh mục theo hệ số beta {beta}.",
+      "forwardLead": "Phần này lấy phân phối mô phỏng của VN-Index ngày {origin} ({paths} kịch bản, mỗi kịch bản {baseDays} phiên) rồi quy về danh mục: nhân theo beta {beta} cho mức bám chỉ số, và giãn theo căn bậc hai thời gian để trả lời cho {horizonDays} phiên bạn chọn. Các mức giảm bên dưới là cố định — thứ thay đổi theo danh mục và kỳ hạn là khả năng xảy ra.",
       "colDecline": "Mức giảm",
       "colChance": "Khả năng",
       "declineRow": "giảm quá {pct} (khoảng {amount})",
-      "forwardCaveat": "Đây là ước lượng gián tiếp: nó chuyển rủi ro của chỉ số sang danh mục theo beta, nên không phản ánh rủi ro riêng của từng cổ phiếu. Xác suất mô phỏng không phải điều chắc chắn xảy ra.",
+      "forwardCaveat": "Đây là ước lượng gián tiếp. Nó chuyển rủi ro của chỉ số sang danh mục theo beta nên không phản ánh rủi ro riêng của từng cổ phiếu, và phép giãn theo căn bậc hai thời gian bỏ qua cả xu hướng lẫn hiện tượng biến động dồn cụm — càng xa {baseDays} phiên gốc thì sai số càng lớn. Xác suất mô phỏng không phải điều chắc chắn xảy ra.",
       "provenanceLabel": "Nguồn số liệu",
       "provenance": "Tính trên {days} phiên có giao dịch chung của tất cả các mã, lấy trong cửa sổ {lookback} phiên gần nhất, cập nhật đến {asOf}. Hiệp phương sai dùng phương pháp co rút Ledoit–Wolf để ổn định ước lượng khi số phiên còn hạn chế.",
       "glossaryHeading": "Cách đọc các chỉ số này",
@@ -887,7 +909,7 @@
         "correlation": "Chỉ số {value} là mức tương quan trung bình của tất cả các cặp cổ phiếu trong danh mục. Càng gần 1 thì các mã càng biến động cùng chiều và hiệu quả phân tán rủi ro càng thấp; càng gần 0 thì các mã càng độc lập với nhau."
       },
       "exceedanceTitle": "Khả năng giảm quá từng mức",
-      "exceedanceNote": "Mức sụt giảm càng sâu thì khả năng xảy ra càng thấp. Điểm nằm trên đường 50% là mức có khả năng xảy ra cao hơn không xảy ra.",
+      "exceedanceNote": "Mức sụt giảm càng sâu thì khả năng xảy ra càng thấp. Điểm nằm trên đường 50% là mức có khả năng xảy ra cao hơn không xảy ra. Trục ngang cố định nên có thể đặt hai danh mục, hoặc một danh mục ở hai kỳ hạn, lên cùng một thước.",
       "lossScaleTitle": "Quy ra tiền trên danh mục của bạn",
       "lossScaleNote": "Các mức sụt giảm tương ứng, quy đổi theo giá trị cổ phiếu đang nắm giữ. Phần tiền mặt không được tính vào."
     }

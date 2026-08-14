@@ -94,7 +94,11 @@ export type ModelCardData = Pick<
   | "horizons"
   | "tagline"
   | "keyOutput"
->;
+> & {
+  /** When this model last published output, or undefined if it never has.
+   *  Comes from quant.model_forecasts, not from the catalogue entry. */
+  lastOutputAt?: string | null;
+};
 
 export const MODELS: ModelConfig[] = [
   {
@@ -316,7 +320,10 @@ export const MODELS: ModelConfig[] = [
     },
     horizons: [5, 20, 60],
     show_performance: false,
-    show_forecast: false,
+    // The only model writing to quant.model_forecasts. The flag was off while
+    // the table was empty; the daily job now fills it, so the forecast panel
+    // has something real to show.
+    show_forecast: true,
     show_internal_signal: false,
     tagline: {
       vi: "Ước lượng phạm vi tăng giảm, mức giảm từ đỉnh và biến động của VN-Index ở nhiều thời hạn.",
@@ -370,7 +377,7 @@ export const MODELS: ModelConfig[] = [
     show_performance: true,
     show_forecast: false,
     show_internal_signal: false,
-    strategySlug: "vn30f1m-walk-forward",
+    strategySlug: "vn30f1m-frozen-brain",
     tagline: {
       vi: "Hệ thống giao dịch có quy tắc cho hợp đồng tương lai VN30F1M, hiện mới được thử nghiệm trên dữ liệu quá khứ.",
       en: "A rule-based VN30F1M futures system currently tested only on historical data.",

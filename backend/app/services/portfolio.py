@@ -55,6 +55,30 @@ PRICE_UNIT_VND = 1_000
 # quarter; below that the estimate is noise dressed as a number.
 MIN_OBSERVATIONS = 60
 
+# The RARF-FHE Monte-Carlo run simulates a fixed 20-session path
+# (`models/rarf-fhe/configs/default.yaml`, `simulation.horizon`). That length is
+# not carried on `quant.risk_metrics`, so it is pinned here: every number the
+# run publishes — VaR, expected shortfall, the drawdown curve — describes 20
+# sessions and nothing else. If the run's config changes, this changes with it.
+MC_BASE_HORIZON_DAYS = 20
+
+# Drawdown levels the forward panel reports, as falls in this portfolio.
+#
+# Fixed rather than derived from beta. When the thresholds move with the book,
+# every portfolio produces the same curve at slightly different x-labels and
+# the panel cannot be read — which is exactly the failure this replaces. Fixing
+# the axis puts the variation where a reader can see it: in the probabilities.
+#
+# The grid runs to 30% because the shallow end saturates over a long horizon: a
+# 3% fall sometime in a year is near certain, so a 3-10% grid draws a flat line
+# just under 100% and says nothing. Out to 30% the curve keeps a readable
+# spread at every horizon the form offers.
+DRAWDOWN_THRESHOLDS = (0.03, 0.05, 0.07, 0.10, 0.15, 0.20, 0.30)
+
+# A beta this small means the book barely tracks the index, and dividing by it
+# would turn rounding noise into a lookup thousands of percent deep.
+MIN_BETA_FOR_SCALING = 0.05
+
 
 async def _load_closes(
     session: AsyncSession, symbols: list[str], lookback: int
@@ -205,16 +229,76 @@ def _risk_state(volatility: float, drawdown: float) -> RiskState:
     return RiskState.low
 
 
+def _exceedance_at(curve: list[tuple[float, float]], depth: float) -> float:
+    """Probability the index run gives a drawdown of at least `depth`.
+
+    `curve` is the published (depth, probability) pairs with depth positive and
+    ascending. It is anchored at (0, 1) before interpolating: a fall of at
+    least nothing is certain, and without that anchor a long horizon — which
+    pulls the lookup depth towards zero — has nothing on its left to
+    interpolate against.
+
+    Interpolation is linear in log-probability, which is how a tail decays.
+    Interpolating the probability itself would overstate the middle of every
+    segment. Past the deepest published point the last segment's slope is
+    carried forward rather than the curve being cut off, because a high-beta
+    book over a short horizon legitimately lands out there.
+    """
+    if depth <= 0:
+        return 1.0
+    if not curve:
+        return 0.0
+
+    points = [(0.0, 1.0), *curve]
+    floor = 1e-9
+
+    for (d_a, p_a), (d_b, p_b) in zip(points, points[1:], strict=False):
+        if depth <= d_b:
+            span = d_b - d_a
+            if span <= 0:
+                return max(0.0, min(1.0, p_b))
+            t = (depth - d_a) / span
+            log_p = math.log(max(p_a, floor)) + t * (
+                math.log(max(p_b, floor)) - math.log(max(p_a, floor))
+            )
+            return max(0.0, min(1.0, math.exp(log_p)))
+
+    # Beyond the deepest point: extend the final segment's decay.
+    (d_a, p_a), (d_b, p_b) = points[-2], points[-1]
+    span = d_b - d_a
+    if span <= 0 or p_b <= 0:
+        return 0.0
+    slope = (math.log(max(p_b, floor)) - math.log(max(p_a, floor))) / span
+    extended = math.exp(math.log(max(p_b, floor)) + slope * (depth - d_b))
+    return max(0.0, min(1.0, extended))
+
+
 async def _forward_risk(
     session: AsyncSession, beta: float | None, horizon_days: int
 ) -> ForwardRisk | None:
-    """Scale the published VN-Index Monte-Carlo run to this portfolio.
+    """Map the published VN-Index Monte-Carlo run onto this portfolio.
 
-    Returns None when no run is loaded. Beta scaling is a linear
-    approximation: it carries the index's distribution across, but not any
-    risk specific to the holdings, so the caller states that on the page.
+    Two transformations, both stated on the response rather than folded in
+    silently:
+
+    * **Beta.** The book takes beta times the index's move, so a fall of `x`
+      here corresponds to a fall of `x / beta` there.
+    * **Square-root-of-time.** The run simulates a fixed 20 sessions. For a
+      driftless diffusion the maximum drawdown over `t` sessions has the same
+      distribution as the 20-session drawdown scaled by `sqrt(t / 20)`, so a
+      63-session question is answered by asking the run about a proportionally
+      shallower fall. It is a first-order approximation — it carries no drift
+      and no volatility clustering — which is why the page names it.
+
+    Together: P(this book falls >= x over t) = P(index falls >= x / beta /
+    sqrt(t / 20) over 20). The thresholds stay fixed and the probabilities
+    move, so two portfolios, or one portfolio over two horizons, can be read
+    against the same axis.
+
+    Returns None when no run is loaded, or when the book tracks the index too
+    weakly for beta scaling to carry any meaning.
     """
-    if beta is None:
+    if beta is None or abs(beta) < MIN_BETA_FOR_SCALING:
         return None
 
     # These views hold the VN-Index run only and are keyed by timestamp;
@@ -248,21 +332,37 @@ async def _forward_risk(
         )
     ).mappings().all()
 
+    # Published as negative drawdowns; the curve works in positive depths.
+    curve = sorted(
+        {
+            abs(float(b["bucket"])): float(b["probability"]) for b in buckets
+        }.items()
+    )
+
+    time_scale = math.sqrt(horizon_days / MC_BASE_HORIZON_DAYS)
+    abs_beta = abs(beta)
+
     origin = row["ts"]
     return ForwardRisk(
         source_model="rarf-fhe",
         forecast_origin=origin.date() if hasattr(origin, "date") else origin,
         horizon_days=horizon_days,
+        base_horizon_days=MC_BASE_HORIZON_DAYS,
+        horizon_scale=round(time_scale, 4),
         paths=int(row["mc_paths"] or 0),
         portfolio_beta=round(beta, 4),
-        var_95=round(float(row["var_95"]) * beta, 6),
-        expected_shortfall_95=round(float(row["es_95"]) * beta, 6),
+        var_95=round(float(row["var_95"]) * beta * time_scale, 6),
+        expected_shortfall_95=round(
+            float(row["es_95"]) * beta * time_scale, 6
+        ),
         drawdown_probabilities=[
             DrawdownBucket(
-                threshold=round(float(b["bucket"]) * beta, 6),
-                probability=float(b["probability"]),
+                threshold=-depth,
+                probability=round(
+                    _exceedance_at(curve, depth / abs_beta / time_scale), 6
+                ),
             )
-            for b in buckets
+            for depth in DRAWDOWN_THRESHOLDS
         ],
     )
 
@@ -479,7 +579,7 @@ def _concentration(
         effective_bets = float(len(symbols))
 
     sector_weights: dict[str, float] = {}
-    for s, w in zip(symbols, weights):
+    for s, w in zip(symbols, weights, strict=False):
         key = sectors.get(s) or "Unclassified"
         sector_weights[key] = round(sector_weights.get(key, 0.0) + float(w), 6)
 

@@ -61,9 +61,12 @@ export function Header() {
       data-scrolled={scrolled}
     >
       <div className="container-qp flex h-16 items-center justify-between gap-6">
+        {/* `data-home-brand` is the landing target the opening sequence
+            measures. Keep it on whichever element carries the lockup. */}
         <Link
           href="/"
           aria-label="Quant Percent"
+          data-home-brand
           className="brand-link shrink-0"
         >
           <Brand priority />

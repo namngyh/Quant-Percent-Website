@@ -100,11 +100,26 @@ class DrawdownBucket(ApiModel):
 
 
 class ForwardRisk(ApiModel):
-    """VN-Index Monte-Carlo distribution scaled to the portfolio by beta."""
+    """VN-Index Monte-Carlo distribution mapped onto the portfolio.
+
+    The run is a fixed-length simulation of the index. Two transformations
+    bring it onto this book — beta, for how much of the index's move the
+    holdings take, and square-root-of-time, for the horizon the reader picked.
+    Both are reported here so the page can name them instead of presenting a
+    stretched number as if it were simulated directly.
+
+    `threshold` is a fall in this portfolio and is the same on every response;
+    `probability` is what carries the portfolio and the horizon.
+    """
 
     source_model: str
     forecast_origin: date
     horizon_days: int
+    # The simulation's own length, and the factor the reader's horizon implies
+    # against it. Stated so a 1-year answer cannot be mistaken for a 1-year
+    # simulation.
+    base_horizon_days: int
+    horizon_scale: float
     paths: int
     portfolio_beta: float
     var_95: float

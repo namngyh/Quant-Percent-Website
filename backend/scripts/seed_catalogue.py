@@ -241,16 +241,24 @@ async def seed_strategies(
 ) -> int:
     perf_dir = frontend / "config" / "performance"
     datasets = {
-        "validation": json.loads(
-            (perf_dir / "validation-2024.json").read_text(encoding="utf-8")
-        ),
-        "walkForward": json.loads(
-            (perf_dir / "walk-forward.json").read_text(encoding="utf-8")
-        ),
-        "multiseed": json.loads(
-            (perf_dir / "multiseed-test.json").read_text(encoding="utf-8")
+        "frozenBrain": json.loads(
+            (perf_dir / "frozen-brain.json").read_text(encoding="utf-8")
         ),
     }
+
+    # Seeding upserts, so a report dropped from the catalogue would otherwise
+    # stay published forever — the API would keep serving a run the project no
+    # longer stands behind. Child rows go with it through ON DELETE CASCADE.
+    published = [e["slug"] for e in entries]
+    removed = (
+        await session.execute(
+            delete(Strategy)
+            .where(Strategy.slug.notin_(published))
+            .returning(Strategy.slug)
+        )
+    ).scalars().all()
+    if removed:
+        print(f"withdrew {len(removed)} report(s): {', '.join(sorted(removed))}")
 
     for order, entry in enumerate(entries):
         slug = entry["slug"]
@@ -306,6 +314,10 @@ async def seed_strategies(
                 delete(table).where(table.strategy_slug == slug)
             )
 
+        # No multi-seed report is published at the moment, so this branch is
+        # currently unreachable. It is kept because the research project still
+        # produces multi-seed runs and one is expected back; deleting the
+        # loader would mean rewriting it rather than adding a JSON file.
         if entry["dataset"] == "multiseed":
             await _seed_multiseed(session, slug, data)
         else:
