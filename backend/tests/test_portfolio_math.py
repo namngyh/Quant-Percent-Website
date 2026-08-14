@@ -16,8 +16,10 @@ from app.schemas.common import RiskState
 from app.services.portfolio import (
     DRAWDOWN_THRESHOLDS,
     MC_BASE_HORIZON_DAYS,
+    MIN_OBSERVATIONS,
     _aligned_returns,
     _concentration,
+    _daily_log_returns,
     _exceedance_at,
     _ledoit_wolf,
     _max_drawdown,
@@ -304,3 +306,67 @@ class TestForwardScaling:
         for horizon in (21, 63, 126, 252):
             values = self._probabilities(1.0, horizon)
             assert max(values) - min(values) > 0.4
+
+
+class TestBenchmarkAlignment:
+    """Beta must survive an index that does not cover every session.
+
+    The window is the most recent `lookback` rows per symbol, so a stock whose
+    daily bars lag the index reaches further back and lands on dates the index
+    window does not hold. Requiring full coverage set beta to None, which took
+    the whole forward panel and both of its charts off the page — on ordinary
+    holdings, with nothing shown to explain it.
+    """
+
+    @staticmethod
+    def _closes(start: int, n: int) -> dict:
+        import datetime as dt
+
+        base = dt.date(2026, 1, 1)
+        return {
+            base + dt.timedelta(days=start + i): 100.0 + i for i in range(n)
+        }
+
+    def test_returns_are_keyed_by_the_later_session(self):
+        import datetime as dt
+
+        closes = {
+            dt.date(2026, 1, 2): 100.0,
+            dt.date(2026, 1, 5): 110.0,
+            dt.date(2026, 1, 6): 121.0,
+        }
+        out = _daily_log_returns(closes)
+
+        # The first session has nothing before it, so it carries no return.
+        assert dt.date(2026, 1, 2) not in out
+        assert out[dt.date(2026, 1, 5)] == pytest.approx(math.log(1.1))
+        assert out[dt.date(2026, 1, 6)] == pytest.approx(math.log(1.1))
+
+    def test_partial_overlap_still_produces_a_series(self):
+        """The index starting three sessions late must not wipe out beta."""
+        stock = self._closes(0, 120)
+        index = self._closes(3, 120)
+
+        stock_returns = _daily_log_returns(stock)
+        index_returns = _daily_log_returns(index)
+        shared = [d for d in stock_returns if d in index_returns]
+
+        assert len(shared) >= MIN_OBSERVATIONS, (
+            "a three-session offset must leave plenty of paired sessions"
+        )
+
+    def test_non_positive_closes_are_dropped(self):
+        import datetime as dt
+
+        closes = {
+            dt.date(2026, 1, 2): 100.0,
+            dt.date(2026, 1, 5): 0.0,
+            dt.date(2026, 1, 6): 121.0,
+        }
+        out = _daily_log_returns(closes)
+        # A zero close cannot produce a log return on either side of itself.
+        assert dt.date(2026, 1, 5) not in out
+        assert dt.date(2026, 1, 6) not in out
+
+    def test_empty_series(self):
+        assert _daily_log_returns({}) == {}

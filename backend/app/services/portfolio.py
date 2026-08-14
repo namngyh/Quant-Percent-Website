@@ -154,6 +154,22 @@ def _aligned_returns(
     return dates[1:], returns
 
 
+def _daily_log_returns(closes: dict[date, float]) -> dict[date, float]:
+    """Log return for each session, measured against the previous one.
+
+    Keyed by date so a series can be paired with another that keeps a
+    different set of sessions.
+    """
+    ordered = sorted(closes)
+    return {
+        later: math.log(closes[later] / closes[earlier])
+        # Deliberately ragged: the pairs are consecutive sessions, so the
+        # second sequence is one shorter than the first.
+        for earlier, later in zip(ordered, ordered[1:], strict=False)
+        if closes[earlier] > 0 and closes[later] > 0
+    }
+
+
 def _ledoit_wolf(returns: np.ndarray) -> np.ndarray:
     """Sample covariance shrunk towards a constant-correlation target.
 
@@ -429,20 +445,36 @@ async def analyze(
 
     max_dd = _max_drawdown(port_returns)
 
-    # Beta against the index over the same dates.
+    # Beta against the index, on the sessions the two actually share.
+    #
+    # This used to demand that the index carry a close for every date in the
+    # book's own window, and to build its return series from
+    # `[dates[0], *dates]`. Both were wrong, and together they were why a
+    # perfectly ordinary holding could lose its whole forward panel:
+    #
+    #  * The window is the most recent `lookback` rows *per symbol*, so a stock
+    #    whose daily bars lag the index by a few sessions reaches further back
+    #    and lands on dates the index window does not contain. One missing date
+    #    set beta to None, which removed the forward block and both of its
+    #    charts, with nothing on the page to say why.
+    #  * Repeating `dates[0]` prepends a duplicate rather than the preceding
+    #    session, so the first benchmark return was always exactly zero while
+    #    the portfolio's first return was real — the two series were offset by
+    #    one observation for their whole length.
+    #
+    # Overlapping by date fixes both: the index return for a session is
+    # measured against the index's own previous session, and only sessions
+    # present on both sides are paired up.
     beta: float | None = None
-    bench_closes = closes.get(BENCHMARK, {})
-    if len(bench_closes) >= MIN_OBSERVATIONS:
-        bench_on_dates = [bench_closes.get(d) for d in [dates[0], *dates]]
-        if all(p is not None for p in bench_on_dates):
-            bench = np.array(bench_on_dates, dtype=float)
-            bench_ret = np.diff(np.log(bench))
-            if bench_ret.shape[0] == port_returns.shape[0]:
-                bench_var = float(bench_ret.var(ddof=1))
-                if bench_var > 0:
-                    beta = float(
-                        np.cov(port_returns, bench_ret, ddof=1)[0, 1] / bench_var
-                    )
+    bench_returns = _daily_log_returns(closes.get(BENCHMARK, {}))
+    shared = [i for i, d in enumerate(dates) if d in bench_returns]
+    bench_ret = np.array([bench_returns[dates[i]] for i in shared])
+    bench_var = float(bench_ret.var(ddof=1)) if bench_ret.size > 1 else 0.0
+    if len(shared) >= MIN_OBSERVATIONS and bench_var > 0:
+        port_on_shared = port_returns[np.array(shared)]
+        beta = float(
+            np.cov(port_on_shared, bench_ret, ddof=1)[0, 1] / bench_var
+        )
 
     # Risk contribution: weight times marginal contribution, normalised.
     marginal = cov @ weights
@@ -458,19 +490,14 @@ async def analyze(
     # Per-asset beta, for the stress page and for explaining a position.
     asset_betas: dict[str, float | None] = {s: None for s in priced}
     if beta is not None:
-        bench_ret_full = np.diff(
-            np.log(np.array([bench_closes[d] for d in [dates[0], *dates]]))
-        )
-        bench_var = float(bench_ret_full.var(ddof=1))
-        for i, s in enumerate(priced):
-            if bench_var > 0:
-                asset_betas[s] = round(
-                    float(
-                        np.cov(returns[:, i], bench_ret_full, ddof=1)[0, 1]
-                        / bench_var
-                    ),
-                    4,
-                )
+        rows = np.array(shared)
+        for i, sym in enumerate(priced):
+            asset_betas[sym] = round(
+                float(
+                    np.cov(returns[rows, i], bench_ret, ddof=1)[0, 1] / bench_var
+                ),
+                4,
+            )
 
     positions: list[PositionRisk] = []
     total_cost = 0.0

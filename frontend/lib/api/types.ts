@@ -447,8 +447,13 @@ export const ForwardRiskSchema = z.object({
   source_model: z.string(),
   forecast_origin: z.string(),
   horizon_days: z.number(),
-  base_horizon_days: z.number(),
-  horizon_scale: z.number(),
+  // Optional so a frontend that ships ahead of the API still renders. These
+  // two arrived together in one release; making them required meant that a
+  // backend one version behind failed the whole parse, and the portfolio
+  // result — every table and all three charts — was replaced by a contract
+  // error rather than losing one sentence of provenance text.
+  base_horizon_days: z.number().optional().default(20),
+  horizon_scale: z.number().optional().default(1),
   paths: z.number(),
   portfolio_beta: z.number(),
   var_95: z.number(),
