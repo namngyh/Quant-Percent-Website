@@ -630,8 +630,8 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
         en: "Useful for estimating a range and risk, but not yet better at predicting one number.",
       },
       body: {
-        vi: "MSDP cho kết quả tốt hơn ở một số phép đo, nhưng khi kiểm tra độ ổn định, chưa thể khẳng định sai số dự báo trung bình tốt hơn các cách đơn giản. Bằng chứng rõ hơn chỉ xuất hiện ở một vài trường hợp: dự báo 5 phiên, phạm vi kết quả 20 phiên và khả năng tăng trong 5 phiên.",
-        en: "MSDP performs better on several measures, but stability checks do not yet show that its average forecast error is clearly lower than simple methods. Stronger evidence appears only in a few cases: the 5-session forecast, the 20-session outcome range and the chance of a rise over 5 sessions.",
+        vi: "Causa cho kết quả tốt hơn ở một số phép đo, nhưng khi kiểm tra độ ổn định, chưa thể khẳng định sai số dự báo trung bình tốt hơn các cách đơn giản. Bằng chứng rõ hơn chỉ xuất hiện ở một vài trường hợp: dự báo 5 phiên, phạm vi kết quả 20 phiên và khả năng tăng trong 5 phiên.",
+        en: "Causa performs better on several measures, but stability checks do not yet show that its average forecast error is clearly lower than simple methods. Stronger evidence appears only in a few cases: the 5-session forecast, the 20-session outcome range and the chance of a rise over 5 sessions.",
       },
     },
     metrics: [

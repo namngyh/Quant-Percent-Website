@@ -103,7 +103,7 @@ export type ModelCardData = Pick<
 export const MODELS: ModelConfig[] = [
   {
     slug: "raemf-mc",
-    name: "RAEMF-VB-MC",
+    name: "Tempus VNI",
     code: "QP-F01",
     markets: ["VNINDEX"],
     category: "forecasting",
@@ -169,7 +169,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     slug: "rarf-fhe",
-    name: "RARF-FHE",
+    name: "Certus",
     code: "QP-F02",
     markets: ["VNINDEX", "VN30"],
     category: "forecasting",
@@ -293,7 +293,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     slug: "msdp",
-    name: "MSDP",
+    name: "Causa",
     code: "QP-F03",
     markets: ["VNINDEX"],
     category: "forecasting",

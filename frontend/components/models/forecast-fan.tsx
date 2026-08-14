@@ -10,7 +10,7 @@ import { fmtPercent, fmtPrice } from "@/lib/format";
 /**
  * Forecast range by horizon, for models that publish a distribution.
  *
- * MSDP and RARF-FHE do not forecast a number, they forecast a spread. A row
+ * Causa and Certus do not forecast a number, they forecast a spread. A row
  * of point estimates hides that entirely; the honest picture is how wide the
  * band gets as the horizon lengthens, anchored at today's index level. The
  * widening itself is the message — a 60-session band four times the width of
