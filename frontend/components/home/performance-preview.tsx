@@ -64,7 +64,7 @@ export function PerformancePreview() {
                     Model Modus · VN30F1M · 2024–2026
                   </p>
                   <span className="rounded-full border border-signal/35 bg-signal-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-signal-strong">
-                    {tc("resultType.out_of_sample")}
+                    {tc("resultType.walk_forward")}
                   </span>
                 </div>
 

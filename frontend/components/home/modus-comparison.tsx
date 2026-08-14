@@ -15,17 +15,15 @@ import { fmtNumber, fmtPercent } from "@/lib/format";
 /**
  * Model Modus against VN-Index, as cumulative growth.
  *
- * Over 2024-01-02 to 2026-08-03 the frozen brain finished ahead on return
- * (+119.2% against +55.8%) and well ahead on risk: its deepest fall inside a
- * year was -7.8% where the index fell -18.1%. Both claims are checkable
- * against a public index, which is the point — a reader can verify them in an
- * afternoon.
+ * Over 2024 to mid 2026 Modus finished ahead on return (+68.3% against
+ * +63.6%) and well ahead on risk: its deepest fall was -4.7% where the index
+ * fell -18.1%, and it held a position about a fifth of the time. Both claims
+ * are checkable against a public index, which is the point — a reader can
+ * verify them in an afternoon.
  *
- * 2024 runs the other way: Modus made +3.1% while the index made +11.9%. That
- * year is also the one used to tune the inference settings, so it is the least
- * trustworthy of the three and the least flattering — both facts are left
- * visible in the line rather than trimmed out. A chart that only ever goes up
- * invites the reader to look for what was removed.
+ * The 2026 fold runs the other way: Modus lost while the index rose. That is
+ * left visible in the line rather than trimmed out. A chart that only ever
+ * goes up invites the reader to look for what was removed.
  */
 
 /** Deepest fall of VN-Index over the same window (2024-01-02 to 2026-06-30),
@@ -174,18 +172,12 @@ export function ModusComparison() {
           value: fmtPercent(m.exposure ?? 0, locale),
           note: t("exposureNote"),
         },
-        // Payoff rather than Sharpe. The frozen-brain report scores three
-        // years separately and never chains them, so there is no report-level
-        // Sharpe to quote — and for a reader deciding whether to keep reading,
-        // "each winner is 2.8x each loser" lands where "Sharpe 2.1" does not.
         {
-          key: "payoff",
-          value: `${fmtNumber(m.payoff ?? 0, locale, { maximumFractionDigits: 1 })}×`,
-          note: t("payoffNote", {
-            winRate: fmtPercent(m.winRate ?? 0, locale),
-          }),
+          key: "sharpe",
+          value: fmtNumber(m.sharpe ?? 0, locale, { maximumFractionDigits: 2 }),
+          note: t("sharpeNote"),
         },
-      ].filter((s) => s.value !== null)
+      ]
     : [];
 
   return (

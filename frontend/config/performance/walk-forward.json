@@ -1,0 +1,147 @@
+{
+ "provenance": {
+  "source_project": "Model-Modus (mlforquant)",
+  "source_files": [
+   "results/walk_forward.json"
+  ],
+  "generated_by": "anchored walk-forward, SEED=100",
+  "code_version": "pre-2026-07-04",
+  "extracted_at": "2026-07-25",
+  "notional_points": 1000,
+  "point_value_vnd": 100000
+ },
+ "period": {
+  "start": "2024-01-02",
+  "end": "2026-06-30",
+  "years": 2.5
+ },
+ "folds": [
+  {
+   "fold": 1,
+   "train_from": 2018,
+   "train_to": 2023,
+   "test_year": 2024,
+   "net_points": 140.3,
+   "trades": 162,
+   "long": 114,
+   "short": 48,
+   "win_rate": 41.4,
+   "payoff": 2.05,
+   "max_drawdown_points": -35.7,
+   "partial_year": false
+  },
+  {
+   "fold": 2,
+   "train_from": 2018,
+   "train_to": 2024,
+   "test_year": 2025,
+   "net_points": 623.5,
+   "trades": 178,
+   "long": 139,
+   "short": 39,
+   "win_rate": 49.4,
+   "payoff": 2.31,
+   "max_drawdown_points": -79.9,
+   "partial_year": false
+  },
+  {
+   "fold": 3,
+   "train_from": 2018,
+   "train_to": 2025,
+   "test_year": 2026,
+   "net_points": -80.9,
+   "trades": 13,
+   "long": 7,
+   "short": 6,
+   "win_rate": 30.8,
+   "payoff": 0.43,
+   "max_drawdown_points": -77.4,
+   "partial_year": true
+  }
+ ],
+ "combined": {
+  "net": 682.915413897643,
+  "wr": 45.04249291784703,
+  "rr": 2.1354730117556002,
+  "n": 353,
+  "nL": 260,
+  "nS": 93,
+  "mdd": -83.70277064561924
+ },
+ "tier3": {
+  "all": {
+   "net_pct": 68.3,
+   "car": 23.7,
+   "max_dd_pct": -4.74,
+   "ulcer": 1.57,
+   "car_maxdd": 5.0,
+   "sharpe_a": 2.14,
+   "recovery": 8.16,
+   "pf": 1.79,
+   "payoff": 2.14,
+   "exposure": 21.3
+  },
+  "long": {
+   "net_pct": 61.3,
+   "car": 21.6,
+   "max_dd_pct": -4.06,
+   "ulcer": 1.32,
+   "car_maxdd": 5.31,
+   "sharpe_a": 2.22,
+   "recovery": 10.47,
+   "pf": 1.99,
+   "payoff": 2.22,
+   "exposure": 15.9
+  },
+  "short": {
+   "net_pct": 7.0,
+   "car": 2.8,
+   "max_dd_pct": -7.81,
+   "ulcer": 2.21,
+   "car_maxdd": 0.36,
+   "sharpe_a": 0.44,
+   "recovery": 0.77,
+   "pf": 1.28,
+   "payoff": 1.86,
+   "exposure": 5.3
+  }
+ },
+ "full": {
+  "total_trades": 353,
+  "years": 2.5,
+  "trades_yr": 144.1,
+  "net_profit": 682.9,
+  "annual_ret": 278.7,
+  "profit_factor": 1.79,
+  "expectancy": 1.93,
+  "payoff": 2.14,
+  "max_dd": -83.7,
+  "avg_dd": -18.4,
+  "max_dd_dur": 35,
+  "ulcer": 1.57,
+  "sharpe": 2.14,
+  "sortino": 6.01,
+  "calmar": 3.33,
+  "mar": 5.0,
+  "recovery": 8.16,
+  "upi": 177.93,
+  "kratio": 0.51,
+  "win_rate": 45.0,
+  "avg_win": 9.75,
+  "avg_loss": -4.57,
+  "largest_win": 66.1,
+  "largest_loss": -15.9,
+  "max_cons_w": 6,
+  "max_cons_l": 9,
+  "long_pnl": 613.2,
+  "short_pnl": 69.7,
+  "wr_long": 46.5,
+  "wr_short": 40.9,
+  "exposure": 21.3,
+  "skew": 2.14,
+  "edge_ratio": 1.85,
+  "pct_months": 66.7,
+  "pct_quarters": 77.8,
+  "equity_r2": 0.88
+ }
+}

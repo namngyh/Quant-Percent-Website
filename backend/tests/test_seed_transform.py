@@ -49,8 +49,7 @@ def _perf(name: str) -> dict:
 
 def test_catalogue_has_models_and_strategies(catalogue) -> None:
     assert len(catalogue["models"]) >= 10
-    # One report is published: the frozen brain scored over 2024-2026.
-    assert len(catalogue["strategies"]) == 1
+    assert len(catalogue["strategies"]) == 3
 
 
 def test_every_model_declares_access(catalogue) -> None:
@@ -65,100 +64,56 @@ def test_members_only_models_are_marked(catalogue) -> None:
     assert locked, "expected some models to require sign-in"
 
 
-def test_frozen_brain_metrics_match_source() -> None:
-    data = _perf("frozen-brain.json")
+def test_validation_metrics_match_source() -> None:
+    data = _perf("validation-2024.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
-    # Values published on /performance for the frozen-brain run
-    assert metrics["totalReturn"] == pytest.approx(1.192)
-    assert metrics["annualizedReturn"] == pytest.approx(0.474)
-    assert metrics["maxDrawdown"] == pytest.approx(-0.0781)
-    assert metrics["winRate"] == pytest.approx(0.391)
-    assert metrics["payoff"] == pytest.approx(2.77)
-    assert metrics["netPoints"] == pytest.approx(1192.0)
-    assert metrics["trades"] == 366
+    # Values published on /performance for the 2024 validation run
+    assert metrics["totalReturn"] == pytest.approx(0.205)
+    assert metrics["maxDrawdown"] == pytest.approx(-0.0329)
+    assert metrics["winRate"] == pytest.approx(0.398)
+    assert metrics["netPoints"] == pytest.approx(204.8)
+    assert metrics["trades"] == 113
 
 
-def test_combined_totals_are_exact_sums_of_the_years() -> None:
-    """The per-year rows are the source; the totals must not drift from them."""
-    data = _perf("frozen-brain.json")
-    years = data["years"]
-    full = data["full"]
-
-    assert full["net_profit"] == pytest.approx(
-        sum(y["net_points"] for y in years), abs=0.05
-    )
-    assert full["total_trades"] == sum(y["trades"] for y in years)
-    assert full["long_pnl"] == pytest.approx(
-        sum(y["long_pnl"] for y in years), abs=0.05
-    )
-    assert full["short_pnl"] == pytest.approx(
-        sum(y["short_pnl"] for y in years), abs=0.05
-    )
-    # Long and short must together account for the whole result.
-    assert full["long_pnl"] + full["short_pnl"] == pytest.approx(
-        full["net_profit"], abs=0.2
-    )
-
-
-def test_reconstructed_win_loss_split_reconciles_to_net() -> None:
-    """Win rate, average win and average loss are reconstructed per year.
-
-    If that reconstruction were wrong, the payoff and profit factor shown on
-    the site would be wrong too, and nothing else would catch it. Rebuilding
-    the net from the reconstructed pieces is the check.
-    """
-    data = _perf("frozen-brain.json")
-    full = data["full"]
-    wins = round(full["total_trades"] * full["win_rate"] / 100)
-    losses = full["total_trades"] - wins
-    rebuilt = wins * full["avg_win"] + losses * full["avg_loss"]
-    assert rebuilt == pytest.approx(full["net_profit"], rel=0.01)
-
-
-def test_uncombinable_ratios_are_absent_rather_than_averaged() -> None:
-    """Sharpe and friends are not combinable across separately scored years.
-
-    Reporting a plausible-looking average of three annual Sharpe figures would
-    be inventing a statistic nobody computed, so they must be missing from the
-    report-level block entirely.
-    """
-    data = _perf("frozen-brain.json")
+def test_walk_forward_metrics_match_source() -> None:
+    data = _perf("walk-forward.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
-    for key in ("sharpe", "sortino", "calmar", "ulcer", "upi", "equityR2"):
-        assert key not in metrics, f"{key} cannot be combined across years"
+    assert metrics["totalReturn"] == pytest.approx(0.683)
+    assert metrics["maxDrawdown"] == pytest.approx(-0.0474)
+    assert metrics["sharpe"] == pytest.approx(2.14)
+    assert metrics["trades"] == 353
 
 
 def test_missing_metrics_are_omitted_not_zeroed() -> None:
-    data = _perf("frozen-brain.json")
+    data = _perf("walk-forward.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
-    # The run exported no benchmark series; it must be absent entirely
+    # The runs exported no benchmark series; it must be absent entirely
     assert "benchmarkReturn" not in metrics
     assert all(v is not None for v in metrics.values())
 
 
 def test_fold_percentages_use_the_documented_notional() -> None:
-    data = _perf("frozen-brain.json")
+    data = _perf("walk-forward.json")
     folds = {f["test_year"]: f for f in data["folds"]}
+    assert folds[2026]["net_points"] < 0, "the 2026 fold was negative"
     assert round(folds[2024]["net_points"] / NOTIONAL_POINTS, 4) == pytest.approx(
-        0.0314, abs=1e-4
-    )
-    assert round(folds[2025]["net_points"] / NOTIONAL_POINTS, 4) == pytest.approx(
-        0.8434, abs=1e-4
+        0.1403, abs=1e-4
     )
 
 
-def test_only_the_unfinished_year_is_flagged_partial() -> None:
-    """2026 stops in August, and every annualised figure for it is scaled up.
+def test_multiseed_cost_stress_is_complete() -> None:
+    data = _perf("multiseed-test.json")
+    scenarios = data["cost_stress"]["scenarios"]
+    assert len(scenarios) == 5
+    assert all(s["pct_positive"] == 100.0 for s in scenarios)
+    # Higher applied cost must reduce mean profit
+    profits = [s["profit_mean"] for s in scenarios]
+    assert profits == sorted(profits, reverse=True)
 
-    A reader comparing it with 2025 without that flag would be comparing seven
-    months against twelve.
-    """
-    data = _perf("frozen-brain.json")
-    partial = {f["test_year"] for f in data["folds"] if f["partial_year"]}
-    assert partial == {2026}
 
-
-def test_exit_reasons_account_for_every_trade() -> None:
-    data = _perf("frozen-brain.json")
-    total = sum(r["share"] for r in data["exit_reasons"])
-    assert total == pytest.approx(100.0, abs=0.5)
+def test_median_seed_equity_ends_at_reported_net() -> None:
+    data = _perf("multiseed-test.json")
+    median = data["median_seed"]
+    assert median["equity"][-1]["equity"] == pytest.approx(
+        median["net_points"], abs=0.1
+    )

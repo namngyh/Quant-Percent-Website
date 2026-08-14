@@ -215,7 +215,7 @@ export function FuturesTab() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-medium">{t("aggregatePerformance")}</p>
               <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-dim">
-                {tc("resultType.out_of_sample")}
+                {tc("resultType.walk_forward")}
               </span>
             </div>
             <dl className="mt-5 grid grid-cols-2 gap-4 desk:grid-cols-4">

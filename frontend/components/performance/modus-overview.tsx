@@ -6,7 +6,6 @@ import { DataState } from "@/components/states/data-state";
 import type { StrategyMetrics, PerformanceSeries } from "@/lib/api/types";
 import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FEATURED_STRATEGY } from "@/config/strategies";
 
 /**
  * The 2024-2026 result for Model Modus, in one block.
@@ -23,8 +22,8 @@ import { FEATURED_STRATEGY } from "@/config/strategies";
  * every metric the report carries.
  */
 
-/** The only run published. */
-const WALK_FORWARD = FEATURED_STRATEGY;
+/** The only run covering 2024 through 2026. */
+const WALK_FORWARD = "vn30f1m-walk-forward";
 
 /** Assumed starting capital the research project quotes returns against. */
 const NOTIONAL_POINTS = 1000;
@@ -121,7 +120,7 @@ export function ModusOverview() {
           </h2>
         </div>
         <span className="rounded-full border border-signal/35 bg-signal-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-signal-strong">
-          {tc("resultType.out_of_sample")}
+          {tc("resultType.walk_forward")}
         </span>
       </div>
 

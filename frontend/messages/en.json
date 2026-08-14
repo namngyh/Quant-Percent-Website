@@ -242,8 +242,8 @@
       "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
       "basisNote": "Model Modus trades a leveraged futures contract; {benchmark} is an unleveraged index return. Both lines cover the same period and the same trading days.",
       "cta": "See the full test results",
-      "payoffLabel": "Average win against average loss",
-      "payoffNote": "Each winning trade is that many times the size of a losing one. Only {winRate} of trades profit — the system makes money on the size gap, not on winning often."
+      "sharpeLabel": "Return against volatility",
+      "sharpeNote": "The Sharpe ratio, measuring return earned per unit of volatility accepted. A value above 1 is generally considered good."
     }
   },
   "market": {
@@ -553,29 +553,6 @@
       "qualityTitle": "Win rate against payoff",
       "qualityNote": "The system wins fewer than half its trades; profit comes from winners being larger than losers.",
       "seriesCaveat": "This run stored yearly summaries rather than individual trades, so a detailed equity curve cannot be drawn. Deepest fall within one year: {drawdown}."
-    },
-    "plain": {
-      "heading": "Read this before the tables",
-      "lead": "Three things decide whether a system is usable, and none of them is the headline return.",
-      "splitTitle": "Which numbers are evidence",
-      "split": {
-        "train": "The model learned from this stretch, then was closed and never changed again.",
-        "tune": "Used to settle the entry and exit settings. The model had seen this data, so the year reads better than reality — do not treat it as evidence.",
-        "test": "Never seen by the model before scoring. This is the part worth trusting."
-      },
-      "splitResult": "Across {years} — the part it had never seen — the system made {points} points over {trades} trades.",
-      "asymmetryTitle": "It loses more often than it wins, and still profits",
-      "winRateLabel": "of trades were profitable",
-      "bar": {
-        "win": "Average gain on a winning trade",
-        "loss": "Average loss on a losing trade"
-      },
-      "asymmetryNote": "About 6 trades in every 10 lose money. The system profits anyway because each winner is {payoff} times the size of each loser. A high win rate is not the same thing as making money.",
-      "painTitle": "What the worst stretch looks like",
-      "streakLabel": "Longest run of consecutive losses",
-      "drawdownLabel": "Deepest fall within a single year",
-      "painNote": "This is the part that makes people quit halfway. Anyone intending to follow a system like this needs to be able to sit through that losing run before they start.",
-      "caveat": "Every figure here is simulated on historical data, before fees, tax and execution slippage, and comes from a single run. The full set of limits is in the notes at the foot of this page."
     }
   },
   "about": {
@@ -585,6 +562,15 @@
     "whatText": "A quantitative research group — not an asset manager. We take no capital, run no portfolios for anyone else, and sell no buy-or-sell recommendations.\n\nWhat we produce is models, testing methodology, and public reports carrying enough data for a reader to judge the work themselves instead of taking our word for it.",
     "publishTitle": "What we publish",
     "publishText": "Every report states the data period, the testing method, and the full set of performance and risk figures. Results are broken out by period, including the losing ones.\n\nWhere the data is not enough to conclude something, we say it is not enough rather than filling in a plausible-looking number.",
+    "founder": {
+      "name": "Phạm Minh Huy",
+      "roles": [
+        "Founder",
+        "Quantitative Researcher",
+        "AI Engineer"
+      ],
+      "bio": "I started investing early and kept returning to one question: why can the technical analysis everyone relies on still be wrong, and why trust an indicator you cannot explain? That question showed me the beauty of mathematics in investing — and the voice of the data."
+    },
     "philosophyTitle": "Research principles",
     "philosophyText": "A forecast is never certain, return always travels with risk, and every model has a stretch where it performs badly.\n\nEvery conclusion on this site states where the data came from, which period it was tested over, and what its limits are. A result without those three is not ready to publish.",
     "focusTitle": "Research scope",

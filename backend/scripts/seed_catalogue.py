@@ -241,8 +241,14 @@ async def seed_strategies(
 ) -> int:
     perf_dir = frontend / "config" / "performance"
     datasets = {
-        "frozenBrain": json.loads(
-            (perf_dir / "frozen-brain.json").read_text(encoding="utf-8")
+        "validation": json.loads(
+            (perf_dir / "validation-2024.json").read_text(encoding="utf-8")
+        ),
+        "walkForward": json.loads(
+            (perf_dir / "walk-forward.json").read_text(encoding="utf-8")
+        ),
+        "multiseed": json.loads(
+            (perf_dir / "multiseed-test.json").read_text(encoding="utf-8")
         ),
     }
 

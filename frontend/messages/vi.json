@@ -242,8 +242,8 @@
       "exposureNote": "Thời gian còn lại hệ thống không nắm giữ vị thế và không chịu rủi ro biến động của thị trường.",
       "basisNote": "Model Modus giao dịch hợp đồng tương lai có đòn bẩy; {benchmark} là lợi suất chỉ số không đòn bẩy. Hai đường dùng chung khoảng thời gian và ngày giao dịch.",
       "cta": "Xem toàn bộ kết quả kiểm tra",
-      "payoffLabel": "Lãi trung bình so với lỗ",
-      "payoffNote": "Mỗi lệnh thắng lớn gấp chừng đó lần mỗi lệnh thua. Chỉ {winRate} số lệnh có lãi — hệ thống kiếm tiền nhờ chênh lệch độ lớn, không nhờ thắng nhiều."
+      "sharpeLabel": "Lợi nhuận so với biến động",
+      "sharpeNote": "Hệ số Sharpe, đo lợi nhuận thu được trên mỗi đơn vị biến động phải chấp nhận. Mức trên 1 thường được đánh giá là tốt."
     }
   },
   "market": {
@@ -553,29 +553,6 @@
       "qualityTitle": "Tỷ lệ thắng và tỷ lệ lãi/lỗ",
       "qualityNote": "Hệ thống thắng dưới một nửa số lệnh; lợi nhuận đến từ việc lệnh thắng lớn hơn lệnh thua.",
       "seriesCaveat": "Lần chạy này lưu tổng hợp theo năm, không lưu từng lệnh, nên không vẽ được đường vốn chi tiết. Mức giảm sâu nhất trong một năm: {drawdown}."
-    },
-    "plain": {
-      "heading": "Đọc nhanh trước khi xem bảng số",
-      "lead": "Ba điều quyết định một hệ thống có dùng được không, và không điều nào là con số lợi nhuận tổng.",
-      "splitTitle": "Số nào mới là bằng chứng",
-      "split": {
-        "train": "Mô hình học từ giai đoạn này, rồi được đóng lại và không sửa nữa.",
-        "tune": "Dùng để chốt các tham số vào/ra lệnh. Đã nhìn thấy dữ liệu này nên số của năm này đẹp hơn thực tế — đừng dùng làm bằng chứng.",
-        "test": "Mô hình chưa từng thấy trước khi chấm điểm. Đây mới là phần đáng tin."
-      },
-      "splitResult": "Trên {years} — phần chưa từng thấy — hệ thống đạt {points} điểm qua {trades} lệnh.",
-      "asymmetryTitle": "Thua nhiều hơn thắng, vẫn có lãi",
-      "winRateLabel": "số lệnh có lãi",
-      "bar": {
-        "win": "Lãi trung bình mỗi lệnh thắng",
-        "loss": "Lỗ trung bình mỗi lệnh thua"
-      },
-      "asymmetryNote": "Cứ 10 lệnh thì khoảng 6 lệnh lỗ. Hệ thống vẫn lãi vì mỗi lệnh thắng lớn gấp {payoff} lần mỗi lệnh thua. Tỷ lệ thắng cao không đồng nghĩa với kiếm được tiền.",
-      "painTitle": "Lúc tệ nhất trông như thế nào",
-      "streakLabel": "Số lệnh thua liên tiếp dài nhất",
-      "drawdownLabel": "Sụt sâu nhất trong một năm",
-      "painNote": "Đây là phần khiến người ta bỏ cuộc giữa chừng. Ai định đi theo một hệ thống như thế này cần chấp nhận được chuỗi thua đó trước khi bắt đầu.",
-      "caveat": "Toàn bộ số liệu là mô phỏng trên dữ liệu lịch sử, chưa trừ phí, thuế và chênh lệch giá khớp lệnh, và đến từ một lần chạy duy nhất. Xem đầy đủ giới hạn ở phần ghi chú cuối trang."
     }
   },
   "about": {
@@ -585,6 +562,15 @@
     "whatText": "Một nhóm nghiên cứu định lượng — không phải công ty quản lý tài sản. Chúng tôi không nhận vốn, không quản lý danh mục cho người khác và không bán khuyến nghị mua bán.\n\nThứ chúng tôi tạo ra là mô hình, phương pháp kiểm định, và các báo cáo công khai kèm đủ dữ liệu để người đọc tự đánh giá thay vì phải tin lời chúng tôi.",
     "publishTitle": "Chúng tôi công bố gì",
     "publishText": "Mỗi báo cáo nêu rõ giai đoạn dữ liệu, cách kiểm định, và đầy đủ chỉ số hiệu quả cùng rủi ro. Kết quả được tách theo từng giai đoạn, kể cả giai đoạn thua lỗ.\n\nChỗ nào dữ liệu chưa đủ để kết luận, chúng tôi ghi là chưa đủ, thay vì điền vào một con số trông hợp lý.",
+    "founder": {
+      "name": "Phạm Minh Huy",
+      "roles": [
+        "Người sáng lập",
+        "Nhà nghiên cứu định lượng",
+        "Kỹ sư AI"
+      ],
+      "bio": "Bắt đầu đầu tư từ rất sớm, tôi luôn hỏi tại sao những phân tích kỹ thuật ai cũng dùng vẫn có thể sai, và tại sao phải tin một chỉ báo mà mình không hiểu. Câu hỏi đó cho tôi thấy vẻ đẹp của toán học trong đầu tư, và tiếng nói của dữ liệu."
+    },
     "philosophyTitle": "Nguyên tắc nghiên cứu",
     "philosophyText": "Dự báo không bao giờ chắc chắn, lợi nhuận luôn đi cùng rủi ro, và mọi mô hình đều có giai đoạn hoạt động kém.\n\nMọi kết luận trên website đều nêu rõ dữ liệu đến từ đâu, được kiểm tra trong giai đoạn nào, và còn giới hạn gì. Một kết quả không kèm ba thứ đó thì chưa đủ để công bố.",
     "focusTitle": "Phạm vi nghiên cứu",

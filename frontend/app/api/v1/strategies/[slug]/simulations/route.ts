@@ -10,7 +10,7 @@ export async function GET(
   const state = mockStateFrom(req);
   const err = mockErrorResponse(state);
   if (err) return err;
-  const sim = getSimulation();
+  const sim = getSimulation(slug);
   // Only the multi-seed run has a distribution over seeds
   if (!sim) return Response.json({ error: "not_available" }, { status: 404 });
   return Response.json({ ...reportFreshness(slug), ...sim });
