@@ -1,4 +1,4 @@
-import modusJson from "@/config/performance/modus-2024-2025.json";
+import modusJson from "@/config/performance/modus-2024-2026.json";
 import { getStrategy, type StrategyConfig } from "@/config/strategies";
 import type {
   Freshness,
@@ -19,7 +19,7 @@ export type SimulationBody = Body<Simulation>;
  * is generated. Every number traces back to a file in that project's
  * `results/` directory (see the JSON's `provenance` block).
  *
- * One report is published: seed 433444 scored over 2024 and 2025. The run
+ * One report is published: seed 433444 scored over 2024, 2025 and part of 2026. The run
  * exported per-year aggregates only — no per-trade sequence — so there is no
  * equity curve and no return distribution to draw. That is reported through
  * `has_trade_series: false` rather than by interpolating a curve from yearly

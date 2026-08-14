@@ -15,17 +15,17 @@ import { fmtNumber, fmtPercent } from "@/lib/format";
 /**
  * Model Modus against VN-Index, as cumulative growth.
  *
- * Over 2024 and 2025 Modus finished ahead on return (+97.4% against +57.7%)
- * and well ahead on risk: its deepest fall inside a year was -5.1% where the
- * index fell -18.1%. Both claims are checkable against a public index, which
- * is the point — a reader can verify them in an afternoon.
+ * Over 2024 to 2026-08-03 Modus finished ahead on return (+135.2% against
+ * +55.8%) and well ahead on risk: its deepest fall inside a year was -8.9%
+ * where the index fell -18.1%. Both claims are checkable against a public
+ * index, which is the point — a reader can verify them in an afternoon.
  *
- * 2024 is the closer of the two years and the one the model was tuned on, so
- * it is the least flattering and the least trustworthy at the same time. It
+ * 2024 is the weakest of the three and the one the model was tuned on, so it
+ * is the least flattering and the least trustworthy at the same time. It
  * stays in the line rather than being trimmed out.
  */
 
-/** Deepest fall of VN-Index over the same window (2024-01-02 to 2025-12-31),
+/** Deepest fall of VN-Index over the same window (2024-01-02 to 2026-08-03),
  *  measured from the running peak of daily closes. Computed once from the
  *  price series rather than recomputed in the browser on every page view. */
 const BENCHMARK_MAX_DRAWDOWN = -0.1811;

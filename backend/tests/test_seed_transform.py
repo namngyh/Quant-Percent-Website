@@ -66,18 +66,18 @@ def test_members_only_models_are_marked(catalogue) -> None:
 
 
 def test_modus_metrics_match_source() -> None:
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
-    assert metrics["totalReturn"] == pytest.approx(0.974)
-    assert metrics["maxDrawdown"] == pytest.approx(-0.0507)
-    assert metrics["winRate"] == pytest.approx(0.443)
-    assert metrics["netPoints"] == pytest.approx(974.0)
-    assert metrics["trades"] == 291
+    assert metrics["totalReturn"] == pytest.approx(1.352)
+    assert metrics["maxDrawdown"] == pytest.approx(-0.0888)
+    assert metrics["winRate"] == pytest.approx(0.447)
+    assert metrics["netPoints"] == pytest.approx(1351.6)
+    assert metrics["trades"] == 371
 
 
 def test_combined_totals_are_exact_sums_of_the_years() -> None:
     """The per-year rows are the source; the totals must not drift from them."""
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     years = data["years"].values()
     full = data["full"]
 
@@ -94,7 +94,7 @@ def test_reconstructed_win_loss_split_reconciles_to_net() -> None:
     """Win rate, average win and average loss are rebuilt from the per-year
     rows. If that were wrong, payoff and profit factor would be wrong too and
     nothing else would catch it."""
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     full = data["full"]
     wins = round(full["total_trades"] * full["win_rate"] / 100)
     losses = full["total_trades"] - wins
@@ -108,29 +108,33 @@ def test_uncombinable_ratios_are_absent_rather_than_averaged() -> None:
     Averaging two annual figures would invent a statistic nobody computed, so
     they must be missing from the report-level block entirely.
     """
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
     for key in ("sharpe", "sortino", "calmar", "upi", "equityR2"):
         assert key not in metrics, f"{key} cannot be combined across years"
 
 
-def test_only_complete_years_are_published() -> None:
-    """2026 stops in August and every annualised figure for it is scaled up to
-    a full year, so it is not comparable with the two complete years."""
-    data = _perf("modus-2024-2025.json")
-    assert sorted(data["years"]) == ["2024", "2025"]
-    assert not any(f["partial_year"] for f in data["folds"])
+def test_only_the_unfinished_year_is_flagged_partial() -> None:
+    """2026 stops in August, so every annualised figure for it is scaled up.
+
+    A reader comparing it with 2025 without the badge would be comparing seven
+    months against twelve.
+    """
+    data = _perf("modus-2024-2026.json")
+    assert sorted(data["years"]) == ["2024", "2025", "2026"]
+    partial = {f["test_year"] for f in data["folds"] if f["partial_year"]}
+    assert partial == {2026}
 
 
 def test_missing_metrics_are_omitted_not_zeroed() -> None:
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     metrics = _metric_rows(data["full"], data["tier3"]["all"])
     assert "benchmarkReturn" not in metrics
     assert all(v is not None for v in metrics.values())
 
 
 def test_fold_percentages_use_the_documented_notional() -> None:
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     folds = {f["test_year"]: f for f in data["folds"]}
     assert round(folds[2024]["net_points"] / NOTIONAL_POINTS, 4) == pytest.approx(
         0.3014, abs=1e-4
@@ -141,7 +145,7 @@ def test_fold_percentages_use_the_documented_notional() -> None:
 
 
 def test_exit_reasons_account_for_every_trade() -> None:
-    data = _perf("modus-2024-2025.json")
+    data = _perf("modus-2024-2026.json")
     assert sum(r["share"] for r in data["exit_reasons"]) == pytest.approx(
         100.0, abs=0.5
     )

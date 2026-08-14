@@ -559,7 +559,7 @@
     "title": "About us",
     "lead": "Quant Percent is a quantitative research group working on the Vietnamese market. We build models, test them on data they have never seen, and publish the ones that do not work alongside the ones that do. Most quantitative research does not survive contact with new data — we think that should be said out loud rather than hidden.",
     "whatTitle": "Who we are",
-    "whatText": "A quantitative research group — not an asset manager. We take no capital, run no portfolios for anyone else, and sell no buy-or-sell recommendations.\n\nWhat we produce is models, testing methodology, and public reports carrying enough data for a reader to judge the work themselves instead of taking our word for it.",
+    "whatText": "A quantitative research group. We take no capital, run no portfolios for anyone else, and sell no buy-or-sell recommendations.\n\nWhat we produce is models, testing methodology, and public reports carrying enough data for a reader to judge the work themselves instead of taking our word for it.",
     "publishTitle": "What we publish",
     "publishText": "Every report states the data period, the testing method, and the full set of performance and risk figures. Results are broken out by period, including the losing ones.\n\nWhere the data is not enough to conclude something, we say it is not enough rather than filling in a plausible-looking number.",
     "founder": {
