@@ -242,8 +242,8 @@
       "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
       "basisNote": "Model Modus trades a leveraged futures contract; {benchmark} is an unleveraged index return. Both lines cover the same period and the same trading days.",
       "cta": "See the full test results",
-      "sharpeLabel": "Return against volatility",
-      "sharpeNote": "The Sharpe ratio, measuring return earned per unit of volatility accepted. A value above 1 is generally considered good."
+      "payoffLabel": "Average win against average loss",
+      "payoffNote": "Each winning trade is that many times the size of a losing one. Only {winRate} of trades profit — the system makes money on the size gap, not on winning often."
     }
   },
   "market": {

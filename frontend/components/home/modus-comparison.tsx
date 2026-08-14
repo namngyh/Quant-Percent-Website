@@ -15,18 +15,17 @@ import { fmtNumber, fmtPercent } from "@/lib/format";
 /**
  * Model Modus against VN-Index, as cumulative growth.
  *
- * Over 2024 to mid 2026 Modus finished ahead on return (+68.3% against
- * +63.6%) and well ahead on risk: its deepest fall was -4.7% where the index
- * fell -18.1%, and it held a position about a fifth of the time. Both claims
- * are checkable against a public index, which is the point — a reader can
- * verify them in an afternoon.
+ * Over 2024 and 2025 Modus finished ahead on return (+97.4% against +57.7%)
+ * and well ahead on risk: its deepest fall inside a year was -5.1% where the
+ * index fell -18.1%. Both claims are checkable against a public index, which
+ * is the point — a reader can verify them in an afternoon.
  *
- * The 2026 fold runs the other way: Modus lost while the index rose. That is
- * left visible in the line rather than trimmed out. A chart that only ever
- * goes up invites the reader to look for what was removed.
+ * 2024 is the closer of the two years and the one the model was tuned on, so
+ * it is the least flattering and the least trustworthy at the same time. It
+ * stays in the line rather than being trimmed out.
  */
 
-/** Deepest fall of VN-Index over the same window (2024-01-02 to 2026-06-30),
+/** Deepest fall of VN-Index over the same window (2024-01-02 to 2025-12-31),
  *  measured from the running peak of daily closes. Computed once from the
  *  price series rather than recomputed in the browser on every page view. */
 const BENCHMARK_MAX_DRAWDOWN = -0.1811;
@@ -172,10 +171,14 @@ export function ModusComparison() {
           value: fmtPercent(m.exposure ?? 0, locale),
           note: t("exposureNote"),
         },
+        // Payoff rather than Sharpe. The two years are scored separately and
+        // never chained, so there is no report-level Sharpe to quote — and for
+        // a reader deciding whether to keep reading, "each winner is 2.5x each
+        // loser" lands where "Sharpe 2.8" does not.
         {
-          key: "sharpe",
-          value: fmtNumber(m.sharpe ?? 0, locale, { maximumFractionDigits: 2 }),
-          note: t("sharpeNote"),
+          key: "payoff",
+          value: `${fmtNumber(m.payoff ?? 0, locale, { maximumFractionDigits: 1 })}×`,
+          note: t("payoffNote", { winRate: fmtPercent(m.winRate ?? 0, locale) }),
         },
       ]
     : [];

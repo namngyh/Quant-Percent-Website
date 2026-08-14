@@ -242,8 +242,8 @@
       "exposureNote": "Thời gian còn lại hệ thống không nắm giữ vị thế và không chịu rủi ro biến động của thị trường.",
       "basisNote": "Model Modus giao dịch hợp đồng tương lai có đòn bẩy; {benchmark} là lợi suất chỉ số không đòn bẩy. Hai đường dùng chung khoảng thời gian và ngày giao dịch.",
       "cta": "Xem toàn bộ kết quả kiểm tra",
-      "sharpeLabel": "Lợi nhuận so với biến động",
-      "sharpeNote": "Hệ số Sharpe, đo lợi nhuận thu được trên mỗi đơn vị biến động phải chấp nhận. Mức trên 1 thường được đánh giá là tốt."
+      "payoffLabel": "Lãi trung bình so với lỗ",
+      "payoffNote": "Mỗi lệnh thắng lớn gấp chừng đó lần mỗi lệnh thua. Chỉ {winRate} số lệnh có lãi — hệ thống kiếm tiền nhờ chênh lệch độ lớn, không nhờ thắng nhiều."
     }
   },
   "market": {

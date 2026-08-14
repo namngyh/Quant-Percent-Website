@@ -1,12 +1,10 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { ArrowRight } from "lucide-react";
 import { getModel } from "@/config/models";
-import { strategiesForSystem } from "@/config/strategies";
+import { FEATURED_STRATEGY, strategiesForSystem } from "@/config/strategies";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/market/badges";
 import { ModusMascot } from "@/components/modus-mascot";
-import { Sparkline } from "@/components/sparkline";
-import { getSeries } from "@/lib/performance/reports";
 
 /**
  * Introduces the system whose validation runs are listed below, so the
@@ -14,7 +12,7 @@ import { getSeries } from "@/lib/performance/reports";
  * three unexplained cards.
  */
 /** The run this page publishes. */
-const WALK_FORWARD = "vn30f1m-walk-forward";
+const PUBLISHED = FEATURED_STRATEGY;
 
 export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
   const model = getModel(systemSlug);
@@ -25,12 +23,9 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
 
   // The page publishes one run: the walk-forward test spanning 2024-2026.
   const report = strategiesForSystem(systemSlug).find(
-    (r) => r.slug === WALK_FORWARD
+    (r) => r.slug === PUBLISHED
   );
 
-  // Real equity curve of the seed study, as a quiet visual. It is a different
-  // run from the one this page reports, which the caption states.
-  const curve = getSeries("vn30f1m-multiseed-test")?.points ?? [];
 
   const facts = [
     { label: t("market"), value: model.markets.join(", ") },
@@ -88,20 +83,6 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
             ))}
           </dl>
 
-          {curve.length > 0 && (
-            <div className="mt-6 text-brand">
-              <Sparkline
-                values={curve.map((p) => p.equity_pct)}
-                width={320}
-                height={56}
-                className="h-14 w-full"
-                label={t("curveCaption")}
-              />
-              <p className="mt-2 text-[11px] leading-snug text-dim">
-                {t("curveCaption")}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </section>

@@ -377,7 +377,7 @@ export const MODELS: ModelConfig[] = [
     show_performance: true,
     show_forecast: false,
     show_internal_signal: false,
-    strategySlug: "vn30f1m-walk-forward",
+    strategySlug: "vn30f1m-modus-2024-2025",
     tagline: {
       vi: "Hệ thống giao dịch có quy tắc cho hợp đồng tương lai VN30F1M, hiện mới được thử nghiệm trên dữ liệu quá khứ.",
       en: "A rule-based VN30F1M futures system currently tested only on historical data.",
