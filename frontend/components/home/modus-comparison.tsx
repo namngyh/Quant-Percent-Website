@@ -276,7 +276,16 @@ export function ModusComparison() {
       <div aria-hidden="true" className="numeral-clip">
         <span className="section-numeral">01</span>
       </div>
-      <div className="container-qp relative pt-20 desk:pt-32">
+      {/*
+        The `min-h` is a floor, not a layout. The white section below is pulled
+        up by a fixed 112/144px, so anything that makes this section shorter
+        than the headline plus that overhang gets the headline painted over.
+        `DataState` below reserves the panel's own height, which is what
+        normally holds this open; the floor is the guard for whatever renders
+        here next. A `padding-bottom` would do the same job and must not be
+        used — see the note on the panel.
+      */}
+      <div className="container-qp relative min-h-[34rem] pt-20 desk:min-h-[44rem] desk:pt-32">
         {/* The four-sentence paragraph that stood here restated the chart in
             prose — same period, same comparison, same conclusion — and the
             chart is the version a reader can check. */}
@@ -288,11 +297,25 @@ export function ModusComparison() {
           <h2 className="title-lg mt-5 text-white">{t("title")}</h2>
         </div>
 
+        {/*
+          `reserve` is the panel's own height, to the pixel: p-5/p-7, the
+          legend row, its `mt-5`, and the canvas. The series is fetched on the
+          client with no server fallback, so loading — and error, permanently,
+          if the API has no report to give — used to shrink this section from
+          923px to ~400px and let the white overhang cut through the headline.
+          Holding the space means the seam is where it was measured to be
+          whether or not the data arrives, and nothing shifts when it does.
+
+          `tone` because the notices default to a near-white card that cannot
+          be seen at all against the section.
+        */}
         <DataState
           loading={series.isLoading}
           error={series.error}
           empty={!series.isLoading && folds.length === 0}
           className="mt-10"
+          reserve="min-h-[29rem] sm:min-h-[36rem]"
+          tone="dark"
         >
           {/*
             The plot sits on its own panel, a step lighter than the section.
@@ -354,6 +377,13 @@ export function ModusComparison() {
         * The top padding clears the overhang. It is `pt` minus `mt` of real
           space above the figures, so reducing either one lands the chart on
           top of them.
+
+      The pull is a fixed distance measured against a section that is as tall
+      as the panel, which only holds because the panel's height is reserved on
+      the `DataState` above for the states where there is no panel. These two
+      numbers are one decision: changing this `-mt`, that `reserve`, or the
+      chart's own height without the others puts the white edge back through
+      the headline.
     */}
     <section className="relative -mt-28 bg-background desk:-mt-36">
       <div className="container-qp pb-20 pt-40 desk:pb-32 desk:pt-52">
