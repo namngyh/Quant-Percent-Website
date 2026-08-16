@@ -352,10 +352,10 @@ export function ResearchEvidence({
         {/* No link to the model repository. The methodology below is what is
             published; the implementation is not. */}
         <div>
-          <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
+          <p className="eyebrow">
             {locale === "vi" ? "Số liệu kiểm tra" : "Test results"}
           </p>
-          <h2 id="research-metrics" className="title-md mt-2">
+          <h2 id="research-metrics" className="title-md mt-4">
             {locale === "vi"
               ? "Mô hình đã được kiểm tra ra sao?"
               : "How was the model tested?"}

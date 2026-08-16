@@ -45,7 +45,7 @@ export function MemberGate({
         <Button asChild>
           <Link href={`/login?next=/models/${slug}`}>{tAuth("signIn")}</Link>
         </Button>
-        <Button asChild variant="ghost">
+        <Button asChild variant="outline">
           <Link href={`/register?next=/models/${slug}`}>{tAuth("signUp")}</Link>
         </Button>
       </div>

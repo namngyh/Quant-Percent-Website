@@ -5,6 +5,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import nodesSource from "@/public/research/dynamic-graph-nodes.json";
 import { CHART, EChart } from "@/components/charts/echart";
 import { fmtPercent } from "@/lib/format";
+import { sectorLabel } from "@/lib/sectors";
 
 /**
  * Two views of the same 30 stocks, beside the ranking table.
@@ -90,7 +91,7 @@ export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
             n.eigenvector_centrality,
             n.risk_score,
             n.label,
-            n.sector,
+            sectorLabel(n.sector, locale),
           ]),
           itemStyle: {
             color: CHART.brand,
@@ -112,7 +113,10 @@ export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
         },
       ],
     }),
-    [t]
+    // `locale` is read directly now that sector names are translated for the
+    // tooltip, so switching language has to rebuild the option — `t` alone no
+    // longer covers everything locale-dependent in here.
+    [t, locale]
   );
 
   const clusters = useMemo(() => {

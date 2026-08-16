@@ -28,14 +28,18 @@ export default async function MarketIntelligencePage({
   return (
     <main>
       <DisclosureBanner variant="mock" />
-      <div className="container-qp py-12 desk:py-16">
-        <h1 className="title-lg">{t("title")}</h1>
-        <p className="mt-4 max-w-2xl text-ink">{t("description")}</p>
-        <div className="mt-10">
-          <Suspense fallback={<SkeletonLoader rows={8} />}>
-            <MarketTabs />
-          </Suspense>
+      <div className="page-head">
+        <div className="container-qp relative py-14 desk:py-20">
+          <h1 className="title-lg">{t("title")}</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-dim">
+            {t("description")}
+          </p>
         </div>
+      </div>
+      <div className="container-qp py-12 desk:py-16">
+        <Suspense fallback={<SkeletonLoader rows={8} />}>
+          <MarketTabs />
+        </Suspense>
       </div>
     </main>
   );

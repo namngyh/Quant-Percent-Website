@@ -13,10 +13,10 @@ import {
   PerformanceSeriesSchema,
   QuoteSchema,
   RiskDashboardSchema,
-  SimulationSchema,
   StrategyMetricsSchema,
   SystemStatusSchema,
 } from "../lib/api/types";
+import { STRATEGIES } from "../config/strategies";
 import { z } from "zod";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
@@ -173,25 +173,22 @@ async function main() {
     ForecastHistorySchema
   );
   await check("/api/v1/strategies", StrategiesListSchema);
-  for (const slug of [
-    "vn30f1m-validation-2024",
-    "vn30f1m-walk-forward",
-    "vn30f1m-multiseed-test",
-  ]) {
+  // The slugs come from the catalogue rather than a list written out here, so
+  // this check follows what is actually published. It used to name three
+  // reports by hand — vn30f1m-validation-2024, -walk-forward and
+  // -multiseed-test — which were withdrawn when the single 2024-2026 Modus run
+  // replaced them, leaving ten checks failing against a catalogue that no
+  // longer contained any of them.
+  for (const strategy of STRATEGIES) {
+    const slug = strategy.slug;
     await check(`/api/v1/strategies/${slug}`, StrategyDetailSchema);
     await check(`/api/v1/strategies/${slug}/performance`, PerformanceSeriesSchema);
     await check(`/api/v1/strategies/${slug}/metrics`, StrategyMetricsSchema);
+    // A distribution over seeds only exists for a multi-seed run, and none is
+    // published at present — so the route is expected to 404 rather than to be
+    // skipped, which would let a broken route pass unnoticed.
+    await check(`/api/v1/strategies/${slug}/simulations`, z.any(), 404);
   }
-  // Only the multi-seed run produced a distribution over seeds
-  await check(
-    "/api/v1/strategies/vn30f1m-multiseed-test/simulations",
-    SimulationSchema
-  );
-  await check(
-    "/api/v1/strategies/vn30f1m-validation-2024/simulations",
-    z.any(),
-    404
-  );
   await check("/api/v1/status", SystemStatusSchema);
   await check("/api/v1/data-freshness", DataFreshnessReportSchema);
   await check("/api/v1/model-status", ModelStatusReportSchema);

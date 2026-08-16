@@ -5,6 +5,7 @@ import { useLocale } from "next-intl";
 import nodesSource from "@/public/research/dynamic-graph-nodes.json";
 import { InfoTip } from "@/components/info-tip";
 import { fmtPercent, fmtSignedPercent } from "@/lib/format";
+import { sectorLabel } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 
 type Node = (typeof nodesSource)[number];
@@ -187,7 +188,9 @@ export function NetworkRanking({
               <tr key={n.id} className="border-b border-border last:border-0">
                 <td className="figure px-4 py-3 text-dim">{n.rank}</td>
                 <td className="figure px-4 py-3 font-semibold">{n.label}</td>
-                <td className="px-4 py-3 text-dim">{n.sector}</td>
+                <td className="px-4 py-3 text-dim">
+                  {sectorLabel(n.sector, locale)}
+                </td>
 
                 {/* Influence carries a bar as well as a number: the ordering
                     is the point, and a bar reads faster than four decimals. */}
