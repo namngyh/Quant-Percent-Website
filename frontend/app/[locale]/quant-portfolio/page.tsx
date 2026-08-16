@@ -40,21 +40,20 @@ export default async function QuantPortfolioPage({
   return (
     <main>
       <DisclosureBanner variant="legal" />
-      <div className="container-qp py-12 desk:py-16">
-        <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
-          {t("eyebrow")}
-        </p>
-        <h1 className="title-lg mt-2">{t("title")}</h1>
-        <p className="mt-4 max-w-3xl leading-relaxed text-ink">
-          {t("description")}
-        </p>
-        <p className="mt-4 max-w-3xl border-l-2 border-signal pl-4 text-sm leading-relaxed text-dim">
-          {t("scopeNote")}
-        </p>
-
-        <div className="mt-10">
-          <PortfolioWorkspace />
+      <div className="page-head">
+        <div className="container-qp relative py-14 desk:py-20">
+          <p className="eyebrow">{t("eyebrow")}</p>
+          <h1 className="title-lg mt-5">{t("title")}</h1>
+          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-dim">
+            {t("description")}
+          </p>
+          <p className="mt-5 max-w-3xl rounded-lg border border-signal/25 bg-signal-soft/60 px-4 py-3 text-sm leading-relaxed text-signal-strong">
+            {t("scopeNote")}
+          </p>
         </div>
+      </div>
+      <div className="container-qp py-12 desk:py-16">
+        <PortfolioWorkspace />
       </div>
     </main>
   );

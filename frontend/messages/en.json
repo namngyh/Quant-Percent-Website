@@ -170,8 +170,29 @@
   },
   "home": {
     "hero": {
+      "eyebrow": "Quantitative research",
+      "weAre": "We are",
+      "roles": [
+        "researchers",
+        "people who ask questions",
+        "mathematicians",
+        "machine learning engineers",
+        "statisticians",
+        "people who test hypotheses",
+        "data scientists",
+        "risk analysts",
+        "data engineers",
+        "market observers",
+        "people who live in probabilities",
+        "quantitative traders",
+        "software engineers",
+        "investors"
+      ],
+      "finale": "all of the above",
+      "titleLead": "Understand Vietnam's markets",
+      "titleAccent": "through data.",
       "title": "Understand Vietnam's Markets Through Data.",
-      "description": "Quant Percent helps investors see market direction, risk and possible outcomes more clearly. Every result explains the data, how it was tested and what it cannot prove.",
+      "description": "Every result is published with the data behind it, how it was tested, and what it cannot prove.",
       "primaryCta": "View Today's Market",
       "secondaryCta": "Explore the Models"
     },
@@ -182,28 +203,10 @@
       "volatility": "Volatility",
       "riskState": "Risk state"
     },
-    "numbers": {
-      "eyebrow": "What we publish",
-      "title": "Research with clear evidence and limits",
-      "models": "models in the research catalogue",
-      "strategies": "years tested: 2024, 2025, 2026",
-      "horizons": "forecast periods from 1 to 60 sessions",
-      "validation": "multiple checks of result stability",
-      "focus": "Vietnam-focused research"
-    },
     "systems": {
       "eyebrow": "Our models",
-      "title": "Each model answers a specific question",
-      "description": "Some models estimate market direction, some measure risk and others show how stocks move together. Each page explains the result in plain language.",
+      "title": "Each model answers one question",
       "viewAllModels": "View all models"
-    },
-    "performance": {
-      "eyebrow": "Test results",
-      "title": "More than a return number",
-      "description": "Each report shows returns alongside losses from peak, trading costs, the data period and remaining uncertainty.",
-      "cta": "View Results and Risks",
-      "byYear": "Year by year",
-      "partialNote": "* 2026 has data through 30 June only"
     },
     "cta": {
       "title": "Want to discuss a model or a research partnership?",
@@ -213,37 +216,24 @@
     "portfolio": {
       "eyebrow": "Quant Portfolio",
       "title": "Where is your portfolio carrying risk?",
-      "description": "An account statement shows what share of the portfolio each holding represents, but not which holding contributes most of the risk. The two figures often diverge substantially. Enter your holdings and the system measures them against the price history of those stocks.",
+      "description": "A broker statement tells you what share of your money each holding is. It does not tell you which holding carries most of the risk — and the two are usually far apart.",
       "example": "An actual result from the tool: “VIC represents 36.2% of portfolio value but contributes 74.0% of total risk.”",
       "cta": "Analyse my portfolio",
-      "noSignup": "No sign-up, nothing stored",
-      "step1": {
-        "title": "Enter what you hold",
-        "body": "Ticker and share count. Every stock listed on HOSE is supported. Cost basis is optional."
-      },
-      "step2": {
-        "title": "See where the risk sits",
-        "body": "Compare each holding's share of capital against its share of risk, the effective level of diversification, and the most correlated pair."
-      },
-      "step3": {
-        "title": "Know the possible loss",
-        "body": "Loss thresholds, the deepest decline and the probability of a decline ahead, expressed in dong alongside percentages."
-      }
+      "noSignup": "No sign-up, nothing stored"
     },
     "comparison": {
       "eyebrow": "Against the market",
       "title": "Higher return than the market, at lower risk",
-      "description": "From the start of 2024 to mid 2026, Model Modus achieved a higher increase in capital than {benchmark} while holding a position about a fifth of the time and recording a materially smaller decline. That combination is what merits attention in a rule-based system.",
       "start": "Start 2024",
       "benchmarkLabel": "{benchmark} index",
       "drawdownLabel": "Deepest fall",
-      "drawdownNote": "Over the same period {benchmark} declined {benchmarkValue}, roughly {ratio} times deeper. This is the loss a holder had to absorb before the portfolio recovered.",
+      "drawdownNote": "Over the same period {benchmark} fell {benchmarkValue} — {ratio}× deeper.",
       "exposureLabel": "Share of time holding a position",
-      "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
-      "basisNote": "Model Modus trades a leveraged futures contract; {benchmark} is an unleveraged index return. Both lines cover the same period and the same trading days.",
+      "exposureNote": "The rest of the time the system holds nothing and carries no market risk.",
+      "basisNote": "Modus trades leveraged futures; {benchmark} is an unleveraged index return.",
       "cta": "See the full test results",
       "payoffLabel": "Average win against average loss",
-      "payoffNote": "Each winning trade is that many times the size of a losing one. Only {winRate} of trades profit — the system makes money on the size gap, not on winning often."
+      "payoffNote": "Only {winRate} of trades win. The system earns on the size of the gap, not on winning often."
     }
   },
   "market": {
@@ -772,6 +762,13 @@
     "title": "Page not found",
     "description": "The page you are looking for does not exist or has been moved.",
     "backHome": "Back to home"
+  },
+  "error": {
+    "title": "The system is temporarily unavailable",
+    "description": "This page could not load. Your data is unaffected — Quant Percent stores nothing from your session. Try reloading, or go back to the home page.",
+    "retry": "Try again",
+    "backHome": "Back to home",
+    "reference": "Reference"
   },
   "portfolio": {
     "eyebrow": "Quant Portfolio",

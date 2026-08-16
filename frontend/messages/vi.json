@@ -50,7 +50,7 @@
       "description": "Khôi phục quyền truy cập tài khoản Quant Percent của bạn."
     },
     "portfolio": {
-      "title": "Quant Portfolio — phân tích rủi ro danh mục",
+      "title": "Phân tích rủi ro danh mục",
       "description": "Nhập danh mục cổ phiếu để xem giá trị, lãi lỗ, mức biến động, khả năng thua lỗ và cổ phiếu nào đóng góp phần lớn rủi ro."
     }
   },
@@ -64,7 +64,7 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
     "language": "Ngôn ngữ",
-    "portfolio": "Quant Portfolio"
+    "portfolio": "Phân tích danh mục"
   },
   "footer": {
     "tagline": "Quant Percent, One Percent",
@@ -170,8 +170,29 @@
   },
   "home": {
     "hero": {
+      "eyebrow": "Nghiên cứu định lượng",
+      "weAre": "Chúng tôi là",
+      "roles": [
+        "nhà nghiên cứu",
+        "người đặt câu hỏi",
+        "nhà toán học",
+        "kỹ sư học máy",
+        "nhà thống kê",
+        "người kiểm định giả thuyết",
+        "nhà khoa học dữ liệu",
+        "nhà phân tích rủi ro",
+        "kỹ sư dữ liệu",
+        "nhà quan sát thị trường",
+        "người sống với xác suất",
+        "nhà giao dịch định lượng",
+        "lập trình viên",
+        "nhà đầu tư"
+      ],
+      "finale": "tất cả những điều trên",
+      "titleLead": "Hiểu thị trường Việt Nam",
+      "titleAccent": "bằng dữ liệu.",
       "title": "Hiểu thị trường Việt Nam bằng dữ liệu.",
-      "description": "Quant Percent giúp nhà đầu tư nhìn rõ hơn xu hướng, rủi ro và các kịch bản có thể xảy ra. Mỗi kết quả đều nêu rõ dữ liệu sử dụng, cách kiểm tra và những giới hạn cần biết.",
+      "description": "Mỗi kết quả đều công bố kèm dữ liệu đã dùng, cách kiểm tra và giới hạn của nó.",
       "primaryCta": "Xem thị trường hôm nay",
       "secondaryCta": "Tìm hiểu các mô hình"
     },
@@ -182,28 +203,10 @@
       "volatility": "Biến động",
       "riskState": "Trạng thái rủi ro"
     },
-    "numbers": {
-      "eyebrow": "Những gì đang công bố",
-      "title": "Nghiên cứu có số liệu và giới hạn rõ ràng",
-      "models": "mô hình đang được theo dõi",
-      "strategies": "năm được kiểm tra: 2024, 2025, 2026",
-      "horizons": "thời hạn dự báo từ 1 đến 60 phiên",
-      "validation": "Nhiều cách kiểm tra độ ổn định của kết quả",
-      "focus": "Tập trung vào thị trường Việt Nam"
-    },
     "systems": {
       "eyebrow": "Các mô hình",
-      "title": "Mỗi mô hình trả lời một câu hỏi cụ thể",
-      "description": "Có mô hình ước lượng xu hướng, có mô hình đo rủi ro hoặc cho thấy các cổ phiếu đang liên kết với nhau ra sao. Mỗi trang đều giải thích kết quả bằng ngôn ngữ dễ hiểu.",
+      "title": "Mỗi mô hình trả lời một câu hỏi",
       "viewAllModels": "Xem tất cả mô hình"
-    },
-    "performance": {
-      "eyebrow": "Kết quả đã kiểm tra",
-      "title": "Không chỉ nói về lợi nhuận",
-      "description": "Mỗi báo cáo trình bày cả lợi nhuận, mức thua lỗ lớn nhất, chi phí giao dịch, giai đoạn dữ liệu và những điểm chưa chắc chắn.",
-      "cta": "Xem kết quả và rủi ro",
-      "byYear": "Kết quả từng năm",
-      "partialNote": "* năm 2026 mới có dữ liệu đến 30/06"
     },
     "cta": {
       "title": "Bạn muốn hiểu rõ hơn về mô hình hoặc trao đổi cơ hội hợp tác?",
@@ -211,39 +214,26 @@
       "register": "Để lại thông tin"
     },
     "portfolio": {
-      "eyebrow": "Quant Portfolio",
+      "eyebrow": "Phân tích danh mục",
       "title": "Danh mục của bạn đang chịu rủi ro ở đâu?",
-      "description": "Sao kê tài khoản cho biết mỗi mã chiếm bao nhiêu phần trăm giá trị danh mục, nhưng không cho biết mã nào đóng góp phần lớn rủi ro. Hai tỷ lệ này thường chênh lệch đáng kể. Nhập danh mục đang nắm giữ để hệ thống đo lại bằng chính lịch sử giá của các mã đó.",
+      "description": "Sao kê cho biết mỗi mã chiếm bao nhiêu phần trăm tiền. Nó không cho biết mã nào mang phần lớn rủi ro — và hai con số đó thường lệch xa nhau.",
       "example": "Kết quả thực tế từ công cụ: “VIC chiếm 36,2% giá trị danh mục nhưng đóng góp 74,0% tổng rủi ro.”",
       "cta": "Phân tích danh mục của tôi",
-      "noSignup": "Không cần đăng ký, không lưu dữ liệu",
-      "step1": {
-        "title": "Nhập cổ phiếu đang giữ",
-        "body": "Mã và số lượng. Hỗ trợ toàn bộ cổ phiếu niêm yết trên HOSE. Giá vốn có thể bỏ trống."
-      },
-      "step2": {
-        "title": "Xem rủi ro nằm ở đâu",
-        "body": "Đối chiếu tỷ trọng vốn với đóng góp rủi ro của từng mã, mức độ đa dạng hóa thực tế và cặp cổ phiếu có tương quan cao nhất."
-      },
-      "step3": {
-        "title": "Biết mức lỗ có thể xảy ra",
-        "body": "Ngưỡng lỗ, mức sụt giảm sâu nhất và khả năng sụt giảm phía trước, quy đổi ra giá trị tiền đồng bên cạnh tỷ lệ phần trăm."
-      }
+      "noSignup": "Không cần đăng ký, không lưu dữ liệu"
     },
     "comparison": {
       "eyebrow": "So sánh với thị trường",
-      "title": "Lợi suất cao hơn thị trường với mức rủi ro thấp hơn",
-      "description": "Từ đầu năm 2024 đến giữa năm 2026, Model Modus đạt mức tăng vốn cao hơn {benchmark}, đồng thời chỉ duy trì vị thế khoảng một phần năm thời gian và ghi nhận mức sụt giảm thấp hơn đáng kể. Đây là đặc điểm cần được xem xét khi đánh giá một hệ thống giao dịch theo quy tắc.",
+      "title": "Lợi suất cao hơn thị trường, rủi ro thấp hơn",
       "start": "Đầu 2024",
       "benchmarkLabel": "Chỉ số {benchmark}",
       "drawdownLabel": "Mức giảm sâu nhất",
-      "drawdownNote": "Trong cùng giai đoạn, {benchmark} sụt giảm {benchmarkValue}, tương đương mức sâu gấp khoảng {ratio} lần. Đây là mức lỗ mà nhà đầu tư nắm giữ phải chịu trước khi danh mục hồi phục.",
+      "drawdownNote": "Cùng giai đoạn, {benchmark} giảm {benchmarkValue} — sâu gấp {ratio} lần.",
       "exposureLabel": "Tỷ lệ thời gian nắm giữ vị thế",
-      "exposureNote": "Thời gian còn lại hệ thống không nắm giữ vị thế và không chịu rủi ro biến động của thị trường.",
-      "basisNote": "Model Modus giao dịch hợp đồng tương lai có đòn bẩy; {benchmark} là lợi suất chỉ số không đòn bẩy. Hai đường dùng chung khoảng thời gian và ngày giao dịch.",
+      "exposureNote": "Thời gian còn lại hệ thống đứng ngoài, không chịu rủi ro thị trường.",
+      "basisNote": "Modus giao dịch hợp đồng tương lai có đòn bẩy; {benchmark} là chỉ số không đòn bẩy.",
       "cta": "Xem toàn bộ kết quả kiểm tra",
       "payoffLabel": "Lãi trung bình so với lỗ",
-      "payoffNote": "Mỗi lệnh thắng lớn gấp chừng đó lần mỗi lệnh thua. Chỉ {winRate} số lệnh có lãi — hệ thống kiếm tiền nhờ chênh lệch độ lớn, không nhờ thắng nhiều."
+      "payoffNote": "Chỉ {winRate} số lệnh có lãi. Hệ thống kiếm tiền nhờ chênh lệch độ lớn, không nhờ thắng nhiều."
     }
   },
   "market": {
@@ -773,8 +763,15 @@
     "description": "Trang bạn tìm không tồn tại hoặc đã được di chuyển.",
     "backHome": "Về trang chủ"
   },
+  "error": {
+    "title": "Hệ thống đang tạm gián đoạn",
+    "description": "Trang này không tải được. Dữ liệu của bạn không bị ảnh hưởng — Quant Percent không lưu gì từ phiên làm việc của bạn. Bạn thử tải lại, hoặc quay về trang chủ.",
+    "retry": "Thử lại",
+    "backHome": "Về trang chủ",
+    "reference": "Mã sự cố"
+  },
   "portfolio": {
-    "eyebrow": "Quant Portfolio",
+    "eyebrow": "Phân tích danh mục",
     "title": "Danh mục của bạn đang tập trung rủi ro ở đâu?",
     "description": "Nhập các cổ phiếu đang nắm giữ để hệ thống đo lại danh mục bằng chính lịch sử giá của những mã đó: giá trị, lãi lỗ, mức biến động, khả năng thua lỗ, và quan trọng nhất là mã nào đóng góp phần lớn rủi ro. Hỗ trợ toàn bộ cổ phiếu niêm yết trên HOSE.",
     "scopeNote": "Đây là công cụ đo lường, không phải khuyến nghị đầu tư. Hệ thống không đề xuất mua hay bán cổ phiếu nào. Mọi con số được tính từ dữ liệu giá đã xảy ra, không phải dự đoán, trừ phần được ghi rõ nguồn mô hình.",

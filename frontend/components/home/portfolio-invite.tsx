@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { ArrowRight, ListChecks, PieChart, ShieldAlert } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -13,63 +13,50 @@ import { Button } from "@/components/ui/button";
  *
  * No sign-up, and it says so — asking for an account before showing any value
  * is what makes this kind of tool go unused.
+ *
+ * A three-step "how it works" list used to sit beside this, one card per step
+ * with an icon. It described the tool to people who had not decided to use it
+ * yet, which is the wrong moment: the single real result below does that job
+ * in one line, and the tool's own page explains itself to anyone who arrives.
+ * Centred, because with the list gone there is no second column to balance.
  */
 export async function PortfolioInvite() {
   const t = await getTranslations("home.portfolio");
 
-  const steps = [
-    { icon: ListChecks, key: "step1" },
-    { icon: PieChart, key: "step2" },
-    { icon: ShieldAlert, key: "step3" },
-  ] as const;
-
   return (
-    <section className="border-t border-border bg-surface/60">
-      <div className="container-qp section-pad">
-        <div className="grid gap-12 desk:grid-cols-[1.1fr_1fr] desk:items-center">
-          <div>
-            <p className="eyebrow">{t("eyebrow")}</p>
-            <h2 className="title-lg mt-4">{t("title")}</h2>
-            <p className="mt-5 max-w-xl leading-relaxed text-ink">
-              {t("description")}
-            </p>
+    /* Tinted. The Modus report now ends on a white section of its own — the
+       half its chart panel hangs into — so this one has to take the other
+       surface or the two would run together with only a hairline between. */
+    <section className="tint relative overflow-hidden border-y border-border">
+      <div aria-hidden="true" className="numeral-clip">
+        <span className="section-numeral">02</span>
+      </div>
+      <div className="container-qp section-pad relative">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="eyebrow">
+            <span className="tick text-accent/60">02</span>
+            {t("eyebrow")}
+          </p>
+          <h2 className="title-lg mt-5">{t("title")}</h2>
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-dim">
+            {t("description")}
+          </p>
 
-            <blockquote className="mt-6 max-w-xl border-l-4 border-signal bg-background px-5 py-4 leading-relaxed text-ink shadow-sm">
-              {t("example")}
-            </blockquote>
+          {/* A real figure the tool produced, not an illustration. It is the
+              only sentence here that proves the thing works. */}
+          <blockquote className="glow-card mx-auto mt-10 max-w-2xl px-7 py-6 text-lg leading-relaxed text-foreground">
+            {t("example")}
+          </blockquote>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button asChild>
-                <Link href="/quant-portfolio">
-                  {t("cta")}
-                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-              <span className="text-sm text-dim">{t("noSignup")}</span>
-            </div>
+          <div className="mt-10 flex flex-col items-center gap-4">
+            <Button asChild>
+              <Link href="/quant-portfolio">
+                {t("cta")}
+                <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <span className="text-sm text-dim">{t("noSignup")}</span>
           </div>
-
-          <ol className="space-y-5">
-            {steps.map(({ icon: Icon, key }, index) => (
-              <li
-                key={key}
-                className="flex gap-4 rounded-lg border border-border bg-background p-5 shadow-sm"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="font-semibold">
-                    <span className="figure mr-2 text-dim">{index + 1}</span>
-                    {t(`${key}.title`)}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-dim">
-                    {t(`${key}.body`)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
         </div>
       </div>
     </section>

@@ -6,6 +6,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
 import type { PortfolioAnalysis } from "@/lib/api/types";
 import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
+import { sectorLabel } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -422,7 +423,9 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   <th scope="row" className="figure py-3 pr-4 text-left font-medium">
                     {p.symbol}
                   </th>
-                  <td className="py-3 pr-4 text-dim">{p.sector ?? "—"}</td>
+                  <td className="py-3 pr-4 text-dim">
+                    {sectorLabel(p.sector, locale) ?? "—"}
+                  </td>
                   <td className="figure py-3 pr-4 text-right">
                     {fmtNumber(p.price, locale, { maximumFractionDigits: 0 })}
                   </td>
@@ -508,7 +511,11 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             }
             note={
               Object.keys(c.sector_weights)[0]
-                ? t("topSectorNote", { sector: Object.keys(c.sector_weights)[0] })
+                ? t("topSectorNote", {
+                    sector:
+                      sectorLabel(Object.keys(c.sector_weights)[0], locale) ??
+                      "",
+                  })
                 : t("sectorMissing")
             }
           />

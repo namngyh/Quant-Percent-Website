@@ -44,15 +44,18 @@ export default async function PerformancePage({
   return (
     <main>
       <DisclosureBanner variant="legal" />
+      <div className="page-head">
+        <div className="container-qp relative py-14 desk:py-20">
+          <h1 className="title-lg">{t("title")}</h1>
+          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-dim">
+            {t("description")}
+          </p>
+          <p className="mt-5 max-w-3xl rounded-lg border border-signal/25 bg-signal-soft/60 px-4 py-3 text-sm text-signal-strong">
+            {t("restatementNote")}
+          </p>
+        </div>
+      </div>
       <div className="container-qp py-12 desk:py-16">
-        <h1 className="title-lg">{t("title")}</h1>
-        <p className="mt-4 max-w-3xl leading-relaxed text-ink">
-          {t("description")}
-        </p>
-        <p className="mt-3 max-w-3xl border-l-2 border-signal pl-4 text-sm text-dim">
-          {t("restatementNote")}
-        </p>
-
         <SystemIntro systemSlug="model-modus" />
 
         <ModusOverview />

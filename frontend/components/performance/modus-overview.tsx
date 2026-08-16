@@ -113,10 +113,8 @@ export function ModusOverview() {
     <section aria-labelledby="modus-2024-2026" className="mt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
-            {t("overview.eyebrow")}
-          </p>
-          <h2 id="modus-2024-2026" className="title-md mt-2">
+          <p className="eyebrow">{t("overview.eyebrow")}</p>
+          <h2 id="modus-2024-2026" className="title-md mt-4">
             {t("overview.heading")}
           </h2>
         </div>

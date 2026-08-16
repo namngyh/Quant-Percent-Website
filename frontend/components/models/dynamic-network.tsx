@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
+import { sectorLabel } from "@/lib/sectors";
 import nodesSource from "@/public/research/dynamic-graph-nodes.json";
 import edgesSource from "@/public/research/dynamic-graph-edges.json";
 
@@ -99,7 +100,7 @@ function buildOption(locale: Locale): EChartsCoreOption {
     category: node.community,
     symbolSize: 23 + (node.strength / maxStrength) * 21,
     value: node.strength,
-    sector: node.sector,
+    sector: sectorLabel(node.sector, locale) ?? node.sector,
     degree: node.degree,
     riskScore: node.risk_score,
     itemStyle: {

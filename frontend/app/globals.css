@@ -62,6 +62,15 @@
   --color-signal: var(--signal);
   --color-signal-strong: var(--signal-strong);
   --color-signal-soft: var(--signal-soft);
+  --color-surface-2: var(--surface-2);
+  --color-hairline: var(--hairline);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-lift: var(--accent-lift);
+  --color-positive-on-dark: var(--positive-on-dark);
+  --color-negative-on-dark: var(--negative-on-dark);
 
   --breakpoint-desk: 61.25rem;
 }
@@ -78,12 +87,27 @@
  * were reporting a fault. Informational accents are now slate blue.
  * `--caution` stays warm and is reserved for genuine warnings: a stale feed,
  * a degraded service, a failed action. If everything is amber, nothing is.
+ *
+ * The surface treatment is modelled on Google's developer sites: white as the
+ * ground rather than as a gap between boxes, generous radii, hairline borders
+ * doing the separating, and shadow used to lift a card off the page instead of
+ * to outline it. The practical rules that follow from that:
+ *
+ *   * Weight is not how emphasis is made. Display type runs at 500, never 600
+ *     or 700, and earns its presence from size and tight tracking. Vietnamese
+ *     with heavy diacritics turns muddy at large sizes in semibold.
+ *   * Borders are one hairline, and the shadow is wide and faint. A card with
+ *     both a dark border and a tight drop shadow reads as a 2010 dialog box.
+ *   * The gradient is an accent, not a theme. It appears on one phrase per
+ *     page at most. Charts and figures never use it — a number that changes
+ *     colour across its own width cannot be read against a legend.
  */
 :root {
   --font-ui: var(--font-geist);
   --background: #ffffff;
   --foreground: #0f1b2a;
-  --surface: #f5f7fa;
+  --surface: #f7f9fc;
+  --surface-2: #eef2f8;
   --ink: #24344a;
   --dim: #64748b;
   --lightgray: #cbd5e1;
@@ -113,11 +137,71 @@
   --caution: #8a6218;
   --caution-soft: #fbf2df;
   --destructive: #a93b32;
-  --border: #e2e8f0;
-  --input: #d6dee8;
+  --border: #e6ebf3;
+  --hairline: rgb(15 27 42 / 0.08);
+  --input: #d9e1eb;
   --ring: #1e4a72;
-  --radius: 8px;
-  --sidebar: #f5f7fa;
+  /* Every `rounded-lg` in the codebase resolves from this one value, and the
+   * md/xl/2xl steps are multiples of it, so the whole surface language moves
+   * together from here. */
+  --radius: 16px;
+
+  /* Soft, wide, and faint. A card is lifted off the page, not outlined. */
+  --shadow-xs: 0 1px 2px rgb(15 27 42 / 0.04);
+  --shadow-sm:
+    0 1px 2px rgb(15 27 42 / 0.04), 0 4px 14px rgb(15 27 42 / 0.045);
+  --shadow-md:
+    0 2px 6px rgb(15 27 42 / 0.05), 0 14px 34px rgb(15 27 42 / 0.07);
+  --shadow-lg:
+    0 4px 14px rgb(15 27 42 / 0.06), 0 28px 60px rgb(15 27 42 / 0.1);
+
+  /*
+   * One accent, and only one.
+   *
+   * This replaced a three-stop gradient and a four-hue decorative palette. The
+   * gradients gave every surface its own colour story — a violet button above
+   * a teal orb beside a fuchsia card rule — and the page stopped reading as one
+   * document. A single hue used everywhere is what a theme actually is.
+   *
+   * It is the brand navy, so the accent, the logo and the chart's primary line
+   * are literally the same colour, and every accented thing on the site now
+   * changes together from this one line.
+   *
+   * The rule inherited from the restrained palette still holds: this colour is
+   * decoration and emphasis, never meaning. `--positive`, `--negative` and
+   * `--caution` say profit, loss and fault and are never borrowed for styling;
+   * chart series keep `--chart-1..5`, which are validated for separation under
+   * colour blindness, and never take this one.
+   */
+  --accent: #1e4a72;
+  --accent-strong: #14324f;
+  /* A flat wash of the same hue, for sections that alternate off white. No
+   * gradient — the tint is one colour at one opacity, edge to edge. */
+  --accent-tint: #eef3f8;
+  /*
+   * The dark surface, and the accent as it has to be drawn on top of it.
+   *
+   * Still one colour: `--accent-deep` and `--accent-lift` are the same hue as
+   * `--accent`, at a much lower and a much higher lightness. A single hue at
+   * one lightness cannot make a dark section — navy on navy is invisible — so
+   * the theme holds by keeping the hue fixed and letting lightness move, which
+   * is what stops this from becoming a second colour.
+   */
+  --accent-deep: #10273d;
+  --accent-lift: #7da9d3;
+  /*
+   * Profit and loss as they have to be drawn on the dark surface.
+   *
+   * `--positive` and `--negative` are tuned for near-black text on white and
+   * both go nearly invisible against `--accent-deep`. These are the same two
+   * hues lifted until they read — the meaning is unchanged, only the lightness
+   * is, which is the same move `--accent-lift` makes for the accent. A gain
+   * must never be a different colour on a dark panel, only a lighter one.
+   */
+  --positive-on-dark: #3fbc8b;
+  --negative-on-dark: #e8796c;
+
+  --sidebar: #f7f9fc;
   --sidebar-foreground: #0f1b2a;
   --sidebar-primary: #1e4a72;
   --sidebar-primary-foreground: #ffffff;
@@ -183,12 +267,35 @@ html[lang="en"] {
   }
 
   .section-pad {
-    @apply py-16 desk:py-28;
+    @apply py-20 desk:py-32;
   }
 
-  /* Small uppercase label above titles */
+  /*
+   * The label above a section title, as a chip rather than a line of spaced
+   * capitals. Two reasons it changed: wide letter-spacing on uppercase
+   * Vietnamese pulls the diacritics away from their letters, and a chip gives
+   * the eye an object to land on at the top of a section, which a faint line
+   * of small caps does not.
+   *
+   * `inline-flex` matters — this class is applied to <p> elements, and a block
+   * chip would stretch the full column width.
+   *
+   * The fill is white rather than the surface tint, because sections alternate
+   * between white and tinted grounds: a tinted chip disappears on the tinted
+   * half of the page. White plus a hairline reads as an outlined chip on white
+   * and as a raised one on grey, which is the only pair that works on both
+   * without each caller having to know what it is sitting on.
+   */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-brand;
+    @apply inline-flex items-center gap-2 rounded-full border border-border
+      bg-background px-3.5 py-1.5 text-[11px] font-medium uppercase
+      tracking-[0.1em] text-brand;
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* A chip on a dark surface, for the few panels that are not white. */
+  .eyebrow-invert {
+    @apply border-white/15 bg-white/[0.07] text-white/80;
   }
 
   /* Numeric figures use monospace and tabular digits. */
@@ -215,50 +322,367 @@ html[lang="en"] {
     @apply font-mono tabular-nums;
   }
 
+  /*
+   * Display type: larger, lighter, tighter. Weight 500 across the scale — the
+   * size carries the emphasis, and negative tracking is what stops a large
+   * line from reading as loose. Line height tightens as size grows, which is
+   * why each step sets its own rather than inheriting.
+   */
   .title-xl {
-    @apply text-[clamp(40px,5.5vw,76px)] font-semibold leading-[1.05] tracking-normal;
+    @apply text-[clamp(42px,6vw,84px)] font-medium leading-[1.03] tracking-[-0.032em];
   }
 
   .title-lg {
-    @apply text-[clamp(30px,3.8vw,48px)] font-semibold leading-[1.1] tracking-normal;
+    @apply text-[clamp(32px,4.2vw,54px)] font-medium leading-[1.08] tracking-[-0.026em];
   }
 
   .title-md {
-    @apply text-[clamp(22px,2.6vw,30px)] font-semibold leading-[1.2] tracking-normal;
+    @apply text-[clamp(22px,2.6vw,32px)] font-medium leading-[1.18] tracking-[-0.018em];
+  }
+
+  /* Vietnamese sits lower and wider than Latin at the same size, and tight
+   * tracking crowds the tone marks into the letter above. Ease it back. */
+  html[lang="vi"] .title-xl {
+    @apply tracking-[-0.022em];
+  }
+
+  html[lang="vi"] .title-lg,
+  html[lang="vi"] .title-md {
+    @apply tracking-[-0.014em];
   }
 
   .qp-panel {
     @apply rounded-lg border border-border bg-background;
-    box-shadow: 0 1px 2px rgb(13 17 16 / 0.04);
+    box-shadow: var(--shadow-xs);
   }
 
   .qp-panel-interactive {
     @apply rounded-lg border border-border bg-background;
-    box-shadow: 0 1px 2px rgb(13 17 16 / 0.04);
+    box-shadow: var(--shadow-xs);
     transition:
-      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      border-color 220ms ease,
-      box-shadow 280ms ease;
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 240ms ease,
+      box-shadow 320ms ease;
   }
 
   .qp-panel-interactive:hover {
-    @apply border-brand/45;
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgb(13 17 16 / 0.09);
+    @apply border-lightgray;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
 
+  /*
+   * The standard content card. Wider radius than a panel and no visible lift
+   * until hover — a grid of these should read as one calm surface, with the
+   * card under the cursor the only one raised.
+   */
+  .qp-card {
+    @apply rounded-xl border border-border bg-background;
+    box-shadow: var(--shadow-xs);
+    transition:
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 240ms ease,
+      box-shadow 320ms ease;
+  }
+
+  .qp-card:hover {
+    @apply border-lightgray;
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /*
+   * The emphasised clause in a heading. One flat colour, applied to a <span>
+   * inside the heading rather than to the heading itself, so the sentence keeps
+   * a single stressed phrase.
+   *
+   * This was a gradient clipped to the text. Two problems with that, beyond the
+   * brief: the phrase changed hue across its own width so no two headings on
+   * the site were the same colour, and `background-clip: text` renders nothing
+   * at all if the background fails to paint. A colour cannot fail.
+   */
+  .accent-text {
+    color: var(--accent);
+  }
+
+  /* A flat accent hairline. Used to close a section. */
+  .rule-accent {
+    height: 2px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+
+  /* A section that sits off white, in the accent hue at low saturation. Flat —
+   * one colour, edge to edge, no wash and no falloff. */
+  .tint {
+    background: var(--accent-tint);
+  }
+
+  /*
+   * The dark surface, used exactly once on the homepage.
+   *
+   * The page ran white, faint tint, white, faint tint from top to bottom, and
+   * a reader scrolling it had nothing to measure the brightness of anything
+   * against — which is what "monotone" actually was, since the palette itself
+   * was never the problem. One dark section gives the whole page a floor, and
+   * makes every white section after it read as brighter than it did before.
+   *
+   * The chip and the measurement grid have to be told about it, because both
+   * are built for a light ground.
+   */
+  .on-dark {
+    background: var(--accent-deep);
+    color: #ffffff;
+  }
+
+  .on-dark .eyebrow {
+    border-color: rgb(255 255 255 / 0.18);
+    background: rgb(255 255 255 / 0.06);
+    color: var(--accent-lift);
+    box-shadow: none;
+  }
+
+  .on-dark .accent-text {
+    color: var(--accent-lift);
+  }
+
+  /*
+   * The section's index, set enormous and nearly invisible behind its content.
+   *
+   * It repeats the small figure in the chip rather than saying anything new,
+   * which is the point: it is a landmark, not a label. At this size and 4-5%
+   * opacity it registers as texture when scrolling past and resolves into a
+   * number only if a reader stops to look.
+   *
+   * `aria-hidden` at the call site and `user-select: none` here — a screen
+   * reader announcing "zero one" before every heading, or a reader dragging to
+   * select a paragraph and catching a decorative numeral, are both worse than
+   * not having it.
+   *
+   * It must be wrapped in `.numeral-clip`. The numeral is deliberately larger
+   * than its section and hangs off the right edge, which on a 390px phone
+   * pushed the document 6px wider than the viewport and gave the whole site a
+   * horizontal scrollbar. The wrapper does the clipping, so the section itself
+   * is free to let other things — the Modus chart panel — overflow on purpose.
+   */
+  .numeral-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .section-numeral {
+    position: absolute;
+    top: -0.12em;
+    right: -0.04em;
+    font-size: clamp(150px, 24vw, 340px);
+    font-weight: 600;
+    line-height: 0.78;
+    letter-spacing: -0.06em;
+    color: var(--accent);
+    opacity: 0.045;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* On the dark band the accent is far too close to the ground to read at all,
+   * so the numeral is drawn in white instead — same idea, same weight, the one
+   * value that has to change with the surface. */
+  .on-dark .section-numeral {
+    color: #ffffff;
+    opacity: 0.04;
+  }
+
+  /* The same faint graph-paper texture as the hero, inverted for a dark
+   * ground. Kept at the same 76px pitch so the two read as one surface seen
+   * in different light. */
+  .grid-dark {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 76px 76px;
+  }
+
+  /*
+   * A horizontal band of live quotes that scrolls continuously.
+   *
+   * The list is rendered twice inside the track and the animation translates
+   * by exactly -50%, so the second copy is in the first copy's place at the
+   * moment it restarts and the loop has no seam. Duplicating in markup rather
+   * than cloning in JavaScript keeps it working before hydration.
+   *
+   * It pauses under the pointer — a reader who wants to read a number should
+   * not have to chase it.
+   */
+  .ticker {
+    display: flex;
+    width: max-content;
+    animation: qp-ticker 42s linear infinite;
+    will-change: transform;
+  }
+
+  .ticker:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes qp-ticker {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  /*
+   * The band at the top of an interior page. The same idea as the hero wash at
+   * a fraction of the strength and pulled to one corner, so a section page is
+   * recognisably part of the same site without opening as loudly as the
+   * homepage does. Children need `relative` to sit above the ::before.
+   */
+  .page-head {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    /* The same flat tint the homepage alternates onto, so an interior page
+       opens on a surface the visitor has already seen. It was a corner wash
+       fading to white, which made every page head a slightly different colour
+       depending on where the reader looked. */
+    background: var(--accent-tint);
+  }
+
+  /* ---- Motion ------------------------------------------------------------
+   *
+   * The colour half of this block is gone. It held an aurora of drifting
+   * multi-hue fields, gradient text, a gradient button fill and a gradient card
+   * ring — four separate colour stories on one page, which is the opposite of a
+   * theme. What is left is motion, and motion now happens to a single accent.
+   *
+   * Two rules still hold it together:
+   *
+   *   1. It never touches a number. No figure, axis, chart series or status
+   *      badge takes a colour or an animation from here — a value that drifts
+   *      in hue or slides into place is a value a reader cannot trust at a
+   *      glance, and this is a site people read prices on.
+   *   2. It animates transform and opacity only. Those two are the properties
+   *      a browser can composite without re-laying out the page; animating a
+   *      blur radius or a background position on a large element would drop
+   *      frames on exactly the mid-range phones most of the audience uses.
+   *
+   * `prefers-reduced-motion` is handled once, globally, at the bottom of this
+   * file — every keyframe below is disabled there without needing its own
+   * opt-out.
+   */
+
+  /*
+   * A card that lifts and takes the accent border on hover.
+   *
+   * The border was a gradient ring painted through a mask. It is now a plain
+   * border colour, which is not only on-brief but strictly better: the masked
+   * ring needed a pseudo-element, four vendor-prefixed mask declarations, and
+   * `border-color: transparent` on hover to avoid showing through — all to
+   * produce an outline that a single property now draws.
+   */
+  .glow-card {
+    position: relative;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background: var(--background);
+    box-shadow: var(--shadow-xs);
+    transition:
+      transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 340ms ease,
+      border-color 260ms ease;
+  }
+
+  .glow-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow:
+      0 20px 48px -16px rgb(30 74 114 / 0.3),
+      0 4px 14px rgb(15 27 42 / 0.06);
+  }
+
+  /* An accent hairline across the top of a card that widens on hover. One
+   * colour for every card — a row of them is a set because they match, not
+   * because each was given a different hue. */
+  .accent-top::after {
+    position: absolute;
+    top: 0;
+    right: 12%;
+    left: 12%;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--accent);
+    content: "";
+    opacity: 0.7;
+    transition:
+      right 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      left 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
+  }
+
+  .accent-top:hover::after {
+    right: 0;
+    left: 0;
+    opacity: 1;
+  }
+
+  /*
+   * The caret after the typing role. A drawn element rather than a text "|",
+   * so its width and height do not change with the font and it cannot be
+   * caught by a text selection or read aloud.
+   *
+   * The blink is a step animation, not a fade: a real terminal caret is on or
+   * off, and easing between the two reads as a pulsing glow instead.
+   */
+  .we-are-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 3px;
+    background: var(--accent);
+    /* `vertical-align` rather than a transform: the caret sits inside a run of
+     * inline text now, so aligning it to the text box keeps it correct at any
+     * font size instead of only at the one it was nudged for. */
+    vertical-align: -0.16em;
+    animation: qp-caret 1.06s steps(1, end) infinite;
+  }
+
+  /* Slow vertical drift, for decorative marks that should not sit still. */
+  .float {
+    animation: qp-float 9s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* A faint measurement grid, the surface a reading is taken on. Sits above
+   * the wash and below the content. */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(15 27 42 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(15 27 42 / 0.045) 1px, transparent 1px);
+    background-size: 76px 76px;
+    /* Fades out before it reaches the text, so the grid is texture at the
+     * edges and nothing behind the headline. */
+    mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, transparent 30%, #000 85%);
+  }
+
+  /* At rest the header is part of the page — no border, no shadow. Both
+   * appear once the page has scrolled under it, so the first screen reads as
+   * one uninterrupted white surface. Which of the two states is applied is
+   * decided in `header.tsx`; this rule only smooths the change between them. */
   .site-header {
     transition:
-      border-color 220ms ease,
-      box-shadow 220ms ease,
-      background-color 220ms ease;
-    box-shadow: 0 1px 0 rgb(13 17 16 / 0.02);
-  }
-
-  .site-header[data-scrolled="true"] {
-    border-color: rgb(207 219 216 / 0.85);
-    background-color: rgb(255 255 255 / 0.88);
-    box-shadow: 0 8px 24px rgb(13 17 16 / 0.08);
+      border-color 240ms ease,
+      box-shadow 240ms ease,
+      background-color 240ms ease;
   }
 
   .hero-accent {
@@ -289,27 +713,26 @@ html[lang="en"] {
     transform: translateY(-1px);
   }
 
+  /*
+   * Nav items are pills, not underlined words. The underline it replaced was
+   * drawn with an absolutely positioned ::after at a fixed offset below the
+   * text, which meant the header's height and the nav's baseline could not be
+   * changed without the rules drifting off the words. A padded pill has no
+   * such coupling and gives the pointer a real target.
+   */
   .nav-link {
-    position: relative;
+    @apply rounded-full px-3.5 py-2;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
   }
 
-  .nav-link::after {
-    position: absolute;
-    right: 0;
-    bottom: -9px;
-    left: 0;
-    height: 2px;
-    border-radius: 999px;
-    background: var(--brand);
-    content: "";
-    transform: scaleX(0);
-    transform-origin: center;
-    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  .nav-link:hover {
+    background-color: var(--surface-2);
   }
 
-  .nav-link:hover::after,
-  .nav-link[aria-current="page"]::after {
-    transform: scaleX(1);
+  .nav-link[aria-current="page"] {
+    background-color: var(--brand-soft);
   }
 
   [data-slot="button"] {
@@ -322,13 +745,13 @@ html[lang="en"] {
   }
 
   [data-slot="button"]:not(:disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgb(13 17 16 / 0.12);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
 
   [data-slot="button"]:not(:disabled):active {
-    transform: translateY(0) scale(0.98);
-    box-shadow: 0 2px 6px rgb(13 17 16 / 0.1);
+    transform: translateY(0) scale(0.985);
+    box-shadow: var(--shadow-xs);
   }
 
   .chart-canvas {
@@ -408,6 +831,27 @@ html[lang="en"] {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes qp-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes qp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
   }
 }
 

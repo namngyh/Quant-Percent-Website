@@ -67,8 +67,24 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
+    /*
+      `suppressHydrationWarning` is scoped to this one element's attributes and
+      is required, not cosmetic.
+
+      The opening sequence has to decide whether to play before the first paint
+      — that is the whole point of it — so an inline script in <head> reads
+      sessionStorage and stamps `data-intro="play"` on <html>. The server cannot
+      know what is in a visitor's sessionStorage, so its HTML never carries the
+      attribute and React finds one that it did not render. Without this, every
+      first page of every session logged a hydration mismatch, which in turn
+      would hide any real mismatch appearing later.
+
+      It suppresses warnings for this element only, not for its subtree, so a
+      genuine mismatch anywhere inside the page is still reported.
+    */
     <html
       lang={locale}
+      suppressHydrationWarning
       className={`${beVietnamPro.variable} ${geist.variable} ${plexMono.variable} antialiased`}
     >
       <body className="flex min-h-dvh flex-col">
