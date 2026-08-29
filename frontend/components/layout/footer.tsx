@@ -8,7 +8,18 @@ const NAV_LINKS = [
   { key: "performance", href: "/performance" },
   { key: "portfolio", href: "/quant-portfolio" },
   { key: "about", href: "/about" },
-  { key: "contact", href: "/contact" },
+] as const;
+
+/*
+  "Liên hệ" used to sit in the header nav. It lives here now, alongside the
+  two channels that go with it — feedback, which needs an account, and the
+  open call for people who want to build with us. Grouping the three under
+  one heading is what let the header drop a label.
+*/
+const CONNECT_LINKS = [
+  { key: "contactLink", href: "/contact" },
+  { key: "feedbackLink", href: "/feedback" },
+  { key: "joinLink", href: "/join" },
 ] as const;
 
 export async function Footer() {
@@ -27,7 +38,7 @@ export async function Footer() {
     <footer className="border-t border-border bg-surface">
       <div aria-hidden="true" className="h-[3px] bg-accent" />
       <div className="container-qp py-16">
-        <div className="grid gap-12 desk:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-12 desk:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
           <div>
             <Brand />
             {/* One brand line, nothing beneath it. */}
@@ -76,6 +87,29 @@ export async function Footer() {
                 >
                   {t("systemStatus")}
                 </Link>
+              </li>
+            </ul>
+          </nav>
+          <nav aria-label={t("connectNav")}>
+            <p className="eyebrow">{t("connectNav")}</p>
+            <ul className="mt-5 space-y-3">
+              {CONNECT_LINKS.map((l) => (
+                <li key={l.key}>
+                  <Link
+                    href={l.href}
+                    className="text-[13px] text-dim transition-colors hover:text-brand-strong"
+                  >
+                    {t(l.key)}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <a
+                  href={`mailto:${t("contactEmail")}`}
+                  className="text-[13px] text-dim transition-colors hover:text-brand-strong"
+                >
+                  {t("contactEmail")}
+                </a>
               </li>
             </ul>
           </nav>

@@ -36,6 +36,8 @@ EXPECTED_ROUTES = {
     "/api/v1/model-status",
     "/api/v1/contact",
     "/api/v1/investor-interest",
+    "/api/v1/feedback",
+    "/api/v1/join",
     "/api/v1/auth/register",
     "/api/v1/auth/login",
     "/api/v1/auth/logout",

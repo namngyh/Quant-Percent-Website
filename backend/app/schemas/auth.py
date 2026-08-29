@@ -75,6 +75,39 @@ class ContactRequest(ApiModel):
         return None if v == "" else v
 
 
+class FeedbackRequest(ApiModel):
+    """Feedback from a signed-in member.
+
+    Deliberately carries no name or email: the sender is read from the
+    session on the server, so it cannot be put in somebody else's name.
+    """
+
+    category: Literal["ui", "data_model", "content", "bug", "other"]
+    message: str = Field(min_length=10, max_length=5000)
+    locale: Locale
+    website: str | None = Field(default=None, max_length=0)
+
+
+class JoinRequest(ApiModel):
+    """An open application to build with the team."""
+
+    name: str = Field(min_length=1, max_length=200)
+    email: EmailStr
+    phone: str | None = Field(default=None, max_length=40)
+    role: Literal["ai_ml_engineer", "mathematician", "developer", "other"]
+    roleOther: str | None = Field(default=None, max_length=200)
+    about: str | None = Field(default=None, max_length=2000)
+    link: str | None = Field(default=None, max_length=300)
+    locale: Locale
+    consent: Literal[True]
+    website: str | None = Field(default=None, max_length=0)
+
+    @field_validator("phone", "roleOther", "about", "link", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v: object) -> object:
+        return None if v == "" else v
+
+
 class InvestorInterestRequest(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     email: EmailStr

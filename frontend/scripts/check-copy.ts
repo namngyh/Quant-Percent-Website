@@ -28,10 +28,14 @@ const ROUTES = [
   "/vi/quant-portfolio",
   "/vi/about",
   "/vi/contact",
+  "/vi/feedback",
+  "/vi/join",
   "/vi/system-status",
   "/en",
   "/en/performance",
   "/en/quant-portfolio",
+  "/en/feedback",
+  "/en/join",
 ];
 
 /** A key leaked into the page: dotted lowerCamel with no spaces. */
