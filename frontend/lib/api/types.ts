@@ -389,6 +389,35 @@ export const ContactPayloadSchema = z.object({
 });
 export type ContactPayload = z.infer<typeof ContactPayloadSchema>;
 
+/** Feedback payload. Members only — the sender's identity comes from the
+ *  session on the server, never from the body, so there is no name or email
+ *  field here to spoof. */
+export const FeedbackPayloadSchema = z.object({
+  category: z.enum(["ui", "data_model", "content", "bug", "other"]),
+  message: z.string().trim().min(10).max(5000),
+  locale: z.enum(["vi", "en"]),
+  /** Honeypot must stay empty; bots fill it. */
+  website: z.string().max(0).optional().or(z.literal("")),
+});
+export type FeedbackPayload = z.infer<typeof FeedbackPayloadSchema>;
+
+/** "Tìm bạn đồng hành" — open applications to build with the team. */
+export const JoinPayloadSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  role: z.enum(["ai_ml_engineer", "mathematician", "developer", "other"]),
+  /** Free text shown only when role is "other". */
+  roleOther: z.string().trim().max(200).optional().or(z.literal("")),
+  about: z.string().trim().max(2000).optional().or(z.literal("")),
+  link: z.string().trim().max(300).optional().or(z.literal("")),
+  locale: z.enum(["vi", "en"]),
+  consent: z.literal(true),
+  /** Honeypot must stay empty; bots fill it. */
+  website: z.string().max(0).optional().or(z.literal("")),
+});
+export type JoinPayload = z.infer<typeof JoinPayloadSchema>;
+
 /* ------------------------------------------------------------------ *
  * Quant Portfolio
  *

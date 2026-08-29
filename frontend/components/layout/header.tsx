@@ -133,40 +133,41 @@ export function Header() {
               controls are pushed off with real space because they are not.
 
               The breakpoint here is 1180px, not the site-wide `desk` (980px).
-              Six Vietnamese labels, a divider, two account links and the
-              language switcher need about 1070px beside the brand; below that
-              the pills were wrapping onto two lines each and the bar read as
-              broken. `desk` still governs the page layout — only the choice
-              between this nav and the drawer moves, and the drawer covers the
-              gap perfectly well.
+              Five Vietnamese labels, a divider, two account links and the
+              language switcher need close to 1000px beside the brand; below
+              that the pills were wrapping onto two lines each and the bar read
+              as broken. "Liên hệ" moved to the footer, which bought back one
+              label of room — the threshold stays put so the longest label set
+              (English "Market Intelligence" and friends) keeps its margin.
+              `desk` still governs the page layout — only the choice between
+              this nav and the drawer moves, and the drawer covers the gap
+              perfectly well.
           */}
           <nav
             className="hidden items-center gap-3 min-[1180px]:flex"
             aria-label="Main"
           >
             <span className="flex items-center gap-0.5">
-              {[...NAV_ITEMS, { key: "contact", href: "/contact" } as const].map(
-                (item) => {
-                  const active = pathname.startsWith(item.href);
-                  return (
-                    <Link
-                      key={item.key}
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        // `whitespace-nowrap` so a label can never split
-                        // across two lines inside its own pill.
-                        "nav-link whitespace-nowrap text-[13px] font-medium",
-                        active
-                          ? "text-brand-strong"
-                          : "text-ink hover:text-brand-strong"
-                      )}
-                    >
-                      {t(item.key)}
-                    </Link>
-                  );
-                }
-              )}
+              {NAV_ITEMS.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      // `whitespace-nowrap` so a label can never split
+                      // across two lines inside its own pill.
+                      "nav-link whitespace-nowrap text-[13px] font-medium",
+                      active
+                        ? "text-brand-strong"
+                        : "text-ink hover:text-brand-strong"
+                    )}
+                  >
+                    {t(item.key)}
+                  </Link>
+                );
+              })}
             </span>
             <span aria-hidden="true" className="h-5 w-px bg-border" />
             <AuthNav />
@@ -217,13 +218,6 @@ export function Header() {
                   {t(item.key)}
                 </Link>
               ))}
-              <Link
-                href="/contact"
-                onClick={close}
-                className="border-b border-border py-5 text-xl font-medium tracking-normal transition-[color,padding] duration-200 hover:pl-2 hover:text-brand"
-              >
-                {t("contact")}
-              </Link>
               <AuthNav variant="mobile" onNavigate={close} />
               <div className="py-6">
                 <LanguageSwitcher />

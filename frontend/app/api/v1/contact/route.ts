@@ -2,6 +2,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { ContactPayloadSchema } from "@/lib/api/types";
 import { rateLimit } from "@/lib/rate-limit";
+import { notifyByEmail } from "@/lib/notify-email";
 
 /**
  * Contact endpoint (spec §13): validate → spam control → rate limit →
@@ -58,36 +59,19 @@ export async function POST(req: Request) {
     return Response.json({ error: "storage" }, { status: 500 });
   }
 
-  // Optional email notification. The internal address never reaches the client.
-  if (process.env.RESEND_API_KEY && process.env.CONTACT_NOTIFY_EMAIL) {
-    try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "Quant Percent <onboarding@resend.dev>",
-          to: [process.env.CONTACT_NOTIFY_EMAIL],
-          subject: `[quantpercent.com] ${record.inquiryType}: ${record.name}`,
-          text: [
-            `Name: ${record.name}`,
-            `Email: ${record.email}`,
-            `Phone: ${record.phone || "-"}`,
-            `Organization: ${record.organization || "-"}`,
-            `Type: ${record.inquiryType}`,
-            `Locale: ${record.locale}`,
-            "",
-            record.message,
-          ].join("\n"),
-        }),
-      });
-    } catch (e) {
-      // Notification failure must not fail the submission
-      console.error("contact: notification email failed", e);
-    }
-  }
+  await notifyByEmail(
+    `[quantpercent.com] ${record.inquiryType}: ${record.name}`,
+    [
+      `Name: ${record.name}`,
+      `Email: ${record.email}`,
+      `Phone: ${record.phone || "-"}`,
+      `Organization: ${record.organization || "-"}`,
+      `Type: ${record.inquiryType}`,
+      `Locale: ${record.locale}`,
+      "",
+      record.message,
+    ]
+  );
 
   return Response.json({ success: true });
 }
