@@ -1,0 +1,5 @@
+# Shell scripts run on the Linux server, so they must keep LF endings no
+# matter what core.autocrlf a contributor's machine is set to. A script
+# committed with CRLF fails on the VPS with "bash\r: bad interpreter", and
+# deploy.sh is now what production deploys run through.
+*.sh text eol=lf
