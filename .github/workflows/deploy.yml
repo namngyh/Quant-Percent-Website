@@ -79,32 +79,62 @@ jobs:
     # nguyên bản cũ.
     needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
+
+    # Đọc secret vào biến môi trường một lần ở đây, thay vì nhúng chúng thẳng
+    # vào giữa câu lệnh shell. Hai cái lợi: nội dung secret không bao giờ bị
+    # ghép thành mã shell (dấu nháy hay xuống dòng trong khoá đều vô hại), và
+    # khi secret rỗng thì biến rỗng — kiểm tra được, thay vì lặng lẽ dựng ra
+    # một câu lệnh méo mó.
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+      # Mặc định repo nằm ở ~/Quant-Percent-Website. Nếu trên VPS của bạn nó ở
+      # chỗ khác, thêm secret VPS_REPO_DIR thay vì sửa file này.
+      REPO_DIR: ${{ secrets.VPS_REPO_DIR || '~/Quant-Percent-Website' }}
+
     steps:
+      # Thiếu secret thì ssh nhận đối số đích rỗng, in ra nguyên bảng "usage"
+      # rồi thoát 255 — một thông báo chẳng nói lên điều gì. Kiểm tra trước ở
+      # đây để lỗi tự giải thích chính nó.
+      - name: Kiểm tra đã có đủ secret chưa
+        run: |
+          missing=""
+          [ -n "$VPS_HOST" ]     || missing="$missing VPS_HOST"
+          [ -n "$VPS_USER" ]     || missing="$missing VPS_USER"
+          [ -n "$VPS_SSH_KEY" ]  || missing="$missing VPS_SSH_KEY"
+          [ -n "$VPS_HOST_KEY" ] || missing="$missing VPS_HOST_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Chua cau hinh secret:$missing"
+            echo "Them tai: Settings > Secrets and variables > Actions > New repository secret"
+            echo "Truoc khi them du, phan test van chay binh thuong con deploy dung o day."
+            echo "VPS van nguyen trang, khong co gi bi thay doi."
+            exit 1
+          fi
+          echo "Du 4 secret, di tiep."
+
       # Dùng lệnh ssh thuần thay vì action của bên thứ ba: chỉ vài dòng, đọc
       # là hiểu, và không phải tin vào code người lạ có quyền vào server.
       - name: Chuẩn bị khoá SSH
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           # Ghi sẵn host key để biết chắc đang nói chuyện với đúng máy chủ của
           # mình, không phải kẻ đứng giữa giả mạo.
-          printf '%s\n' "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Chạy deploy.sh trên VPS
-        # Mặc định repo nằm ở ~/Quant-Percent-Website. Nếu trên VPS của bạn nó
-        # ở chỗ khác, thêm secret VPS_REPO_DIR thay vì sửa file này.
-        env:
-          REPO_DIR: ${{ secrets.VPS_REPO_DIR || '~/Quant-Percent-Website' }}
         run: |
           # $HOME chứ không phải ~ trong giá trị của -o: bash không bung dấu ~
           # nằm sau dấu = ở vị trí này, ssh sẽ đi tìm một thư mục tên "~".
           ssh -i "$HOME/.ssh/deploy_key" \
               -o "UserKnownHostsFile=$HOME/.ssh/known_hosts" \
               -o StrictHostKeyChecking=yes \
-              "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+              "$VPS_USER@$VPS_HOST" \
               "bash $REPO_DIR/backend/deploy/deploy.sh"
 
       # Xoá khoá kể cả khi bước trên fail, để nó không nằm lại trên máy chạy.
