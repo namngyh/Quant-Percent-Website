@@ -1,4 +1,15 @@
+# HTTPS dùng chứng chỉ Cloudflare Origin, không phải Let's Encrypt.
+#
+# quantpercent.com đi qua proxy của Cloudflare (đám mây cam), nên Caddy không
+# tự xin được chứng chỉ Let's Encrypt: cả HTTP-01 lẫn TLS-ALPN-01 đều bị
+# Cloudflare chặn đường xác thực. Thay vào đó Cloudflare cấp sẵn một cặp
+# origin certificate, đặt trên máy chủ tại /etc/caddy/certs.
+#
+# Hai dòng `tls` dưới đây và volume mount trong compose.override.yml là một
+# cặp — bỏ bên nào thì Caddy cũng không khởi động được và web mất HTTPS.
+# Bản thân file .pem KHÔNG nằm trong Git; chỉ đường dẫn tới chúng thì có.
 {$DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
     encode zstd gzip
 
     @backend path /api/* /healthz /readyz
@@ -20,5 +31,6 @@
 }
 
 www.{$DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
     redir https://{$DOMAIN}{uri} permanent
 }

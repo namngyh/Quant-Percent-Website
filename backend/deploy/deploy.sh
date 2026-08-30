@@ -22,7 +22,18 @@ DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$DEPLOY_DIR/../.." && pwd)"
 
 # Gói cả cụm lệnh vào một mảng để khỏi gõ lại 4 lần ở dưới.
-COMPOSE=(docker compose --env-file .env.production -f compose.production.yml)
+#
+# PHẢI có đủ CẢ HAI file -f. compose.override.yml giữ hai thứ sống còn: volume
+# chứng chỉ Cloudflare cho Caddy, và cổng PostgreSQL mở cho VPN. Chạy thiếu nó
+# thì Compose vẫn coi đây là stack "quantpercent-production" và chỉnh nó về
+# đúng mô tả trong compose.production.yml — tức là gỡ mất cả hai, Caddy chết
+# vì không thấy chứng chỉ, web sập.
+COMPOSE=(
+  docker compose
+  --env-file .env.production
+  -f compose.production.yml
+  -f compose.override.yml
+)
 
 echo "==> 1/6 Kiểm tra file cấu hình bí mật"
 cd "$DEPLOY_DIR"
@@ -32,6 +43,18 @@ if [ ! -f .env.production ]; then
   echo ".env.production.example rồi điền đầy đủ trước khi deploy." >&2
   exit 1
 fi
+
+# Chứng chỉ Cloudflare Origin nằm trên máy chủ chứ không trong Git (khoá riêng
+# không bao giờ được commit). Kiểm tra ngay đây để nếu thiếu thì dừng lập tức,
+# thay vì build xong 5 phút rồi mới phát hiện Caddy không lên được.
+for cert in /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem; do
+  if [ ! -f "$cert" ]; then
+    echo "LỖI: không thấy $cert" >&2
+    echo "Caddyfile dùng chứng chỉ Cloudflare Origin để chạy HTTPS phía sau" >&2
+    echo "proxy của Cloudflare. Thiếu file này thì web không lên được TLS." >&2
+    exit 1
+  fi
+done
 
 echo "==> 2/6 Lấy code mới nhất từ GitHub"
 cd "$REPO_DIR"
