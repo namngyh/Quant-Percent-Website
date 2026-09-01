@@ -51,6 +51,7 @@ from .jackknife import (
     delete_block_jackknife,
     feature_importance_delete_block_jackknife,
 )
+from .online import BatchHandoff, save_batch_handoff
 from .persistence import run_metadata, save_model, write_json
 from .plotting import generate_advanced_figures, generate_all_figures, generate_drawdown_figures
 from .point_forecast import CenterSelection, apply_center_blend, select_validation_gated_center
@@ -1055,32 +1056,11 @@ Structural break, sparse Stress class, calibration drift, proxy lịch ngày là
 
 def run_pipeline(config_path: str | Path = "configs/default.yaml") -> dict:
     started = time.perf_counter()
-    config = load_config(config_path)
-    # `project.output_root` ships in every config but used to be ignored: the
-    # root was hardcoded to the working directory. Every stage overwrites its
-    # artifacts in place, so a single experimental run replaced the committed
-    # publication-grade results with no way to tell from the output. Honour the
-    # setting so a trial run can be pointed somewhere harmless.
-    cwd = Path(".").resolve()
-    root = Path(config["project"].get("output_root") or ".").resolve()
-    # Stages write straight into these with pandas, which refuses to create
-    # missing parents. In the repository they already exist because they are
-    # committed, so nothing created them; a fresh output root needs them made.
-    for relative in (
-        "artifacts/forecasts",
-        "artifacts/metadata",
-        "artifacts/models",
-        "data/processed",
-        "reports/diagnostics",
-        "reports/figures",
-        "reports/tables",
-    ):
-        (root / relative).mkdir(parents=True, exist_ok=True)
+    root = Path(".").resolve()
     _configure_logging(root / "reports/diagnostics")
+    config = load_config(config_path)
     advanced_enabled = config["project"].get("pipeline_mode", "baseline") == "experimental"
-    # Inputs are always looked up next to the repository, never under the
-    # output root, which may be an empty scratch directory.
-    data_path = Path(config["project"].get("data_path") or discover_data_file(cwd))
+    data_path = Path(config["project"].get("data_path") or discover_data_file(root))
     seed = int(config["project"]["seed"])
     np.random.seed(seed)
     (root / "artifacts/metadata").mkdir(parents=True, exist_ok=True)
@@ -2165,6 +2145,60 @@ def run_pipeline(config_path: str | Path = "configs/default.yaml") -> dict:
         }
     )
     write_json(root / "artifacts/metadata/run_metadata.json", metadata)
+
+    if config.get("online", {}).get("enabled", True):
+        # Hand the fitted objects to the online tier. Nothing here is recomputed:
+        # `init-online-state` turns this bundle into the recursive state that
+        # `update-latest` advances one session at a time until the next run-all.
+        online_horizon_returns = targets[f"forward_return_{h20}"].to_numpy(dtype=float)
+        online_simulation = {
+            "paths": int(config.get("online", {}).get("simulation_paths") or config["simulation"]["paths"]),
+            "horizon": int(config["simulation"]["horizon"]),
+            "student_weight": float(config["simulation"]["student_weight"]),
+            "sample_paths": int(config["simulation"]["sample_paths"]),
+        }
+        handoff_path = save_batch_handoff(
+            root,
+            BatchHandoff(
+                horizon=int(h20),
+                selected_technical=list(selected_technical),
+                hmm=full_hmm,
+                volatility=full_volatility,
+                forest=final_model,
+                selected_model=str(state20["selected_model"]),
+                forest_feature_names=full_augmented.columns.tolist(),
+                calibrator=state20["calibrator"],
+                center_alpha=float(state20["center_selection"].alpha),
+                conformal_method=str(state20["conformal_selection"].method),
+                conformal_window=state20["conformal_selection"].window,
+                volatility_edges=np.asarray(state20["volatility_edges"], dtype=float),
+                # Validation first, then test: at production time every one of
+                # these targets is realised history, so pooling both is not
+                # leakage - it is simply more calibration data than the
+                # backtest is allowed to use when scoring itself.
+                calibration_actual=np.concatenate(
+                    [
+                        online_horizon_returns[state20["validation_index"]],
+                        online_horizon_returns[state20["test_index"]],
+                    ]
+                ),
+                calibration_center=np.concatenate(
+                    [state20["validation_center"], state20["improved_center"]]
+                ),
+                calibration_sigma=np.concatenate([state20["validation_sigma"], state20["test_sigma"]]),
+                calibration_regime=np.concatenate([state20["validation_regime"], state20["test_regime"]]),
+                calibration_volatility_bin=np.concatenate([state20["validation_bins"], state20["test_bins"]]),
+                alpha_levels=[float(level) for level in config["conformal"]["alpha_levels"]],
+                minimum_stratum_size=int(config["conformal"]["minimum_stratum_size"]),
+                block_length=int(selected_block_length),
+                seed=int(seed),
+                simulation=online_simulation,
+                adaptive_conformal=dict(config["conformal"].get("adaptive", {"enabled": False, "gamma": 0.02})),
+                run_metadata=dict(metadata),
+                advanced_enabled=bool(advanced_enabled),
+            ),
+        )
+        _log("batch_handoff_written", path=str(handoff_path), horizon=int(h20))
 
     main_bundle = (
         state20["soft"].global_bundle

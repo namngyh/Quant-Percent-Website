@@ -153,7 +153,9 @@ def build_node_features(
     if market_returns is not None and cfg.residualize_market:
         sector_returns = None
         if cfg.residualize_sector and sector_of:
-            sector_returns = sector_return_matrix(returns_1d, sector_of)
+            sector_returns = sector_return_matrix(
+                returns_1d, sector_of, leave_one_out=True
+            )
         residual = residualize_returns(
             returns_1d,
             market_returns,
@@ -239,11 +241,10 @@ def build_node_features(
             )
     # ---------------- 7.7 sector --------------------------------------
     if sector_of:
-        sector_returns = sector_return_matrix(returns_1d, sector_of)
-        mapped = pd.DataFrame(
-            {t: sector_returns.get(sector_of.get(t, ""), pd.Series(np.nan, index=returns_1d.index))
-             for t in returns_1d.columns},
-            index=returns_1d.index,
+        mapped = sector_return_matrix(
+            returns_1d,
+            sector_of,
+            leave_one_out=True,
         )
         frames["sector_return_1d"] = mapped
         frames["sector_volatility_20d"] = R.rolling_volatility(mapped, 20)

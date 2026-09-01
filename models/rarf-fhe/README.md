@@ -44,7 +44,7 @@ pytest -q
 python -m vnindex_model.cli run-all --config configs/quick.yaml
 ```
 
-Các lệnh độc lập: `validate-data`, `train`, `backtest`, `forecast`, `report`, `run-all`. Makefile cung cấp `make install`, `make test`, `make quick`, `make full`, `make forecast`, `make report`.
+Các lệnh độc lập: `validate-data`, `train`, `backtest`, `forecast`, `report`, `run-all`, `init-online-state`, `update-latest`. Makefile cung cấp `make install`, `make test`, `make quick`, `make full`, `make forecast`, `make report`, `make init-online`, `make update-latest`.
 
 ## Kết quả test ngoài mẫu
 
@@ -99,11 +99,56 @@ Reliability diagram so xác suất dự báo với tỷ lệ quan sát trong t�
 
 Maximum drawdown trong 20 phiên có median **3.98%**, mean **4.52%** và phía xấu 95% ở **9.43%**. Đây là tổn thất peak-to-trough trong đường đi, vì vậy có thể lớn ngay cả khi terminal return dương.
 
+## Cập nhật real-time theo phiên (tầng online)
+
+Pipeline có hai tầng. Tầng **batch** là `run-all` như cũ: Baum-Welch cho HMM, MLE cho EGARCH,
+train Random Forest, chọn conformal method — chạy theo chu kỳ (ví dụ hàng tuần). Tầng **online**
+cập nhật đúng những đại lượng vốn đã là recursive/Bayesian, trong vài giây mỗi khi có một phiên
+mới, và **không refit gì cả**.
+
+```bash
+python -m vnindex_model.cli run-all --config configs/default.yaml   # tầng batch
+python -m vnindex_model.cli init-online-state --config configs/default.yaml
+python -m vnindex_model.cli update-latest --config configs/default.yaml   # mỗi phiên mới
+```
+
+Mỗi lần `run-all` ghi ra `artifacts/online_state/batch_handoff.joblib`; `init-online-state` biến
+bundle đó thành `artifacts/online_state/online_state.joblib` (kèm manifest có `as_of_date`,
+`schema_version`, checksum buffer giá và `source_run_metadata` của run batch gốc). Nói cách khác
+mỗi lần refit batch sẽ **reset** tầng online.
+
+Một bước `update-latest` làm đúng các việc sau:
+
+| Thành phần | Tầng online làm gì | Tầng batch vẫn giữ gì |
+| --- | --- | --- |
+| HMM | 1 bước forward-filter (`forward_filter_step`) trên `log_alpha` đã lưu | Baum-Welch, chọn số state |
+| EGARCH | 1 bước recursive log-variance (`egarch_step`) | MLE tham số, chọn nhánh fallback |
+| Random Forest | chỉ inference `predict_soft_gated` với regime posterior mới | train forest, tuning |
+| Center blend | dùng `alpha` đã khóa | chọn `alpha` trên validation |
+| Conformal | nuôi score pool khi forecast "chín" + interval từ pool (tùy chọn ACI) | chọn method/window |
+| Monte Carlo | resample từ state mới | — |
+
+`update-latest` là **idempotent**: chạy hai lần trong cùng một ngày không sinh artifact mới. Nếu
+có nhiều phiên chưa nạp (máy tắt vài hôm) nó replay tuần tự từng phiên, không nhảy cóc, vì
+forward-filter và EGARCH chỉ đúng khi áp dụng đúng thứ tự. Nếu phiên mới bất thường — thiếu giá
+trị, giá <= 0, vi phạm ràng buộc OHLC, calendar gap > 10 ngày — hoặc nếu lịch sử trong nguồn đã
+bị sửa khác với buffer, lệnh **dừng và báo lỗi** thay vì tự vá dữ liệu hay ghi đè state.
+
+Nguồn dữ liệu cấu hình ở `data.source` và luôn **read-only**: SQLite mở bằng `?mode=ro` cộng
+authorizer từ chối mọi opcode ghi, DuckDB mở bằng `read_only=True`, CSV chỉ gọi API đọc. Mặc định
+là CSV cục bộ; đổi `backend`/`path`/`table`/`column_map` khi đã xác nhận schema thật trên VPS.
+Postgres/MySQL cố tình chưa có driver — thêm sau khi biết chắc schema, không đoán.
+
+Không có scheduler trong Python: dùng Windows Task Scheduler/cron gọi `update-latest`, đúng triết
+lý sẵn có của repo.
+
+Chi tiết thiết kế và kết quả đo: [`docs/realtime_bayes/phase1_plan.md`](docs/realtime_bayes/phase1_plan.md).
+
 ## Cấu trúc và tái lập
 
-- `src/vnindex_model/`: thêm `point_forecast.py`, `conformal.py`, `importance_sampling.py`, `tail_head.py`; simulation/bootstrap/jackknife được mở rộng.
+- `src/vnindex_model/`: thêm `point_forecast.py`, `conformal.py`, `importance_sampling.py`, `tail_head.py`; simulation/bootstrap/jackknife được mở rộng. Tầng online nằm ở `online.py`, `online_state.py`, `data_source.py`.
 - `configs/`: `default.yaml` khóa A0; `quick.yaml`, `experimental.yaml`, `full.yaml` là các mức compute cho pipeline A1-A9.
-- `artifacts/`: model, metadata, latest forecast và NPZ samples.
+- `artifacts/`: model, metadata, latest forecast và NPZ samples; `artifacts/online_state/` giữ batch handoff, online state và manifest của tầng online.
 - `reports/`: bảng CSV/Markdown, 70 hình và hai báo cáo tiếng Việt; baseline cũ nằm trong `reports/archive/`.
 - `tests/`: leakage, parser, split, filtered probability, simulation, metric và smoke tests.
 

@@ -44,7 +44,9 @@ class FeatureSetBuilder:
 
     market_features: pd.DataFrame
     graph_features: pd.DataFrame
-    index: pd.DatetimeIndex = field(default_factory=pd.DatetimeIndex)
+    index: pd.DatetimeIndex = field(
+        default_factory=lambda: pd.DatetimeIndex([])
+    )
     min_coverage: float = 0.60
 
     def __post_init__(self) -> None:
@@ -56,17 +58,11 @@ class FeatureSetBuilder:
 
     # -- column selection ------------------------------------------------
     def _usable(self, frame: pd.DataFrame) -> pd.DataFrame:
-        numeric = frame.select_dtypes(include=[np.number])
-        coverage = numeric.notna().mean()
-        keep = coverage[coverage >= self.min_coverage].index
-        dropped = sorted(set(numeric.columns) - set(keep))
-        if dropped:
-            logger.debug("Dropping %d low-coverage feature(s): %s", len(dropped), dropped[:10])
-        usable = numeric[keep]
-        # Constant columns carry no information and destabilise scalers.
-        variance = usable.std(ddof=0)
-        constant = variance[variance.fillna(0.0) <= 1e-12].index
-        return usable.drop(columns=list(constant))
+        # Coverage and variance are time-dependent properties. Applying those
+        # filters here would inspect validation/test rows and allow the future
+        # to determine the model schema. FeatureSelector performs both checks
+        # independently inside every training fold.
+        return frame.select_dtypes(include=[np.number])
 
     def market(self) -> pd.DataFrame:
         return self._usable(self.market_features)

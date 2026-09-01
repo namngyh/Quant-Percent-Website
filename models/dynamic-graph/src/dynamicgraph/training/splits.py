@@ -159,8 +159,8 @@ def generate_walk_forward_folds(
         folds.append(fold)
 
         fold_id += 1
-        train_end = test_end - purge - validation_days - purge
-        train_end = max(train_end, folds[-1].train_positions.max() + 1)
+        # Advance exactly one test block. Reconstructing from `test_end` and
+        # adding `test_days` again skips a full OOS block between folds.
         train_end += test_days
         if train_end + purge + validation_days + purge >= n:
             break

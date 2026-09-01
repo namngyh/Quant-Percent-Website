@@ -1,3 +1,17 @@
+data:
+  # Snapshot the batch tier reads. Refreshed by `scripts/sync_source.py`.
+  path: data/raw/VNINDEX_Daily_db.csv
+  # Read-only market data source. Supported backends: csv, sqlite, duckdb,
+  # postgres. The DSN lives in `.env` (gitignored), never here.
+  source:
+    backend: postgres
+    dsn_env: MSDP_MARKET_DSN
+    table: bars_1d
+    symbol: VNINDEX
+    symbol_column: symbol
+    path: data/raw/VNINDEX_Daily.csv
+    column_map: {date: trading_date, open: open, high: high, low: low, close: close, volume: volume}
+    date_unit: null
 device: cpu
 deterministic: true
 training: {batch_size: 64, num_workers: 0}

@@ -22,6 +22,92 @@ from dynamicgraph.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+def _universe_coverage(
+    panel: pd.DataFrame,
+    calendar: pd.DatetimeIndex,
+    universe: UniverseResolution,
+    index_ticker: str,
+) -> pd.DataFrame:
+    """Daily active-universe and usable-price coverage.
+
+    `n_observed` counts active members with a usable adjusted close after the
+    configured, membership-bounded fill policy. The benchmark is deliberately
+    excluded from both numerator and denominator.
+    """
+    membership = universe.membership.loc[:, ["date", "ticker"]].drop_duplicates().copy()
+    membership["date"] = pd.to_datetime(membership["date"])
+    active = membership.groupby("date")["ticker"].agg(lambda values: sorted(set(values)))
+
+    stocks = panel[panel["ticker"] != index_ticker]
+    price_column = "adjusted_close" if "adjusted_close" in stocks.columns else "close"
+    usable = stocks[stocks[price_column].notna()]
+    observed = usable.groupby("date")["ticker"].agg(lambda values: sorted(set(values)))
+
+    rows = []
+    for date in calendar:
+        active_tickers = list(active.get(date, []))
+        observed_tickers = sorted(set(observed.get(date, [])) & set(active_tickers))
+        n_universe = len(active_tickers)
+        n_observed = len(observed_tickers)
+        rows.append(
+            {
+                "date": pd.Timestamp(date),
+                "n_universe": n_universe,
+                "n_observed": n_observed,
+                "coverage_ratio": n_observed / n_universe if n_universe else float("nan"),
+                "active_tickers": active_tickers,
+                "observed_tickers": observed_tickers,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def apply_point_in_time_membership(
+    panel: pd.DataFrame,
+    calendar: pd.DatetimeIndex,
+    universe: UniverseResolution,
+    index_ticker: str,
+    max_forward_fill_days: int = 1,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Apply daily `(date, ticker)` membership and align within active spells.
+
+    The market benchmark is aligned separately and is never treated as a
+    constituent. Stock prices can only be forward-filled inside one contiguous
+    active-membership spell.
+    """
+    membership = universe.membership.loc[:, ["date", "ticker"]].drop_duplicates().copy()
+    membership["date"] = pd.to_datetime(membership["date"])
+    membership = membership[
+        membership["date"].isin(calendar) & membership["ticker"].isin(universe.tickers)
+    ]
+
+    benchmark_raw = panel[panel["ticker"] == index_ticker]
+    benchmark = align_to_calendar(
+        benchmark_raw,
+        calendar,
+        max_forward_fill_days=max_forward_fill_days,
+    )
+    stocks = align_to_calendar(
+        panel[panel["ticker"] != index_ticker],
+        calendar,
+        max_forward_fill_days=max_forward_fill_days,
+        active_membership=membership,
+    )
+    selected = pd.concat([stocks, benchmark], ignore_index=True)
+    selected = selected.sort_values(["ticker", "date"], kind="stable").reset_index(drop=True)
+
+    # Runtime invariant: every stock row must be backed by an exact daily
+    # membership pair. The benchmark is the only permitted exception.
+    stock_pairs = selected.loc[selected["ticker"] != index_ticker, ["date", "ticker"]]
+    check = stock_pairs.merge(membership, on=["date", "ticker"], how="left", indicator=True)
+    if not check.empty and not check["_merge"].eq("both").all():
+        raise AssertionError("Panel contains stock rows outside point-in-time membership.")
+
+    coverage = _universe_coverage(selected, calendar, universe, index_ticker)
+    universe.daily_coverage = coverage
+    return selected, coverage
+
+
 @dataclass
 class PanelBundle:
     """Everything downstream stages need from the data layer."""
@@ -66,27 +152,59 @@ class PanelBundle:
 
 def _fingerprint(panel: pd.DataFrame) -> str:
     """Content hash of the loaded data, for the reproducibility record."""
+    ordered = panel.copy()
+    sort_columns = [
+        column for column in ("ticker", "date") if column in ordered.columns
+    ]
+    if sort_columns:
+        ordered = ordered.sort_values(sort_columns, kind="mergesort")
+    ordered = ordered.reindex(sorted(ordered.columns), axis=1).reset_index(drop=True)
+
     digest = hashlib.sha256()
-    digest.update(str(len(panel)).encode())
-    digest.update(str(panel["date"].min()).encode())
-    digest.update(str(panel["date"].max()).encode())
-    digest.update(",".join(sorted(panel["ticker"].unique())).encode())
-    tail = panel.sort_values(["ticker", "date"]).tail(500)
-    digest.update(pd.util.hash_pandas_object(tail, index=False).values.tobytes())
+    digest.update(json.dumps(list(ordered.columns)).encode())
+    digest.update(json.dumps([str(dtype) for dtype in ordered.dtypes]).encode())
+    digest.update(
+        pd.util.hash_pandas_object(ordered, index=False).values.tobytes()
+    )
     return digest.hexdigest()[:16]
 
 
+def _file_content_fingerprint(path_value: Any) -> str | None:
+    """Hash a complete local source file and its SQLite WAL, when present."""
+    if not path_value:
+        return None
+    path = Path(str(path_value))
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    for candidate in (path, Path(f"{path}-wal")):
+        if not candidate.is_file():
+            continue
+        digest.update(candidate.name.encode())
+        with candidate.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _cache_key(config: Any) -> str:
+    # Full effective config is intentional: residualization, feature and graph
+    # changes all alter the semantics of downstream cached artifacts.
+    config_payload = config.to_dict()
     payload = {
-        "path": str(config.data.database_path),
-        "start": config.data.start_date,
-        "end": config.data.end_date,
-        "universe_method": config.data.universe_method,
-        "universe_size": config.data.universe_size,
-        "ffill": config.data.max_forward_fill_days,
-        "min_history": config.data.minimum_history_days,
+        "cache_schema_version": 2,
+        "effective_config": config_payload,
+        "source_content": _file_content_fingerprint(config.data.database_path),
+        "universe_content": _file_content_fingerprint(
+            config.resolve_path(config.data.universe_file)
+        ),
+        "sector_map_content": _file_content_fingerprint(
+            config.resolve_path(config.data.sector_map_file)
+        ),
     }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode()
+    ).hexdigest()[:12]
 
 
 def load_panel(
@@ -174,17 +292,18 @@ def load_panel(
         calendar = infer_trading_calendar(
             panel, canonical_index if canonical_index in set(panel["ticker"]) else None
         )
-        panel = align_to_calendar(
-            panel, calendar, max_forward_fill_days=int(config.data.max_forward_fill_days)
+        universe = resolve_universe(config, panel, calendar, canonical_index)
+        panel, _ = apply_point_in_time_membership(
+            panel,
+            calendar,
+            universe,
+            canonical_index,
+            max_forward_fill_days=int(config.data.max_forward_fill_days),
         )
 
         validation = validate_panel(panel, config, index_ticker=canonical_index, calendar=calendar)
         panel = apply_exclusions(panel, validation, canonical_index, enforce=True)
-
-        universe = resolve_universe(config, panel, calendar, canonical_index)
-
-        keep = set(universe.tickers) | {canonical_index}
-        panel = panel[panel["ticker"].isin(keep)].reset_index(drop=True)
+        universe.daily_coverage = _universe_coverage(panel, calendar, universe, canonical_index)
         calendar = infer_trading_calendar(
             panel, canonical_index if canonical_index in set(panel["ticker"]) else None
         )
@@ -194,6 +313,12 @@ def load_panel(
                 panel.to_parquet(cache_file, index=False)
             except Exception as exc:  # pragma: no cover - pyarrow optional
                 logger.warning("Could not write the panel cache (%s); continuing without it.", exc)
+            try:
+                universe.daily_coverage.to_parquet(
+                    cache_dir / f"universe_coverage_{key}.parquet", index=False
+                )
+            except Exception as exc:  # pragma: no cover - pyarrow optional
+                logger.warning("Could not write universe coverage cache (%s).", exc)
 
         bundle = PanelBundle(
             panel=panel,

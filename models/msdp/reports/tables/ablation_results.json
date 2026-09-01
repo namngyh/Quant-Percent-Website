@@ -1,10 +1,22 @@
 [
   {
     "name": "equal",
-    "return_pinball_mean": 1.825930824448047
+    "return_pinball_mean": 1.7677166698001858
   },
   {
     "name": "single",
-    "return_pinball_mean": 1.563833878150027
+    "return_pinball_mean": 1.7278720926178206
+  },
+  {
+    "name": "no_range",
+    "return_pinball_mean": 2.1931732617181576
+  },
+  {
+    "name": "no_conformal",
+    "return_pinball_mean": 1.7073538842590006
+  },
+  {
+    "name": "shared_gate",
+    "return_pinball_mean": 1.7086695411154598
   }
 ]

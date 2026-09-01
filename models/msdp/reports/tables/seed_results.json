@@ -2,6 +2,16 @@
   {
     "seed": 42,
     "best_epoch": 1,
-    "best_validation_loss": 0.28826988240083057
+    "best_validation_loss": 0.2862277428309123
+  },
+  {
+    "seed": 123,
+    "best_epoch": 2,
+    "best_validation_loss": 0.2726617952187856
+  },
+  {
+    "seed": 2026,
+    "best_epoch": 1,
+    "best_validation_loss": 0.26866476734479267
   }
 ]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from dynamicgraph.graphs.graphical_lasso import (
@@ -105,7 +104,6 @@ def test_glasso_on_covariance_scale_would_be_degenerate():
 
 
 def test_alpha_selection_uses_only_supplied_training_windows():
-    rng = np.random.default_rng(25)
     train_windows = [_block_returns(n=120, seed=s) for s in range(30, 36)]
     alpha, diagnostics = select_alpha(train_windows, [0.01, 0.05, 0.2], method="stability", max_density=0.5)
     assert alpha in (0.01, 0.05, 0.2)
@@ -122,3 +120,22 @@ def test_nearest_positive_definite_fixes_indefinite_matrix():
 def test_estimate_covariance_rejects_short_windows():
     with pytest.raises(ValueError):
         estimate_covariance(np.zeros((2, 5)), "ledoit_wolf")
+
+
+def test_convergence_warning_is_not_recorded_as_converged(monkeypatch):
+    import warnings
+
+    import sklearn.covariance
+    from sklearn.exceptions import ConvergenceWarning
+
+    def warning_fit(emp_cov, alpha, **kwargs):
+        warnings.warn("synthetic non-convergence", ConvergenceWarning)
+        result = (emp_cov.copy(), np.linalg.pinv(emp_cov), [(1.0, 0.25)])
+        return (*result, kwargs.get("max_iter", 0))
+
+    monkeypatch.setattr(sklearn.covariance, "graphical_lasso", warning_fit)
+    fit = fit_graphical_lasso(np.eye(4), 0.02, max_iter=3)
+    assert not fit.converged
+    assert "synthetic non-convergence" in fit.warning_message
+    assert fit.retry_count >= 3
+    assert fit.fallback_reason == "pseudo_inverse_after_non_convergence"

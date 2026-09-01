@@ -5,10 +5,12 @@ Per fold, in this order and no other:
   1. slice train / validation / test by position (chronological, purged);
   2. fit the target QUANTILE threshold on training rows only;
   3. fit imputation + scaling inside the estimator pipeline on training rows only;
-  4. optionally tune hyperparameters on the validation block;
-  5. refit on train, calibrate on validation, pick the decision threshold on
-     validation;
-  6. predict the test block once and store it.
+  4. optionally tune hyperparameters on a purged chronological split wholly
+     inside the training block;
+  5. refit on all training rows;
+  6. split the outer validation block into purged calibration and threshold
+     blocks, fit each choice on its own rows;
+  7. predict the test block once and store it.
 
 Nothing fitted in steps 2-5 ever sees a test row. The stored OOS predictions are
 the only thing the reporting layer is allowed to consume.
@@ -72,13 +74,19 @@ class WalkForwardResult:
     def oos_metrics(self, threshold: float | None = None) -> dict[str, Any]:
         if self.predictions.empty:
             return {"n": 0, "note": "no predictions"}
-        threshold = threshold if threshold is not None else float(
-            np.median(list(self.thresholds.values())) if self.thresholds else 0.5
+        metric_threshold: float | np.ndarray = (
+            threshold
+            if threshold is not None
+            else (
+                self.predictions["threshold"].to_numpy(dtype=float)
+                if "threshold" in self.predictions.columns
+                else 0.5
+            )
         )
         metrics = classification_metrics(
             self.predictions["y_true"].to_numpy(),
             self.predictions["probability"].to_numpy(),
-            threshold=threshold,
+            threshold=metric_threshold,
             n_days=len(self.predictions),
         )
         metrics.update(
@@ -98,6 +106,25 @@ class WalkForwardResult:
 
 def _slice(frame: pd.DataFrame, positions: np.ndarray, index: pd.DatetimeIndex) -> pd.DataFrame:
     return frame.reindex(index[positions])
+
+
+def _chronological_subsplit(
+    index: pd.Index,
+    gap: int,
+    min_each: int = 20,
+) -> tuple[pd.Index, pd.Index]:
+    """Split an ordered block in half with a purge gap between the halves."""
+    ordered = pd.Index(index)
+    available = len(ordered) - max(0, int(gap))
+    if available < 2 * min_each:
+        return ordered[:0], ordered[:0]
+    first_size = available // 2
+    second_start = first_size + max(0, int(gap))
+    first = ordered[:first_size]
+    second = ordered[second_start:]
+    if len(first) < min_each or len(second) < min_each:
+        return ordered[:0], ordered[:0]
+    return first, second
 
 
 def run_walk_forward(
@@ -190,29 +217,41 @@ def run_walk_forward(
             continue
 
         # ---- feature selection, fitted on TRAINING rows only -------------
-        if max_features and X_train.shape[1] > max_features:
-            selector = FeatureSelector(
-                max_features=max_features,
-                redundancy_threshold=float(config.training.feature_redundancy_threshold),
-                seed=seed,
-            ).fit(X_train, y_train)
-            if selector.selected_:
-                X_train = selector.transform(X_train)
-                X_validation = selector.transform(X_validation)
-                X_test_used = selector.transform(X_test_used)
-                result.selected_features[fold.fold_id] = list(selector.selected_)
+        feature_budget = max_features or X_train.shape[1]
+        selector = FeatureSelector(
+            max_features=max(1, feature_budget),
+            redundancy_threshold=float(config.training.feature_redundancy_threshold),
+            seed=seed,
+        ).fit(X_train, y_train)
+        if not selector.selected_:
+            logger.warning(
+                "Fold %d: no feature survived training-only schema checks; skipping.",
+                fold.fold_id,
+            )
+            continue
+        X_train = selector.transform(X_train)
+        X_validation = selector.transform(X_validation)
+        X_test_used = selector.transform(X_test_used)
+        result.selected_features[fold.fold_id] = list(selector.selected_)
 
-        # ---- optional tuning on the validation block --------------------
+        # ---- optional nested tuning wholly inside the training block ----
         params: dict[str, Any] = {}
+        inner_train_index, inner_tune_index = _chronological_subsplit(
+            X_train.index, gap=horizon, min_each=40
+        )
+        assert set(inner_train_index).isdisjoint(inner_tune_index)
         if tuner is not None and model_spec.search_space:
             try:
-                params = tuner(
-                    model_spec=model_spec,
-                    X_train=X_train, y_train=y_train,
-                    X_validation=X_validation, y_validation=y_validation,
-                    seed=seed,
-                )
-                result.hyperparameters[fold.fold_id] = params
+                if len(inner_tune_index):
+                    params = tuner(
+                        model_spec=model_spec,
+                        X_train=X_train.reindex(inner_train_index),
+                        y_train=y_train.reindex(inner_train_index),
+                        X_validation=X_train.reindex(inner_tune_index),
+                        y_validation=y_train.reindex(inner_tune_index),
+                        seed=seed,
+                    )
+                    result.hyperparameters[fold.fold_id] = params
             except Exception as exc:
                 logger.warning("Tuning failed on fold %d (%s); using defaults.", fold.fold_id, exc)
 
@@ -227,23 +266,39 @@ def run_walk_forward(
             logger.warning("Fold %d: %s failed to fit (%s); skipping.", fold.fold_id, model_spec.name, exc)
             continue
 
-        # ---- calibrate + choose the threshold, both on VALIDATION -------
-        if len(X_validation) >= 20 and y_validation.notna().sum() >= 20:
+        # Calibration and threshold optimisation do not reuse the same labels.
+        calibration_index, threshold_index = _chronological_subsplit(
+            X_validation.index, gap=horizon, min_each=20
+        )
+        X_calibration = X_validation.reindex(calibration_index)
+        y_calibration = y_validation.reindex(calibration_index)
+        X_threshold = X_validation.reindex(threshold_index)
+        y_threshold = y_validation.reindex(threshold_index)
+        assert set(calibration_index).isdisjoint(threshold_index)
+        assert set(calibration_index).isdisjoint(X_test_used.index)
+        assert set(threshold_index).isdisjoint(X_test_used.index)
+
+        if len(X_calibration) >= 20:
             calibrated = calibrate(
-                estimator, X_validation, y_validation.to_numpy(),
-                method=calibration_method, feature_names=list(features.columns),
+                estimator, X_calibration, y_calibration.to_numpy(),
+                method=calibration_method, feature_names=list(X_train.columns),
             )
-            validation_probabilities = calibrated.predict_proba(X_validation)
+        else:
+            calibrated = CalibratedModel(estimator=estimator, method="none")
+
+        if len(X_threshold) >= 20:
+            threshold_probabilities = calibrated.predict_proba(X_threshold)
             threshold, threshold_info = optimize_threshold(
-                validation_probabilities,
-                y_validation.to_numpy(),
+                threshold_probabilities,
+                y_threshold.to_numpy(),
                 objective=threshold_objective,
                 fixed=float(config.evaluation.fixed_threshold),
             )
         else:
-            calibrated = CalibratedModel(estimator=estimator, method="none")
             threshold = float(config.evaluation.fixed_threshold)
-            threshold_info = {"note": "validation block too small"}
+            threshold_info = {
+                "note": "validation block too small for separated calibration/threshold blocks"
+            }
 
         calibrated.decision_threshold = threshold
         result.thresholds[fold.fold_id] = threshold
@@ -276,6 +331,48 @@ def run_walk_forward(
                 "n_train": len(X_train),
                 "n_train_positive": n_positive,
                 "n_validation": len(X_validation),
+                "n_calibration": len(X_calibration),
+                "n_threshold": len(X_threshold),
+                "inner_train_start": (
+                    str(pd.Timestamp(inner_train_index.min()).date())
+                    if len(inner_train_index)
+                    else None
+                ),
+                "inner_train_end": (
+                    str(pd.Timestamp(inner_train_index.max()).date())
+                    if len(inner_train_index)
+                    else None
+                ),
+                "inner_tune_start": (
+                    str(pd.Timestamp(inner_tune_index.min()).date())
+                    if len(inner_tune_index)
+                    else None
+                ),
+                "inner_tune_end": (
+                    str(pd.Timestamp(inner_tune_index.max()).date())
+                    if len(inner_tune_index)
+                    else None
+                ),
+                "calibration_start": (
+                    str(pd.Timestamp(calibration_index.min()).date())
+                    if len(calibration_index)
+                    else None
+                ),
+                "calibration_end": (
+                    str(pd.Timestamp(calibration_index.max()).date())
+                    if len(calibration_index)
+                    else None
+                ),
+                "threshold_start": (
+                    str(pd.Timestamp(threshold_index.min()).date())
+                    if len(threshold_index)
+                    else None
+                ),
+                "threshold_end": (
+                    str(pd.Timestamp(threshold_index.max()).date())
+                    if len(threshold_index)
+                    else None
+                ),
                 "n_features_selected": int(X_train.shape[1]),
                 "calibration": calibrated.method,
                 "label_threshold": label_threshold,
@@ -358,16 +455,17 @@ def fit_final_model(
     # sees the same feature-space dimensionality it was evaluated at.
     selected: list[str] = list(features.columns)
     max_features = int(getattr(config.training, "max_features", 0) or 0)
-    if max_features and X_train.shape[1] > max_features:
-        selector = FeatureSelector(
-            max_features=max_features,
-            redundancy_threshold=float(config.training.feature_redundancy_threshold),
-            seed=int(config.project.seed),
-        ).fit(X_train, y_train)
-        if selector.selected_:
-            selected = list(selector.selected_)
-            X_train = selector.transform(X_train)
-            X_validation = selector.transform(X_validation)
+    selector = FeatureSelector(
+        max_features=max(1, max_features or X_train.shape[1]),
+        redundancy_threshold=float(config.training.feature_redundancy_threshold),
+        seed=int(config.project.seed),
+    ).fit(X_train, y_train)
+    if not selector.selected_:
+        logger.warning("Final model not fitted: no training feature survived schema checks.")
+        return None
+    selected = list(selector.selected_)
+    X_train = selector.transform(X_train)
+    X_validation = selector.transform(X_validation)
 
     estimator = model_spec.build(params, seed=int(config.project.seed))
     weights = sample_weights_from_labels(y_train.to_numpy(), config.models.class_weight)

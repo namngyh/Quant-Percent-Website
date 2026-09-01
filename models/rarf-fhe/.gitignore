@@ -13,3 +13,7 @@ data/processed/*.parquet
 data/interim/*
 !data/interim/.gitkeep
 reports/figures/*.pdf
+# Online tier state is rewritten every trading session (1.9 MB on quick.yaml,
+# larger on default.yaml). The manifest JSON and session log stay tracked as the
+# audit record; the pickles do not belong in version history.
+artifacts/online_state/*.joblib

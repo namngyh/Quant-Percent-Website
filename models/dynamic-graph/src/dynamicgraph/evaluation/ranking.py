@@ -32,6 +32,9 @@ def information_coefficient(
         mask = p.notna() & r.notna()
         if mask.sum() < 5:
             continue
+        if p[mask].nunique() < 2 or r[mask].nunique() < 2:
+            out[date] = np.nan
+            continue
         out[date] = float(p[mask].corr(r[mask], method=method))
     return pd.Series(out, name=f"ic_{method}").sort_index()
 
@@ -54,9 +57,14 @@ def newey_west_se(values: np.ndarray, lag: int) -> float:
     centered = x - x.mean()
     lag = int(max(0, min(lag, n - 2)))
     variance = float(centered @ centered) / n
-    for l in range(1, lag + 1):
-        weight = 1.0 - l / (lag + 1.0)
-        variance += 2.0 * weight * float(centered[l:] @ centered[:-l]) / n
+    for lag_index in range(1, lag + 1):
+        weight = 1.0 - lag_index / (lag + 1.0)
+        variance += (
+            2.0
+            * weight
+            * float(centered[lag_index:] @ centered[:-lag_index])
+            / n
+        )
     if variance <= 0:
         return float("nan")
     return float(np.sqrt(variance / n))
@@ -128,15 +136,37 @@ def decile_portfolios(
 
 
 def portfolio_turnover(portfolios: pd.DataFrame, column: str = "top_bucket_members") -> pd.Series:
-    """Fraction of the bucket replaced between consecutive rebalances."""
+    """Weight-based one-way turnover between consecutive portfolios.
+
+    When both top and bottom member lists are available, the evaluated book is
+    one unit long the top bucket and one unit short the bottom bucket. Turnover
+    is half the L1 weight change, so a complete reversal of both legs is 2.0.
+    For a top-only frame the same definition is applied to a unit long book.
+    """
     if portfolios.empty or column not in portfolios.columns:
         return pd.Series(dtype=float)
     out = {}
-    previous: set[str] | None = None
-    for date, members in portfolios[column].items():
-        current = set(members)
-        if previous is not None and previous:
-            out[date] = 1.0 - len(current & previous) / len(current | previous)
+    previous: pd.Series | None = None
+    has_short_leg = "bottom_bucket_members" in portfolios.columns
+    for date, row in portfolios.iterrows():
+        top = list(row[column])
+        bottom = list(row["bottom_bucket_members"]) if has_short_leg else []
+        current = pd.Series(dtype=float)
+        if top:
+            current = pd.concat(
+                [current, pd.Series(1.0 / len(top), index=top, dtype=float)]
+            )
+        if bottom:
+            short = pd.Series(-1.0 / len(bottom), index=bottom, dtype=float)
+            current = current.add(short, fill_value=0.0)
+        if previous is not None:
+            assets = previous.index.union(current.index)
+            out[date] = 0.5 * float(
+                (
+                    current.reindex(assets, fill_value=0.0)
+                    - previous.reindex(assets, fill_value=0.0)
+                ).abs().sum()
+            )
         previous = current
     return pd.Series(out, name="turnover").sort_index()
 
@@ -156,19 +186,31 @@ def ranking_metrics(
     """
     spearman_ic = information_coefficient(predictions, realized, "spearman")
     pearson_ic = information_coefficient(predictions, realized, "pearson")
-    portfolios = decile_portfolios(predictions, realized, n_buckets=n_buckets)
+    horizon = max(1, int(horizon))
+    # Forward h-day returns overlap when formed daily. Portfolio evaluation uses
+    # non-overlapping rebalance dates; IC keeps all dates and uses HAC inference.
+    portfolio_predictions = predictions.iloc[::horizon]
+    portfolio_realized = realized.reindex(portfolio_predictions.index)
+    portfolios = decile_portfolios(
+        portfolio_predictions, portfolio_realized, n_buckets=n_buckets
+    )
 
     out: dict[str, Any] = {
-        f"spearman_{k}": v for k, v in ic_summary(spearman_ic).items()
+        f"spearman_{k}": v for k, v in ic_summary(spearman_ic, horizon=horizon).items()
     }
-    out.update({f"pearson_{k}": v for k, v in ic_summary(pearson_ic).items()})
+    out.update(
+        {
+            f"pearson_{k}": v
+            for k, v in ic_summary(pearson_ic, horizon=horizon).items()
+        }
+    )
 
     if not portfolios.empty:
         spread = portfolios["long_short_spread"].dropna()
         turnover = portfolio_turnover(portfolios)
         mean_turnover = float(turnover.mean()) if not turnover.empty else np.nan
         # Rebalances per year given the holding horizon.
-        rebalances = 252.0 / max(horizon, 1)
+        rebalances = 252.0 / horizon
         annual_cost = (
             mean_turnover * (cost_bps / 1e4) * rebalances * 2.0
             if np.isfinite(mean_turnover) else np.nan
@@ -179,9 +221,11 @@ def ranking_metrics(
                 "top_bucket_return": float(portfolios[f"bucket_{n_buckets}"].mean()),
                 "bottom_bucket_return": float(portfolios["bucket_1"].mean()),
                 "long_short_spread": mean_spread,
-                "long_short_spread_t": float(
-                    mean_spread / (spread.std(ddof=1) / np.sqrt(len(spread)))
-                ) if spread.std(ddof=1) > 0 else np.nan,
+                "long_short_spread_t": (
+                    float(mean_spread / newey_west_se(spread.to_numpy(), lag=0))
+                    if spread.std(ddof=1) > 0
+                    else np.nan
+                ),
                 "mean_turnover": mean_turnover,
                 "assumed_cost_bps_round_trip": cost_bps,
                 "estimated_annual_cost": annual_cost,

@@ -3,6 +3,7 @@ import numpy as np
 from vnindex_model.importance_sampling import (
     effective_sample_size,
     proposal_transition_matrix,
+    simulate_stratified_importance,
     simulate_tail_importance,
 )
 from vnindex_model.simulation import adaptive_simulate_paths, stratified_estimator
@@ -71,3 +72,45 @@ def test_adaptive_stopping_respects_path_budget():
     result, history = adaptive_simulate_paths(1000.0, ["Sideway"], kwargs, stopping)
     assert 200 <= len(result.return_paths) <= 400
     assert history["paths"].is_monotonic_increasing
+
+
+def _stratified_kwargs(probability):
+    return {
+        "paths": 400,
+        "current_regime_probability": probability,
+        "minimum_paths_per_regime": 100,
+        "horizon": 1,
+        "daily_drift": 0.0,
+        "daily_volatility": 1.0,
+        "residuals": np.array([-1.0, 1.0]),
+        "transition_matrix": np.eye(2),
+        "economic_labels": ["Sideway", "Stress"],
+        "transition_strength": 0.0,
+        "shock_strength": 1.0,
+        "seed": 55,
+    }
+
+
+def test_stratified_importance_accepts_a_read_only_probability_vector():
+    """`run-all` passes a regime posterior that numpy hands over read-only. The
+    normalisation used `np.asarray`, which does not copy an array that is
+    already float64, so the in-place divide raised."""
+    probability = np.array([0.6, 0.4])
+    probability.setflags(write=False)
+    result = simulate_stratified_importance(**_stratified_kwargs(probability))
+    assert result.diagnostics["paths"] == 400
+
+
+def test_stratified_importance_does_not_modify_the_caller_s_vector():
+    """Even when the divide succeeds, normalising in place would silently
+    rewrite the regime posterior the caller still holds."""
+    probability = np.array([3.0, 1.0])
+    before = probability.copy()
+    simulate_stratified_importance(**_stratified_kwargs(probability))
+    assert np.array_equal(probability, before)
+
+
+def test_stratified_importance_normalizes_an_unnormalized_vector():
+    scaled = simulate_stratified_importance(**_stratified_kwargs(np.array([3.0, 1.0])))
+    unit = simulate_stratified_importance(**_stratified_kwargs(np.array([0.75, 0.25])))
+    assert scaled.diagnostics["paths"] == unit.diagnostics["paths"]

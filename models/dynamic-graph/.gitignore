@@ -6,7 +6,6 @@
 # Secrets / machine-specific config
 .env
 config/local.yaml
-config/local-*.yaml
 *.key
 *.pem
 

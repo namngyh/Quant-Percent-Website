@@ -18,13 +18,12 @@ Nothing in this module reads data past t.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
 
 from dynamicgraph.graphs.base import GraphSnapshot, SnapshotSeries
-from dynamicgraph.graphs.correlation import correlation_matrix
 from dynamicgraph.graphs.filtering import filter_adjacency
 from dynamicgraph.graphs.graphical_lasso import fit_graphical_lasso
 from dynamicgraph.graphs.partial_correlation import partial_correlation_from_precision
@@ -102,7 +101,18 @@ def _build_raw_adjacency(
         # invariant, so working in correlation space leaves the result unchanged
         # while making alpha interpretable and comparable across windows.
         fit = fit_graphical_lasso(estimate.correlation, build.alpha)
-        info.update({"alpha": fit.alpha, "glasso_converged": fit.converged, "glasso_note": fit.note})
+        info.update(
+            {
+                "alpha": fit.alpha,
+                "glasso_converged": fit.converged,
+                "glasso_note": fit.note,
+                "glasso_n_iter": fit.n_iter,
+                "glasso_dual_gap": fit.dual_gap,
+                "glasso_warning": fit.warning_message,
+                "glasso_retry_count": fit.retry_count,
+                "glasso_fallback_reason": fit.fallback_reason,
+            }
+        )
         info["glasso_input"] = "correlation"
         return partial_correlation_from_precision(fit.precision), info
     raise ValueError(f"Unsupported graph layer `{build.layer}`.")
@@ -156,6 +166,18 @@ def build_snapshot(
         stability_threshold=build.edge_stability_threshold,
         max_density=build.max_density,
     )
+    if stability is not None:
+        inference = np.where(
+            stability >= build.edge_stability_threshold, raw, 0.0
+        )
+    elif build.layer == "partial_correlation":
+        # Non-zero precision entries are the regularised conditional-
+        # dependence estimate. Quantile filtering remains display-only.
+        inference = raw.copy()
+    else:
+        # A dense sample correlation has no edge-wise inferential claim when
+        # no stability/FDR procedure was run.
+        inference = np.zeros_like(raw)
 
     metadata = {
         **info,
@@ -165,11 +187,30 @@ def build_snapshot(
         "raw_avg_abs_weight": float(np.abs(raw[np.triu_indices(len(valid), 1)]).mean())
         if len(valid) > 1
         else float("nan"),
+        "representations": {
+            "raw": "weighted dependence and spectral/concentration metrics",
+            "inference": (
+                "bootstrap-stable topology"
+                if stability is not None
+                else "non-zero regularised precision entries"
+                if build.layer == "partial_correlation"
+                else "unavailable_without_edge_evidence"
+            ),
+            "display": f"{build.edge_filter_method} filter; visualization only",
+        },
+        "display_expected_density": (
+            float(build.top_edge_quantile)
+            if build.edge_filter_method == "quantile"
+            else None
+        ),
     }
     return GraphSnapshot(
         date=pd.Timestamp(date),
         nodes=list(valid),
-        adjacency=filtered,
+        adjacency=inference,
+        adjacency_raw=raw,
+        adjacency_inference=inference,
+        adjacency_display=filtered,
         layer=build.layer,
         window=build.window,
         return_type=build.return_type,

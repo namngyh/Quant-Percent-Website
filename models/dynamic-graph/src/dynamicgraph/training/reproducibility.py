@@ -111,6 +111,39 @@ def git_commit(repo_root: Path | None = None) -> str | None:
     return None
 
 
+def code_fingerprint(repo_root: Path | None = None) -> str:
+    """Hash executable project inputs, including uncommitted source changes."""
+    import hashlib
+
+    from dynamicgraph.config import REPO_ROOT
+
+    root = (repo_root or REPO_ROOT).resolve()
+    candidates: list[Path] = []
+    for directory, patterns in (
+        ("src", ("*.py",)),
+        ("scripts", ("*.py",)),
+        ("tests", ("*.py",)),
+        ("config", ("*.yaml", "*.yml", "*.csv")),
+    ):
+        base = root / directory
+        if base.exists():
+            for pattern in patterns:
+                candidates.extend(base.rglob(pattern))
+    candidates.extend(
+        path
+        for path in (root / "pyproject.toml", root / "README.md")
+        if path.exists()
+    )
+
+    digest = hashlib.sha256()
+    for path in sorted(set(candidates), key=lambda item: item.as_posix()):
+        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 @dataclass
 class ReproducibilityRecord:
     """Serialisable provenance for one pipeline run."""
@@ -127,6 +160,7 @@ class ReproducibilityRecord:
     data_date_max: str | None = None
     n_tickers: int = 0
     git_commit: str | None = None
+    code_fingerprint: str = ""
     platform_info: str = field(default_factory=lambda: f"{platform.system()} {platform.release()}")
     package_versions: dict[str, str] = field(default_factory=package_versions)
     feature_list: list[str] = field(default_factory=list)
@@ -173,6 +207,7 @@ class ReproducibilityRecord:
             data_date_max=date_max,
             n_tickers=n_tickers,
             git_commit=git_commit(),
+            code_fingerprint=code_fingerprint(),
             training_date=datetime.now(timezone.utc).date().isoformat(),
         )
 

@@ -124,6 +124,7 @@ def test_covariance_forecast_error_prefers_the_true_matrix():
     good = covariance_forecast_error(truth, realized)
     bad = covariance_forecast_error(np.diag([1e-2, 1e-2]), realized)
     assert good["log_likelihood"] > bad["log_likelihood"]
+    assert good["qlike"] < bad["qlike"]
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +139,7 @@ def test_weights_are_long_only_and_sum_to_one(rule):
     assert weights.shape == (10,)
     assert np.all(weights >= -1e-12), "no short positions"
     assert np.isclose(weights.sum(), 1.0)
+    assert weights.max() <= 0.25 + 1e-9, "every rule must respect the common cap"
 
 
 def test_minimum_variance_respects_the_weight_cap():
@@ -177,15 +179,18 @@ def test_risk_parity_equalises_risk_contributions():
 
 
 def test_community_risk_parity_splits_the_budget_across_communities():
-    """Two communities of unequal size must still get half the budget each."""
+    """The two community sleeves must receive equal aggregate risk."""
     n = 9
     covariance = np.eye(n) * 4e-4
     communities = [0, 0, 0, 0, 0, 0, 1, 1, 1]  # 6 vs 3
     weights = community_risk_parity(covariance, communities=communities)
-    assert np.isclose(weights[:6].sum(), 0.5)
-    assert np.isclose(weights[6:].sum(), 0.5)
-    # Equal weighting would have given the large community two thirds.
-    assert weights[6] > weights[0]
+    contributions = risk_contributions(weights, covariance)
+    assert contributions[:6].sum() == pytest.approx(
+        contributions[6:].sum(), abs=1e-5
+    )
+    assert weights[:6].sum() > weights[6:].sum(), (
+        "the larger diversified sleeve needs more capital to carry equal risk"
+    )
 
 
 def test_community_risk_parity_degrades_rather_than_fails():
@@ -194,6 +199,26 @@ def test_community_risk_parity_degrades_rather_than_fails():
     assert np.isclose(fallback.sum(), 1.0)
     single = community_risk_parity(covariance, communities=[0, 0, 0, 0, 0])
     assert np.allclose(single, 0.2)
+
+
+def test_common_weight_cap_rejects_an_infeasible_simplex():
+    covariance = np.eye(4)
+    with pytest.raises(ValueError, match="Infeasible max_weight"):
+        build_weights("equal_weight", covariance, max_weight=0.20)
+
+
+@pytest.mark.parametrize("rule", PORTFOLIO_RULES)
+def test_common_weight_cap_is_applied_to_every_rule(rule):
+    covariance = np.diag([1.0, 2.0, 3.0, 4.0, 5.0])
+    weights = build_weights(
+        rule,
+        covariance,
+        communities=[0, 0, 1, 1, 1],
+        max_weight=0.25,
+    )
+    assert weights.sum() == pytest.approx(1.0)
+    assert weights.min() >= -1e-12
+    assert weights.max() <= 0.25 + 1e-12
 
 
 def test_unknown_rule_is_rejected():
@@ -297,6 +322,40 @@ def test_portfolio_returns_start_strictly_after_the_first_rebalance():
     assert result.portfolio_returns.index.min() > result.weights.index.min()
 
 
+def test_missing_held_asset_contributes_zero_without_implicit_reallocation():
+    from dynamicgraph.allocation.backtest import _portfolio_returns
+
+    weights = pd.Series({"A": 0.5, "B": 0.5})
+    holding = pd.DataFrame(
+        {"A": [0.10, -0.04], "B": [np.nan, np.nan]},
+        index=pd.bdate_range("2024-01-01", periods=2),
+    )
+    realized = _portfolio_returns(weights, holding, missing_return_policy="zero")
+    assert realized.iloc[0] == pytest.approx(0.05)
+    assert realized.iloc[1] == pytest.approx(-0.02)
+
+
+def test_next_close_execution_lags_weights_and_realized_returns_one_session():
+    returns = _factor_returns(120, 5, seed=32)
+    config = AllocationBacktestConfig(
+        estimation_window=60,
+        rebalance_days=20,
+        min_assets=3,
+        execution_lag_sessions=1,
+        execution_convention="next_close",
+        cost_bps_per_side=0.0,
+    )
+    result = run_allocation_backtest(returns, "sample", "equal_weight", config)
+    first_signal = returns.index[59]
+    first_execution = returns.index[60]
+    first_realized = returns.index[61]
+    assert result.diagnostics.index[0] == first_execution
+    assert result.diagnostics.iloc[0]["signal_date"] == first_signal
+    assert result.weights.index[0] == first_execution
+    assert result.portfolio_returns.index[0] == first_realized
+    assert result.notes and "next_close" in result.notes[0]
+
+
 # ---------------------------------------------------------------------------
 # backtest mechanics
 # ---------------------------------------------------------------------------
@@ -349,6 +408,63 @@ def test_missing_assets_are_excluded_not_imputed():
     assert returns.columns[0] not in result.weights.columns or (
         result.weights[returns.columns[0]].isna().all()
     )
+
+
+def test_allocation_config_override_and_round_trip():
+    from dynamicgraph.config import load_config
+
+    config = load_config(
+        "config/default.yaml",
+        overrides={
+            "allocation": {
+                "rebalance_days": 7,
+                "cost_bps_per_side": 99.0,
+                "missing_return_policy": "zero",
+                "execution_lag_sessions": 2,
+            }
+        },
+    )
+    assert config.allocation.rebalance_days == 7
+    assert config.allocation.cost_bps_per_side == pytest.approx(99.0)
+    assert config.allocation.execution_lag_sessions == 2
+    payload = config.to_dict()
+    assert payload["allocation"]["rebalance_days"] == 7
+    assert payload["allocation"]["missing_return_policy"] == "zero"
+
+
+def test_unknown_allocation_field_is_rejected():
+    from dynamicgraph.config import load_config
+
+    with pytest.raises((ValueError, TypeError), match="unknown|Unknown|extra"):
+        load_config(
+            "config/default.yaml",
+            overrides={"allocation": {"silent_typo": 123}},
+        )
+
+
+def test_allocation_uses_fitted_graph_alpha_and_start_date():
+    from dynamicgraph.allocation.backtest import AllocationBacktestConfig
+    from dynamicgraph.config import load_config
+    from dynamicgraph.graphs.specification import FittedGraphSpecification
+
+    config = load_config("config/default.yaml")
+    fitted = FittedGraphSpecification(
+        selected_alpha=0.137,
+        selection_method="cv_train_only",
+        estimator="graphical_lasso_on_correlation",
+        training_start="2018-01-01",
+        training_end="2021-12-31",
+        validation_start="2022-01-10",
+        validation_end="2022-06-30",
+        universe_definition={"method": "liquidity_proxy"},
+        feature_specification={"return_type": "residual"},
+        convergence_diagnostics=[{"date": "2021-12-31", "converged": True}],
+    )
+    backtest = AllocationBacktestConfig.from_config(config, fitted_graph_spec=fitted)
+    assert backtest.glasso_alpha == pytest.approx(0.137)
+    assert backtest.start_date == pd.Timestamp("2021-12-31")
+    assert fitted.to_dict()["estimator"] == "graphical_lasso_on_correlation"
+    assert fitted.to_dict()["convergence_diagnostics"][0]["converged"]
 
 
 # ---------------------------------------------------------------------------

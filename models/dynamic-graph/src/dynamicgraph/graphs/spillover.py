@@ -71,7 +71,13 @@ def fit_regularized_var(
     if n_obs <= lags + 5:
         raise ValueError("Window too short for the requested VAR order.")
 
-    design = np.concatenate([working[lags - l - 1 : n_obs - l - 1] for l in range(lags)], axis=1)
+    design = np.concatenate(
+        [
+            working[lags - lag_index - 1 : n_obs - lag_index - 1]
+            for lag_index in range(lags)
+        ],
+        axis=1,
+    )
     response = working[lags:]
 
     if estimator == "lasso":
@@ -81,7 +87,13 @@ def fit_regularized_var(
     model.fit(design, response)
 
     beta = np.atleast_2d(model.coef_)      # (k, k*lags)
-    coefficients = np.stack([beta[:, l * k : (l + 1) * k] for l in range(lags)], axis=0)
+    coefficients = np.stack(
+        [
+            beta[:, lag_index * k : (lag_index + 1) * k]
+            for lag_index in range(lags)
+        ],
+        axis=0,
+    )
     residuals = response - model.predict(design)
     residual_covariance = np.cov(residuals, rowvar=False, ddof=1)
     if residual_covariance.ndim == 0:
@@ -106,8 +118,8 @@ def var_ma_representation(coefficients: np.ndarray, horizon: int) -> np.ndarray:
     psi[0] = np.eye(k)
     for h in range(1, horizon):
         total = np.zeros((k, k))
-        for l in range(1, min(lags, h) + 1):
-            total += coefficients[l - 1] @ psi[h - l]
+        for lag_index in range(1, min(lags, h) + 1):
+            total += coefficients[lag_index - 1] @ psi[h - lag_index]
         psi[h] = total
     return psi
 
@@ -177,8 +189,12 @@ def build_spillover_snapshot(
         theta = weights.T @ theta @ weights
         theta = theta / np.clip(theta.sum(axis=1, keepdims=True), EPS, None)
 
-    directed = theta.copy()
+    # FEVD rows are receivers and columns are shock sources:
+    # theta[i, j] = variance of i attributable to shock j.
+    # DirectedSnapshot uses rows as sources, so transpose to obtain j -> i.
+    directed = theta.T.copy()
     np.fill_diagonal(directed, 0.0)
+    directional_sum = float(directed.sum())
 
     return DirectedSnapshot(
         date=pd.Timestamp(date),
@@ -191,11 +207,16 @@ def build_spillover_snapshot(
             "lags": lags,
             "estimator": estimator,
             "total_connectedness": total_connectedness_index(theta),
+            "directional_spillover_sum": directional_sum,
+            "fevd_convention": "theta[i,j] = variance of i due to shock j",
+            "adjacency_convention": "adjacency[j,i] = theta[i,j]",
+            "diagonal_policy": "self-spillovers retained for TCI and removed from adjacency",
             "n_observations": len(block),
             "nodes": list(valid),
             "note": (
-                "Generalised FEVD from a regularised VAR. Shares of forecast-error variance "
-                "are predictive attributions, not identified causal effects."
+                "Generalised FEVD from a regularised VAR. Adjacency is theta.T so row sums "
+                "are transmitter strength and column sums are receiver strength. Shares of "
+                "forecast-error variance are predictive attributions, not identified causal effects."
             ),
         },
     )

@@ -31,6 +31,32 @@ class _RedactingFilter(logging.Filter):
         return True
 
 
+def _force_utf8_console() -> None:
+    """Make stdout/stderr accept the Vietnamese log messages this project emits.
+
+    The documented deployment is Windows Task Scheduler with output redirected
+    to a file. A redirected stream defaults to cp1252 there, and every log line
+    containing a Vietnamese diacritic then raises `UnicodeEncodeError` inside
+    the handler. Logging swallows those, so the run still finishes -- but each
+    one prints a full traceback, and a single pipeline run buries the real log
+    under thousands of them.
+
+    `errors="replace"` rather than a hard failure: a mangled character in a log
+    line is a cosmetic problem, and refusing to log at all would be worse.
+    """
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        if (getattr(stream, "encoding", "") or "").lower().replace("-", "") == "utf8":
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # detached or already-closed stream
+            pass
+
+
 def setup_logging(
     level: str = "INFO",
     log_file: str | Path | None = None,
@@ -51,6 +77,7 @@ def setup_logging(
     logger.handlers.clear()
     logger.propagate = False
     redactor = _RedactingFilter()
+    _force_utf8_console()
 
     handler: logging.Handler
     if use_rich:

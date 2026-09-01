@@ -46,13 +46,33 @@ class AllocationBacktestConfig:
     min_assets: int = 10
     max_missing_ratio: float = 0.10
     start_date: pd.Timestamp | None = None
+    missing_return_policy: str = "zero"
+    execution_lag_sessions: int = 1
+    execution_convention: str = "next_close"
 
     @classmethod
-    def from_config(cls, config: Any) -> "AllocationBacktestConfig":
+    def from_config(
+        cls, config: Any, fitted_graph_spec: Any | None = None
+    ) -> "AllocationBacktestConfig":
         allocation = getattr(config, "allocation", None)
         graph = getattr(config, "graph", None)
         if allocation is None:
             return cls()
+        fitted_alpha = (
+            float(fitted_graph_spec.selected_alpha)
+            if fitted_graph_spec is not None
+            else float(getattr(graph, "graphical_lasso_alpha", 0.02))
+        )
+        selection_method = (
+            str(getattr(fitted_graph_spec, "selection_method", "fixed"))
+            if fitted_graph_spec is not None
+            else "fixed"
+        )
+        fitted_start = (
+            pd.Timestamp(fitted_graph_spec.training_end)
+            if fitted_graph_spec is not None and selection_method != "fixed"
+            else None
+        )
         return cls(
             estimation_window=int(
                 allocation.estimation_window or getattr(graph, "core_window", 60)
@@ -60,9 +80,13 @@ class AllocationBacktestConfig:
             rebalance_days=int(allocation.rebalance_days),
             max_weight=float(allocation.max_weight),
             cost_bps_per_side=float(allocation.cost_bps_per_side),
-            glasso_alpha=float(getattr(graph, "graphical_lasso_alpha", 0.02)),
+            glasso_alpha=fitted_alpha,
             min_assets=int(allocation.min_assets),
             max_missing_ratio=float(getattr(config.data, "max_missing_ratio_per_window", 0.10)),
+            start_date=fitted_start,
+            missing_return_policy=str(allocation.missing_return_policy),
+            execution_lag_sessions=max(1, int(allocation.execution_lag_sessions)),
+            execution_convention=str(allocation.execution_convention),
         )
 
 
@@ -93,7 +117,11 @@ def _to_simple_returns(log_returns: pd.DataFrame) -> pd.DataFrame:
 
 
 def _rebalance_positions(
-    index: pd.DatetimeIndex, window: int, step: int, start: pd.Timestamp | None
+    index: pd.DatetimeIndex,
+    window: int,
+    step: int,
+    start: pd.Timestamp | None,
+    execution_lag_sessions: int = 0,
 ) -> list[int]:
     """Integer positions of the rebalance dates.
 
@@ -106,7 +134,9 @@ def _rebalance_positions(
         candidates = np.nonzero(index >= start)[0]
         if candidates.size:
             first = max(first, int(candidates[0]))
-    return list(range(first, len(index) - 1, max(1, step)))
+    return list(
+        range(first, len(index) - max(1, execution_lag_sessions + 1), max(1, step))
+    )
 
 
 def _eligible_assets(
@@ -144,7 +174,11 @@ def run_allocation_backtest(
     simple = _to_simple_returns(log_returns.sort_index())
     index = simple.index
     positions = _rebalance_positions(
-        index, config.estimation_window, config.rebalance_days, config.start_date
+        index,
+        config.estimation_window,
+        config.rebalance_days,
+        config.start_date,
+        config.execution_lag_sessions,
     )
     if not positions:
         raise ValueError(
@@ -156,11 +190,26 @@ def run_allocation_backtest(
     weight_rows: dict[pd.Timestamp, pd.Series] = {}
     diagnostic_rows: list[dict[str, Any]] = []
     cost_rows: dict[pd.Timestamp, float] = {}
-    notes: list[str] = []
+    if config.execution_convention != "next_close":
+        raise ValueError(
+            "Only `next_close` execution is currently implemented; "
+            f"received `{config.execution_convention}`."
+        )
+    if config.missing_return_policy != "zero":
+        raise ValueError(
+            "Only `zero` missing_return_policy is currently implemented; "
+            f"received `{config.missing_return_policy}`."
+        )
+    notes: list[str] = [
+        f"Signals use data through close t, execute at {config.execution_convention} "
+        f"after {config.execution_lag_sessions} session(s), and accrue returns only after execution."
+    ]
     previous_drifted: pd.Series | None = None
 
     for position in positions:
-        date = index[position]
+        signal_date = index[position]
+        execution_position = position + config.execution_lag_sessions
+        execution_date = index[execution_position]
         window = simple.iloc[position - config.estimation_window + 1 : position + 1]
         eligible = _eligible_assets(window, config.max_missing_ratio, config.min_assets)
         if not eligible:
@@ -175,13 +224,21 @@ def run_allocation_backtest(
                 block.to_numpy(), estimator=estimator, alpha=config.glasso_alpha
             )
         except Exception as exc:
-            logger.warning("Covariance estimation failed on %s (%s); skipping.", date.date(), exc)
+            logger.warning(
+                "Covariance estimation failed on %s (%s); skipping.",
+                signal_date.date(),
+                exc,
+            )
             continue
 
         kwargs: dict[str, Any] = {"max_weight": config.max_weight}
         if rule == "community_risk_parity":
-            kwargs["communities"] = _community_labels(communities_by_date, date, eligible)
-            if kwargs["communities"] is None and not notes:
+            kwargs["communities"] = _community_labels(
+                communities_by_date, signal_date, eligible
+            )
+            if kwargs["communities"] is None and not any(
+                "community partition" in note for note in notes
+            ):
                 notes.append(
                     "No community partition was available at some rebalance dates; "
                     "community_risk_parity fell back to inverse volatility there."
@@ -190,7 +247,7 @@ def run_allocation_backtest(
         weights = pd.Series(
             build_weights(rule, estimate.covariance, **kwargs), index=eligible
         )
-        weight_rows[date] = weights
+        weight_rows[execution_date] = weights
 
         # ---- costs, charged against the drifted previous book -------------
         traded = 1.0
@@ -199,20 +256,27 @@ def run_allocation_backtest(
             dropped = previous_drifted.drop(labels=weights.index, errors="ignore").abs().sum()
             traded = float((weights - aligned_previous).abs().sum() + dropped)
         cost = traded * config.cost_bps_per_side / 1e4
-        cost_rows[date] = cost
+        cost_rows[execution_date] = cost
 
         # ---- realised returns over the holding period ---------------------
-        end = min(position + 1 + config.rebalance_days, len(index))
-        holding = simple.iloc[position + 1 : end]
+        start_return = execution_position + 1
+        end = min(start_return + config.rebalance_days, len(index))
+        holding = simple.iloc[start_return:end]
         if holding.empty:
             continue
-        realized = _portfolio_returns(weights, holding)
+        realized = _portfolio_returns(
+            weights, holding, missing_return_policy=config.missing_return_policy
+        )
         realized.iloc[0] = realized.iloc[0] - cost
         daily_returns.append(realized)
         previous_drifted = _drift_weights(weights, holding)
 
         row = {
-            "date": date,
+            "date": execution_date,
+            "signal_date": signal_date,
+            "execution_date": execution_date,
+            "execution_convention": config.execution_convention,
+            "execution_lag_sessions": config.execution_lag_sessions,
             "n_assets": len(eligible),
             "estimator": estimator,
             "rule": rule,
@@ -253,18 +317,21 @@ def run_allocation_backtest(
     )
 
 
-def _portfolio_returns(weights: pd.Series, holding: pd.DataFrame) -> pd.Series:
-    """Daily portfolio return, renormalising over the names that traded.
+def _portfolio_returns(
+    weights: pd.Series,
+    holding: pd.DataFrame,
+    missing_return_policy: str = "zero",
+) -> pd.Series:
+    """Daily portfolio return under an explicit missing-return policy.
 
-    A missing daily return means the ticker did not trade that day. Dropping it
-    and renormalising is equivalent to holding the rest of the book unchanged;
-    treating it as a zero return would silently assume the position was flat.
+    Under the default `zero` policy, a held asset without a print has zero
+    mark-to-market return for that session. Its capital remains invested and the
+    other positions are not implicitly levered or reallocated.
     """
+    if missing_return_policy != "zero":
+        raise ValueError(f"Unsupported missing_return_policy `{missing_return_policy}`.")
     available = holding.reindex(columns=weights.index)
-    mask = available.notna()
-    weight_matrix = mask.mul(weights, axis=1)
-    denominator = weight_matrix.sum(axis=1).replace(0.0, np.nan)
-    return (available.fillna(0.0) * weight_matrix).sum(axis=1) / denominator
+    return available.fillna(0.0).mul(weights, axis=1).sum(axis=1)
 
 
 def _community_labels(

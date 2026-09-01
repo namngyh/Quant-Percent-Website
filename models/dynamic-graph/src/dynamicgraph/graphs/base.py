@@ -32,7 +32,10 @@ class GraphSnapshot:
 
     date: pd.Timestamp
     nodes: list[str]
-    adjacency: np.ndarray           # signed, symmetric, zero diagonal
+    adjacency: np.ndarray           # inference adjacency (backward-compatible view)
+    adjacency_raw: np.ndarray | None = None
+    adjacency_inference: np.ndarray | None = None
+    adjacency_display: np.ndarray | None = None
     layer: str = "partial_correlation"
     window: int = 60
     return_type: str = "residual"
@@ -54,6 +57,26 @@ class GraphSnapshot:
                 f"Adjacency shape {self.adjacency.shape} does not match {len(self.nodes)} nodes."
             )
         np.fill_diagonal(self.adjacency, 0.0)
+        self.adjacency_inference = np.asarray(
+            self.adjacency if self.adjacency_inference is None else self.adjacency_inference,
+            dtype=np.float32,
+        )
+        self.adjacency_raw = np.asarray(
+            self.adjacency_inference if self.adjacency_raw is None else self.adjacency_raw,
+            dtype=np.float32,
+        )
+        self.adjacency_display = np.asarray(
+            self.adjacency_inference if self.adjacency_display is None else self.adjacency_display,
+            dtype=np.float32,
+        )
+        for name in ("adjacency_raw", "adjacency_inference", "adjacency_display"):
+            matrix = getattr(self, name)
+            if matrix.shape != self.adjacency.shape:
+                raise ValueError(f"{name} shape {matrix.shape} does not match adjacency.")
+            np.fill_diagonal(matrix, 0.0)
+        # Statistical consumers using the historical `adjacency` attribute get
+        # the inference graph, never the display-only graph.
+        self.adjacency = self.adjacency_inference
         if self.stability is not None:
             self.stability = np.asarray(self.stability, dtype=np.float32)
         # `metadata['nodes']` duplicates `self.nodes` for every snapshot; keep
@@ -79,13 +102,29 @@ class GraphSnapshot:
         n = self.n_nodes
         return (2.0 * self.n_edges / (n * (n - 1))) if n > 1 else 0.0
 
-    def frame(self) -> pd.DataFrame:
-        return pd.DataFrame(self.adjacency, index=self.nodes, columns=self.nodes)
+    def matrix(self, representation: str = "inference") -> np.ndarray:
+        try:
+            return {
+                "raw": self.adjacency_raw,
+                "inference": self.adjacency_inference,
+                "display": self.adjacency_display,
+            }[representation]
+        except KeyError:
+            raise ValueError(
+                "representation must be one of: raw, inference, display"
+            ) from None
 
-    def edge_list(self, include_zero: bool = False) -> pd.DataFrame:
+    def frame(self, representation: str = "inference") -> pd.DataFrame:
+        return pd.DataFrame(
+            self.matrix(representation), index=self.nodes, columns=self.nodes
+        )
+
+    def edge_list(
+        self, include_zero: bool = False, representation: str = "display"
+    ) -> pd.DataFrame:
         """Upper-triangular edge list with signed / absolute weights."""
         i, j = np.triu_indices(self.n_nodes, k=1)
-        weight = self.adjacency[i, j]
+        weight = self.matrix(representation)[i, j]
         keep = np.ones_like(weight, dtype=bool) if include_zero else weight != 0.0
         stability = (
             self.stability[i, j][keep]
@@ -104,15 +143,19 @@ class GraphSnapshot:
                 "window": self.window,
                 "return_type": self.return_type,
                 "stability": stability,
+                "representation": representation,
             }
         )
 
-    def to_networkx(self, use_absolute: bool = True):
+    def to_networkx(
+        self, use_absolute: bool = True, representation: str = "inference"
+    ):
         """Build a NetworkX graph. `use_absolute` is recorded on the graph so a
         downstream metric can never silently forget which weights it consumed."""
         import networkx as nx
 
-        matrix = self.absolute if use_absolute else self.adjacency
+        selected = self.matrix(representation)
+        matrix = np.abs(selected) if use_absolute else selected
         graph = nx.from_numpy_array(matrix)
         graph = nx.relabel_nodes(graph, {i: n for i, n in enumerate(self.nodes)})
         graph.graph.update(
@@ -122,6 +165,7 @@ class GraphSnapshot:
                 "window": self.window,
                 "return_type": self.return_type,
                 "weights": "absolute" if use_absolute else "signed",
+                "representation": representation,
             }
         )
         # Drop zero-weight edges that `from_numpy_array` materialises.
@@ -137,6 +181,9 @@ class GraphSnapshot:
             "n_nodes": self.n_nodes,
             "n_edges": self.n_edges,
             "density": self.density,
+            "raw_density": _matrix_density(self.adjacency_raw),
+            "inference_density": _matrix_density(self.adjacency_inference),
+            "display_density": _matrix_density(self.adjacency_display),
             "alpha": self.alpha,
             "excluded_nodes": self.excluded_nodes,
             "metadata": self.metadata,
@@ -236,6 +283,8 @@ class SnapshotSeries:
         for snapshot in self.snapshots:
             stamp = snapshot.date.strftime("%Y%m%d")
             arrays[f"A_{stamp}"] = snapshot.adjacency.astype(np.float32)
+            arrays[f"R_{stamp}"] = snapshot.adjacency_raw.astype(np.float32)
+            arrays[f"D_{stamp}"] = snapshot.adjacency_display.astype(np.float32)
             if snapshot.stability is not None:
                 arrays[f"S_{stamp}"] = snapshot.stability.astype(np.float32)
         np.savez_compressed(base.with_suffix(".adj.npz"), **arrays)
@@ -264,12 +313,25 @@ class SnapshotSeries:
             if nodes is None:
                 raise ValueError("Snapshot metadata is missing its node list; rebuild the graphs.")
             adjacency = archive[f"A_{stamp}"].astype(float)
+            raw = (
+                archive[f"R_{stamp}"].astype(float)
+                if f"R_{stamp}" in archive
+                else adjacency
+            )
+            display = (
+                archive[f"D_{stamp}"].astype(float)
+                if f"D_{stamp}" in archive
+                else adjacency
+            )
             stability = archive[f"S_{stamp}"].astype(float) if f"S_{stamp}" in archive else None
             snapshots.append(
                 GraphSnapshot(
                     date=date,
                     nodes=list(nodes),
                     adjacency=adjacency,
+                    adjacency_raw=raw,
+                    adjacency_inference=adjacency,
+                    adjacency_display=display,
                     layer=entry["layer"],
                     window=entry["window"],
                     return_type=entry["return_type"],
@@ -285,3 +347,10 @@ class SnapshotSeries:
             window=meta["window"],
             return_type=meta["return_type"],
         )
+
+
+def _matrix_density(matrix: np.ndarray) -> float:
+    n = matrix.shape[0]
+    if n <= 1:
+        return 0.0
+    return float(np.count_nonzero(np.triu(matrix, 1)) * 2 / (n * (n - 1)))

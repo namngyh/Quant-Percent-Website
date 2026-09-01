@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 def classification_metrics(
     y_true: np.ndarray,
     probabilities: np.ndarray,
-    threshold: float = 0.5,
+    threshold: float | np.ndarray = 0.5,
     n_days: int | None = None,
 ) -> dict[str, Any]:
     """Full classification metric suite for one prediction series."""
@@ -39,21 +39,32 @@ def classification_metrics(
 
     y = np.asarray(y_true, dtype=float)
     p = np.asarray(probabilities, dtype=float)
-    mask = ~np.isnan(y) & ~np.isnan(p)
+    raw_threshold = np.asarray(threshold, dtype=float)
+    if raw_threshold.ndim == 0:
+        thresholds = np.full(y.shape, float(raw_threshold))
+        threshold_policy = "fixed"
+    else:
+        thresholds = raw_threshold.reshape(-1)
+        if thresholds.shape != y.shape:
+            raise ValueError("A threshold array must match y_true and probabilities.")
+        threshold_policy = "per_prediction"
+    mask = ~np.isnan(y) & ~np.isnan(p) & ~np.isnan(thresholds)
     y, p = y[mask], np.clip(p[mask], 1e-7, 1 - 1e-7)
+    thresholds = thresholds[mask]
 
     out: dict[str, Any] = {
         "n": int(y.size),
         "n_positive": int(y.sum()),
         "base_rate": float(y.mean()) if y.size else np.nan,
-        "threshold": float(threshold),
+        "threshold": float(thresholds[0]) if threshold_policy == "fixed" and thresholds.size else np.nan,
+        "threshold_policy": threshold_policy,
     }
     if y.size < 10 or y.sum() == 0 or y.sum() == y.size:
         out["note"] = "degenerate label distribution; most metrics undefined"
         out.update({k: np.nan for k in ("auroc", "auprc", "brier", "log_loss", "mcc")})
         return out
 
-    predicted = (p >= threshold).astype(int)
+    predicted = (p >= thresholds).astype(int)
 
     out["auroc"] = float(roc_auc_score(y, p))
     out["auprc"] = float(average_precision_score(y, p))
@@ -119,13 +130,27 @@ def regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, Any]
     }
 
 
-def confusion_frame(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> pd.DataFrame:
+def confusion_frame(
+    y_true: np.ndarray,
+    probabilities: np.ndarray,
+    threshold: float | np.ndarray,
+) -> pd.DataFrame:
     from sklearn.metrics import confusion_matrix
 
     y = np.asarray(y_true, dtype=float)
     p = np.asarray(probabilities, dtype=float)
-    mask = ~np.isnan(y) & ~np.isnan(p)
-    matrix = confusion_matrix(y[mask], (p[mask] >= threshold).astype(int), labels=[0, 1])
+    raw_threshold = np.asarray(threshold, dtype=float)
+    thresholds = (
+        np.full(y.shape, float(raw_threshold))
+        if raw_threshold.ndim == 0
+        else raw_threshold.reshape(-1)
+    )
+    if thresholds.shape != y.shape:
+        raise ValueError("A threshold array must match y_true and probabilities.")
+    mask = ~np.isnan(y) & ~np.isnan(p) & ~np.isnan(thresholds)
+    matrix = confusion_matrix(
+        y[mask], (p[mask] >= thresholds[mask]).astype(int), labels=[0, 1]
+    )
     return pd.DataFrame(
         matrix,
         index=pd.Index(["actual_no_stress", "actual_stress"], name="actual"),

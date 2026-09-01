@@ -633,38 +633,74 @@ chỉ dùng Bullish/Neutral/Defensive/High Risk/Low Conviction.
 Ngoài ra artifact mới cảnh báo nguồn `D.dat` có `4 row(s) violate low <=
 {open, close} <= high` — cùng loại lỗi với 13 phiên đã phát hiện trong CSV.
 
-### Đường ống đã dựng xong (05/08/2026)
+### Đường ống đã dựng xong (05/08/2026, viết lại 01/09/2026)
 
-Ba script nối model vào database, chạy theo thứ tự sau khi thị trường đóng:
+Bản đầu chỉ chạy **một** mô hình. Ba mô hình còn lại đọc `VNINDEX_Daily.csv`
+tĩnh nằm sẵn trong repo nên không thể chạy hằng ngày; RARF-FHE có sẵn loader
+nhưng chưa từng được gọi, còn DynamicGraph và RAEMF thì chưa có loader.
+
+Nay cả bốn đều có connector Postgres read-only riêng và một **tầng online**:
+tầng này áp các phiên mới lên trạng thái đã lưu và **không train lại gì**.
+`daily-update.bat` chạy tuần tự sau khi đóng phiên:
+
+```
+[1/6] backfill.py daily        -> bars_1d (cả bốn mô hình đều đọc bảng này)
+[2/6] RARF-FHE                 -> sync-source, update-latest
+[3/6] MSDP                     -> sync_source.py, update_latest.py
+[4/6] DynamicGraph             -> update-latest (đọc thẳng DB)
+[5/6] Tempus / RAEMF-VB-MC     -> predict (nạp lại bundle đã fit)
+[6/6] load_model_outputs.py    -> quant.*  +  npm run research:sync
+```
+
+Bốn mô hình độc lập nhau, nên mỗi bước tự bắt lỗi riêng: một mô hình hỏng
+không chặn ba cái còn lại. Mô hình nào hỏng thì bước [6] gọi `--mark-failed`
+cho nó, thay vì để dòng cũ nằm lại trong `quant.model_runs` trông như vừa chạy
+xong — đúng kiểu hỏng âm thầm mà cổng `has_bars_today.py` sinh ra để chặn.
+
+Không còn bước `export_vnindex_daily.py`: mỗi mô hình tự chụp snapshot của
+chính nó và phân biệt được "thêm phiên mới" với "lịch sử bị sửa" — việc mà một
+script ghi đè không làm được. `run_msdp_inference.py` cũng ra khỏi đường ống
+vì nó chạy ensemble "nguội", bỏ qua posterior của cổng Hedge, tức **cùng
+`model_id` nhưng khác số**; giữ lại chỉ để tái lập, không phải để dự phòng.
+
+**Trước lần chạy đầu tiên phải bootstrap.** Tầng online cần một lần chạy tầng
+batch làm gốc. Chưa có thì `update-latest` báo "Chưa có online state" và dừng:
 
 ```powershell
-# 1. Làm mới dữ liệu đầu vào cho model từ database
-backend\.venv\Scripts\python.exe database\scripts\export_vnindex_daily.py --repo-root .
-
-# 2. MSDP: chỉ suy luận, dưới 1 giây
-C:\qpvenv\msdp\Scripts\python.exe database\scripts\run_msdp_inference.py `
-    --model-root models\msdp --out artifacts\msdp_latest.json
-
-# 3. Nạp vào schema quant
-backend\.venv\Scripts\python.exe database\scripts\load_model_outputs.py `
-    --msdp artifacts\msdp_latest.json `
-    --rarf-forecast <output_root>\artifacts\forecasts\latest_forecast_summary.json
+bootstrap-models.bat rarf-fhe        # vài phút
+bootstrap-models.bat dynamic-graph   # nặng, hàng chục phút
+bootstrap-models.bat msdp            # nhanh, chỉ seed state từ bundle có sẵn
+bootstrap-models.bat raemf-mc        # fit hàng giờ, cần venv torch CUDA
 ```
+
+Phải chạy lại cho mô hình nào vừa train lại tầng batch: tầng online bị reset
+theo, và bỏ qua thì `update-latest` vẫn chạy trên state cũ **mà không báo lỗi**.
+
+Môi trường: các mô hình cần `psycopg` + `torch` + `sklearn` + `hmmlearn`. Chỉ
+Python hệ thống (3.13) có đủ; mọi venv cũ (`C:\qpvenv\*`, `.venv` trong từng
+repo) đều **thiếu `psycopg`**. Đặt `QP_MODEL_PYTHON` để trỏ sang bản khác.
 
 `load_model_outputs.py` có `--dry-run` để thử mà không ghi.
 
-Trạng thái `quant` sau lần nạp đầu tiên:
+Trạng thái `quant` sau khi cả bốn chạy được:
 
-| Bảng | Số dòng | Nguồn |
-|---|---|---|
-| `model_forecasts` | 3 | MSDP, horizon 5/20/60, khoảng 90% |
-| `risk_metrics` | 1 | RARF-FHE (VaR/ES) + drawdown và biến động tính từ database |
-| `risk_mc_distribution` | 4 | RARF-FHE `drawdown_probabilities` |
-| `model_runs` | 2 | msdp, rarf-fhe |
-| `market_state` | 0 | chưa map |
-| `stock_rankings` | 0 | **không map được** — xem bên dưới |
+| Bảng | Nguồn |
+|---|---|
+| `model_forecasts` | MSDP, horizon 5/20/60, khoảng 90% |
+| `risk_metrics` | RARF-FHE (VaR/ES) + drawdown và biến động tính từ database |
+| `risk_mc_distribution` | RARF-FHE `drawdown_probabilities` |
+| `model_runs` | cả 4 mô hình, kèm `as_of` trong `note` |
+| `market_state` | chưa map |
+| `stock_rankings` | **không map được** — xem bên dưới |
+
+DynamicGraph và RAEMF chỉ ghi `model_runs`, không ghi `model_forecasts`. Lý do
+khác nhau: mạng lưới của DynamicGraph là tầng **mô tả**, đi tới website bằng
+file chứ không qua schema này; còn payload `predict` của RAEMF không có xác
+suất hướng đi lẫn khoảng hai phía, mà `model_forecasts` bắt buộc cả hai — suy
+ngược `probability_up` từ một cái đuôi VaR một phía là bịa số.
 
 `/api/v1/market/risk` đã trả 200 với dữ liệu thật thay vì 503.
+
 
 ### Bảng xếp hạng cổ phiếu của DynamicGraph
 

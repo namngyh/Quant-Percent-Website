@@ -11,6 +11,7 @@ from dynamicgraph.evaluation.ranking import (
     ic_summary,
     information_coefficient,
     portfolio_turnover,
+    ranking_metrics,
 )
 from dynamicgraph.training.node_ranking import (
     CENTRALITY_FEATURE_NAMES,
@@ -113,24 +114,61 @@ def test_verdict_requires_statistical_significance():
     summary = pd.DataFrame(
         [
             {"feature_set": "node", "ic_ic_mean": 0.010, "ic_ic_t_stat": 0.4},
-            {"feature_set": "node_plus_centrality", "ic_ic_mean": 0.020, "ic_ic_t_stat": 0.9},
+            {
+                "feature_set": "node_plus_centrality",
+                "ic_ic_mean": 0.020,
+                "ic_ic_t_stat": 0.9,
+                "ic_difference": 0.010,
+                "ic_difference_ci_lower": -0.012,
+                "ic_difference_ci_upper": 0.032,
+                "ic_difference_p_adjusted": 0.41,
+            },
         ]
     )
     verdict = node_ranking_verdict(summary)
     assert verdict["verdict"] == "improvement_not_significant"
-    assert "not distinguishable from zero" in verdict["interpretation"]
+    assert "paired IC improvement" in verdict["interpretation"]
 
 
 def test_verdict_accepts_a_significant_improvement():
     summary = pd.DataFrame(
         [
             {"feature_set": "node", "ic_ic_mean": 0.010, "ic_ic_t_stat": 0.5},
-            {"feature_set": "node_plus_neighbor", "ic_ic_mean": 0.045, "ic_ic_t_stat": 3.1},
+            {
+                "feature_set": "node_plus_neighbor",
+                "ic_ic_mean": 0.045,
+                "ic_ic_t_stat": 3.1,
+                "ic_difference": 0.035,
+                "ic_difference_ci_lower": 0.010,
+                "ic_difference_ci_upper": 0.060,
+                "ic_difference_p_adjusted": 0.018,
+            },
         ]
     )
     verdict = node_ranking_verdict(summary)
     assert verdict["verdict"] == "network_features_improve_ranking"
     assert verdict["best_feature_set"] == "node_plus_neighbor"
+
+
+def test_verdict_does_not_confuse_significant_candidate_ic_with_incremental_value():
+    summary = pd.DataFrame(
+        [
+            {"feature_set": "node", "ic_ic_mean": 0.100, "ic_ic_t_stat": 8.0},
+            {
+                "feature_set": "node_plus_neighbor",
+                "ic_ic_mean": 0.110,
+                "ic_ic_t_stat": 9.0,
+                "ic_difference": 0.010,
+                "ic_difference_ci_lower": -0.015,
+                "ic_difference_ci_upper": 0.035,
+                "ic_difference_p_adjusted": 0.72,
+            },
+        ]
+    )
+    verdict = node_ranking_verdict(summary)
+    assert verdict["verdict"] == "improvement_not_significant"
+    assert verdict["best_ic_t_stat"] == 9.0
+    assert verdict["paired_p_adjusted"] == pytest.approx(0.72)
 
 
 def test_verdict_reports_no_improvement():
@@ -181,6 +219,64 @@ def test_build_node_target_ranks_within_each_date():
     # Percentile ranks within a date of 5 assets are {0.2, 0.4, 0.6, 0.8, 1.0}.
     assert np.allclose(sorted(wide.iloc[0].to_numpy()), [0.2, 0.4, 0.6, 0.8, 1.0])
     assert wide.min().min() > 0 and wide.max().max() <= 1.0
+
+
+def test_rank_portfolio_uses_raw_returns_not_percentile_target():
+    dates = pd.bdate_range("2024-01-01", periods=2)
+    tickers = [f"T{i}" for i in range(10)]
+    scores = pd.DataFrame(
+        [np.arange(10, dtype=float), np.arange(10, dtype=float)],
+        index=dates,
+        columns=tickers,
+    )
+    raw_returns = pd.DataFrame(
+        [
+            [-0.10, -0.08, -0.06, -0.04, -0.02, 0.01, 0.02, 0.03, 0.08, 0.12],
+            [-0.05, -0.04, -0.03, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, 0.10],
+        ],
+        index=dates,
+        columns=tickers,
+    )
+    metrics = ranking_metrics(
+        scores, raw_returns, n_buckets=5, cost_bps=0.0, horizon=1
+    )
+    # Top bucket is T8/T9 and bottom bucket is T0/T1.
+    expected_top = np.mean([0.10, 0.08])
+    expected_bottom = np.mean([-0.075, -0.06])
+    expected_spread = expected_top - expected_bottom
+    assert metrics["top_bucket_return"] == pytest.approx(expected_top)
+    assert metrics["bottom_bucket_return"] == pytest.approx(expected_bottom)
+    assert metrics["long_short_spread"] == pytest.approx(expected_spread)
+    assert metrics["cost_adjusted_spread_annualized"] == pytest.approx(expected_spread * 252)
+
+
+def test_raw_return_scale_changes_portfolio_return_but_not_rank_ic():
+    dates = pd.bdate_range("2024-01-01", periods=20)
+    tickers = [f"T{i}" for i in range(10)]
+    rng = np.random.default_rng(81)
+    scores = pd.DataFrame(rng.normal(size=(20, 10)), index=dates, columns=tickers)
+    raw_returns = scores * 0.01
+    base = ranking_metrics(scores, raw_returns, horizon=1, cost_bps=0.0)
+    scaled = ranking_metrics(scores, raw_returns * 7.0, horizon=1, cost_bps=0.0)
+    assert scaled["long_short_spread"] == pytest.approx(base["long_short_spread"] * 7.0)
+    assert scaled["spearman_ic_mean"] == pytest.approx(base["spearman_ic_mean"])
+
+
+def test_long_short_turnover_and_cost_use_portfolio_weights():
+    dates = pd.bdate_range("2024-01-01", periods=2)
+    tickers = [f"T{i}" for i in range(10)]
+    scores = pd.DataFrame(
+        [np.arange(10), np.arange(9, -1, -1)], index=dates, columns=tickers
+    )
+    raw_returns = pd.DataFrame(0.0, index=dates, columns=tickers)
+    metrics = ranking_metrics(scores, raw_returns, horizon=1, cost_bps=25.0)
+    # Both long and short books are fully reversed: normalized one-way
+    # long-short turnover is 2 and traded gross notional is 4.
+    assert metrics["mean_turnover"] == pytest.approx(2.0)
+    assert metrics["estimated_annual_cost"] == pytest.approx(4.0 * 0.0025 * 252)
+    assert metrics["cost_adjusted_spread_annualized"] == pytest.approx(
+        -metrics["estimated_annual_cost"]
+    )
 
 
 def test_ic_t_stat_accounts_for_overlapping_windows():

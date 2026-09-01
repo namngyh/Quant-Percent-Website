@@ -2,13 +2,33 @@ project:
   seed: 55
   pipeline_mode: experimental
   seeds: [11, 22, 33, 44, 55]
-  data_path: data/raw/VNINDEX_Daily.csv
+  data_path: data/raw/VNINDEX_Daily_db.csv
   output_root: .
 data:
   train_fraction: 0.60
   validation_fraction: 0.20
   horizons: [1, 5, 10, 20, 40, 60]
   embargo: 60
+  source:
+    # Read-only market data source. Supported backends: csv, sqlite, duckdb,
+    # postgres. `sync-source` exports this to project.data_path so the batch
+    # tier and the online tier read exactly the same numbers.
+    #
+    # The DSN lives in `.env` (gitignored), never here.
+    backend: postgres
+    dsn_env: VNINDEX_MARKET_DSN
+    table: bars_1d
+    symbol: VNINDEX
+    symbol_column: symbol
+    path: data/raw/VNINDEX_Daily.csv
+    column_map:
+      date: trading_date
+      open: open
+      high: high
+      low: low
+      close: close
+      volume: volume
+    date_unit: null
 features:
   correlation_threshold: 0.995
 hmm:
@@ -39,6 +59,12 @@ conformal:
   minimum_stratum_size: 80
   finite_sample_correction: true
   horizon_label_delay: true
+  adaptive:
+    # Adaptive Conformal Inference (Gibbs & Candes, 2021) for the online tier.
+    # Off by default so `run-all` behaviour is unchanged; turn on for
+    # `update-latest` when intervals should self-widen after miscoverage.
+    enabled: false
+    gamma: 0.02
 simulation:
   paths: 10000
   horizon: 20
@@ -101,3 +127,12 @@ drawdown:
     mdar_quantile_change_tolerance: 0.002
     ced_relative_change_tolerance: 0.02
     stable_batches: 3
+online:
+  enabled: true
+  # null = keep the full price history in the state buffer. build_features has
+  # expanding-window columns (current_drawdown, obv, drawdown_duration), so a
+  # truncated buffer would change feature values; the full history costs a few
+  # seconds and keeps online features identical to the batch tier.
+  lookback_buffer_days: null
+  # null = reuse simulation.paths for the per-session Monte Carlo resample.
+  simulation_paths: null

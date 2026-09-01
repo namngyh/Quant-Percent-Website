@@ -36,8 +36,14 @@ def _log_emissions(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
     )
 
 
-def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
-    """Compute P(S_t | F_t) only; hmmlearn smoothed posteriors are not used."""
+def forward_filter_with_state(model: GaussianHMM, observations: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Forward-filter a batch and also return the final normalized log-alpha.
+
+    The trailing log-alpha is the sufficient statistic the online layer needs to
+    continue the recursion one session at a time without refiltering history.
+    Probabilities stay in the model's raw state order, exactly like
+    :func:`forward_filter`; the economic permutation is applied by callers.
+    """
     emissions = _log_emissions(model, observations)
     transition = np.log(np.maximum(model.transmat_, 1e-12))
     alpha = np.empty_like(emissions)
@@ -48,7 +54,58 @@ def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
         alpha[row] -= logsumexp(alpha[row])
     probabilities = np.exp(alpha)
     assert_probabilities(probabilities)
-    return probabilities
+    return probabilities, alpha[-1]
+
+
+def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
+    """Compute P(S_t | F_t) only; hmmlearn smoothed posteriors are not used."""
+    return forward_filter_with_state(model, observations)[0]
+
+
+def forward_filter_step(
+    model: GaussianHMM,
+    previous_log_alpha: np.ndarray,
+    new_observation_scaled: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Advance the forward recursion by exactly one observation.
+
+    ``previous_log_alpha`` is the normalized log-alpha at t-1 (raw state order),
+    ``new_observation_scaled`` a single row already transformed by the fitted
+    scaler. Returns the new normalized log-alpha and P(S_t | F_t).
+    """
+    observation = np.asarray(new_observation_scaled, dtype=float).reshape(1, -1)
+    emission = _log_emissions(model, observation)[0]
+    transition = np.log(np.maximum(model.transmat_, 1e-12))
+    log_alpha = emission + logsumexp(np.asarray(previous_log_alpha, dtype=float)[:, None] + transition, axis=0)
+    log_alpha -= logsumexp(log_alpha)
+    probabilities = np.exp(log_alpha)
+    assert_probabilities(probabilities[None, :])
+    return log_alpha, probabilities
+
+
+def regime_feature_frame(
+    probabilities: np.ndarray, transition_matrix: np.ndarray, index=None
+) -> pd.DataFrame:
+    """Posterior columns plus the regime features the forests consume.
+
+    Shared by the batch fit and the online session update so the two tiers
+    cannot drift apart on how entropy, run length, expected duration and switch
+    probability are defined. ``probabilities`` must already be in economic
+    order, matching ``transition_matrix``.
+    """
+    probabilities = np.asarray(probabilities, dtype=float)
+    states = probabilities.shape[1]
+    columns = [f"hmm_probability_{position}" for position in range(states)]
+    frame = pd.DataFrame(probabilities, index=index, columns=columns)
+    frame["hmm_entropy"] = -(frame * np.log(frame.clip(lower=1e-12))).sum(axis=1)
+    most_likely = probabilities.argmax(axis=1)
+    runs = pd.Series(most_likely).ne(pd.Series(most_likely).shift()).cumsum()
+    frame["hmm_state_duration"] = pd.Series(most_likely).groupby(runs).cumcount().add(1).to_numpy()
+    diagonal = np.diag(np.asarray(transition_matrix, dtype=float))
+    frame["hmm_expected_duration"] = probabilities @ (1 / np.maximum(1 - diagonal, 1e-6))
+    frame["hmm_transition_probability"] = 1 - probabilities @ diagonal
+    frame["hmm_state"] = most_likely
+    return frame
 
 
 def _economic_order(
@@ -159,20 +216,7 @@ def fit_filtered_hmm(
     order, labels, statistics = _economic_order(probabilities, returns, drawdown, train_index)
     probabilities = probabilities[:, order]
     transition = model.transmat_[np.ix_(order, order)]
-    probability_frame = pd.DataFrame(
-        probabilities, index=features.index, columns=[f"hmm_probability_{index}" for index in range(model.n_components)]
-    )
-    probability_frame["hmm_entropy"] = -(probability_frame * np.log(probability_frame.clip(lower=1e-12))).sum(axis=1)
-    most_likely = probabilities.argmax(axis=1)
-    runs = pd.Series(most_likely).ne(pd.Series(most_likely).shift()).cumsum()
-    probability_frame["hmm_state_duration"] = pd.Series(most_likely).groupby(runs).cumcount().add(1).to_numpy()
-    probability_frame["hmm_expected_duration"] = probability_frame[
-        [f"hmm_probability_{index}" for index in range(model.n_components)]
-    ].to_numpy() @ (1 / np.maximum(1 - np.diag(transition), 1e-6))
-    probability_frame["hmm_transition_probability"] = 1 - probability_frame[
-        [f"hmm_probability_{index}" for index in range(model.n_components)]
-    ].to_numpy() @ np.diag(transition)
-    probability_frame["hmm_state"] = most_likely
+    probability_frame = regime_feature_frame(probabilities, transition, features.index)
     diagnostics = {
         "selected_states": model.n_components,
         "selected_seed": model.random_state,
@@ -181,6 +225,7 @@ def fit_filtered_hmm(
         "transition_matrix": transition.tolist(),
         "expected_duration": (1 / np.maximum(1 - np.diag(transition), 1e-6)).tolist(),
         "economic_labels": labels,
+        "economic_order": order.tolist(),
         "state_statistics_raw": statistics,
         "candidate_models": candidates,
         "warnings": warnings,

@@ -27,6 +27,41 @@ def _snapshot(adjacency: np.ndarray, nodes: list[str] | None = None) -> GraphSna
     )
 
 
+def test_graph_snapshot_keeps_raw_inference_and_display_separate(tmp_path):
+    from dynamicgraph.graphs.base import SnapshotSeries
+
+    nodes = ["A", "B", "C"]
+    raw = np.array(
+        [[0.0, 0.4, 0.2], [0.4, 0.0, 0.1], [0.2, 0.1, 0.0]]
+    )
+    inference = np.array(
+        [[0.0, 0.4, 0.0], [0.4, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    )
+    display = np.array(
+        [[0.0, 0.0, 0.2], [0.0, 0.0, 0.0], [0.2, 0.0, 0.0]]
+    )
+    snapshot = GraphSnapshot(
+        date=pd.Timestamp("2024-01-31"),
+        nodes=nodes,
+        adjacency=inference,
+        adjacency_raw=raw,
+        adjacency_inference=inference,
+        adjacency_display=display,
+        metadata={"nodes": nodes},
+    )
+
+    np.testing.assert_allclose(snapshot.adjacency, inference)
+    np.testing.assert_allclose(snapshot.matrix("raw"), raw)
+    assert snapshot.edge_list().iloc[0]["target"] == "C"
+
+    series = SnapshotSeries([snapshot])
+    series.save(tmp_path)
+    loaded = SnapshotSeries.load(tmp_path, series.key)[0]
+    np.testing.assert_allclose(loaded.adjacency_raw, raw)
+    np.testing.assert_allclose(loaded.adjacency_inference, inference)
+    np.testing.assert_allclose(loaded.adjacency_display, display)
+
+
 def _two_blocks(block_size: int = 5, within: float = 0.6, across: float = 0.02) -> np.ndarray:
     n = 2 * block_size
     adjacency = np.full((n, n), across)

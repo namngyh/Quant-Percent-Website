@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ import pandas as pd
 
 from dynamicgraph.config import DynamicGraphConfig
 from dynamicgraph.logging_config import get_logger
-from dynamicgraph.training.reproducibility import ReproducibilityRecord, set_global_seed
+from dynamicgraph.training.reproducibility import ReproducibilityRecord
 
 logger = get_logger(__name__)
 
@@ -34,12 +34,17 @@ class PipelineState:
     market_features: pd.DataFrame | None = None
     targets: Any = None
     series_by_key: dict[str, Any] = field(default_factory=dict)
+    build_configs: dict[str, Any] = field(default_factory=dict)
     correlations_by_key: dict[str, dict] = field(default_factory=dict)
     metrics_by_key: dict[str, pd.DataFrame] = field(default_factory=dict)
     communities_by_key: dict[str, dict] = field(default_factory=dict)
     node_metric_history: pd.DataFrame | None = None
     stress_model: Any = None
     stress_scores: pd.DataFrame | None = None
+    #: Network-state boundaries estimated on training folds only. Frozen for the
+    #: online tier, which must classify against these and never re-derive them.
+    stress_state_cutoffs: list[float] = field(default_factory=list)
+    stress_state_labels: list[str] = field(default_factory=list)
     folds: list = field(default_factory=list)
     experiment: Any = None
     verdict: dict[str, Any] = field(default_factory=dict)
@@ -48,6 +53,13 @@ class PipelineState:
     node_ranking_verdict: dict[str, Any] = field(default_factory=dict)
     ablation: pd.DataFrame | None = None
     graph_validation: dict[str, pd.DataFrame] = field(default_factory=dict)
+    market_structure_state: pd.DataFrame | None = None
+    node_roles: pd.DataFrame | None = None
+    community_state: pd.DataFrame | None = None
+    structural_breaks: pd.DataFrame | None = None
+    graph_robustness: pd.DataFrame | None = None
+    scenario_report: pd.DataFrame | None = None
+    fitted_graph_spec: Any = None
     allocation: dict[str, Any] | None = None
     allocation_verdict: dict[str, Any] = field(default_factory=dict)
     directed_snapshots: list = field(default_factory=list)
@@ -115,15 +127,17 @@ def stage_features(state: PipelineState, force: bool = False) -> PipelineState:
 # ---------------------------------------------------------------------------
 # Stage 3 - graphs
 # ---------------------------------------------------------------------------
-def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
+def stage_graphs(state: PipelineState, force: bool = False, resume: bool = False) -> PipelineState:
+    from dynamicgraph.graphs.base import SnapshotSeries
     from dynamicgraph.graphs.correlation import correlation_matrix
     from dynamicgraph.graphs.graphical_lasso import select_alpha
     from dynamicgraph.graphs.snapshots import (
         SnapshotBuildConfig,
-        build_snapshot_series,
         training_windows,
     )
-    from dynamicgraph.training.splits import folds_from_config, global_train_mask
+    from dynamicgraph.graphs.specification import FittedGraphSpecification
+    from dynamicgraph.online.incremental import extend_snapshot_series
+    from dynamicgraph.training.splits import folds_from_config
 
     logger.info("=== Stage: graphs ===")
     config = state.config
@@ -149,18 +163,19 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
     logger.info("Training period for all fitted graph choices ends %s.", train_end.date())
 
     alpha = float(graph.graphical_lasso_alpha)
+    alpha_diagnostics = pd.DataFrame()
     if str(graph.graphical_lasso_alpha_selection) != "fixed":
         base_returns = returns_by_type.get(graph.return_type, returns_by_type["raw"])
         try:
             blocks = training_windows(base_returns, int(graph.core_window), train_end, n_windows=10)
-            alpha, diagnostics = select_alpha(
+            alpha, alpha_diagnostics = select_alpha(
                 blocks,
                 graph.graphical_lasso_alpha_grid,
                 method=str(graph.graphical_lasso_alpha_selection),
                 max_density=float(graph.max_graph_density),
             )
-            if not diagnostics.empty:
-                diagnostics.to_csv(
+            if not alpha_diagnostics.empty:
+                alpha_diagnostics.to_csv(
                     config.artifact_path("metrics", "graphical_lasso_alpha_selection.csv"), index=False
                 )
             state.assumptions.append(
@@ -170,6 +185,48 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
         except Exception as exc:
             logger.warning("Alpha selection failed (%s); using the configured value %.4g.", exc, alpha)
 
+    first_fold = state.folds[0] if state.folds else None
+    training_start = (
+        first_fold.train_dates.min() if first_fold is not None else index.min()
+    )
+    validation_start = (
+        first_fold.validation_dates.min() if first_fold is not None else None
+    )
+    validation_end = (
+        first_fold.validation_dates.max() if first_fold is not None else None
+    )
+    state.fitted_graph_spec = FittedGraphSpecification(
+        selected_alpha=alpha,
+        selection_method=str(graph.graphical_lasso_alpha_selection),
+        estimator="graphical_lasso_on_correlation",
+        training_start=str(pd.Timestamp(training_start).date()),
+        training_end=str(pd.Timestamp(train_end).date()),
+        validation_start=(
+            str(pd.Timestamp(validation_start).date())
+            if validation_start is not None
+            else None
+        ),
+        validation_end=(
+            str(pd.Timestamp(validation_end).date())
+            if validation_end is not None
+            else None
+        ),
+        universe_definition=state.bundle.universe.to_dict(),
+        feature_specification={
+            "return_type": str(graph.return_type),
+            "core_layer": str(graph.core_layer),
+            "core_window": int(graph.core_window),
+            "covariance_estimator": str(graph.covariance_estimator),
+            "residualize_market": bool(config.features.residualize_market),
+            "residualize_sector": bool(config.features.residualize_sector),
+            "sector_factor": "leave_one_out",
+        },
+        diagnostics=alpha_diagnostics.to_dict(orient="records"),
+    )
+    state.fitted_graph_spec.save(
+        config.artifact_path("metrics", "fitted_graph_specification.json")
+    )
+
     state.assumptions.append(
         "The graphical lasso is fitted on the CORRELATION matrix rather than the covariance. "
         "Daily return covariances are ~1e-4, so a penalty on the covariance scale would zero every "
@@ -177,9 +234,9 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
         "while alpha becomes comparable across windows and regimes."
     )
     state.assumptions.append(
-        f"Centrality measures that are undefined on negative weights (eigenvector, PageRank, "
-        f"closeness, harmonic, betweenness, clustering, coreness) are computed on |A|. Sign "
-        f"information is preserved separately as positive/negative strength and edge sign ratio."
+        "Centrality measures that are undefined on negative weights (eigenvector, PageRank, "
+        "closeness, harmonic, betweenness, clustering, coreness) are computed on |A|. Sign "
+        "information is preserved separately as positive/negative strength and edge sign ratio."
     )
     if str(config.data.universe_method) == "static_list":
         state.assumptions.append(
@@ -197,6 +254,7 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
         return_types = [t for t in ("residual", "raw") if t in returns_by_type]
 
     graph_dir = config.artifacts_dir / "graphs"
+    convergence_diagnostics: list[dict[str, Any]] = []
     for layer in layers:
         for return_type in return_types:
             returns = returns_by_type.get(return_type)
@@ -218,12 +276,43 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
                     # drives node metrics and the published network snapshot.
                     build.stride = max(build.stride, int(graph.secondary_snapshot_stride))
 
+                # Frozen for the online tier: the penalty and every build
+                # parameter came from training windows only.
+                state.build_configs[key] = build
                 logger.info("Building %s ...", key)
-                series = build_snapshot_series(returns, build)
+                cached = None
+                if resume and not force:
+                    # Reuse persisted snapshots and build only the tail. The
+                    # cache is discarded unless it came from an identical build
+                    # config AND its last snapshot still reproduces exactly.
+                    try:
+                        cached = SnapshotSeries.load(graph_dir, key)
+                    except Exception as exc:
+                        logger.debug("No reusable cache for %s (%s).", key, exc)
+                series, built = extend_snapshot_series(returns, build, cached)
+                if resume:
+                    logger.info("%s: built %d new snapshot(s).", key, built)
                 if not len(series):
                     logger.warning("%s produced no snapshots; skipping.", key)
                     continue
                 state.series_by_key[key] = series
+                for snapshot in series:
+                    if "glasso_converged" not in snapshot.metadata:
+                        continue
+                    convergence_diagnostics.append(
+                        {
+                            "graph_key": key,
+                            "date": str(pd.Timestamp(snapshot.date).date()),
+                            "converged": bool(snapshot.metadata.get("glasso_converged")),
+                            "iterations": snapshot.metadata.get("glasso_n_iter"),
+                            "dual_gap": snapshot.metadata.get("glasso_dual_gap"),
+                            "warning": snapshot.metadata.get("glasso_warning", ""),
+                            "retry_count": snapshot.metadata.get("glasso_retry_count", 0),
+                            "fallback_reason": snapshot.metadata.get(
+                                "glasso_fallback_reason", ""
+                            ),
+                        }
+                    )
 
                 # Correlations for the market-mode / MST / diversification metrics.
                 correlations = {}
@@ -242,6 +331,14 @@ def stage_graphs(state: PipelineState, force: bool = False) -> PipelineState:
                     series.save(graph_dir)
                 except Exception as exc:
                     logger.warning("Could not persist %s (%s).", key, exc)
+
+    state.fitted_graph_spec = replace(
+        state.fitted_graph_spec,
+        convergence_diagnostics=convergence_diagnostics,
+    )
+    state.fitted_graph_spec.save(
+        config.artifact_path("metrics", "fitted_graph_specification.json")
+    )
 
     if state.core_key not in state.series_by_key and state.series_by_key:
         fallback = next(iter(state.series_by_key))
@@ -333,7 +430,148 @@ def stage_network(state: PipelineState) -> PipelineState:
     state.stress_model, state.stress_scores, _ = build_descriptive_stress_score(
         core_metrics, config, train_mask
     )
+    # Freeze the state cutoffs. `classify_state` recomputes them from whatever
+    # mask it is handed, so an online tier calling it without the training mask
+    # would derive thresholds from the full series -- a leak, and the published
+    # label would drift as each new session shifted the quantiles.
+    state.stress_state_cutoffs = [
+        float(
+            state.stress_scores.loc[
+                train_mask.reindex(state.stress_scores.index, fill_value=False), "stress_raw"
+            ].quantile(p)
+        )
+        for p in list(config.stress_score.state_percentiles)
+    ]
+    state.stress_state_labels = list(config.stress_score.state_labels)
     state.stress_scores.to_csv(metric_dir / "stress_score_history.csv")
+    _write_batch_handoff(state, core_key)
+    return state
+
+
+def _write_batch_handoff(state: PipelineState, core_key: str) -> None:
+    """Hand the frozen objects to the online tier (`init-online-state`).
+
+    Nothing is recomputed here; the bundle is what lets a session update run in
+    seconds without reselecting alpha or refitting the stress model.
+    """
+    from dynamicgraph.online.handoff import BatchHandoff, save_batch_handoff
+
+    config = state.config
+    try:
+        path = save_batch_handoff(
+            config.artifacts_dir,
+            BatchHandoff(
+                core_key=core_key,
+                build_configs=dict(state.build_configs),
+                residual_window=int(config.features.residual_window),
+                sector_of=dict(state.bundle.sectors()),
+                seed=int(config.project.seed),
+                metric_history=state.metrics_by_key[core_key].copy(),
+                metric_history_by_key={
+                    key: frame.copy() for key, frame in state.metrics_by_key.items()
+                },
+                stress_model=state.stress_model,
+                run_metadata={
+                    "core_key": core_key,
+                    "last_data_date": str(pd.Timestamp(state.metrics_by_key[core_key].index[-1]).date()),
+                    "config_path": str(getattr(config, "source_path", "")),
+                    "seed": int(config.project.seed),
+                },
+            ),
+        )
+    except Exception as exc:  # the research run must not fail because of the online bundle
+        logger.warning("Không ghi được batch handoff cho tầng online: %s", exc)
+        return
+    logger.info("Batch handoff cho tầng online: %s", path)
+
+
+# ---------------------------------------------------------------------------
+# Structure observatory
+# ---------------------------------------------------------------------------
+def stage_observatory(state: PipelineState) -> PipelineState:
+    """Build the structure-first state, role, community and robustness tables."""
+    if not bool(state.config.modules.structure_analysis):
+        logger.info("Structure analysis disabled by run mode; skipping.")
+        return state
+    from dynamicgraph.observatory import (
+        build_market_structure_state,
+        build_node_roles,
+        build_robustness_report,
+        run_shock_scenario,
+        structural_break_table,
+        track_communities,
+    )
+
+    logger.info("=== Stage: market structure observatory ===")
+    core_key = (
+        state.core_key
+        if state.core_key in state.series_by_key
+        else next(iter(state.series_by_key), None)
+    )
+    if core_key is None:
+        raise RuntimeError("No graph series available for structure analysis.")
+    core_series = state.series_by_key[core_key]
+    communities = state.communities_by_key.get(core_key, {})
+    coverage = getattr(state.bundle.universe, "daily_coverage", None)
+
+    state.graph_robustness = build_robustness_report(
+        state.series_by_key, coverage=coverage
+    )
+    agreement = {}
+    if not state.graph_robustness.empty:
+        agreement = (
+            state.graph_robustness.groupby("date")[
+                "cross_method_rank_correlation"
+            ]
+            .mean()
+            .to_dict()
+        )
+    state.market_structure_state = build_market_structure_state(
+        list(core_series),
+        communities=communities,
+        coverage=coverage,
+        estimator=str(state.config.graph.covariance_estimator),
+        cross_method_agreement=agreement,
+    )
+    state.structural_breaks = structural_break_table(state.market_structure_state)
+    directed = state.spillover_snapshots or state.directed_snapshots
+    state.node_roles = build_node_roles(
+        state.node_metric_history,
+        list(core_series),
+        directed_snapshots=directed,
+        cross_method_agreement=agreement,
+    )
+    state.community_state = track_communities(
+        communities,
+        snapshots=list(core_series),
+        sector_of=state.bundle.sectors(),
+        node_roles=state.node_roles,
+    )
+
+    root = state.config.artifacts_dir
+    state.market_structure_state.to_parquet(
+        root / "market_structure_state.parquet", index=False
+    )
+    state.node_roles.to_parquet(root / "node_roles.parquet", index=False)
+    state.community_state.to_parquet(root / "community_state.parquet", index=False)
+    state.graph_robustness.to_parquet(
+        root / "graph_robustness.parquet", index=False
+    )
+    state.structural_breaks.to_csv(root / "structural_breaks.csv", index=False)
+
+    if bool(state.config.modules.scenario_analysis) and directed:
+        latest = directed[-1]
+        source = latest.out_strength.idxmax()
+        state.scenario_report = run_shock_scenario(
+            latest,
+            {source: 1.0},
+            horizon=5,
+            scenario_type="largest_transmitter_unit_shock",
+            estimator=str(latest.metadata.get("estimator", latest.layer)),
+        )
+        state.scenario_report.to_parquet(
+            root / "scenario_report.parquet", index=False
+        )
     return state
 
 
@@ -348,6 +586,26 @@ def stage_predictive(state: PipelineState) -> PipelineState:
 
     logger.info("=== Stage: predictive baselines ===")
     config = state.config
+    if not bool(config.modules.stress_forecasting):
+        logger.info("Stress forecasting disabled in `%s` mode; skipping.", config.project.mode)
+        state.skipped_modules.append("stress_forecasting (disabled by run mode)")
+        if bool(config.modules.node_return_ranking):
+            if not state.folds:
+                try:
+                    state.folds = folds_from_config(state.market_features.index, config)
+                except ValueError as exc:
+                    logger.error("Cannot run node ranking: %s", exc)
+                    state.node_ranking_verdict = {
+                        "verdict": "inconclusive",
+                        "reason": str(exc),
+                    }
+                    return state
+            _run_node_ranking_stage(state)
+        else:
+            state.skipped_modules.append(
+                "node_return_ranking (disabled by run mode)"
+            )
+        return state
     index = state.market_features.index
 
     graph_features = flatten_graph_metrics(state.metrics_by_key, index)
@@ -389,29 +647,10 @@ def stage_predictive(state: PipelineState) -> PipelineState:
     state.experiment.save(config.artifacts_dir / "predictions")
 
     # ---- cross-sectional node ranking (brief 21.4 / 22) ------------------
-    try:
-        from dynamicgraph.training.node_ranking import (
-            node_ranking_verdict,
-            run_node_ranking,
-            summarize_node_ranking,
-        )
-
-        logger.info("Running cross-sectional node ranking ...")
-        state.node_ranking = run_node_ranking(state, state.folds)
-        state.node_ranking_summary = summarize_node_ranking(state.node_ranking)
-        state.node_ranking_verdict = node_ranking_verdict(state.node_ranking_summary)
-        if state.node_ranking_summary is not None and not state.node_ranking_summary.empty:
-            state.node_ranking_summary.to_csv(
-                config.artifact_path("metrics", "node_ranking.csv"), index=False
-            )
-            for name, result in state.node_ranking.items():
-                result.ic_series.rename("rank_ic").to_csv(
-                    config.artifact_path("metrics", f"node_ranking_ic_{name}.csv")
-                )
-        logger.info("Node ranking verdict: %s", state.node_ranking_verdict.get("verdict"))
-    except Exception as exc:
-        logger.warning("Node ranking stage failed (%s); the rest of the pipeline is unaffected.", exc)
-        state.skipped_modules.append(f"node_ranking: {exc}")
+    if bool(config.modules.node_return_ranking):
+        _run_node_ranking_stage(state)
+    else:
+        state.skipped_modules.append("node_return_ranking (disabled by run mode)")
 
     if bool(config.ablation.enabled):
         logger.info("Running ablation study ...")
@@ -424,6 +663,47 @@ def stage_predictive(state: PipelineState) -> PipelineState:
                     config.artifact_path("metrics", "ablation_group_contributions.csv"), index=False
                 )
     return state
+
+
+def _run_node_ranking_stage(state: PipelineState) -> None:
+    """Run ranking independently of the market-stress forecasting switch."""
+    try:
+        from dynamicgraph.training.node_ranking import (
+            node_ranking_verdict,
+            run_node_ranking,
+            summarize_node_ranking,
+        )
+
+        logger.info("Running cross-sectional node ranking ...")
+        state.node_ranking = run_node_ranking(state, state.folds)
+        state.node_ranking_summary = summarize_node_ranking(state.node_ranking)
+        state.node_ranking_verdict = node_ranking_verdict(
+            state.node_ranking_summary
+        )
+        if (
+            state.node_ranking_summary is not None
+            and not state.node_ranking_summary.empty
+        ):
+            state.node_ranking_summary.to_csv(
+                state.config.artifact_path("metrics", "node_ranking.csv"),
+                index=False,
+            )
+            for name, result in state.node_ranking.items():
+                result.ic_series.rename("rank_ic").to_csv(
+                    state.config.artifact_path(
+                        "metrics", f"node_ranking_ic_{name}.csv"
+                    )
+                )
+        logger.info(
+            "Node ranking verdict: %s",
+            state.node_ranking_verdict.get("verdict"),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Node ranking stage failed (%s); the rest of the pipeline is unaffected.",
+            exc,
+        )
+        state.skipped_modules.append(f"node_ranking: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -523,6 +803,10 @@ def stage_allocation(state: PipelineState) -> PipelineState:
     graphical-lasso sparsity idea carries over unchanged; only the input does.
     """
     config = state.config
+    if not bool(config.modules.allocation_validation):
+        logger.info("Allocation validation disabled in `%s` mode; skipping.", config.project.mode)
+        state.skipped_modules.append("allocation_validation (disabled by run mode)")
+        return state
     allocation = getattr(config, "allocation", None)
     if allocation is not None and not allocation.enabled:
         logger.info("Allocation module disabled; skipping.")
@@ -530,9 +814,9 @@ def stage_allocation(state: PipelineState) -> PipelineState:
         return state
 
     from dynamicgraph.allocation.runner import (
+        _communities_by_date,
         run_allocation_experiment,
         write_allocation_artifacts,
-        _communities_by_date,
     )
 
     logger.info("=== Stage: capital allocation ===")
@@ -544,7 +828,10 @@ def stage_allocation(state: PipelineState) -> PipelineState:
 
     try:
         state.allocation = run_allocation_experiment(
-            returns, config, communities_by_date=_communities_by_date(state)
+            returns,
+            config,
+            communities_by_date=_communities_by_date(state),
+            fitted_graph_spec=state.fitted_graph_spec,
         )
     except Exception as exc:
         logger.warning("Allocation experiment failed (%s); the rest of the run is unaffected.", exc)
@@ -554,8 +841,9 @@ def stage_allocation(state: PipelineState) -> PipelineState:
     write_allocation_artifacts(state.allocation, config.artifacts_dir / "allocation")
     state.allocation_verdict = state.allocation["verdict"]
     state.assumptions.append(
-        "Allocation backtests assume trades execute at the closing price of the "
-        "rebalance date with a linear cost of "
+        "Allocation signals use data through close t, execute at the next close "
+        f"after {state.allocation['config'].execution_lag_sessions} session(s), "
+        "and accrue returns only after execution, with a linear cost of "
         f"{state.allocation['config'].cost_bps_per_side:.0f} bps per side and no "
         "market impact. They ignore foreign-ownership limits and VN30 constituent "
         "changes, both of which would bind for a real book."
@@ -637,10 +925,36 @@ def write_state_summary(state: PipelineState) -> Path:
         "n_folds": len(state.folds),
         "verdict": state.verdict,
         "node_ranking_verdict": state.node_ranking_verdict,
+        "fitted_graph_specification": (
+            state.fitted_graph_spec.to_dict()
+            if state.fitted_graph_spec is not None
+            else None
+        ),
+        "structure_observatory": {
+            "n_state_rows": (
+                len(state.market_structure_state)
+                if state.market_structure_state is not None
+                else 0
+            ),
+            "n_node_role_rows": (
+                len(state.node_roles) if state.node_roles is not None else 0
+            ),
+            "n_community_rows": (
+                len(state.community_state) if state.community_state is not None else 0
+            ),
+            "n_structural_breaks": (
+                len(state.structural_breaks)
+                if state.structural_breaks is not None
+                else 0
+            ),
+        },
         "assumptions": state.assumptions,
         "skipped_modules": state.skipped_modules,
         "gnn": state.gnn_result,
     }
     path = state.config.artifact_path("reports", "run_summary.json")
     path.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
+    from dynamicgraph.outputs.artifact_contract import write_run_manifest
+
+    write_run_manifest(state)
     return path

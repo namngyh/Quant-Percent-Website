@@ -159,13 +159,12 @@ def simulate_stratified_importance(
     **kwargs,
 ) -> ImportanceSamplingResult:
     """Run importance sampling inside initial-state strata and combine by true state mass."""
-    # asarray reuses the caller's buffer when the input is already float64, so
-    # an in-place `/=` normalises the caller's own array. That raises on a
-    # read-only input, and when it does succeed it mutates the shared
-    # `importance_common["current_regime_probability"]` entry that later stages
-    # read. Normalise into a new array instead.
-    probability = np.asarray(current_regime_probability, dtype=float)
-    probability = probability / probability.sum()
+    # `np.asarray` returns the caller's array unchanged when it is already
+    # float64, so the in-place division below would normalise *their* array --
+    # and raises outright when that array is read-only, which is how this
+    # surfaced. `np.array` always copies.
+    probability = np.array(current_regime_probability, dtype=float)
+    probability /= probability.sum()
     remaining = int(paths) - len(probability) * int(minimum_paths_per_regime)
     if remaining < 0:
         raise ValueError("Không đủ paths cho stratified importance sampling")

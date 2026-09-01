@@ -13,16 +13,16 @@ and the word "cause" never appears in generated output.
 
 from __future__ import annotations
 
+from dynamicgraph.explainability.graph import (
+    edge_contributions,
+    node_centrality_contributions,
+    stress_contribution_breakdown,
+)
 from dynamicgraph.explainability.tabular import (
     logistic_coefficients,
     partial_dependence_frame,
     permutation_importance_frame,
     shap_values_frame,
-)
-from dynamicgraph.explainability.graph import (
-    edge_contributions,
-    node_centrality_contributions,
-    stress_contribution_breakdown,
 )
 
 __all__ = [

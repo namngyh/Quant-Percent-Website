@@ -6,7 +6,7 @@ horizon,baseline_metric,value
 5,historical_mean_pinball,0.7564325077382079
 5,ridge_mae,2.4064770029742117
 5,ridge_pinball,0.7872520335053818
-5,logistic_brier,0.2555991740821601
+5,logistic_brier,0.25550133765241595
 5,empirical_mdd_pinball,0.4815640665414627
 5,empirical_volatility_mae,7.570878093062764
 5,return_mae,2.338634555704334
@@ -17,9 +17,9 @@ horizon,baseline_metric,value
 20,historical_frequency_brier,0.2468271180111362
 20,historical_mean_mae,4.746568591063369
 20,historical_mean_pinball,1.60124060153825
-20,ridge_mae,5.579970497377137
+20,ridge_mae,5.579970497377133
 20,ridge_pinball,1.835988483237052
-20,logistic_brier,0.2765391348738108
+20,logistic_brier,0.27650763557507296
 20,empirical_mdd_pinball,0.9738233405690432
 20,empirical_volatility_mae,6.553790250471917
 20,return_mae,4.826386116632886
@@ -30,9 +30,9 @@ horizon,baseline_metric,value
 60,historical_frequency_brier,0.24275912267669944
 60,historical_mean_mae,8.043772121528487
 60,historical_mean_pinball,3.00893481117907
-60,ridge_mae,9.062536669796211
-60,ridge_pinball,3.3087293978361525
-60,logistic_brier,0.2563964614082318
+60,ridge_mae,9.062536669796206
+60,ridge_pinball,3.3087293978361534
+60,logistic_brier,0.2563964614081032
 60,empirical_mdd_pinball,1.5684246672705702
 60,empirical_volatility_mae,4.713211453308864
 60,return_mae,8.229539222328716

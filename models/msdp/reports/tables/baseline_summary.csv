@@ -1,8 +1,8 @@
 baseline_name,metric,value
-MSDP,return_mae_mean,5.3947569049
-zero_point,return_mae_mean,5.1315199649
-historical_mean,return_mae_mean,5.0353440681
-ridge_direct,return_mae_mean,5.6829947234
-MSDP,return_pinball_mean,1.8345085540
-unconditional_empirical_distribution,return_pinball_mean,1.7071182298
-ridge_direct,return_pinball_mean,1.9773233049
+MSDP,return_mae_mean,5.2468318443396065
+zero_point,return_mae_mean,5.131519964888645
+historical_mean,return_mae_mean,5.035344068078816
+ridge_direct,return_mae_mean,5.682994723382516
+MSDP,return_pinball_mean,1.7484127443406046
+unconditional_empirical_distribution,return_pinball_mean,1.7071182298367666
+ridge_direct,return_pinball_mean,1.9773233048595291

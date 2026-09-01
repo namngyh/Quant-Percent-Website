@@ -5,17 +5,15 @@ did, which is why the model sections of the site were empty. This is that
 writer. It takes artifacts the models already produce and maps them onto the
 published tables, one model at a time.
 
-    # refresh model inputs from the database first
-    python database/scripts/export_vnindex_daily.py --repo-root .
+Every model now syncs its own input straight from `bars_1d` and publishes an
+artifact under `models/<slug>/artifacts/`, so this script no longer runs any
+model - it only reads what `daily-update.bat` has just produced:
 
-    # MSDP: distributional forecast, inference only, sub-second
-    C:\\qpvenv\\msdp\\Scripts\\python.exe database/scripts/run_msdp_inference.py \\
-        --model-root models/msdp --out artifacts/msdp_latest.json
-    python database/scripts/load_model_outputs.py --msdp artifacts/msdp_latest.json
+    python database/scripts/load_model_outputs.py         --msdp          models/msdp/artifacts/predictions/latest_forecast.json         --rarf-forecast models/rarf-fhe/artifacts/forecasts/latest_forecast_summary.json         --raemf         models/raemf-mc/artifacts/forecasts/latest_forecast.json         --dynamic-graph models/dynamic-graph/artifacts/latest/latest_dynamicgraph.json
 
-    # RARF-FHE: regime call plus Monte-Carlo risk, full pipeline run
-    python database/scripts/load_model_outputs.py \\
-        --rarf-forecast <output_root>/artifacts/forecasts/latest_forecast_summary.json
+`--dry-run` rolls back instead of committing. `--mark-failed <model_id>` records
+a step that did not finish, so a run that dies halfway cannot leave yesterday's
+row still reading as today's success.
 
 What is deliberately NOT written
 --------------------------------
@@ -28,7 +26,17 @@ DynamicGraph's stress probabilities are also not written. Its own artifact
 grades that layer AUROC 0.49 with a negative Brier skill score and carries the
 warning "Treat the probability as uninformative"; publishing it as a forecast
 would present a rejected result as a signal. Its *descriptive* network state is
-publishable and is what `--dynamic-graph` loads.
+what reaches the site, and it travels as a file rather than through this
+schema: `update-latest` rewrites `artifacts/latest/nodes.json` and `edges.json`,
+and `npm run research:sync` copies them into `frontend/public/research/`.
+`--dynamic-graph` here records the run and its provenance, nothing more.
+
+RAEMF-VB-MC (Tempus) is held back for a different reason. Its `predict` payload
+reports VaR, CVaR and max-drawdown quantiles but no direction probability and no
+two-sided interval, and `quant.model_forecasts` requires both. Deriving
+`probability_up` from a one-sided VaR would be invention, so the run is recorded
+and the forecast row stays unwritten until the model publishes those fields
+itself.
 """
 from __future__ import annotations
 
@@ -135,8 +143,13 @@ def load_msdp(conn, payload: dict, symbol: str = "VNINDEX") -> int:
             """,
             rows,
         )
-    note = "quick artifact" if "quick" in version else None
-    _mark_run(conn, "msdp", generated_at, healthy=True, note=note)
+    note = f"as_of={payload['data_date']}; run={version}"
+    if "quick" in version:
+        # A `quick` run is a few trials, folds and one seed. Publishing its
+        # numbers is exactly what the model's own log warns against, so the
+        # fact travels with the row rather than living only in a log file.
+        note += "; QUICK ARTIFACT - not publication grade"
+    _mark_run(conn, "msdp", generated_at, healthy=True, note=note[:200])
     return len(rows)
 
 
@@ -273,15 +286,102 @@ def load_rarf(conn, payload: dict, symbol: str = "VNINDEX") -> None:
     # whether to turn the Risk tab on.
     status = str(payload.get("drawdown_calibration_status") or "unknown")
     eligible = bool(payload.get("promotion_eligible"))
-    note = f"drawdown {status}; promotion_eligible={eligible}"
+    note = (
+        f"as_of={payload['forecast_origin']}; drawdown {status}; "
+        f"promotion_eligible={eligible}"
+    )
     _mark_run(conn, "rarf-fhe", generated_at, healthy=True, note=note[:200])
     return len(distribution)
+
+
+# --- DynamicGraph ---------------------------------------------------------
+
+
+def load_dynamic_graph(conn, payload: dict) -> str:
+    """Record a DynamicGraph run. No forecast row is written.
+
+    The network state is descriptive, not predictive, and it reaches the site
+    as a file (`nodes.json` / `edges.json` copied by `npm run research:sync`),
+    not through `quant`. What belongs here is the fact that the run happened
+    and what it saw, so `/system-status` can tell a fresh network from a
+    three-week-old one.
+
+    The stress probabilities in the same artifact are read only to be refused:
+    the model grades that layer as no better than the base rate, and a run
+    that carries `confidence_warning` on a horizon says so in the note rather
+    than passing the number on.
+    """
+    model = payload["model"]
+    state = payload["network_state"]
+    as_of = str(model["as_of_date"])
+    generated_at = datetime.now(UTC)
+
+    warned = sorted(
+        horizon
+        for horizon, block in (payload.get("stress_probabilities") or {}).items()
+        if isinstance(block, dict) and block.get("confidence_warning")
+    )
+    note = (
+        f"as_of={as_of}; {state['label']} stress={state['stress_score']}; "
+        f"nodes={payload['universe']['node_count']}; layer={model['graph_layer']}"
+    )
+    if warned:
+        note += f"; stress probabilities withheld ({', '.join(warned)})"
+
+    _mark_run(conn, "dynamic-graph", generated_at, healthy=True, note=note[:200])
+    return as_of
+
+
+# --- RAEMF-VB-MC (Tempus) -------------------------------------------------
+
+
+def load_raemf(conn, payload: dict) -> str:
+    """Record a RAEMF-VB-MC run. No forecast row is written.
+
+    `quant.model_forecasts` needs `probability_up`, `probability_down` and a
+    two-sided interval on every row. This model's `predict` payload publishes
+    neither: its `risk` table is one-sided (VaR and CVaR are loss quantiles)
+    and it reports no direction probability at all. A `probability_up` backed
+    out of a one-sided tail would be a number this model never computed, so
+    the row is left unwritten and the run is recorded instead.
+
+    The model's own caveat list travels into the note, because the reason the
+    forecast is withheld should be visible next to the run, not only in this
+    docstring.
+    """
+    as_of = str(payload["as_of_date"])
+    generated_at = datetime.now(UTC)
+
+    # The longest reported horizon is the one the simulation is configured
+    # around; the shorter rows are slices of the same paths.
+    risk = payload.get("risk") or {}
+    horizon = max(risk, key=lambda h: int(h)) if risk else None
+    tail = ""
+    if horizon:
+        row = risk[horizon]
+        tail = (
+            f"; h={horizon} VaR95={row['VaR_95']:.4f} "
+            f"CVaR95={row['CVaR_95']:.4f} mdd50={row['median_max_drawdown']:.4f}"
+        )
+
+    note = (
+        f"as_of={as_of}; sessions={payload.get('sessions_used')}; "
+        f"paths={(payload.get('monte_carlo') or {}).get('paths')}"
+        f"{tail}; forecast withheld (no direction probability)"
+    )
+    _mark_run(conn, "raemf-mc", generated_at, healthy=True, note=note[:200])
+    return as_of
 
 
 # --- shared ---------------------------------------------------------------
 
 
 def _mark_run(conn, model_id: str, when: datetime, healthy: bool, note: str | None):
+    """Upsert the run row. A failure records the attempt without erasing the
+    last known success: `COALESCE` keeps the stored timestamp when the new one
+    is NULL, so "it broke today, it last worked on the 28th" stays answerable.
+    Writing EXCLUDED straight through would replace that date with NULL and
+    throw away the only evidence of when the model was last right."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -290,7 +390,9 @@ def _mark_run(conn, model_id: str, when: datetime, healthy: bool, note: str | No
             VALUES (%s,%s,%s,%s,%s)
             ON CONFLICT (model_id) DO UPDATE SET
                 last_run_at = EXCLUDED.last_run_at,
-                last_success_at = EXCLUDED.last_success_at,
+                last_success_at = COALESCE(
+                    EXCLUDED.last_success_at, quant.model_runs.last_success_at
+                ),
                 healthy = EXCLUDED.healthy,
                 note = EXCLUDED.note
             """,
@@ -298,34 +400,79 @@ def _mark_run(conn, model_id: str, when: datetime, healthy: bool, note: str | No
         )
 
 
+# Every model the daily session can report on. `--mark-failed` only accepts
+# these, so a typo cannot quietly create a row for a model that does not exist.
+MODEL_IDS = ("msdp", "rarf-fhe", "raemf-mc", "dynamic-graph")
+
+
+def _read(path: str) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn", default=None)
     parser.add_argument("--symbol", default="VNINDEX")
-    parser.add_argument("--msdp", help="MSDP forecast JSON")
+    parser.add_argument("--msdp", help="MSDP latest_forecast.json")
     parser.add_argument("--rarf-forecast", help="latest_forecast_summary.json")
+    parser.add_argument("--raemf", help="RAEMF-VB-MC latest_forecast.json")
+    parser.add_argument("--dynamic-graph", help="latest_dynamicgraph.json")
+    parser.add_argument(
+        "--mark-failed",
+        action="append",
+        default=[],
+        choices=MODEL_IDS,
+        metavar="MODEL_ID",
+        help=(
+            "Record that this model's step did not finish. Repeatable. "
+            "Without it a failed step leaves the previous run's row in place, "
+            "which reads on /system-status as a success."
+        ),
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="Roll back instead of committing"
     )
     args = parser.parse_args()
 
-    if not any((args.msdp, args.rarf_forecast)):
-        parser.error("give at least one of --msdp, --rarf-forecast")
+    sources = (
+        args.msdp, args.rarf_forecast, args.raemf, args.dynamic_graph,
+    )
+    if not any(sources) and not args.mark_failed:
+        parser.error(
+            "give at least one of --msdp, --rarf-forecast, --raemf, "
+            "--dynamic-graph, --mark-failed"
+        )
 
+    failed_at = datetime.now(UTC)
     with psycopg.connect(dsn_from_env(args.dsn)) as conn:
         if args.msdp:
-            payload = json.loads(Path(args.msdp).read_text(encoding="utf-8"))
+            payload = _read(args.msdp)
             n = load_msdp(conn, payload, args.symbol)
             print(f"msdp      : {n} forecast row(s), data_date={payload['data_date']}")
         if args.rarf_forecast:
-            payload = json.loads(
-                Path(args.rarf_forecast).read_text(encoding="utf-8")
-            )
+            payload = _read(args.rarf_forecast)
             buckets = load_rarf(conn, payload, args.symbol)
             print(
                 f"rarf-fhe  : risk row + {buckets} drawdown bucket(s), "
                 f"origin={payload['forecast_origin']}"
             )
+        if args.raemf:
+            as_of = load_raemf(conn, _read(args.raemf))
+            print(f"raemf-mc  : run recorded, as_of={as_of} (no forecast row)")
+        if args.dynamic_graph:
+            as_of = load_dynamic_graph(conn, _read(args.dynamic_graph))
+            print(f"dyn-graph : run recorded, as_of={as_of} (no forecast row)")
+
+        # Failures are marked after the successes so that a model named in
+        # both -- an artifact that loaded but whose step exited non-zero --
+        # ends up flagged rather than green.
+        for model_id in dict.fromkeys(args.mark_failed):
+            _mark_run(
+                conn, model_id, failed_at, healthy=False,
+                note="step did not finish; see logs/daily-update-*.log",
+            )
+            print(f"{model_id:<10}: marked FAILED")
+
         if args.dry_run:
             conn.rollback()
             print("dry run: rolled back")

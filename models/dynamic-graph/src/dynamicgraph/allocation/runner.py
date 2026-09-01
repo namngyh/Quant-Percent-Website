@@ -1,16 +1,16 @@
 r"""Orchestration for the allocation experiment.
 
-The grid is deliberately not a full cross product. Three of the five weight
+The grid is deliberately not a full cross product. Two of the five weight
 rules are functions of the covariance *diagonal* only, and every estimator in
 `covariance.py` keeps the sample standard deviations on the diagonal by
 construction -- so running `inverse_volatility` under four estimators would
 produce four identical return streams and four identical rows in the summary,
 inviting the reader to count the same result four times.
 
-Only `risk_parity` and `minimum_variance` consume off-diagonal structure, so
-only those are crossed with the estimators. That is also where the project's
-claim lives: if the sparse precision matrix is a better description of
-dependence, it has to show up in a rule that uses dependence.
+`risk_parity` and `minimum_variance` are crossed with covariance estimators.
+Community risk parity also consumes off-diagonal structure, but is evaluated
+once with sample covariance so its comparison isolates the incremental graph
+partition rather than mixing partition and covariance-estimator effects.
 """
 
 from __future__ import annotations
@@ -43,8 +43,8 @@ DEFAULT_GRID: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("equal_weight", ("sample",)),
     ("inverse_volatility", ("sample",)),
     ("community_risk_parity", ("sample",)),
-    ("risk_parity", ("sample", "ledoit_wolf", "glasso", "diagonal")),
-    ("minimum_variance", ("sample", "ledoit_wolf", "glasso", "diagonal")),
+    ("risk_parity", ("sample", "ledoit_wolf", "ewma", "glasso", "diagonal")),
+    ("minimum_variance", ("sample", "ledoit_wolf", "ewma", "glasso", "diagonal")),
 )
 
 BENCHMARK_KEY = "equal_weight__sample"
@@ -69,10 +69,13 @@ def run_allocation_experiment(
     log_returns: pd.DataFrame,
     config: Any,
     communities_by_date: Mapping[pd.Timestamp, dict[str, int]] | None = None,
+    fitted_graph_spec: Any | None = None,
     grid: tuple[tuple[str, tuple[str, ...]], ...] = DEFAULT_GRID,
 ) -> dict[str, Any]:
     """Run every (rule, estimator) pair and score them against each other."""
-    backtest_config = AllocationBacktestConfig.from_config(config)
+    backtest_config = AllocationBacktestConfig.from_config(
+        config, fitted_graph_spec=fitted_graph_spec
+    )
     evaluation = getattr(config, "evaluation", None)
     n_bootstrap = int(getattr(evaluation, "bootstrap_iterations", 500) or 500)
     block_length = int(getattr(evaluation, "bootstrap_block_length", 20) or 20)

@@ -1,282 +1,188 @@
 # RAEMF-VB-MC
 
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+Mô hình dự báo xác suất chế độ thị trường (Bull/Sideway/Bear/Stress) và phân phối
+lợi suất VN-Index, dùng MS-EGARCH (Markov-Switching EGARCH 4 trạng thái) ước lượng
+toàn phần bằng Variational Bayes (ADVI), lớp phân loại EBM, tầng scenario-return +
+Monte Carlo, và risk metrics (VaR/CVaR/drawdown).
 
-Regime-Aware Explainable Multi-Horizon Forecasting with Variational Bayes and
-Monte Carlo cho VN-Index.
+Xem `docs/superpowers/specs/` cho thiết kế chi tiết từng sub-project và
+`docs/ms_egarch_design_decisions.md` cho các quyết định thiết kế còn mở.
 
-> **Báo cáo chính:** [TRAIN / VALID / TEST, xác suất bốn regime và quản trị rủi ro](RAEMF_VB_MC_REPORT.md)
+## Cài đặt
 
-Artifact hiện tại dùng dữ liệu đến **13/07/2026**. Live forecast chưa đủ
-20/40/60 phiên để chấm kết quả. Đây là mô hình nghiên cứu, không phải khuyến
-nghị đầu tư.
+Máy phát triển hiện tại: Windows 11, Python 3.13, **NVIDIA RTX 4060 8 GB
+(sm_89, driver CUDA 13.2)**. Dùng venv riêng thay vì Python hệ thống, và
+**bắt buộc cài bản torch CUDA** — bản mặc định trên PyPI là CPU-only:
 
-## Mô hình xuất ra gì?
-
-RAEMF-VB-MC có hai nhóm đầu ra:
-
-1. Xác suất bốn regime từ EBM:
-   `P(Bull)`, `P(Sideway)`, `P(Bear)`, `P(Stress)`.
-2. Phân phối posterior-predictive từ Variational Bayes + Monte Carlo:
-   quantile lợi suất, xác suất âm, VaR, CVaR và xác suất drawdown.
-
-```mermaid
-flowchart LR
-    A[OHLCV nhân quả] --> B[Filtered HMM]
-    B --> C[EGARCH Student-t]
-    C --> D[EBM bốn regime]
-    D --> E[Temperature calibration]
-    E --> F[Variational scenario posterior]
-    F --> G[Posterior-predictive Monte Carlo]
-    G --> H[Return / VaR / CVaR / Drawdown]
+```
+python -m venv .venv
+.venv/Scripts/python -m pip install --index-url https://download.pytorch.org/whl/cu130 torch==2.13.0+cu130
+.venv/Scripts/python -m pip install numpy pandas scipy pyyaml scikit-learn statsmodels pyarrow pytest ruff interpret
+.venv/Scripts/python -m pip install -e . --no-deps
 ```
 
-Variational Bayes chỉ Bayesian hóa scenario return layer. Filtered HMM,
-EGARCH recursion, EBM và calibration vẫn là point-estimate. Monte Carlo không
-bị thay thế: mỗi path lấy một parameter draw từ posterior và giữ draw đó cố
-định trong toàn horizon.
+`--no-deps` ở bước cuối là cố ý: `pip install -e ".[dev]"` sẽ kéo `torch`
+từ PyPI và ghi đè bản CUDA vừa cài bằng bản CPU.
 
-## Dữ liệu và TRAIN / VALID / TEST
+**Lưu ý về worktree**: một venv dùng chung cho nhiều worktree thì editable
+install chỉ trỏ tới MỘT worktree tại một thời điểm. Chuyển worktree phải
+chạy lại `pip install -e . --no-deps` từ worktree đó, nếu không sẽ chạy
+nhầm code của nhánh khác mà không có dấu hiệu gì.
 
-Benchmark VB dùng 6.306 phiên VN-Index từ 28/07/2000 đến 13/07/2026, ba
-expanding outer fold cho mỗi horizon và purge bắt buộc:
-`target_end_date_h < boundary`.
+## Chạy test
 
-| h | TRAIN mỗi fold | VALID mỗi fold | TEST mỗi fold | Tổng TEST |
-| ---: | ---: | ---: | ---: | ---: |
-| 20 | 3.752–5.009 | 608 | 628–629 | 1.886 |
-| 40 | 3.720–4.973 | 586 | 626–627 | 1.880 |
-| 60 | 3.688–4.937 | 564 | 624–625 | 1.874 |
-
-- **TRAIN:** fit feature selector, HMM, EGARCH, EBM và variational posterior.
-  Cả 9/9 posterior fold-fit hội tụ. Không dùng metric in-sample làm headline.
-- **VALID:** chọn/calibrate; không dùng làm final evidence.
-- **TEST:** chỉ chấm sau khi model, prior và calibration đã khóa.
-
-Chi tiết từng fold:
-[fold_metadata.csv](outputs/distribution_oos_vb/fold_metadata.csv).
-
-## Xác suất bốn regime hiện tại
-
-Deployment refit dùng dữ liệu đến 13/07/2026:
-
-| h | Bull | Sideway | Bear | Stress | Bear + Stress | Argmax | Confidence |
-| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 20 | 21,96% | 22,65% | 23,90% | 31,49% | 55,39% | Stress | Uncertain |
-| 40 | 23,27% | 19,08% | 22,49% | 35,16% | 57,65% | Stress | Uncertain |
-| 60 | 23,66% | 22,28% | 18,22% | 35,85% | 54,06% | Stress | Uncertain |
-
-Nguồn máy đọc được:
-[current_predictions.csv](outputs/current_monitor/current_predictions.csv).
-
-![Outlook RAEMF-MC hiện tại](outputs/current_monitor/figures/raemf_current_outlook_vnindex.png)
-
-Stress có xác suất lớn nhất nhưng chưa đạt xác suất đa số. Cả ba horizon đều
-`Uncertain`; không nên đọc argmax như một dự báo chắc chắn.
-
-## Kết quả TEST của classifier
-
-Trung bình ba outer TEST fold:
-
-| h | Macro F1 | Balanced acc. | Brier | Log loss | ECE | Recall Bear | Recall Stress |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 20 | 0,2192 | 0,2360 | 0,7432 | 1,3690 | 0,0817 | 0,0667 | 0,2930 |
-| 40 | 0,2360 | 0,2601 | 0,7382 | 1,3575 | 0,0955 | 0,0840 | 0,2633 |
-| 60 | 0,2183 | 0,2593 | 0,7387 | 1,3578 | 0,1335 | 0,0741 | 0,3533 |
-
-Nhận diện Bear vẫn yếu. Bayesian regime head không thay EBM vì proper score
-tốt hơn nhưng recall Bear/Stress giảm. Xem
-[classification_metrics.csv](outputs/distribution_oos_vb/classification_metrics.csv)
-và [quyết định classifier](outputs/latest/vb_decisions.json).
-
-![Chẩn đoán classifier](outputs/distribution_oos_vb/figures/classification_diagnostics.png)
-
-File có từng ngày TEST, nhãn thực tế và đủ bốn xác suất:
-[predictions_test.csv](outputs/latest/predictions_test.csv). Cần lọc
-`model == "RAEMF-MC"` vì file cũng chứa model đối chứng.
-
-## Kết quả TEST của phân phối VB
-
-M2 là `variational_posterior`; bảng dưới dùng trung bình ba Monte Carlo seed:
-
-| h | CRPS | WIS | Coverage 90% | Coverage 95% | VaR95 violation |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 20 | 0,0335 | 0,0239 | 79,11% | 86,23% | 11,44% |
-| 40 | 0,0476 | 0,0347 | 80,73% | 87,07% | 12,29% |
-| 60 | 0,0537 | 0,0390 | 81,66% | 87,07% | 11,29% |
-
-M2 cải thiện CRPS/WIS so với point estimate với paired moving-block
-bootstrap CI loại 0, nhưng khoảng dự báo quá hẹp: coverage thấp hơn danh nghĩa
-và VaR95 violation cao hơn mức 5% kỳ vọng.
-
-![Proper scores OOS](outputs/distribution_oos_vb/figures/proper_scores_by_horizon.png)
-
-![Calibration khoảng dự báo](outputs/distribution_oos_vb/figures/interval_coverage_calibration.png)
-
-Theo quy tắc đăng ký trước, production default vẫn là `point_estimate`.
-`variational_posterior` tiếp tục được xuất như research output.
-
-## Thông số quản trị rủi ro hiện tại
-
-Variational posterior live, 1.500 Monte Carlo path, forecast origin 13/07/2026:
-
-| h | Median return | Dải 95% | P(return < 0) | P(DD >10%) | VaR95 | CVaR95 |
-| ---: | ---: | --- | ---: | ---: | ---: | ---: |
-| 20 | +0,99% | -4,53% đến +6,59% | 32,60% | 0,27% | 3,17% | 4,97% |
-| 40 | +2,25% | -5,98% đến +10,24% | 25,40% | 1,60% | 4,53% | 6,85% |
-| 60 | +3,32% | -5,15% đến +12,79% | 19,40% | 2,33% | 3,44% | 6,75% |
-
-Nguồn:
-[latest_forecast_vb.json](outputs/latest/latest_forecast_vb.json) và
-[latest_drawdown_risk_vb.csv](outputs/latest/latest_drawdown_risk_vb.csv).
-
-Các số live chưa đáo hạn. Trên TEST, M2 đánh giá thấp tần suất drawdown >10%
-và VaR violation cao; vì vậy không dùng VaR/CVaR M2 làm production risk limit
-trước khi volatility layer được hiệu chỉnh lại.
-
-![Path risk diagnostics](outputs/distribution_oos_vb/figures/path_risk_diagnostics.png)
-
-## Trạng thái production
-
-| Thành phần | Production default | Research |
-| --- | --- | --- |
-| Classifier bốn regime | EBM | Bayesian regime head |
-| Scenario mode | `point_estimate` | `posterior_mean_mc`, `variational_posterior` |
-| Risk limit | Chưa tự động hóa | VaR/CVaR/drawdown artifacts |
-
-<!-- RESULTS_START -->
-
-## Evaluation classifier single-split
-
-Bảng này được tạo từ point-estimate run dùng dữ liệu đến 01/07/2026. Các
-metric chính phía trên từ benchmark ba outer fold được ưu tiên khi kết luận.
-
-| horizon | n_obs | macro_f1 | balanced_accuracy | mcc | brier | log_loss | ece | recall_bull | recall_sideway | recall_bear | recall_stress |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 20 | 1256 | 0.3057 | 0.3118 | 0.1093 | 0.7287 | 1.3451 | 0.0894 | 0.3390 | 0.6075 | 0.0667 | 0.2338 |
-| 40 | 1252 | 0.3006 | 0.3058 | 0.1237 | 0.7261 | 1.3388 | 0.0950 | 0.3907 | 0.6226 | 0.0632 | 0.1467 |
-| 60 | 1248 | 0.2797 | 0.2815 | 0.0557 | 0.7303 | 1.3417 | 0.0681 | 0.3283 | 0.5655 | 0.0286 | 0.2035 |
-
-<!-- RESULTS_END -->
-
-## Cài đặt và chạy lại
-
-```bash
-python -m pip install -e ".[dev,bayesian-core]"
-
-# Point-estimate classifier
-bash scripts/run_laptop.sh
-
-# Full RAEMF-VB-MC
-bash scripts/run_laptop_vb.sh
-
-# Kiểm thử
-conda run -n project python -m pytest -q
+```
+python -m pytest -q
 python -m ruff check src tests scripts
 ```
 
-`scripts/run_laptop_vb.sh` thực hiện data merge, hardware report, benchmark
-OOS M0/M1/M2, benchmark regime head và live forecast. Backend chính là
-PyTorch; PyMC/NUTS chỉ dùng làm validation tham chiếu trên bài toán nhỏ.
+Lưu ý: full suite bao gồm nhiều integration test chạy ADVI/Monte Carlo THẬT trên
+dữ liệu VN-Index thật, không phải mock — mỗi test có thể mất 15-90 phút. Xem
+mục "Trạng thái hiện tại" dưới đây để biết chính xác test nào thuộc branch nào.
 
-## Artifact cần đọc
+---
 
-| Nội dung | File |
-| --- | --- |
-| Báo cáo đầy đủ | [RAEMF_VB_MC_REPORT.md](RAEMF_VB_MC_REPORT.md) |
-| Báo cáo VB OOS gốc | [report.md](outputs/distribution_oos_vb/report.md) |
-| TRAIN/VALID/TEST | [fold_metadata.csv](outputs/distribution_oos_vb/fold_metadata.csv) |
-| Metric classifier TEST | [classification_metrics.csv](outputs/distribution_oos_vb/classification_metrics.csv) |
-| Metric distribution TEST | [distribution_metrics_summary.csv](outputs/distribution_oos_vb/distribution_metrics_summary.csv) |
-| Xác suất bốn regime live | [current_predictions.csv](outputs/current_monitor/current_predictions.csv) |
-| Xác suất bốn regime TEST | [predictions_test.csv](outputs/latest/predictions_test.csv) |
-| Risk live VB | [latest_drawdown_risk_vb.csv](outputs/latest/latest_drawdown_risk_vb.csv) |
-| Quyết định production | [vb_decisions.json](outputs/latest/vb_decisions.json) |
+## Kiến trúc (4 sub-project)
 
-## Giới hạn
+| # | Tên | Mục đích | Trạng thái |
+|---|---|---|---|
+| 1 | Nền tảng + Lõi MS-EGARCH | Ingest dữ liệu, hạ tầng ADVI dùng chung, mô hình MS-EGARCH 4 trạng thái | **Xong, đã merge `master`, đã push GitHub** |
+| 2 | EBM classifier + calibration | Phân loại regime từ đặc trưng OHLCV nhân quả + posterior sigma_t của MS-EGARCH, temperature calibration | **Xong, đã merge `master`, đã push GitHub** |
+| 3 | Scenario-return + Monte Carlo + VaR/CVaR | Fit mu_k theo regime, mô phỏng Monte Carlo tiến, tính VaR/CVaR/drawdown | **Xong, đã merge `main`** (chưa push — xem mục dưới) |
+| 4 | Đánh giá OOS + Model card | Hoàn thiện đánh giá EBM (macro F1, recall Bear/Stress, NLL), walk-forward OOS (CRPS/WIS/Kupiec), model card | **Xong** — xem `docs/model_card.md` |
 
-- Chỉ dùng OHLCV VN-Index; chưa có vĩ mô, breadth, tin tức hoặc thay đổi thành
-  phần chỉ số.
-- Recall Bear thấp trên OOS.
-- Variational posterior hiện under-cover và đánh giá thấp drawdown frequency.
-- Live forecast chưa đáo hạn nên chưa thể chấm đúng/sai.
-- Backtest không phản ánh tracking error, thuế, spread biến thiên hoặc khả
-  năng giao dịch trực tiếp VN-Index.
-- Đây là nghiên cứu mô hình và quản trị rủi ro, không phải khuyến nghị đầu tư.
+---
 
-## Tài liệu kỹ thuật
+## Kết quả (2026-08-24)
 
-- [Phương pháp Variational Bayes](docs/variational_bayes_methodology.md)
-- [Audit kiến trúc](docs/variational_bayes_upgrade_audit.md)
-- [ADVI/NUTS validation](docs/bayesian_validation.md)
-- [Theo dõi forecast hiện tại](docs/current_monitoring.md)
-- [Giải thích cho người không chuyên](outputs/current_monitor/report_for_nonspecialists.md)
+Cả 4 sub-project đã xong và merge vào `main`. **Đọc `docs/model_card.md`
+trước khi diễn giải bất kỳ con số nào dưới đây** — đặc biệt mục 4, nơi liệt
+kê những gì mô hình này CHƯA chứng minh được.
 
-MIT License.
+### Fit MS-EGARCH quy mô nghiên cứu
 
-<!-- CURRENT_MONITOR_START -->
+`configs/gpu_research.yaml`: 6 263 phiên (train 4 384), 8 seed song song,
+1 500 bước ADVI, `n_mc_samples=16`, CPU. Thời gian thật **9,5 giờ**
+(71 phút/seed).
 
-## Theo dõi dự báo RAEMF-MC đến dữ liệu hiện tại
+| | |
+|---|---|
+| `regime_health_report` | **healthy: True** |
+| Occupancy 4 chế độ | 0,3868 · 0,2078 · 0,0997 · 0,3056 |
+| ELBO cuối, 8 seed | 13 175,85 … 13 215,78 (chênh 0,3%) |
+| Seed rơi vào fallback | 0/8 |
+| `nu` theo chế độ | 3,246 · 3,061 · 2,909 · 3,122 |
 
-Dự báo gốc được phát hành sau phiên **2026-07-01** tại VN-Index **1,865.37**. File mới có dữ liệu đến **2026-08-06**, tương đương **26 phiên mới**; VN-Index hiện ở **1,764.78**, thay đổi **-5.39%** so với mức neo dự báo.
+Trước đó, cấu hình smoke cũ cho occupancy `[0,827 · 0,074 · 0,072 · 0,028]`
+và nhãn suy biến hoàn toàn về một lớp (1 049/1 049 phiên).
 
-> **Trạng thái đánh giá:** horizon ngắn nhất là 20 phiên nên hiện chưa có horizon nào đủ ngày để kết luận dự báo lớp đúng hay sai. Các số dưới đây là theo dõi giữa kỳ, không phải điểm accuracy mới. Dữ liệu mới sửa mức đóng cửa 01/07 thêm +0.10% so với file dùng khi phát hành dự báo. Đánh giá vẫn neo tại mức cũ để không sửa dự báo sau khi đã biết dữ liệu mới.
+### Hiệu năng
 
-### Dự báo ngày 01/07 đang diễn biến thế nào?
+Một bước ADVI, T=1 500, `n_mc=16`, trên RTX 4060 (WDDM) + CPU 16 nhân:
 
-| Horizon | Đã quan sát | Còn lại | Dự báo 01/07 | Trạng thái chấm | Lợi suất tạm thời | Vị trí trong dải |
-| --- | ---: | ---: | --- | --- | ---: | --- |
-| 20 phiên | 20 | 0 | Sideway (đi ngang) | Đã đủ phiên để chấm cuối kỳ | -8.61% | Đuôi thấp của vùng 95% |
-| 40 phiên | 26 | 14 | Sideway (đi ngang) | Đang theo dõi, chưa đủ phiên | -5.39% | Trong vùng 80% |
-| 60 phiên | 26 | 34 | Sideway (đi ngang) | Đang theo dõi, chưa đủ phiên | -5.39% | Trong vùng 80% |
+| Đường | s/bước |
+|---|---|
+| CUDA eager | 9,618 |
+| CPU | 2,172 |
+| **CUDA graph** | **0,204** |
 
-![RAEMF-MC 20 phiên và VN-Index thực tế](outputs/current_monitor/figures/raemf_forecast_vs_actual_20.png)
+Toàn bộ khoảng cách GPU/CPU của dự án này là overhead phát kernel (~42 µs
+eager so với ~1,5 µs graph), không phải tính toán. Chi tiết:
+`docs/perf_batching_notes.md`.
 
-![RAEMF-MC 40 phiên và VN-Index thực tế](outputs/current_monitor/figures/raemf_forecast_vs_actual_40.png)
+### Ba điều phải biết trước khi dùng số liệu
 
-![RAEMF-MC 60 phiên và VN-Index thực tế](outputs/current_monitor/figures/raemf_forecast_vs_actual_60.png)
+1. **Walk-forward OOS chưa có sức mạnh thống kê.** 8 mốc, p=0,05 → số vi
+   phạm kỳ vọng 0,4. Kiểm định Kupiec ở cỡ mẫu này xác nhận công thức chạy
+   đúng, không xác nhận mô hình hiệu chỉnh đúng.
+2. **Nhãn chế độ đã đổi nghĩa** — "chế độ nào hoạt động bất thường so với
+   mức thường của nó", không phải "chế độ nào khả năng cao nhất".
+3. **VaR/CVaR chưa đáng tin.** `nu ≈ 3` nên kurtosis vẫn vô hạn (cần
+   `nu > 4`).
 
-Ba hình chỉ trả lời một câu hỏi giữa kỳ: đường VN-Index thực tế đang nằm ở đâu trong phân phối kịch bản RAEMF-MC đã tạo trước đó. Nằm trong dải không đồng nghĩa dự báo hướng đã đúng; kết luận lớp chỉ có thể chấm khi đủ 20, 40 hoặc 60 phiên.
+### Việc còn lại, không nằm trong 4 sub-project
 
-### RAEMF-MC báo cáo gì tại 2026-08-06?
+Lưu/tải mô hình, CLI orchestration, đường nạp dữ liệu sống. Ba mảnh này bắt
+buộc để vận hành thật và chưa mảnh nào tồn tại — xem `docs/model_card.md`
+mục 4.8.
 
-**Xác suất trạng thái**
+---
 
-| Horizon | Bull | Sideway | Bear | Stress | Lớp xác suất cao nhất | Độ tin cậy |
-| --- | ---: | ---: | ---: | ---: | --- | --- |
-| 20 phiên | 22.7% | 29.5% | 24.6% | 23.2% | Sideway (đi ngang) | Không chắc chắn |
-| 40 phiên | 20.3% | 35.7% | 25.3% | 18.8% | Sideway (đi ngang) | Không chắc chắn |
-| 60 phiên | 19.4% | 36.8% | 23.0% | 20.8% | Sideway (đi ngang) | Không chắc chắn |
+## Rủi ro / giới hạn đã biết (tổng hợp xuyên suốt dự án)
 
-**Phân phối mức điểm và rủi ro**
+- **~~CPU-only, chưa kiểm chứng GPU~~ — ĐÃ GIẢI QUYẾT (2026-08-20)**: đường
+  GPU đã được chạy thật trên RTX 4060 và đã có test (`tests/runtime/test_cuda_device_path.py`).
+  Một bug thật đã được tìm ra và sửa (`torch.randint` thiếu `device=`). Bài
+  học: thread `device` qua từng lời gọi cấp phát là cần nhưng **chưa đủ** —
+  các hàm nhận `generator` mà tự cấp phát tensor bên trong là một lớp lỗi
+  riêng mà review tĩnh trên máy CPU-only không thể bắt. Xem "Chuyện GPU" ở
+  trên về việc `auto` là lựa chọn SAI cho tầng ADVI.
+- **Không walk-forward re-fit thật** ở sub-project 1/2/3 — MS-EGARCH được fit
+  MỘT LẦN trên toàn bộ cửa sổ, không refit theo từng fold như một walk-forward
+  sản xuất thật sự cần. Sub-project 4 có xây walk-forward NHƯNG chỉ ở quy mô
+  smoke (5-10 mốc, ADVI rất nhẹ) — không phải benchmark thống kê đáng tin.
+- **Nhãn regime suy biến — đã khoanh vùng và xử lý một phần (2026-08-20)**:
+  triệu chứng nặng hơn ghi chép cũ (1049/1049 phiên cùng một nhãn, không phải
+  >95%). Bốn giả thuyết đã bị **thí nghiệm bác bỏ**: (a) không phải do vector
+  hoá — nhánh gốc cũng hỏng cùng bệnh; (b) không sửa được bằng cách chạy ADVI
+  lâu hơn — `n_steps`=1200 suy biến ngang 300; (c) không phải `beta` không
+  dừng; (d) `nu` sát sàn là nguyên nhân THẬT nhưng THỨ YẾU — siết `nu` về ~6
+  xoá được ca đơn-lớp nhưng nhãn vẫn bị một lớp chiếm 95%+. Thủ phạm chính là
+  `argmax`, đã xử lý (xem "Nhãn regime đã đổi nghĩa" ở trên).
+  **Còn tồn tại**: `nu` vẫn rơi xuống sàn một cách hệ thống (2,15–2,21 trên cả
+  ba seed) — chưa siết prior vì đó là quyết định mô hình cần đi qua spec. Và
+  lớp `Bull` chỉ có 2 mẫu train, 0 mẫu val/test: **taxonomy 4 chế độ vẫn chưa
+  được dữ liệu chống đỡ**, thực chất đang là bài toán ba lớp.
+- **Một phần posterior MS-EGARCH nằm ngoài vùng ổn định (`|beta|<1`)**: prior
+  chỉ là ràng buộc mềm (Normal(0.9, 0.15)), không phải constraint cứng — đã
+  xác nhận thật qua debug sub-project 3 (37% draw/state trong một fit thử
+  nghiệm không stationary). Tầng scenario-return đã xử lý an toàn (không "nổ"
+  số), nhưng đây vẫn là dấu hiệu fit chưa hội tụ tốt, không phải đã giải quyết
+  tận gốc (giải pháp dùng constraint cứng như `beta=tanh(beta_raw)` thuộc
+  phạm vi sub-project 1, chưa làm).
+  **Đính chính (2026-08-20)**: ràng buộc cứng này KHÔNG phải chìa khoá cho
+  VaR/CVaR phi lý. Một fit đo trực tiếp trên cửa sổ `ebm_smoke` có
+  `beta` = 0,717 / 0,703 / 0,745 / 0,744 — **toàn bộ nằm trong vùng dừng** —
+  và `clamp_saturation_fraction` = 0. Thủ phạm là `nu` = 2,206 sát sàn 2,05
+  (Student-t kurtosis vô hạn khi nu < 4). Hai vấn đề khác nhau, không cùng gốc.
+- **Chưa có lưu/tải model (persistence)**: mỗi lần chạy đều fit lại từ đầu,
+  không serialize posterior ra đĩa. **Đây là thứ chặn việc vận hành thật**:
+  với mô hình đã fit sẵn, một lần cập nhật hằng ngày chỉ tốn ~4 giây (bộ lọc
+  0,52 s + đặc trưng posterior ~0,6 s + Monte Carlo 500 path 2,49 s), nhưng
+  vì không tách được "fit" khỏi "predict" nên thực tế mỗi lần chạy tối thiểu
+  ~9 phút. Cùng với CLI và đường nạp dữ liệu sống, đây là ba mảnh hạ tầng
+  bắt buộc để vận hành mà **không mảnh nào nằm trong 4 sub-project hiện tại**.
+- **Chưa có CLI/pipeline orchestration**: chỉ chạy được qua test script, chưa
+  có lệnh đơn lẻ kiểu `raemf-mc predict --date today`.
+- **Chỉ tần suất ngày (daily)**: không có đặc trưng/mô hình intraday, dù dữ
+  liệu 5 phút có sẵn cho VNINDEX — xem ghi chú trong lịch sử brainstorm
+  (`docs/superpowers/specs/`) về lý do (regime kinh tế không vận hành ở tần
+  số 5 phút, và cần xử lý seasonality trong ngày riêng nếu mở rộng sau này).
+- **Không so sánh baseline**: quyết định chủ đích từ sub-project 1 — MS-EGARCH
+  là hệ thống mới hoàn toàn, benchmark chỉ đánh giá nội tại (CRPS/WIS/coverage),
+  không so sánh "tốt hơn mô hình cũ" vì mô hình cũ chưa tồn tại.
 
-| Horizon | Trung vị cuối kỳ | Dải 90% cuối kỳ | P(lợi suất dương) | P(drawdown >10%) | VaR 95% |
-| --- | ---: | --- | ---: | ---: | ---: |
-| 20 phiên | 1,753 | 1,553 - 1,971 | 44.5% | 15.4% | 12.8% |
-| 40 phiên | 1,769 | 1,459 - 2,148 | 51.3% | 28.5% | 19.0% |
-| 60 phiên | 1,771 | 1,199 - 2,571 | 51.8% | 41.7% | 38.7% |
+## Cấu trúc thư mục chính
 
-Tại cả ba horizon, `Sideway` là lớp có xác suất cao nhất nhưng chỉ ở mức 29.5%-36.8%, chưa phải xác suất đa số, và độ tin cậy đều là `Uncertain`. Trong khi đó trung vị Monte Carlo tương ứng là -0.7%, +0.2% và +0.4%. Bộ phân loại trạng thái và bộ mô phỏng đường giá là hai thành phần khác nhau; mọi sự lệch giữa hai đầu ra phải được đọc là dấu hiệu bất định, không phải dự báo chắc chắn theo một hướng.
-
-![Outlook RAEMF-MC hiện tại với VN-Index](outputs/current_monitor/figures/raemf_current_outlook_vnindex.png)
-
-RAEMF-MC không dự đoán một điểm VN-Index chính xác. Mô hình báo cáo xác suất của bốn trạng thái tăng, đi ngang, giảm và căng thẳng; dải mức chỉ số có điều kiện; xác suất lợi suất dương/âm; cùng rủi ro đuôi và drawdown theo từng horizon.
-
-### Cách đọc cho người không chuyên
-
-- `Bull`, `Sideway`, `Bear`, `Stress` là bốn kịch bản thị trường, không phải lệnh mua hoặc bán.
-- Cột xác suất cho biết mô hình đang phân bổ niềm tin như thế nào; các xác suất gần nhau nghĩa là mô hình chưa chắc chắn.
-- Dải 50%, 80% và 95% càng rộng thì bất định càng lớn. Đây là kịch bản mô phỏng, không phải cam kết VN-Index sẽ nằm trong dải.
-- Chỉ chấm đúng/sai cho horizon khi đủ số phiên tương ứng. Theo dõi vài phiên đầu chỉ cho biết quỹ đạo đang ở đâu, chưa đo được năng lực dự báo cuối kỳ.
-
-### Hạn chế
-
-- Mô hình chỉ dùng lịch sử OHLCV VN-Index; chưa có lãi suất, tỷ giá, vĩ mô, market breadth, tin tức hay thay đổi thành phần chỉ số.
-- Deployment refit dùng tham số đã khóa từ nghiên cứu trước, nhưng HMM, EGARCH và EBM vẫn có thể bị regime drift khi thị trường đổi cấu trúc.
-- Monte Carlo phụ thuộc giả định HMM, EGARCH Student-t và cách tái trọng số bằng xác suất EBM; đuôi phân phối có thể rất rộng.
-- VN-Index không phải tài sản có thể giao dịch trực tiếp theo giả định đơn giản; phần này không phải backtest chiến lược và không phải lời khuyên đầu tư.
-
-Báo cáo đầy đủ cho người không chuyên: [current monitor report](outputs/current_monitor/report_for_nonspecialists.md).
-
-<!-- CURRENT_MONITOR_END -->
+```
+src/raemf_mc/
+  data/            # ingest + làm sạch VNINDEX_Daily.csv (sub-project 1)
+  features/        # log returns, đặc trưng nhân quả OHLCV (sub-project 1, 2)
+  bayesian/        # hạ tầng ADVI dùng chung + prior (sub-project 1)
+  regime/          # MS-EGARCH, state alignment, posterior features (sub-project 1, 2)
+  models/          # EBM classifier + calibration (sub-project 2)
+  scenario/        # fit mu_k + mô phỏng Monte Carlo (sub-project 3, trên branch scenario-mc-var)
+  risk/            # VaR/CVaR/drawdown (sub-project 3, trên branch scenario-mc-var)
+  evaluation/      # metric phân loại, CRPS/WIS, Kupiec, walk-forward OOS (sub-project 4)
+  validation/      # split, leakage checks (dùng chung)
+configs/           # các profile ADVI (cpu_smoke, ebm_smoke, mc_smoke, gpu_research-stub)
+docs/
+  superpowers/specs/    # thiết kế chi tiết từng sub-project
+  superpowers/plans/    # implementation plan từng sub-project
+  perf_batching_notes.md # số đo hiệu năng CPU/GPU thật + điểm giao + việc chưa làm
+  sdd-records/          # ledger + báo cáo debug của sub-project 3
+  model_card.md         # ĐỌC TRƯỚC khi diễn giải bất kỳ số liệu nào
+scripts/
+  run_research_fit.py   # fit quy mô nghiên cứu + báo cáo sức khoẻ, --parallel
+results/                # báo cáo JSON của các lần chạy nghiên cứu
+```

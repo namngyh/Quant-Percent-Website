@@ -75,6 +75,62 @@ def fit_arch_candidate(
         }
 
 
+EGARCH_EXPECTED_ABSOLUTE = 0.8
+LOG_VARIANCE_BOUND = 20.0
+
+
+def egarch_parameters(parameters: dict[str, float]) -> tuple[float, float, float, float, float]:
+    """Return (omega, alpha, gamma, beta, mu) with the same defaults the batch fit uses."""
+    return (
+        float(parameters.get("omega", -0.1)),
+        float(parameters.get("alpha[1]", 0.1)),
+        float(parameters.get("gamma[1]", 0.0)),
+        float(np.clip(parameters.get("beta[1]", 0.9), 0.0, 0.998)),
+        float(parameters.get("mu", 0.0)),
+    )
+
+
+def egarch_step(
+    parameters: dict[str, float],
+    log_variance_previous: float,
+    previous_return_percent: float,
+    model_name: str,
+) -> tuple[float, float]:
+    """Advance the conditional log-variance recursion by exactly one session.
+
+    ``previous_return_percent`` is the raw return at t-1 expressed in percent
+    (``r * 100``); the constant mean ``mu`` — which ``arch`` also reports in
+    percent — is subtracted inside, matching :func:`fit_egarch_student_t`.
+    Returns ``(log_variance_t, standardized_residual_{t-1})``.
+    """
+    omega, alpha, gamma, beta, mean = egarch_parameters(parameters)
+    demeaned = float(previous_return_percent) - mean
+    standardized = demeaned / np.sqrt(np.exp(log_variance_previous))
+    if str(model_name).startswith("EGARCH"):
+        log_variance = (
+            omega
+            + beta * log_variance_previous
+            + alpha * (abs(standardized) - EGARCH_EXPECTED_ABSOLUTE)
+            + gamma * standardized
+        )
+    else:
+        variance = omega + alpha * demeaned**2 + beta * np.exp(log_variance_previous)
+        log_variance = np.log(max(variance, 1e-8))
+    return float(np.clip(log_variance, -LOG_VARIANCE_BOUND, LOG_VARIANCE_BOUND)), float(standardized)
+
+
+def ewma_volatility_fallback(values: pd.Series) -> np.ndarray:
+    """EWMA volatility used whenever the parametric branch is rejected."""
+    return (
+        values.ewm(span=40, adjust=False, min_periods=5)
+        .std()
+        .fillna(values.expanding(2).std())
+        .fillna(1e-4)
+        .clip(lower=1e-6)
+        .to_numpy()
+    )
+
+
 def standardized_student_t(
     rng: np.random.Generator, degrees_of_freedom: float, size: int | tuple[int, ...]
 ) -> np.ndarray:
@@ -105,12 +161,12 @@ def fit_egarch_student_t(returns: pd.Series, train_index: np.ndarray) -> Volatil
         result = _fit_model(train_percent, "EGARCH")
         if result.convergence_flag != 0:
             raise RuntimeError(f"convergence_flag={result.convergence_flag}")
-        egarch_parameters = result.params
+        candidate_parameters = result.params
         if (
-            float(egarch_parameters.get("nu", 8.0)) <= 2.1
-            or abs(float(egarch_parameters.get("alpha[1]", 0.0))) > 5
-            or abs(float(egarch_parameters.get("gamma[1]", 0.0))) > 5
-            or abs(float(egarch_parameters.get("mu", 0.0))) > 5
+            float(candidate_parameters.get("nu", 8.0)) <= 2.1
+            or abs(float(candidate_parameters.get("alpha[1]", 0.0))) > 5
+            or abs(float(candidate_parameters.get("gamma[1]", 0.0))) > 5
+            or abs(float(candidate_parameters.get("mu", 0.0))) > 5
         ):
             raise RuntimeError("EGARCH parameters outside plausibility guardrails")
         model_name = "EGARCH(1,1) Student-t"
@@ -126,57 +182,27 @@ def fit_egarch_student_t(returns: pd.Series, train_index: np.ndarray) -> Volatil
             fallback = "EWMA"
             model_name = fallback
     if result is None:
-        sigma = (
-            values.ewm(span=40, adjust=False, min_periods=5)
-            .std()
-            .fillna(values.expanding(2).std())
-            .fillna(1e-4)
-            .clip(lower=1e-6)
-            .to_numpy()
-        )
+        sigma = ewma_volatility_fallback(values)
         standardized = (values / sigma).clip(-20, 20).to_numpy()
         parameters: dict[str, float] = {"nu": 8.0}
         converged = False
     else:
         parameters = {str(key): float(value) for key, value in result.params.items()}
-        omega = parameters.get("omega", -0.1)
-        alpha = parameters.get("alpha[1]", 0.1)
-        gamma = parameters.get("gamma[1]", 0.0)
-        beta = float(np.clip(parameters.get("beta[1]", 0.9), 0.0, 0.998))
-        mean = parameters.get("mu", 0.0)
+        mean = egarch_parameters(parameters)[4]
         log_variance = np.full(len(values), np.log(max(train_percent.var(), 1e-4)))
         standardized = np.zeros(len(values))
-        expected_absolute = 0.8
         for row in range(1, len(values)):
-            previous = (values.iloc[row - 1] * 100 - mean) / np.sqrt(np.exp(log_variance[row - 1]))
-            standardized[row - 1] = previous
-            if model_name.startswith("EGARCH"):
-                log_variance[row] = (
-                    omega
-                    + beta * log_variance[row - 1]
-                    + alpha * (abs(previous) - expected_absolute)
-                    + gamma * previous
-                )
-            else:
-                variance = (
-                    omega + alpha * (values.iloc[row - 1] * 100 - mean) ** 2 + beta * np.exp(log_variance[row - 1])
-                )
-                log_variance[row] = np.log(max(variance, 1e-8))
-            log_variance[row] = np.clip(log_variance[row], -20, 20)
+            # Single source of truth for the recursion, shared with the online layer.
+            log_variance[row], standardized[row - 1] = egarch_step(
+                parameters, log_variance[row - 1], float(values.iloc[row - 1] * 100), model_name
+            )
         standardized[-1] = (values.iloc[-1] * 100 - mean) / np.sqrt(np.exp(log_variance[-1]))
         sigma = np.sqrt(np.exp(log_variance)) / 100
         converged = result.convergence_flag == 0
         empirical_scale = float(values.iloc[train_index].std())
         if not np.isfinite(sigma).all() or np.median(sigma) > max(0.20, 10 * empirical_scale):
             warnings.append("Conditional volatility outside plausibility guardrails; dùng EWMA")
-            sigma = (
-                values.ewm(span=40, adjust=False, min_periods=5)
-                .std()
-                .fillna(values.expanding(2).std())
-                .fillna(1e-4)
-                .clip(lower=1e-6)
-                .to_numpy()
-            )
+            sigma = ewma_volatility_fallback(values)
             standardized = (values / sigma).clip(-20, 20).to_numpy()
             fallback = "EWMA after volatility guardrail"
             model_name = fallback

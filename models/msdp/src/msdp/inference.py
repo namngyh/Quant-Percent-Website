@@ -29,7 +29,28 @@ def load_production_bundle(model_or_manifest):
     if len(states)!=len(manifest["seeds"]): raise ValueError("Production manifest seed/model count mismatch")
     return manifest,states,root
 
-def predict_latest_ensemble(data_path,model_or_manifest):
+def _seed_outputs(model,x,hedge):
+    """One seed's raw outputs, with the online gate posterior fused in if present.
+
+    The network is run twice on purpose. `gate_override` needs the posterior,
+    and the posterior needs this seed's own prior - each seed learned a
+    different gate, so reusing one seed's prior for all of them would fuse the
+    wrong weights. Two forward passes on a single sample cost microseconds.
+    """
+    with torch.no_grad():
+        out=model(x)
+        if hedge is None: return out
+        posterior=hedge.posterior_matrix(out["gate_prior"][0].numpy())
+        return model(x,gate_override=torch.as_tensor(posterior[None],dtype=out["gate_weights"].dtype))
+
+def predict_latest_ensemble(data_path,model_or_manifest,hedge=None,calibrator=None):
+    """Latest per-horizon forecast from the frozen production ensemble.
+
+    `hedge` and `calibrator` default to None, which reproduces the batch
+    behaviour exactly: the trained gate and the static CQR calibrator saved with
+    the bundle. The online tier passes its `HedgeGateState` and its adaptive
+    calibrator instead; neither touches a network weight.
+    """
     manifest,states,root=load_production_bundle(model_or_manifest); df=load_market_data(data_path); features,_=build_features(df); expected=manifest["feature_order"]
     if any(c not in features for c in expected): raise ValueError("Feature order mismatch; required feature is absent")
     features=features[expected]; lookback=int(manifest["lookback"])
@@ -37,9 +58,10 @@ def predict_latest_ensemble(data_path,model_or_manifest):
     feature_scaler=joblib.load(_resolve(root,manifest["feature_scaler_path"])); target_scalers=joblib.load(_resolve(root,manifest["target_scalers_path"])); x=torch.tensor(feature_scaler.transform(features)[-lookback:][None],dtype=torch.float32); seed_predictions=[]
     for state in states:
         model=MSDP(**manifest["model_args"]); model.load_state_dict(state); model.eval()
-        with torch.no_grad(): scaled={k:v.numpy() for k,v in model(x).items() if k not in {"expert_latents","context","direction_logits"}}
+        scaled={k:v.numpy() for k,v in _seed_outputs(model,x,hedge).items() if k not in {"expert_latents","context","direction_logits"}}
         seed_predictions.append(target_scalers.inverse_predictions(scaled))
-    ensemble=average_predictions(seed_predictions); calibrator=joblib.load(_resolve(root,manifest["calibration_path"])); lower,upper=calibrator.transform_all_horizons(ensemble["return_quantiles"][:,:,0],ensemble["return_quantiles"][:,:,-1]); dispersions=latest_seed_dispersions(seed_predictions); reference=joblib.load(_resolve(root,manifest["confidence_reference_path"])); latest_feature=features.iloc[-1]; distance=float(np.sqrt(np.nanmean(((latest_feature-reference["development_median"])/reference["development_iqr"])**2))); drift=percentile_rank(distance,reference["development_distance"]); horizons=[]
+    ensemble=average_predictions(seed_predictions)
+    if calibrator is None: calibrator=joblib.load(_resolve(root,manifest["calibration_path"])); lower,upper=calibrator.transform_all_horizons(ensemble["return_quantiles"][:,:,0],ensemble["return_quantiles"][:,:,-1]); dispersions=latest_seed_dispersions(seed_predictions); reference=joblib.load(_resolve(root,manifest["confidence_reference_path"])); latest_feature=features.iloc[-1]; distance=float(np.sqrt(np.nanmean(((latest_feature-reference["development_median"])/reference["development_iqr"])**2))); drift=percentile_rank(distance,reference["development_distance"]); horizons=[]
     for j,h in enumerate(manifest["model_args"]["horizons"]):
         seed_ranks=[percentile_rank(dispersions[j][k],reference["calibration_seed_dispersion"][j][k]) for k in ("return","direction","mdd","volatility")]; seed_u=None if all(x is None for x in seed_ranks) else float(np.mean([x for x in seed_ranks if x is not None])); components={"interval":percentile_rank(float(upper[0,j]-lower[0,j]),reference["calibrated_width"][:,j]),"coverage":min(abs(float(reference["calibrated_coverage"][j])-reference["target_coverage"])/.20,1.),"disagreement":percentile_rank(float(ensemble["expert_disagreement"][0,j]),reference["calibration_disagreement"][:,j]),"seed":seed_u,"drift":drift}; sources={"interval":"calibration interval-width percentile","coverage":"calibration coverage","disagreement":"calibration auxiliary disagreement percentile","seed":"calibration seed-dispersion percentiles","drift":"development robust-distance percentile"}; conf=artifact_confidence(components,sources); q=ensemble["return_quantiles"][0,j]; horizons.append({"horizon":h,"probability_positive":float(ensemble["direction_prob"][0,j]),"return_quantiles":q.tolist(),"raw_interval":[float(q[0]),float(q[-1])],"calibrated_interval":[float(lower[0,j]),float(upper[0,j])],"projected_index_quantiles":[float(df.close.iloc[-1]*np.exp(q[k]/100)) for k in [0,2,4]],"mdd_quantiles":ensemble["mdd_quantiles"][0,j].tolist(),"volatility":float(ensemble["volatility"][0,j]),"expert_weights":ensemble["gate_weights"][0,j].tolist(),"expert_disagreement":float(ensemble["expert_disagreement"][0,j]),**{f"seed_dispersion_{k}":v for k,v in dispersions[j].items()},"confidence_score":conf["score"],"confidence_label":conf["label"],"confidence_components":conf["components"],"confidence_component_sources":conf["component_sources"],"confidence_missing_components":conf["missing_components"],"confidence_components_used":conf["used_components"]})
     return {"run_id":manifest["run_id"],"artifact_role":"production","data_date":str(df.date.iloc[-1]),"current_vnindex":float(df.close.iloc[-1]),"horizons":horizons},seed_predictions

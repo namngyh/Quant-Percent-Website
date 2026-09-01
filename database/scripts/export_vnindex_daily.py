@@ -1,5 +1,18 @@
 """Export VNINDEX daily bars from TimescaleDB to the CSV the models read.
 
+NO LONGER PART OF THE DAILY JOB. Every model now reads `bars_1d` itself,
+through its own read-only DSN in its own `.env`, and snapshots what it read to
+`data/raw/VNINDEX_Daily_db.csv` (`sync-source` / `sync_source.py`). That is a
+better arrangement than this script: the model hashes the file it actually
+used, and it can tell "40 new sessions" apart from "history was rewritten" -
+a distinction this exporter cannot make because it just overwrites.
+
+Kept because the legacy `VNINDEX_Daily.csv` copies are still what the batch
+tier reads when run from a config that points at a file rather than at the
+database, and refreshing those by hand from the vendor app is how they went
+three weeks stale in the first place. Targets that no longer exist are skipped,
+so this stays safe to run after the model repos are updated.
+
 Three of the four research models (rarf-fhe, msdp, raemf-mc) load their input
 from a `VNINDEX_Daily.csv` shipped inside each repository. Those files are
 snapshots: at 2026-08-04 every one of them still ended at 2026-07-13, which is

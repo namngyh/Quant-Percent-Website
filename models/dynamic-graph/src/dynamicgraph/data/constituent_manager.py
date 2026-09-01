@@ -40,17 +40,12 @@ class UniverseResolution:
     survivorship_bias: bool
     warnings: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    daily_coverage: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def members_on(self, date: pd.Timestamp) -> list[str]:
         if self.membership.empty:
             return list(self.tickers)
         subset = self.membership[self.membership["date"] == date]
-        if subset.empty:
-            earlier = self.membership[self.membership["date"] <= date]
-            if earlier.empty:
-                return list(self.tickers)
-            last = earlier["date"].max()
-            subset = self.membership[self.membership["date"] == last]
         return sorted(subset["ticker"].tolist())
 
     def to_dict(self) -> dict[str, Any]:
@@ -61,6 +56,15 @@ class UniverseResolution:
             "survivorship_bias_warning": self.survivorship_bias,
             "warnings": self.warnings,
             "notes": self.notes,
+            "effective_date_convention": "effective_from and effective_to are both inclusive",
+            "coverage": {
+                "n_dates": int(len(self.daily_coverage)),
+                "mean_coverage_ratio": (
+                    float(self.daily_coverage["coverage_ratio"].mean())
+                    if not self.daily_coverage.empty
+                    else None
+                ),
+            },
         }
 
 
@@ -106,7 +110,10 @@ def resolve_static_universe(
     )
 
     if has_dates:
-        notes.append("Universe file carries effective dates; membership is point-in-time.")
+        notes.append(
+            "Universe file carries point-in-time effective dates; effective_from and "
+            "effective_to are both inclusive."
+        )
         survivorship = False
     else:
         warnings.append(

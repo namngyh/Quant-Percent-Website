@@ -5,8 +5,8 @@ accident."""
 
 from __future__ import annotations
 
-from dynamicgraph.features.node_features import build_node_features
 from dynamicgraph.features.market_features import build_market_features
+from dynamicgraph.features.node_features import build_node_features
 from dynamicgraph.features.residualization import residualize_returns
 from dynamicgraph.features.returns import compute_log_returns, drawdown_series
 from dynamicgraph.features.targets import build_targets

@@ -19,7 +19,7 @@ market shocks.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -133,6 +133,8 @@ def summarize_results(results: Sequence[Any]) -> pd.DataFrame:
                 "off_diagonal_zeros",
                 "turnover_traded",
                 "forecast_log_likelihood",
+                "forecast_frobenius",
+                "forecast_qlike",
             ):
                 if column in diagnostics.columns:
                     row[f"mean_{column}"] = float(diagnostics[column].mean())

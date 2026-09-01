@@ -61,18 +61,5 @@
   "latest_projected_index_interval.png",
   "latest_gate_weights.png",
   "latest_risk_profile.png",
-  "latest_confidence_components.png",
-  "baseline_point_forecast_comparison.png",
-  "baseline_distribution_comparison.png",
-  "baseline_direction_comparison.png",
-  "baseline_risk_comparison.png",
-  "conformal_method_comparison.png",
-  "conformal_interval_score_comparison.png",
-  "tuning_fold_scores.png",
-  "production_ensemble_consistency.png",
-  "latest_seed_dispersion.png",
-  "ohlc_mask_impact.png",
-  "optuna_optimization_history.png",
-  "optuna_parameter_importance.png",
-  "optuna_parallel_coordinate.png"
+  "latest_confidence_components.png"
 ]

@@ -67,39 +67,76 @@ def align_to_calendar(
     calendar: pd.DatetimeIndex,
     max_forward_fill_days: int = 1,
     price_columns: tuple[str, ...] = ("open", "high", "low", "close", "adjusted_close"),
+    active_membership: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Reindex every ticker onto the calendar.
 
     Prices may be forward-filled up to `max_forward_fill_days` consecutive days
     (0 disables it). Volume/turnover are NEVER forward-filled: a non-trading day
     has zero traded quantity, not yesterday's. `is_filled` marks synthetic rows.
+
+    When `active_membership` is supplied, it must contain daily `(date, ticker)`
+    pairs. A ticker is emitted only on active dates and each contiguous membership
+    spell is filled independently. This prevents prices from being carried across
+    an entry, exit, or re-entry boundary.
     """
     frames: list[pd.DataFrame] = []
     flow_columns = [c for c in ("volume", "turnover", "foreign_buy_value", "foreign_sell_value")
                     if c in panel.columns]
+    membership_by_ticker: dict[str, pd.DatetimeIndex] | None = None
+    if active_membership is not None:
+        required = {"date", "ticker"}
+        if not required.issubset(active_membership.columns):
+            raise ValueError("active_membership must contain `date` and `ticker` columns.")
+        active = active_membership.loc[:, ["date", "ticker"]].drop_duplicates().copy()
+        active["date"] = pd.to_datetime(active["date"])
+        membership_by_ticker = {
+            str(ticker): pd.DatetimeIndex(sorted(group["date"].unique()))
+            for ticker, group in active.groupby("ticker", sort=False)
+        }
 
     for ticker, group in panel.groupby("ticker", sort=False):
         group = group.sort_values("date").drop_duplicates("date", keep="last")
-        own = pd.DatetimeIndex(group["date"])
-        window = calendar[(calendar >= own.min()) & (calendar <= own.max())]
-        reindexed = group.set_index("date").reindex(window)
-        reindexed.index.name = "date"
+        if membership_by_ticker is None:
+            own = pd.DatetimeIndex(group["date"])
+            windows = [calendar[(calendar >= own.min()) & (calendar <= own.max())]]
+        else:
+            active_dates = membership_by_ticker.get(str(ticker), pd.DatetimeIndex([]))
+            active_dates = active_dates[active_dates.isin(calendar)]
+            if active_dates.empty:
+                continue
+            positions = calendar.get_indexer(active_dates)
+            segment = np.r_[0, np.cumsum(np.diff(positions) != 1)]
+            windows = [
+                active_dates[segment == segment_id]
+                for segment_id in np.unique(segment)
+            ]
 
-        observed = reindexed["close"].notna()
-        reindexed["is_filled"] = ~observed
+        indexed = group.set_index("date")
+        for window in windows:
+            if len(window) == 0:
+                continue
+            # Restrict source observations before reindexing. In particular, the
+            # first missing day of a new membership spell cannot inherit a price
+            # from the previous inactive spell.
+            source = indexed[indexed.index.isin(window)]
+            reindexed = source.reindex(window)
+            reindexed.index.name = "date"
 
-        if max_forward_fill_days > 0:
-            present = [c for c in price_columns if c in reindexed.columns]
-            reindexed[present] = reindexed[present].ffill(limit=max_forward_fill_days)
-        for column in flow_columns:
-            reindexed[column] = reindexed[column].where(observed, 0.0)
+            observed = reindexed["close"].notna()
+            reindexed["is_filled"] = ~observed
 
-        reindexed["ticker"] = ticker
-        for static in ("sector", "is_index"):
-            if static in reindexed.columns:
-                filled = reindexed[static].ffill().bfill()
-                reindexed[static] = filled
-        frames.append(reindexed.reset_index())
+            if max_forward_fill_days > 0:
+                present = [c for c in price_columns if c in reindexed.columns]
+                reindexed[present] = reindexed[present].ffill(limit=max_forward_fill_days)
+            for column in flow_columns:
+                reindexed[column] = reindexed[column].where(observed, 0.0)
+
+            reindexed["ticker"] = ticker
+            for static in ("sector", "is_index"):
+                if static in reindexed.columns:
+                    reindexed[static] = reindexed[static].ffill().bfill()
+            frames.append(reindexed.reset_index())
 
     if not frames:
         return panel.assign(is_filled=False)

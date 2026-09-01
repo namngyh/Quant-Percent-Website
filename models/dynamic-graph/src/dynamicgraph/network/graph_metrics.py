@@ -19,6 +19,8 @@ from dynamicgraph.constants import EPS
 from dynamicgraph.graphs.base import GraphSnapshot
 from dynamicgraph.graphs.correlation import (
     eigenvalue_concentration as correlation_eigenvalue_concentration,
+)
+from dynamicgraph.graphs.correlation import (
     market_mode_share,
     negative_diversification_proxy,
 )
@@ -60,6 +62,7 @@ def compute_graph_metrics(
     nodes = snapshot.nodes
     signed = snapshot.adjacency
     absolute = np.abs(signed)
+    raw = np.asarray(snapshot.adjacency_raw, dtype=float)
     n = len(nodes)
 
     metrics: dict[str, Any] = {
@@ -70,6 +73,10 @@ def compute_graph_metrics(
         "number_of_nodes": n,
         "number_of_edges": snapshot.n_edges,
         "graph_density": snapshot.density,
+        "graph_representation": "inference",
+        "display_density": snapshot.to_dict()["display_density"],
+        "display_threshold_rule": snapshot.metadata.get("filter_method"),
+        "display_expected_density": snapshot.metadata.get("display_expected_density"),
         "alpha": snapshot.alpha,
         "n_excluded_nodes": snapshot.n_excluded_nodes,
     }
@@ -78,6 +85,7 @@ def compute_graph_metrics(
 
     i, j = np.triu_indices(n, k=1)
     weights = signed[i, j]
+    raw_weights = raw[i, j]
     nonzero = weights[weights != 0]
 
     strength = absolute.sum(axis=1)
@@ -96,6 +104,16 @@ def compute_graph_metrics(
             "positive_edge_ratio": float(np.mean(nonzero > 0)) if nonzero.size else float("nan"),
             "negative_edge_ratio": float(np.mean(nonzero < 0)) if nonzero.size else float("nan"),
             "centrality_concentration": herfindahl(strength),
+            "mean_absolute_raw_dependence": float(np.abs(raw_weights).mean()),
+            "median_absolute_raw_dependence": float(np.median(np.abs(raw_weights))),
+            "upper_tail_raw_dependence": float(
+                np.mean(
+                    np.abs(raw_weights)[
+                        np.abs(raw_weights) >= np.quantile(np.abs(raw_weights), 0.9)
+                    ]
+                )
+            ),
+            "raw_strength_concentration": herfindahl(np.abs(raw).sum(axis=1)),
         }
     )
     if snapshot.layer.startswith("partial"):
@@ -114,9 +132,13 @@ def compute_graph_metrics(
     except Exception:
         metrics["global_transitivity"] = float("nan")
     try:
-        metrics["assortativity"] = float(
-            nx.degree_assortativity_coefficient(graph, weight="weight")
-        )
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            metrics["assortativity"] = float(
+                nx.degree_assortativity_coefficient(graph, weight="weight")
+            )
     except Exception:
         metrics["assortativity"] = float("nan")
 

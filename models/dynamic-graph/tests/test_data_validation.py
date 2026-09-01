@@ -9,7 +9,12 @@ import pytest
 from dynamicgraph.constants import DATA_CONTRACT_COLUMNS, UNKNOWN_SECTOR
 from dynamicgraph.data.calendar import align_to_calendar, infer_trading_calendar, missing_trading_dates
 from dynamicgraph.data.connectors import DataProSQLiteConnector, _finalize_contract
-from dynamicgraph.data.constituent_manager import resolve_liquidity_universe
+from dynamicgraph.data.constituent_manager import (
+    UniverseResolution,
+    resolve_liquidity_universe,
+    resolve_static_universe,
+)
+from dynamicgraph.data.loader import apply_point_in_time_membership
 from dynamicgraph.data.normalizer import normalize_panel
 from dynamicgraph.data.schema_inference import infer_columns_from_names
 from dynamicgraph.data.validator import rolling_window_validity, validate_panel
@@ -181,3 +186,197 @@ def test_liquidity_universe_is_point_in_time(synthetic_panel):
     counts = resolution.membership.groupby("date")["ticker"].nunique()
     assert counts.max() <= 6
     assert "VN30" not in set(resolution.membership["ticker"])
+
+
+def test_effective_dates_are_inclusive_and_applied_to_panel(tmp_path):
+    calendar = pd.bdate_range("2024-01-01", periods=6)
+    universe_file = tmp_path / "universe.csv"
+    universe_file.write_text(
+        "ticker,effective_from,effective_to\n"
+        "A,,\n"
+        f"B,{calendar[2].date()},\n"
+        f"C,,{calendar[2].date()}\n",
+        encoding="utf-8",
+    )
+    resolution = resolve_static_universe(universe_file, calendar, {"A", "B", "C"})
+
+    rows = []
+    for ticker in ("A", "B", "C", "VN30"):
+        for position, date in enumerate(calendar):
+            rows.append(
+                {
+                    "date": date,
+                    "ticker": ticker,
+                    "open": 100.0 + position,
+                    "high": 101.0 + position,
+                    "low": 99.0 + position,
+                    "close": 100.0 + position,
+                    "adjusted_close": 100.0 + position,
+                    "volume": 1_000.0,
+                    "turnover": 100_000.0,
+                    "sector": "Test",
+                    "is_index": ticker == "VN30",
+                }
+            )
+    panel = pd.DataFrame(rows)
+    filtered, coverage = apply_point_in_time_membership(
+        panel, calendar, resolution, "VN30", max_forward_fill_days=1
+    )
+
+    b_dates = filtered.loc[filtered["ticker"] == "B", "date"]
+    c_dates = filtered.loc[filtered["ticker"] == "C", "date"]
+    assert b_dates.min() == calendar[2], "effective_from must be inclusive"
+    assert c_dates.max() == calendar[2], "effective_to must be inclusive"
+    assert set(filtered.loc[filtered["ticker"] == "VN30", "date"]) == set(calendar)
+    assert coverage.set_index("date").loc[calendar[2], "n_universe"] == 3
+    assert coverage.set_index("date").loc[calendar[3], "active_tickers"] == ["A", "B"]
+
+
+def test_forward_fill_cannot_cross_membership_boundary():
+    calendar = pd.bdate_range("2024-01-01", periods=5)
+    membership = pd.DataFrame(
+        {
+            "date": list(calendar) + list(calendar[2:]),
+            "ticker": ["A"] * len(calendar) + ["B"] * len(calendar[2:]),
+        }
+    )
+    resolution = UniverseResolution("test", ["A", "B"], membership, False)
+    rows = []
+    for ticker in ("A", "B", "VN30"):
+        for position, date in enumerate(calendar):
+            if ticker == "B" and date == calendar[2]:
+                continue
+            rows.append(
+                {
+                    "date": date,
+                    "ticker": ticker,
+                    "open": 100.0 + position,
+                    "high": 101.0 + position,
+                    "low": 99.0 + position,
+                    "close": 100.0 + position,
+                    "adjusted_close": 100.0 + position,
+                    "volume": 1_000.0,
+                    "turnover": 100_000.0,
+                    "sector": "Test",
+                    "is_index": ticker == "VN30",
+                }
+            )
+    panel = pd.DataFrame(rows)
+    filtered, _ = apply_point_in_time_membership(
+        panel, calendar, resolution, "VN30", max_forward_fill_days=1
+    )
+    join_row = filtered[(filtered["ticker"] == "B") & (filtered["date"] == calendar[2])].iloc[0]
+    assert pd.isna(join_row["adjusted_close"])
+    assert bool(join_row["is_filled"])
+
+
+def test_liquidity_membership_does_not_change_when_future_is_perturbed(synthetic_panel):
+    calendar = infer_trading_calendar(synthetic_panel, "VN30")
+    kwargs = {"size": 6, "lookback": 120, "rebalance_days": 126, "exclude": {"VN30"}}
+    baseline = resolve_liquidity_universe(synthetic_panel, calendar, **kwargs)
+
+    first_rebalance = calendar[120]
+    first_period_end = calendar[246]
+    perturbed = synthetic_panel.copy()
+    future = perturbed["date"] > first_rebalance
+    perturbed.loc[future, "turnover"] *= np.where(
+        perturbed.loc[future, "ticker"].eq("TEC3"), 1_000_000.0, 0.000001
+    )
+    after = resolve_liquidity_universe(perturbed, calendar, **kwargs)
+
+    baseline_first = baseline.membership[
+        (baseline.membership["date"] >= first_rebalance)
+        & (baseline.membership["date"] < first_period_end)
+    ].reset_index(drop=True)
+    after_first = after.membership[
+        (after.membership["date"] >= first_rebalance)
+        & (after.membership["date"] < first_period_end)
+    ].reset_index(drop=True)
+    pd.testing.assert_frame_equal(baseline_first, after_first)
+
+
+def test_data_fingerprint_hashes_every_row_not_only_the_tail(synthetic_panel):
+    from dynamicgraph.data.loader import _fingerprint
+
+    baseline = _fingerprint(synthetic_panel)
+    changed = synthetic_panel.copy()
+    middle = len(changed) // 2
+    changed.loc[middle, "adjusted_close"] *= 1.01
+
+    assert _fingerprint(changed) != baseline
+
+
+def test_cache_key_changes_when_source_file_content_changes(tmp_path, base_config):
+    from dynamicgraph.data.loader import _cache_key
+
+    source = tmp_path / "prices.db"
+    source.write_bytes(b"version-one")
+    config = base_config.model_copy(
+        update={
+            "data": base_config.data.model_copy(
+                update={"database_path": str(source)}
+            )
+        }
+    )
+    first = _cache_key(config)
+    source.write_bytes(b"version-two")
+
+    assert _cache_key(config) != first
+
+
+def test_cache_key_includes_feature_graph_and_schema_configuration(base_config):
+    from dynamicgraph.data.loader import _cache_key
+
+    first = _cache_key(base_config)
+    changed = base_config.model_copy(
+        update={
+            "features": base_config.features.model_copy(
+                update={"residual_window": base_config.features.residual_window + 1}
+            ),
+            "graph": base_config.graph.model_copy(
+                update={"core_window": base_config.graph.core_window + 1}
+            ),
+        }
+    )
+    assert _cache_key(changed) != first
+
+
+def test_data_discovery_never_recommends_pipeline_artifacts(tmp_path):
+    from dynamicgraph.data.discovery import _iter_files
+
+    raw = tmp_path / "prices.csv"
+    artifact = tmp_path / "artifacts" / "latest" / "graph_metrics.csv"
+    generated = tmp_path / "another_project" / "outputs" / "features.csv"
+    artifact.parent.mkdir(parents=True)
+    generated.parent.mkdir(parents=True)
+    raw.write_text("date,ticker,close\n2024-01-01,A,1\n", encoding="utf-8")
+    artifact.write_text(
+        "date,ticker,close\n2024-01-01,FAKE,999\n", encoding="utf-8"
+    )
+    generated.write_text(
+        "date,ticker,close\n2024-01-01,FAKE,999\n", encoding="utf-8"
+    )
+
+    found = set(_iter_files([tmp_path]))
+    assert raw in found
+    assert artifact not in found
+    assert generated not in found
+
+
+def test_data_discovery_does_not_recommend_a_single_index_series():
+    from dynamicgraph.data.discovery import (
+        DataSourceCandidate,
+        _is_viable_market_source,
+    )
+
+    candidate = DataSourceCandidate(
+        path="VNINDEX.csv",
+        kind="csv",
+        readable=True,
+        n_tickers=1,
+        date_min="2010-01-01",
+        date_max="2026-01-01",
+        contains_index_symbol=True,
+        matched_universe_tickers=0,
+    )
+    assert not _is_viable_market_source(candidate)

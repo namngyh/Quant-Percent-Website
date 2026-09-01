@@ -1,16 +1,8 @@
-# Hướng dẫn cho tác nhân phát triển
+# Ky luat nghien cuu
 
-- Không dùng dữ liệu tương lai khi tạo đặc trưng, chọn tham số, hiệu chỉnh xác suất hoặc backtest.
-- Với mỗi horizon, train và validation phải được purge bằng `target_end_date_h < boundary`.
-- Không dùng test để tuning, chọn feature, chọn calibration hoặc chọn ngưỡng.
-- Không bịa số liệu. Thành phần không ước lượng được phải ghi rõ lý do.
-- Báo cáo chính bằng tiếng Việt, trung lập, không đưa lời khuyên đầu tư.
-- Lệnh kiểm thử chính: `conda run -n project python -m pytest -q`.
-- Lệnh chạy laptop (point estimate): `bash scripts/run_laptop.sh`.
-- Lệnh chạy RAEMF-VB-MC: `bash scripts/run_laptop_vb.sh` (hoặc
-  `scripts/run_gpu_research.sh` khi có CUDA).
-- Bayesian backend chính là `pytorch_cuda`; PyMC là backend tham chiếu và
-  chỉ dùng cho NUTS validation trên bài toán nhỏ.
-- Quy tắc chọn scenario mode mặc định và production classifier đã được đăng
-  ký trước tại `scripts/summarize_vb_results.py`; không đổi quy tắc sau khi
-  nhìn kết quả.
+- Khong bia so lieu — thanh phan khong uoc luong duoc phai ghi ro ly do.
+- Khong dung test set de tuning, chon feature, chon calibration hay chon nguong.
+- Voi moi horizon, train/validation phai duoc purge bang `target_end_date_h < boundary`.
+- Khong silent fallback: moi lan ADVI fail/retry/rot xuong mean-field phai duoc ghi log.
+- Khong float16 o bat ky dau trong ELBO, log-likelihood, log-sum-exp, quantile duoi.
+- Tai lieu thiet ke va bao cao bang tieng Viet, trung lap, khong dua loi khuyen dau tu.

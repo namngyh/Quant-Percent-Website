@@ -1,5 +1,18 @@
 """Run MSDP inference against the current data and write the forecast JSON.
 
+NO LONGER PART OF THE DAILY JOB, and deliberately not a drop-in substitute for
+what replaced it. `daily-update.bat` now calls MSDP's own online tier
+(`scripts/sync_source.py` then `scripts/update_latest.py`), which scores the
+forecasts whose horizon has elapsed, folds that evidence into the Hedge gate
+posterior, and only then re-runs inference. This script skips all of that and
+runs the ensemble cold, so it publishes DIFFERENT numbers under the same
+`model_id`.
+
+Use it to reproduce a forecast without touching the online state - never as a
+silent fallback when `update_latest.py` fails. If the online step is broken,
+the honest outcome is the run being marked failed, not a different model's
+answer published in its place.
+
 MSDP loads an already-trained production ensemble and predicts in well under a
 second, so this can run daily right after the market close — no retraining.
 

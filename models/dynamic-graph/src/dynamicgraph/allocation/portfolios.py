@@ -18,9 +18,9 @@ The rules span a deliberate range of how much dependence structure they use:
     where a better covariance estimate should show up first, and also where a
     worse one does the most damage.
 `community_risk_parity`
-    uses the graph's community partition: budget equally across communities,
-    then inverse-volatility inside each. This is the only rule whose input the
-    network layer uniquely provides.
+    uses the graph's community partition to build risk-parity sleeves inside
+    communities and then equalise risk across sleeve returns. This is the only
+    rule whose input the network layer uniquely provides.
 """
 
 from __future__ import annotations
@@ -132,6 +132,8 @@ def _project_to_capped_simplex(
     vector: np.ndarray, floor: float, cap: float, tolerance: float = 1e-12
 ) -> np.ndarray:
     """Euclidean projection onto {w : sum(w)=1, floor <= w <= cap} by bisection."""
+    vector = np.asarray(vector, dtype=float)
+    _validate_constraint_feasibility(vector.size, floor, cap, tolerance)
     low, high = float(vector.min() - cap), float(vector.max() - floor)
     for _ in range(100):
         theta = 0.5 * (low + high)
@@ -144,6 +146,31 @@ def _project_to_capped_simplex(
         else:
             high = theta
     return np.clip(vector - theta, floor, cap)
+
+
+def _validate_constraint_feasibility(
+    n_assets: int,
+    floor: float,
+    cap: float,
+    tolerance: float = 1e-12,
+) -> None:
+    """Reject a box-simplex intersection that has no feasible portfolio."""
+    if n_assets <= 0:
+        raise ValueError("At least one asset is required.")
+    if not np.isfinite(floor) or not np.isfinite(cap):
+        raise ValueError("Weight bounds must be finite.")
+    if floor < 0.0 or cap > 1.0 or floor > cap:
+        raise ValueError("Weight bounds must satisfy 0 <= min_weight <= max_weight <= 1.")
+    if n_assets * floor > 1.0 + tolerance:
+        raise ValueError(
+            f"Infeasible min_weight={floor:g}: {n_assets} assets require total floor "
+            f"{n_assets * floor:g} > 1."
+        )
+    if n_assets * cap < 1.0 - tolerance:
+        raise ValueError(
+            f"Infeasible max_weight={cap:g}: {n_assets} assets provide total capacity "
+            f"{n_assets * cap:g} < 1."
+        )
 
 
 def risk_parity(
@@ -199,7 +226,7 @@ def community_risk_parity(
     communities: Sequence[int] | None = None,
     **_: Any,
 ) -> np.ndarray:
-    """Equal risk budget per community, inverse-volatility inside each.
+    """Hierarchical equal-risk allocation within and across communities.
 
     Naive equal weighting across 30 VN30 tickers is not 30 independent bets when
     a dozen of them form one banking cluster. This rule spends the risk budget
@@ -219,14 +246,19 @@ def community_risk_parity(
     if unique.size <= 1:
         return inverse_volatility(covariance)
 
-    deviation = np.sqrt(np.clip(np.diag(covariance), EPS, None))
-    weights = np.zeros(n)
-    per_community = 1.0 / unique.size
-    for label in unique:
-        members = labels == label
-        inverse = 1.0 / deviation[members]
-        weights[members] = per_community * inverse / inverse.sum()
-    return _normalize(weights)
+    # First form a risk-parity sleeve inside every community.
+    sleeves = np.zeros((n, unique.size))
+    for column, label in enumerate(unique):
+        positions = np.flatnonzero(labels == label)
+        local = risk_parity(covariance[np.ix_(positions, positions)])
+        sleeves[positions, column] = local
+
+    # Then equalise risk between the sleeve returns. This is materially
+    # different from assigning equal *capital* to each cluster when clusters
+    # have different sizes or covariance structures.
+    sleeve_covariance = sleeves.T @ covariance @ sleeves
+    sleeve_weights = risk_parity(sleeve_covariance)
+    return _normalize(sleeves @ sleeve_weights)
 
 
 _RULES: Mapping[str, Callable[..., np.ndarray]] = {
@@ -240,15 +272,26 @@ _RULES: Mapping[str, Callable[..., np.ndarray]] = {
 
 def build_weights(rule: str, covariance: np.ndarray, **kwargs: Any) -> np.ndarray:
     """Dispatch to a named rule, returning long-only weights summing to one."""
+    covariance = _validate(covariance)
+    n = covariance.shape[0]
+    cap = float(kwargs.get("max_weight", 1.0))
+    floor = float(kwargs.get("min_weight", 0.0))
+    _validate_constraint_feasibility(n, floor, cap)
     try:
         function = _RULES[str(rule)]
     except KeyError:
         raise ValueError(
             f"Unknown portfolio rule `{rule}`; expected one of {tuple(_RULES)}."
         ) from None
-    weights = function(covariance, **kwargs)
-    weights = _normalize(weights)
+    weights = _normalize(function(covariance, **kwargs))
     if not np.all(np.isfinite(weights)):
         logger.warning("Rule `%s` produced non-finite weights; falling back to equal weight.", rule)
-        return equal_weight(covariance)
-    return weights
+        weights = equal_weight(covariance)
+    projected = _project_to_capped_simplex(weights, floor, cap)
+    if (
+        not np.isclose(projected.sum(), 1.0, atol=1e-10)
+        or (projected < floor - 1e-10).any()
+        or (projected > cap + 1e-10).any()
+    ):
+        raise ArithmeticError("Capped-simplex projection violated the allocation constraints.")
+    return projected

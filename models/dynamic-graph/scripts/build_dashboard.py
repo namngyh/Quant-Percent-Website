@@ -22,10 +22,9 @@ import sys
 import webbrowser
 from pathlib import Path
 
+import _bootstrap  # noqa: F401  (adds src/ to sys.path)
 import numpy as np
 import pandas as pd
-
-import _bootstrap  # noqa: F401  (adds src/ to sys.path)
 
 REPO = Path(__file__).resolve().parent.parent
 ARTIFACTS = REPO / "artifacts"

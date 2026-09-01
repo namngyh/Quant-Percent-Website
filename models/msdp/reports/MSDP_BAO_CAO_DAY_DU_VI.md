@@ -24,18 +24,15 @@ Feature/target scaler chỉ fit train hoặc development thích hợp. Return, M
 
 | Kỳ hạn | MAE | Pinball | Brier | Coverage gốc | Coverage conformal | Pinball Δ so với ZeroReturn |
 |---:|---:|---:|---:|---:|---:|---:|
-| 5 | 2.3688 | 0.7731 | 0.2563 | 80.4% | 91.4% | +0.0267 |
-| 20 | 5.0055 | 1.7032 | 0.2620 | 73.9% | 86.1% | +0.1053 |
-| 60 | 8.8100 | 3.0273 | 0.2515 | 76.6% | 86.4% | +0.2502 |
+| 5 | 2.3250 | 0.7506 | 0.2463 | 87.8% | 90.2% | +0.0043 |
+| 20 | 4.8486 | 1.5966 | 0.2496 | 86.7% | 88.6% | -0.0013 |
+| 60 | 8.5669 | 2.8980 | 0.2477 | 86.1% | 88.0% | +0.1209 |
 
 ## Nhận xét
 
-- Kỳ hạn 5: Spearman 0.051, MAE 2.369%, pinball 0.773. Pinball chưa thấp hơn ZeroReturn.
-  Conformal nâng coverage từ 80.4% lên 91.4%, đồng thời tăng độ rộng từ 7.32% lên 10.16%.
-- Kỳ hạn 20: Spearman 0.087, MAE 5.005%, pinball 1.703. Pinball chưa thấp hơn ZeroReturn.
-  Conformal nâng coverage từ 73.9% lên 86.1%, đồng thời tăng độ rộng từ 14.07% lên 20.73%.
-- Kỳ hạn 60: Spearman 0.010, MAE 8.810%, pinball 3.027. Pinball chưa thấp hơn ZeroReturn.
-  Conformal nâng coverage từ 76.6% lên 86.4%, đồng thời tăng độ rộng từ 27.72% lên 39.23%.
+- Kỳ hạn 5: Spearman -0.011, MAE 2.325%, pinball 0.751. Pinball chưa thấp hơn ZeroReturn.
+- Kỳ hạn 20: Spearman -0.041, MAE 4.849%, pinball 1.597. Pinball thấp hơn ZeroReturn.
+- Kỳ hạn 60: Spearman -0.111, MAE 8.567%, pinball 2.898. Pinball chưa thấp hơn ZeroReturn.
 
 ## Dự báo mới nhất
 

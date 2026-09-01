@@ -9,7 +9,14 @@ project:
   name: DynamicGraph
   version: "0.1.0"
   seed: 42
-  mode: default            # default | fast | full
+  mode: structure          # structure | forecast_experimental | allocation_validation | scenario_analysis
+
+modules:
+  structure_analysis: true
+  stress_forecasting: false
+  node_return_ranking: false
+  allocation_validation: false
+  scenario_analysis: false
 
 data:
   # Filled by `discover-data`. May also be a SQLAlchemy URL.
@@ -227,16 +234,19 @@ evaluation:
 # portfolio construction -- a second-moment claim, evaluated separately from the
 # first-moment (stress forecasting) claim in `training:`.
 allocation:
-  enabled: true
+  enabled: false
   estimation_window: 0        # 0 inherits graph.core_window
   rebalance_days: 20
   max_weight: 0.20            # per-name cap; uncapped min-variance overfits badly
   cost_bps_per_side: 15.0     # VN large caps: ~10-20 bps per side including spread
   min_assets: 10
   rolling_volatility_window: 126
+  missing_return_policy: zero  # held assets with no print contribute zero; no implicit reallocation
+  execution_lag_sessions: 1   # signal after close t, execute at the next feasible close
+  execution_convention: next_close
 
 ablation:
-  enabled: true
+  enabled: false
   variants:
     - market_only
     - graph_only
