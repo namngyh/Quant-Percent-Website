@@ -10,7 +10,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
-from backend.api import routes_data, routes_indicators, routes_strategy, routes_stream
+from backend.api import (
+    routes_data,
+    routes_indicators,
+    routes_paper,
+    routes_plugins,
+    routes_strategy,
+    routes_stream,
+)
+from backend.paper.manager import manager as paper_manager
 from backend.data import store
 
 logging.basicConfig(
@@ -27,8 +35,18 @@ FRONTEND_DIR = settings.project_root / "frontend"
 async def lifespan(app: FastAPI):
     store.get_connection()  # create the schema before the first request
     routes_stream.hub.start_plugin_watcher()
+
+    # Paper sessions consume the same candle feed as the browser, but through
+    # their own subscription: closing the last tab must not stop a session that
+    # is still trading.
+    paper_manager.attach(routes_stream.hub.streams, routes_stream.hub.broadcast)
+    routes_stream.hub.streams.add_listener(paper_manager.on_candle)
+    await paper_manager.restore()
+
     log.info("QP-TRACKING ready at http://%s:%s", settings.server.host, settings.server.port)
     yield
+
+    await paper_manager.close()
     await routes_stream.hub.close()
     store.close_connection()
 
@@ -45,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_indicators.router)
     app.include_router(routes_strategy.router)
     app.include_router(routes_stream.router)
+    app.include_router(routes_paper.router)
+    app.include_router(routes_plugins.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

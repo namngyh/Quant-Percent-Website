@@ -12,6 +12,7 @@ requests from a thread pool.
 from __future__ import annotations
 
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 import duckdb
@@ -59,6 +60,19 @@ def close_connection() -> None:
         if _CONN is not None:
             _CONN.close()
             _CONN = None
+
+
+@contextmanager
+def transaction():
+    """Run statements on the shared connection while holding the write lock.
+
+    Other modules need to create and update their own tables (paper-trading
+    sessions, for one). This gives them the same serialisation the candle
+    functions use, without reaching for the private lock.
+    """
+    conn = get_connection()
+    with _DB_LOCK:
+        yield conn
 
 
 def upsert_candles(symbol: str, timeframe: str, df: pd.DataFrame) -> int:

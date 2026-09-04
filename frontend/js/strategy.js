@@ -470,6 +470,22 @@ const Strategy = (() => {
     });
   }
 
+  // ---------- Paper trading ----------
+
+  async function startPaper() {
+    if (!current) return null;
+    const ctx = context();
+    // The same strategy, parameters and cost settings the backtest just used,
+    // so a session is directly comparable with the run that motivated it.
+    return Paper.start({
+      strategyId: current.id,
+      symbol: ctx.symbol,
+      timeframe: ctx.timeframe,
+      params,
+      execution: execution(),
+    });
+  }
+
   function init(config) {
     elements = config.elements;
     context = config.context;
@@ -484,5 +500,8 @@ const Strategy = (() => {
     elements.samples.addEventListener('input', scheduleSize);
   }
 
-  return { init, load, runBacktest, runOptimize, get selected() { return current; } };
+  return {
+    init, load, runBacktest, runOptimize, startPaper,
+    get selected() { return current; },
+  };
 })();

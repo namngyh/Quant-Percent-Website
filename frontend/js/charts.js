@@ -8,21 +8,21 @@
 const ChartManager = (() => {
   const THEME = {
     layout: {
-      background: { color: '#0d1117' },
-      textColor: '#8b949e',
+      background: { color: '#ffffff' },
+      textColor: '#5b646e',
       fontSize: 11,
       fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
     },
     grid: {
-      vertLines: { color: '#161b22' },
-      horzLines: { color: '#161b22' },
+      vertLines: { color: '#f0f2f5' },
+      horzLines: { color: '#f0f2f5' },
     },
-    rightPriceScale: { borderColor: '#21262d' },
-    timeScale: { borderColor: '#21262d' },
+    rightPriceScale: { borderColor: '#e2e5ea' },
+    timeScale: { borderColor: '#e2e5ea' },
     crosshair: {
       mode: 0, // free-moving crosshair
-      vertLine: { color: '#3d444d', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
-      horzLine: { color: '#3d444d', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
+      vertLine: { color: '#a8b0ba', width: 1, style: 3, labelBackgroundColor: '#16191d' },
+      horzLine: { color: '#a8b0ba', width: 1, style: 3, labelBackgroundColor: '#16191d' },
     },
   };
 
@@ -59,12 +59,12 @@ const ChartManager = (() => {
     });
 
     candleSeries = mainChart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderUpColor: '#26a69a',
-      borderDownColor: '#ef5350',
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
+      upColor: '#12805c',
+      downColor: '#c8372d',
+      borderUpColor: '#12805c',
+      borderDownColor: '#c8372d',
+      wickUpColor: '#12805c',
+      wickDownColor: '#c8372d',
     });
 
     volumeSeries = mainChart.addHistogramSeries({
@@ -90,7 +90,7 @@ const ChartManager = (() => {
       volumes.map((v) => ({
         time: v.time,
         value: v.value,
-        color: v.up ? 'rgba(38,166,154,0.4)' : 'rgba(239,83,80,0.4)',
+        color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
       })),
     );
     mainChart.timeScale().fitContent();
@@ -220,14 +220,14 @@ const ChartManager = (() => {
       markers.push({
         time: t.entry_time,
         position: isLong ? 'belowBar' : 'aboveBar',
-        color: isLong ? '#26a69a' : '#ef5350',
+        color: isLong ? '#12805c' : '#c8372d',
         shape: isLong ? 'arrowUp' : 'arrowDown',
         text: isLong ? 'L' : 'S',
       });
       markers.push({
         time: t.exit_time,
         position: isLong ? 'aboveBar' : 'belowBar',
-        color: t.exit_reason === 'liquidation' ? '#f85149' : '#6e7681',
+        color: t.exit_reason === 'liquidation' ? '#c8372d' : '#949ca6',
         shape: 'circle',
         text: t.exit_reason === 'liquidation' ? 'LIQ' : '',
       });
@@ -257,7 +257,7 @@ const ChartManager = (() => {
     volumeSeries.update({
       time: candle.time,
       value: candle.volume,
-      color: candle.close >= candle.open ? 'rgba(38,166,154,0.4)' : 'rgba(239,83,80,0.4)',
+      color: candle.close >= candle.open ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
     });
   }
 
@@ -287,32 +287,32 @@ const EquityChart = (() => {
 
     chart = LightweightCharts.createChart(container, {
       layout: {
-        background: { color: '#0a0e14' },
-        textColor: '#6e7681',
+        background: { color: '#ffffff' },
+        textColor: '#949ca6',
         fontSize: 10,
         fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
       },
       grid: {
-        vertLines: { color: 'rgba(33,38,45,0.5)' },
-        horzLines: { color: 'rgba(33,38,45,0.5)' },
+        vertLines: { color: '#f4f6f8' },
+        horzLines: { color: '#f4f6f8' },
       },
-      rightPriceScale: { borderColor: '#21262d' },
-      timeScale: { borderColor: '#21262d', timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: '#e2e5ea' },
+      timeScale: { borderColor: '#e2e5ea', timeVisible: true, secondsVisible: false },
       crosshair: { mode: 0 },
       autoSize: true,
     });
 
     series = chart.addAreaSeries({
-      lineColor: '#2962ff',
-      topColor: 'rgba(41,98,255,0.28)',
-      bottomColor: 'rgba(41,98,255,0.02)',
+      lineColor: '#16191d',
+      topColor: 'rgba(22,25,29,0.14)',
+      bottomColor: 'rgba(22,25,29,0.01)',
       lineWidth: 2,
       priceLineVisible: false,
     });
 
     // Starting capital, so being under water is visible at a glance.
     baseline = chart.addLineSeries({
-      color: '#3d444d',
+      color: '#c3c9d1',
       lineWidth: 1,
       lineStyle: 2,
       priceLineVisible: false,

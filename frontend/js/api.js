@@ -74,5 +74,23 @@ const API = (() => {
 
     sweepSize: ({ ranges, bars }) =>
       post('/api/strategies/optimize/size', { ranges, bars }),
+
+    paperSessions: () => request('/api/paper'),
+
+    paperStart: ({ strategyId, symbol, timeframe, params, execution }) =>
+      post('/api/paper/start', {
+        strategy_id: strategyId,
+        symbol,
+        timeframe,
+        params,
+        execution,
+      }),
+
+    paperStop: (id) => post(`/api/paper/${id}/stop`),
+    paperResume: (id) => post(`/api/paper/${id}/resume`),
+    paperDelete: (id) => request(`/api/paper/${id}`, { method: 'DELETE' }),
+
+    importPlugin: ({ filename, content, overwrite }) =>
+      post('/api/plugins/import', { filename, content, overwrite }),
   };
 })();

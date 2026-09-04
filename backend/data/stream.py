@@ -99,6 +99,21 @@ class StreamManager:
         self._watchers: dict[Series, set[object]] = {}
         self._tasks: dict[Series, asyncio.Task] = {}
         self._lock = asyncio.Lock()
+        # Server-side consumers of the same candles — paper trading, for one.
+        # They are not browser clients and must keep receiving even when no
+        # tab is open.
+        self._listeners: list[Broadcast] = []
+
+    def add_listener(self, listener: Broadcast) -> None:
+        self._listeners.append(listener)
+
+    async def _emit(self, candle: dict) -> None:
+        for listener in self._listeners:
+            try:
+                await listener(candle)
+            except Exception:
+                log.exception("a candle listener failed; continuing")
+        await self._broadcast({"type": "candle", **candle})
 
     def watched(self) -> list[dict]:
         return [
@@ -184,7 +199,7 @@ class StreamManager:
                             # Off the event loop: DuckDB writes are blocking.
                             await asyncio.to_thread(persist, candle)
 
-                        await self._broadcast({"type": "candle", **candle})
+                        await self._emit(candle)
 
             except asyncio.CancelledError:
                 raise

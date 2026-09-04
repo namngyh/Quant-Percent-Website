@@ -19,6 +19,8 @@ const Live = (() => {
     onCandleClose: () => {},
     onPluginsChanged: () => {},
     onStatus: () => {},
+    onPaperUpdate: () => {},
+    onPaperEvent: () => {},
   };
 
   function url() {
@@ -80,6 +82,16 @@ const Live = (() => {
 
       case 'plugins_changed':
         handlers.onPluginsChanged(message.kind);
+        break;
+
+      // Paper sessions run server-side and push their own updates, so the
+      // panel reflects a fill the moment it happens rather than on a poll.
+      case 'paper_update':
+        handlers.onPaperUpdate(message.session);
+        break;
+
+      case 'paper_event':
+        handlers.onPaperEvent(message.session_id, message.event);
         break;
 
       case 'error':

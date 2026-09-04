@@ -1,4 +1,4 @@
-# QP-TRACKING
+# Quant Percent
 
 Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ báo** trên dữ liệu Bitcoin.
 
@@ -7,8 +7,9 @@ Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ 
 - **187 chỉ báo** dùng ngay, tham số chỉnh trực tiếp bằng slider trên giao diện
 - Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
-- **Tối ưu tham số** bằng grid search, kèm cảnh báo overfit
+- **Tối ưu tham số** bằng grid search hoặc random search, kèm cảnh báo overfit
 - **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
+- **Paper trading** — chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
 
 ---
 
@@ -156,9 +157,10 @@ chứ không phải lợi thế thật.
 .venv\Scripts\python.exe tests/test_strategy_pipeline.py # 9  checks - toàn tuyến chiến lược
 .venv\Scripts\python.exe tests/test_optimizer.py         # 12 checks - grid search
 .venv\Scripts\python.exe tests/test_stream.py            # 9  checks - luồng realtime
+.venv\Scripts\python.exe tests/test_paper.py             # 10 checks - paper trading
 ```
 
-Tổng 51 checks.
+Tổng 67 checks.
 
 Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
 comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
@@ -192,6 +194,40 @@ cần F5. Thông báo nhỏ hiện ở dưới màn hình, chỉ báo trên char
 
 Đây là điểm khác biệt lớn nhất khi bạn đang loay hoay chỉnh một công thức: sửa
 file, lưu, nhìn chart đổi.
+
+---
+
+## Paper trading
+
+Chạy chiến lược **tiến về phía trước** trên dữ liệu thật với tiền ảo. Mục đích là
+kiểm chứng xem backtest có nói thật hay không — nên nó dùng **đúng luật khớp lệnh
+của backtest**: tín hiệu ở nến đóng, khớp ở giá mở nến kế tiếp, cùng phí và trượt
+giá, cùng cách tính thanh lý.
+
+Nếu hai bên khác luật thì chênh lệch kết quả chẳng nói lên điều gì về chiến lược.
+Vì vậy có một kiểm thử tự động phát lại lịch sử qua cả hai và đối chiếu **từng
+lệnh một** (`tests/test_paper.py`).
+
+**Cách dùng:** tab *Chiến lược* → chọn chiến lược và tham số → **Chạy paper
+trading**. Phiên xuất hiện ở tab *Paper*.
+
+| Đặc điểm | Chi tiết |
+|---|---|
+| Chạy nền | Phiên **vẫn giao dịch khi bạn đóng trình duyệt** — nó tự giữ kết nối dữ liệu riêng |
+| Sống sót restart | Trạng thái ghi vào DuckDB sau mỗi nến đóng; tắt server rồi bật lại, phiên tiếp tục nguyên vẹn |
+| Khởi động ấm | Nạp 2 000 nến lịch sử để chỉ báo qua cửa sổ khởi động ngay từ đầu |
+| Cập nhật | Vị thế và lãi/lỗ đẩy thẳng lên giao diện khi có nến mới, không cần bấm làm mới |
+
+---
+
+## Nhập file Python từ giao diện
+
+Nút **Nhập .py** ở tab *Chỉ báo* và *Chiến lược*. Chọn file, hệ thống tự nhận biết
+là chỉ báo hay chiến lược (qua `INDICATOR` hoặc `STRATEGY`), **kiểm tra trước khi
+ghi**, rồi đặt vào đúng thư mục.
+
+File lỗi bị từ chối kèm lý do và **không được ghi vào đĩa** — nếu không, thư mục
+sẽ đầy file hỏng mà bạn phải tự dọn.
 
 ---
 

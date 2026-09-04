@@ -41,8 +41,10 @@ PlotType = Literal["line", "histogram", "area"]
 
 # Assigned in order to outputs that don't specify a color.
 PALETTE = [
-    "#2962FF", "#FF6D00", "#00C853", "#D50000", "#AA00FF",
-    "#00B8D4", "#FFD600", "#6D4C41", "#C51162", "#64DD17",
+    # Readable on white, and distinguishable from the candle green and red so
+    # an indicator line is never mistaken for price direction.
+    "#2f5fd0", "#c2410c", "#7c3aed", "#0e7490", "#a16207",
+    "#be185d", "#4d7c0f", "#475569", "#9333ea", "#0f766e",
 ]
 
 
