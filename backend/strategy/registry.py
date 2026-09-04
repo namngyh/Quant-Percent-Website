@@ -145,6 +145,52 @@ def get_spec(strategy_id: str) -> StrategySpec:
     return spec
 
 
+def simulate(
+    strategy_id: str,
+    df: pd.DataFrame,
+    timeframe: str,
+    params: dict | None = None,
+    config: BacktestConfig | None = None,
+):
+    """Run a strategy and hand back the live objects.
+
+    ``run_strategy`` wraps this and flattens everything to JSON. The report
+    builder needs the ``BacktestResult`` itself — the equity array, the
+    position array, the Trade objects — so it calls this instead of
+    reconstructing them from the serialised form.
+
+    Returns ``(spec, resolved_params, result, probability)``. ``probability``
+    is the ``ml_probability`` column if the strategy published one: a strategy
+    that fits a model usually computes a probability and then discards it to
+    return -1/0/1, and writing it back onto the frame it was handed is how the
+    report gets to score calibration. Optional — nothing breaks without it.
+    """
+    spec = get_spec(strategy_id)
+    if spec.signals is None:
+        raise StrategyError(f"strategy '{strategy_id}' has no signals function")
+    if df.empty:
+        raise StrategyError("no candle data to backtest over")
+
+    resolved = spec.resolve_params(params)
+    frame = prepare_frame(df)
+
+    try:
+        raw = spec.signals(frame, resolved)
+    except StrategyError:
+        raise
+    except Exception as exc:
+        raise StrategyError(f"{type(exc).__name__}: {exc}") from exc
+
+    signal = normalize_signals(raw, frame.index, spec.side)
+    result = run_backtest(df, signal, config)
+
+    probability = None
+    if "ml_probability" in frame.columns:
+        probability = frame["ml_probability"].to_numpy(dtype="float64")
+
+    return spec, resolved, result, probability
+
+
 def run_strategy(
     strategy_id: str,
     df: pd.DataFrame,
@@ -172,6 +218,7 @@ def run_strategy(
     signal = normalize_signals(raw, frame.index, spec.side)
     result = run_backtest(df, signal, config)
     metrics = compute_metrics(result, df, timeframe)
+
 
     return {
         "id": spec.id,

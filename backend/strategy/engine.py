@@ -58,6 +58,23 @@ class Trade:
     return_pct: float    # on the margin committed
     bars_held: int
     exit_reason: str     # "signal" | "liquidation" | "end_of_data"
+    # Excursions, in percent of the margin committed — the same base as
+    # ``return_pct``, so the three numbers are directly comparable.
+    #
+    # MFE is how far the trade went in your favour before it closed, MAE how
+    # far against. They are what turns "this stop is too tight" from an opinion
+    # into a measurement: if winning trades routinely sit 4% underwater first,
+    # a 3% stop cuts the winners, not the losers.
+    #
+    # The entry bar counts. The fill happens at its open, so the rest of that
+    # bar's range genuinely occurs while the position is held; the only thing
+    # the engine cannot know is the order of that bar's high and low, and order
+    # does not change a maximum. Excluding it would understate MAE — and an
+    # understated MAE is the dangerous direction, because it makes a stop look
+    # safer than it is. This also matches the liquidation check, which already
+    # tests the entry bar's own extreme.
+    mfe_pct: float = 0.0
+    mae_pct: float = 0.0
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -108,6 +125,8 @@ def run_backtest(
     entry_price = 0.0
     margin = 0.0
     entry_index = -1
+    best_price = 0.0      # most favourable price seen since entry
+    worst_price = 0.0     # least favourable
     trades: list[Trade] = []
     liquidated_ever = False
     ruined = False
@@ -118,9 +137,19 @@ def run_backtest(
 
     def close_position(exit_price: float, index: int, reason: str) -> None:
         nonlocal equity, position, quantity, entry_price, margin, entry_index
+        nonlocal best_price, worst_price
         exit_fee = abs(quantity) * exit_price * config.fee
         pnl = quantity * (exit_price - entry_price) - exit_fee
         equity += pnl
+
+        # Excursions on the same base as return_pct: unrealised P&L on the
+        # committed margin, gross of the exit fee (which is not owed until the
+        # trade actually closes).
+        if margin > 0:
+            mfe = quantity * (best_price - entry_price) / margin * 100.0
+            mae = quantity * (worst_price - entry_price) / margin * 100.0
+        else:
+            mfe = mae = 0.0
 
         trades.append(
             Trade(
@@ -136,6 +165,12 @@ def run_backtest(
                 return_pct=(pnl / margin * 100.0) if margin > 0 else 0.0,
                 bars_held=index - entry_index,
                 exit_reason=reason,
+                # Clamped: MFE is favourable-or-nothing, MAE adverse-or-nothing,
+                # so a trade that only ever moved one way reports 0 for the
+                # other rather than a sign-flipped value.
+
+                mfe_pct=max(mfe, 0.0),
+                mae_pct=min(mae, 0.0),
             )
         )
 
@@ -144,15 +179,20 @@ def run_backtest(
         entry_price = 0.0
         margin = 0.0
         entry_index = -1
+        best_price = worst_price = 0.0
 
     def open_position(price: float, index: int, direction: int) -> None:
         nonlocal equity, position, quantity, entry_price, margin, entry_index
+        nonlocal best_price, worst_price
         margin = equity * config.size_pct
         notional = margin * config.leverage
         quantity = notional / price * direction
         entry_price = price
         entry_index = index
         position = direction
+        # Start both excursions at the entry price: a trade that closes before
+        # any further bar has moved neither way.
+        best_price = worst_price = price
         equity -= notional * config.fee   # entry fee, paid immediately
 
     for i in range(n):
@@ -163,6 +203,18 @@ def run_backtest(
                     close_position(fill_price(open_[i], -position), i, "signal")
                 if target[i] != 0 and equity > 0:
                     open_position(fill_price(open_[i], target[i]), i, target[i])
+
+            # 1b. Track how far this bar took the open position either way.
+            #     After the fill, so the entry bar is measured from the price
+            #     actually paid; before liquidation, so the wick that ends a
+            #     trade is still counted in its MAE.
+            if position != 0:
+                if position > 0:
+                    best_price = max(best_price, high[i])
+                    worst_price = min(worst_price, low[i])
+                else:
+                    best_price = min(best_price, low[i])
+                    worst_price = max(worst_price, high[i])
 
             # 2. Liquidation: does this bar's adverse extreme wipe out the margin?
             if position != 0 and config.leverage > 1.0:

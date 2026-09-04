@@ -243,6 +243,91 @@ const Validation = (() => {
 
 
   // ---------- Statistics ----------
+  //
+  // Every test the backend runs arrives in the same envelope: name, H0, H1,
+  // statistic, raw p, FDR-adjusted p, conclusion and assumptions. So the panel
+  // renders one table for all of them rather than a bespoke row per test, and
+  // each row carries an (i) that opens the full annotation. The table shows
+  // both p columns side by side on purpose — the gap between them is the whole
+  // point of running a family of tests at once.
+
+  const P_FMT = (p) => (Explain ? Explain.pFormat(p) : String(p));
+
+  /** One row of the test table, with its (i) wired to the test's own text. */
+  function testRow(test) {
+    if (!test) return '';
+    if (test.unavailable) {
+      return `<tr class="muted"><td>${esc(test.name)}</td>
+        <td colspan="3">${esc(test.unavailable)}</td>
+        <td class="muted">không chạy được</td></tr>`;
+    }
+    if (test.p_value === null || test.p_value === undefined) return '';
+
+    const adjusted = test.p_adjusted ?? test.p_value;
+    const rejected = test.reject_adjusted ?? test.reject;
+    // The conclusion sentence is long by design; the table shows the decision
+    // and the (i) shows the sentence.
+    const decision = rejected ? 'Bác bỏ H₀' : 'Không bác bỏ';
+    const info = Explain.inline(Explain.fromTest(test), { title: `Giải thích ${test.name}` });
+
+    return `<tr>
+      <td>${esc(test.name)} ${info}</td>
+      <td>${esc(Explain.fmt(test.statistic))}</td>
+      <td>${esc(P_FMT(test.p_value))}</td>
+      <td class="${rejected ? 'pos' : ''}">${esc(P_FMT(adjusted))}</td>
+      <td class="${rejected ? 'pos' : 'muted'}">${esc(decision)}</td>
+    </tr>`;
+  }
+
+  function testTable(tests, caption) {
+    const rows = tests.map(testRow).filter(Boolean).join('');
+    if (!rows) return '';
+    return `${caption ? `<div class="field-group-title">${esc(caption)}</div>` : ''}
+      <table class="data-table stat-table">
+        <thead><tr>
+          <th>Kiểm định</th><th>Thống kê</th><th>p thô</th>
+          <th>p hiệu chỉnh</th><th>Quyết định ở α = 0,05</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  /** A card whose label carries an (i).
+   *
+   * `explain` is either a glossary id or the markup `Explain.inline()` returns
+   * for an entry built from live numbers. Both are common here, so both work.
+   */
+  function cardX(label, value, explain, cls = '', sub = '') {
+    const info = !explain
+      ? ''
+      : explain.startsWith('<')
+        ? explain
+        : Explain.button(explain, { title: `Giải thích ${label}` });
+    return `<div class="metric">
+      <div class="metric-label">${esc(label)} ${info}</div>
+      <div class="metric-value ${cls}">${value}</div>
+      ${sub ? `<div class="metric-sub">${esc(sub)}</div>` : ''}
+    </div>`;
+  }
+
+  function verdictCallout(verdict, tone) {
+    if (!verdict) return '';
+    let html = `<div class="callout ${tone}"><strong>${esc(verdict.headline)}</strong>
+      ${verdict.detail ? ` ${esc(verdict.detail)}` : ''}</div>`;
+    for (const note of verdict.notes || []) {
+      html += `<div class="callout">${esc(note)}</div>`;
+    }
+    return html;
+  }
+
+  function familyNote(family) {
+    if (!family || !family.n_tests) return '';
+    return `<p class="table-note">${esc(family.note || '')}
+      ${family.n_significant_raw !== undefined
+        ? `Trước hiệu chỉnh: ${family.n_significant_raw}/${family.n_tests} kiểm định có ý nghĩa;
+           sau hiệu chỉnh: ${family.n_significant_adjusted}/${family.n_tests}.`
+        : ''}</p>`;
+  }
 
   async function runSeriesStats() {
     const ctx = context();
@@ -254,75 +339,114 @@ const Validation = (() => {
   }
 
   function renderSeriesStats(r) {
-    const d = r.distribution;
-    const s = r.stochastic;
-    if (d.error) { elements.stats.innerHTML = `<p class="empty">${esc(d.error)}</p>`; return; }
+    if (r.error) { elements.stats.innerHTML = `<p class="empty">${esc(r.error)}</p>`; return; }
 
-    let html = '';
+    const m = r.moments || {};
+    const tail = r.tail || {};
+    const stationary = r.stationarity || {};
+    const auto = r.autocorrelation || {};
+    const norm = r.normality || {};
 
-    // The headline finding, in words, before any table.
-    const randomWalk = s.variance_ratio?.random_walk && !s.has_autocorrelation;
-    if (randomWalk) {
-      html += `<div class="callout warn"><strong>Chuỗi này gần như bước ngẫu nhiên.</strong>
-        Không tìm thấy tự tương quan trong lợi suất (Ljung–Box p = ${s.ljungbox_p.toFixed(3)}),
-        và tỷ số phương sai không bác bỏ được bước ngẫu nhiên. Chỉ báo dựa trên
-        <em>hướng</em> giá quá khứ sẽ rất khó ăn thua ở đây.</div>`;
-    }
-    if (s.has_volatility_clustering) {
-      html += `<div class="callout good"><strong>Biến động có gom cụm.</strong>
-        Đây là cấu trúc thật và khai thác được — dù hướng giá khó dự đoán, thì
-        <em>mức độ dao động</em> lại có quán tính.</div>`;
-    }
-    if (!d.is_normal) {
-      html += `<div class="callout warn">Lợi suất <strong>không theo phân phối chuẩn</strong>
-        (độ nhọn thừa ${d.kurtosis_excess.toFixed(1)}, chuẩn là 0). Đuôi dày hơn nhiều so với
-        giả định chuẩn, nên Sharpe và mọi công thức giả định chuẩn đều
-        <strong>đánh giá thấp rủi ro đuôi</strong>.</div>`;
-    }
+    // The verdict is computed from the ADJUSTED p-values only, so it cannot
+    // disagree with the table below it.
+    const structured = r.verdict?.headline?.startsWith('Có cấu trúc');
+    let html = verdictCallout(r.verdict, structured ? 'good' : 'warn');
 
     html += '<div class="metrics">';
-    html += card('Độ nhọn thừa', d.kurtosis_excess.toFixed(2), d.kurtosis_excess > 1 ? 'neg' : '',
-      'chuẩn = 0');
-    html += card('Độ lệch', d.skew.toFixed(3), '', d.skew < 0 ? 'đuôi trái dày hơn' : 'đuôi phải dày hơn');
-    html += card('VaR 95%', `${d.var_95_pct.toFixed(2)}%`, 'neg', `CVaR ${d.cvar_95_pct.toFixed(2)}%`);
-    html += card('VaR 99%', `${d.var_99_pct.toFixed(2)}%`, 'neg', `CVaR ${d.cvar_99_pct.toFixed(2)}%`);
-    html += card('Hurst', Number.isFinite(s.hurst) ? s.hurst.toFixed(3) : '—', '', s.hurst_reading);
-    html += card('Tỷ số phương sai',
-      s.variance_ratio?.variance_ratio?.toFixed(3) ?? '—', '',
-      s.variance_ratio?.random_walk ? 'không bác bỏ bước ngẫu nhiên' : 'khác bước ngẫu nhiên');
+    if (m.n) {
+      html += cardX('Độ nhọn thừa', num(m.kurtosis_excess),
+        Explain.inline({
+          title: 'Độ nhọn thừa',
+          what: 'Đo độ dày của đuôi phân phối so với phân phối chuẩn. Chuẩn = 0.',
+          rows: [
+            ['Giá trị', num(m.kurtosis_excess)],
+            ['Sai số chuẩn', num(m.kurtosis_se, 3)],
+            ['z', num(m.kurtosis_z)],
+          ],
+          how: m.kurtosis_significant
+            ? 'Lệch khỏi 0 quá 1,96 sai số chuẩn, nên đây là độ nhọn thật chứ không phải nhiễu lấy mẫu.'
+            : 'Chưa lệch khỏi 0 quá 1,96 sai số chuẩn — với cỡ mẫu này, không kết luận được là đuôi dày hơn chuẩn.',
+          watch: 'Độ nhọn cao nghĩa là các cú sốc lớn xảy ra thường xuyên hơn nhiều so với giả định chuẩn. Mọi ước lượng rủi ro dựa trên độ lệch chuẩn đều thấp hơn thực tế.',
+        }),
+        m.kurtosis_significant && m.kurtosis_excess > 1 ? 'neg' : '',
+        `SE ${num(m.kurtosis_se, 3)} · ${m.kurtosis_significant ? 'có ý nghĩa' : 'không có ý nghĩa'}`);
+
+      html += cardX('Độ lệch', num(m.skew, 3),
+        Explain.inline({
+          title: 'Độ lệch',
+          what: 'Đo tính bất đối xứng của phân phối lợi suất. Chuẩn = 0.',
+          rows: [['Giá trị', num(m.skew, 3)], ['Sai số chuẩn', num(m.skew_se, 3)], ['z', num(m.skew_z)]],
+          how: m.skew < 0
+            ? 'Âm: đuôi trái dày hơn — các phiên giảm cực đoan sâu hơn các phiên tăng cực đoan.'
+            : 'Dương: đuôi phải dày hơn.',
+          assumptions: 'Sai số chuẩn tính theo công thức Cramér dưới giả thuyết phân phối chuẩn. Một độ lệch nhỏ hơn 1,96 lần sai số chuẩn không phân biệt được với 0.',
+        }),
+        '', `SE ${num(m.skew_se, 3)}`);
+    }
+
+    if (tail.n) {
+      html += cardX('VaR 95%', `${num(tail.var_95_pct)}%`, 'p.var', 'neg',
+        `KTC ${num(tail.var_95_ci_low_pct)}…${num(tail.var_95_ci_high_pct)}%`);
+      html += cardX('CVaR 95%', `${num(tail.cvar_95_pct)}%`, 'p.cvar', 'neg',
+        `${tail.tail_n_95} quan sát đuôi`);
+      html += cardX('CVaR 99%', `${num(tail.cvar_99_pct)}%`,
+        Explain.inline({
+          title: 'CVaR 99% — và vì sao phải cẩn thận',
+          what: 'Mức lỗ trung bình trong 1% số nến tệ nhất.',
+          rows: [['Giá trị', `${num(tail.cvar_99_pct)}%`], ['Số quan sát đuôi', tail.tail_n_99]],
+          watch: tail.tail_reliable_99
+            ? 'Đủ quan sát để ước lượng tạm ổn định.'
+            : `Chỉ ${tail.tail_n_99} quan sát đỡ con số này. Nó hiện ra với hai chữ số thập phân như mọi con số khác, nhưng nó không đáng tin như vậy — hãy coi là chỉ dấu.`,
+        }),
+        tail.tail_reliable_99 ? 'neg' : '',
+        `${tail.tail_n_99} quan sát${tail.tail_reliable_99 ? '' : ' — quá ít'}`);
+    }
+
+    if (r.hurst?.statistic !== undefined && r.hurst.statistic !== null) {
+      html += cardX('Hurst', num(r.hurst.statistic, 3),
+        Explain.inline(Explain.fromTest(r.hurst)), '',
+        r.hurst.reading || '');
+    }
+    if (r.variance_ratio?.per_period) {
+      const q2 = r.variance_ratio.per_period[0];
+      html += cardX('Tỷ số phương sai (q=2)', num(q2?.variance_ratio, 3),
+        Explain.inline(Explain.fromTest(r.variance_ratio)), '', q2?.reading || '');
+    }
     html += '</div>';
 
-    const row = (name, value, verdict, cls = '') =>
-      `<tr><td>${esc(name)}</td><td>${value}</td><td class="${cls}">${esc(verdict)}</td></tr>`;
+    // The full family, in one table, with both p columns.
+    html += testTable([
+      auto.ljung_box, auto.arch_lm,
+      r.variance_ratio, r.hurst,
+      stationary.adf_price, stationary.adf_return, stationary.kpss_return,
+      norm.jarque_bera, norm.dagostino,
+    ], 'Toàn bộ họ kiểm định');
+    html += familyNote(r.multiple_testing);
 
-    html += '<table class="data-table"><thead><tr><th>Kiểm định</th><th>Giá trị</th><th>Kết luận</th></tr></thead><tbody>';
-    html += row('Jarque–Bera (chuẩn)', `p = ${d.jarque_bera_p.toExponential(1)}`,
-      d.is_normal ? 'phân phối chuẩn' : 'KHÔNG chuẩn', d.is_normal ? '' : 'neg');
-    if (s.adf_price_p !== undefined) {
-      html += row('ADF trên giá', `p = ${s.adf_price_p.toFixed(4)}`,
-        s.adf_price_stationary ? 'dừng' : 'không dừng');
-      html += row('ADF trên lợi suất', `p = ${s.adf_return_p.toExponential(1)}`,
-        s.adf_return_stationary ? 'dừng' : 'không dừng',
-        s.adf_return_stationary ? 'pos' : 'neg');
+    // Variance ratio detail: one row per horizon, with both z statistics so
+    // the difference between them is visible rather than asserted.
+    const vr = r.variance_ratio?.per_period;
+    if (vr?.length) {
+      html += `<div class="field-group-title">Tỷ số phương sai theo kỳ hạn</div>
+        <table class="data-table"><thead><tr>
+          <th>q</th><th>VR(q)</th><th>z đồng nhất</th><th>z bền</th><th>Đọc là</th>
+        </tr></thead><tbody>` +
+        vr.map((p) => `<tr>
+          <td>${p.period}</td>
+          <td>${num(p.variance_ratio, 3)}</td>
+          <td class="muted">${num(p.z_homoskedastic)}</td>
+          <td class="${Math.abs(p.z_heteroskedastic ?? 0) > 1.96 ? 'pos' : ''}">${num(p.z_heteroskedastic)}</td>
+          <td>${esc(p.reading)}</td></tr>`).join('') +
+        `</tbody></table>
+        <p class="table-note">Cột <strong>z bền</strong> là cột để đọc: nó không giả định
+        phương sai cố định theo thời gian, còn cột <strong>z đồng nhất</strong> thì có — và
+        kiểm định ARCH ở bảng trên hầu như luôn bác bỏ giả định đó. Kết luận chung lấy từ
+        thống kê Chow–Denning trên toàn bộ tập kỳ hạn, không phải từ kỳ hạn có p nhỏ nhất.</p>`;
     }
-    if (s.ljungbox_p !== undefined) {
-      html += row(`Ljung–Box (${s.ljungbox_lags} độ trễ)`, `p = ${s.ljungbox_p.toFixed(4)}`,
-        s.has_autocorrelation ? 'CÓ tự tương quan' : 'không có',
-        s.has_autocorrelation ? 'pos' : '');
-    }
-    if (s.volatility_clustering_p !== undefined) {
-      html += row('Ljung–Box trên |lợi suất|', `p = ${s.volatility_clustering_p.toExponential(1)}`,
-        s.has_volatility_clustering ? 'CÓ gom cụm biến động' : 'không',
-        s.has_volatility_clustering ? 'pos' : '');
-    }
-    if (s.variance_ratio?.z_score !== undefined) {
-      html += row(`Tỷ số phương sai (q=${s.variance_ratio.period})`,
-        `z = ${s.variance_ratio.z_score.toFixed(2)}`,
-        s.variance_ratio.random_walk ? 'không bác bỏ bước ngẫu nhiên' : 'bác bỏ bước ngẫu nhiên');
-    }
-    html += '</tbody></table>';
-    html += `<p class="table-note">Trên ${r.bars.toLocaleString('vi-VN')} nến
-      ${esc(r.symbol || '')} ${esc(r.timeframe || '')}. Mức ý nghĩa 5%.</p>`;
+
+    html += `<p class="table-note">Trên ${(r.bars || 0).toLocaleString('vi-VN')} nến
+      ${esc(r.symbol || '')} ${esc(r.timeframe || '')}, lợi suất log.
+      Mức ý nghĩa α = 0,05, hiệu chỉnh đa kiểm định Benjamini–Hochberg.</p>`;
 
     elements.stats.innerHTML = html;
   }
@@ -333,6 +457,9 @@ const Validation = (() => {
       strategyId: elements.strategySelect.value,
       symbol: ctx.symbol, timeframe: ctx.timeframe, limit: ctx.limit,
       params, execution: execution(),
+      // If the parameters came from a sweep, that sweep's size is what the
+      // deflated Sharpe ratio has to discount. Typed-in parameters mean 1.
+      nTrials: Strategy.lastTrials,
     });
     renderStrategyStats(result);
     return result;
@@ -340,49 +467,119 @@ const Validation = (() => {
 
   function renderStrategyStats(r) {
     if (r.error) { elements.stats.innerHTML = `<p class="empty">${esc(r.error)}</p>`; return; }
-    const inf = r.inference;
-    const bay = r.bayesian;
-    let html = '';
+
+    const inf = r.inference || {};
+    const sharpe = r.sharpe;
+    const power = inf.power || {};
+    const boot = inf.bootstrap_mean;
 
     if (inf.error) {
-      html += `<div class="callout warn">${esc(inf.error)}</div>`;
-    } else if (!inf.significant) {
-      html += `<div class="callout warn"><strong>Lợi thế chưa có ý nghĩa thống kê.</strong>
-        Lợi suất trung bình mỗi lệnh ${inf.mean_return_pct >= 0 ? '+' : ''}${inf.mean_return_pct.toFixed(3)}%,
-        p = ${inf.p_value_one_sided.toFixed(3)} — không bác bỏ được giả thuyết
-        "lợi thế bằng 0". Khoảng tin cậy 95% vẫn chứa số 0.</div>`;
-    } else {
-      html += `<div class="callout good"><strong>Lợi thế có ý nghĩa thống kê</strong>
-        (p = ${inf.p_value_one_sided.toFixed(4)}). Vẫn nên chạy walk-forward:
-        kiểm định này không biết tham số đã được chọn bằng hậu nghiệm hay chưa.</div>`;
+      elements.stats.innerHTML = `<div class="callout warn">${esc(inf.error)}</div>`;
+      return;
     }
-    if (inf.underpowered) {
-      html += `<div class="callout warn">Chỉ ${inf.n_trades} lệnh — quá ít để kiểm định
-        có sức mạnh. Kết luận nào rút ra ở đây cũng mong manh.</div>`;
-    }
+
+    const good = r.verdict?.headline === 'Lợi thế đứng vững qua kiểm định';
+    let html = verdictCallout(r.verdict, good ? 'good' : 'warn');
 
     html += '<div class="metrics">';
-    if (!inf.error) {
-      html += card('Lợi suất TB/lệnh', `${inf.mean_return_pct >= 0 ? '+' : ''}${inf.mean_return_pct.toFixed(3)}%`,
-        sign(inf.mean_return_pct), `${inf.n_trades} lệnh`);
-      html += card('p (một phía)', inf.p_value_one_sided.toFixed(4),
-        inf.significant ? 'pos' : 'neg', inf.significant ? 'có ý nghĩa' : 'không có ý nghĩa');
-      html += card('KTC 95%',
-        `${inf.ci95_low_pct.toFixed(2)}% … ${inf.ci95_high_pct.toFixed(2)}%`, '',
-        'chứa 0 nghĩa là chưa kết luận được');
+    html += cardX('Lợi suất TB/lệnh',
+      `${inf.mean_return_pct >= 0 ? '+' : ''}${num(inf.mean_return_pct, 3)}%`,
+      'm.expectancy', sign(inf.mean_return_pct), `${inf.n_trades} lệnh`);
+
+    const perm = inf.sign_permutation;
+    if (perm) {
+      html += cardX('p hoán vị (phi tham số)', P_FMT(perm.p_adjusted ?? perm.p_value),
+        Explain.inline(Explain.fromTest(perm)),
+        (perm.reject_adjusted ?? perm.reject) ? 'pos' : 'neg',
+        'đã hiệu chỉnh đa kiểm định');
     }
-    html += card('Tỷ lệ thắng quan sát', `${bay.observed_win_rate_pct.toFixed(1)}%`, '',
-      `${bay.wins} thắng / ${bay.losses} thua`);
-    html += card('Bayes · khoảng tin 95%',
-      `${bay.credible_95_low_pct.toFixed(1)}–${bay.credible_95_high_pct.toFixed(1)}%`, '',
-      `rộng ${bay.credible_width_pct.toFixed(1)} điểm`);
-    html += card('P(thắng thật > 50%)', `${bay.prob_better_than_coin_pct.toFixed(1)}%`,
-      bay.prob_better_than_coin_pct > 50 ? 'pos' : 'neg');
+    if (boot) {
+      html += cardX('KTC 95% bootstrap',
+        `${num(boot.ci95_low_pct)}…${num(boot.ci95_high_pct)}%`,
+        Explain.inline({
+          title: boot.name,
+          what: 'Khoảng tin cậy cho lợi suất trung bình mỗi lệnh, không giả định phân phối.',
+          rows: [
+            ['Trung bình', `${num(boot.mean_pct, 3)}%`],
+            ['Cận dưới', `${num(boot.ci95_low_pct, 3)}%`],
+            ['Cận trên', `${num(boot.ci95_high_pct, 3)}%`],
+            ['Số lần lấy mẫu lại', boot.n_resamples],
+          ],
+          how: boot.note,
+          assumptions: 'BCa hiệu chỉnh cả độ chệch lẫn độ lệch của phân phối bootstrap. Vẫn giả định các lệnh độc lập với nhau.',
+        }),
+        boot.excludes_zero ? 'pos' : 'neg',
+        boot.excludes_zero ? 'không chứa 0' : 'vẫn chứa 0');
+    }
+    if (power.power !== undefined) {
+      html += cardX('Lực kiểm định', `${(power.power * 100).toFixed(0)}%`,
+        Explain.inline({
+          title: power.name,
+          what: 'Xác suất phát hiện được lợi thế, nếu lợi thế thật đúng bằng mức quan sát được.',
+          rows: [
+            ['Cỡ ảnh hưởng (d)', num(power.effect_size_cohens_d, 3)],
+            ['Số lệnh hiện có', power.n],
+            ['Cần cho lực 80%', power.n_required_for_80pct ?? '—'],
+          ],
+          how: power.reading,
+          assumptions: power.assumptions,
+        }),
+        power.adequate ? 'pos' : 'neg',
+        power.n_required_for_80pct ? `cần ${power.n_required_for_80pct} lệnh cho 80%` : '');
+    }
+    if (sharpe && !sharpe.error) {
+      html += cardX('PSR', `${(sharpe.psr * 100).toFixed(1)}%`,
+        Explain.inline({
+          title: 'PSR — Sharpe theo xác suất',
+          what: 'Xác suất Sharpe thật lớn hơn 0, có tính tới độ lệch và độ nhọn của lợi suất.',
+          rows: [
+            ['Sharpe (năm)', num(sharpe.sharpe_annualised)],
+            ['Độ lệch', num(sharpe.skew, 3)],
+            ['Độ nhọn', num(sharpe.kurtosis)],
+            ['Số quan sát', sharpe.n_observations],
+            ['MinTRL', sharpe.min_track_record_length ?? '—'],
+          ],
+          how: sharpe.conclusion,
+          assumptions: sharpe.assumptions,
+        }),
+        sharpe.psr_significant ? 'pos' : 'neg',
+        `Sharpe ${num(sharpe.sharpe_annualised)}`);
+
+      html += cardX('DSR (khử phồng)', `${(sharpe.deflated_sharpe_ratio * 100).toFixed(1)}%`,
+        Explain.inline({
+          title: 'DSR — Sharpe khử phồng',
+          what: `Như PSR, nhưng so với ngưỡng mà ${sharpe.n_trials} lần thử tham số tự nó đã tạo ra được.`,
+          rows: [
+            ['Số lần thử', sharpe.n_trials],
+            ['Ngưỡng Sharpe kỳ vọng', num(sharpe.deflation_threshold_sharpe, 4)],
+            ['DSR', `${(sharpe.deflated_sharpe_ratio * 100).toFixed(1)}%`],
+          ],
+          how: sharpe.n_trials > 1
+            ? sharpe.conclusion
+            : 'Chưa chạy tối ưu nên số lần thử tính là 1, và DSR bằng PSR. Sau khi quét tham số, hãy chạy lại kiểm định này để thấy ngưỡng thật.',
+          watch: 'Đây là con số quan trọng nhất khi tham số đến từ một lần quét. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực đại của 2 000 biến ngẫu nhiên — Sharpe của nó cao hơn Sharpe thật kể cả khi không tổ hợp nào có lợi thế.',
+          assumptions: sharpe.assumptions,
+        }),
+        sharpe.dsr_significant ? 'pos' : 'neg',
+        `${sharpe.n_trials} lần thử tham số`);
+    }
     html += '</div>';
 
-    html += `<p class="table-note">Hậu nghiệm Beta–Nhị thức với tiên nghiệm ${esc(bay.prior)}
-      (phân phối đều — chưa giả định gì). Bề rộng khoảng tin cậy là thứ mà một con số
-      tỷ lệ thắng đơn lẻ che mất: với ít lệnh, nó rộng đến mức gần như vô dụng.</p>`;
+    html += testTable([inf.t_test, inf.wilcoxon, inf.sign_permutation],
+      'Kiểm định lợi thế — ba cách hỏi cùng một câu');
+    html += familyNote(r.multiple_testing);
+
+    html += `<p class="table-note">Ba kiểm định trên đo cùng một thứ với những giả định khác
+      nhau. Nếu chúng cho kết luận khác nhau thì bản thân điều đó là thông tin: kết luận đang
+      phụ thuộc vào giả định chứ không phải vào dữ liệu, và kiểm định hoán vị — vốn gần như
+      không giả định gì — là cái đáng tin nhất.</p>`;
+
+    if (sharpe?.min_track_record_length) {
+      html += `<p class="table-note">Độ dài lịch sử tối thiểu để Sharpe này đạt mức tin cậy
+        95% là <strong>${sharpe.min_track_record_length.toLocaleString('vi-VN')}</strong> nến;
+        hiện có ${sharpe.n_observations.toLocaleString('vi-VN')}
+        ${sharpe.sufficient_history ? '— đủ.' : '— chưa đủ.'}</p>`;
+    }
 
     elements.stats.innerHTML = html;
   }

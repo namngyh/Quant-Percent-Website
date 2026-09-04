@@ -12,6 +12,7 @@ const Strategy = (() => {
   let onResult = () => {};
   let current = null; // the selected spec
   let lastBacktest = null;
+  let lastTrials = 1;
   let params = {};
   let sweep = {}; // paramName -> {enabled, start, stop, step}
 
@@ -400,6 +401,11 @@ const Strategy = (() => {
 
   function renderOptimize(result) {
     const s = result.summary;
+    // Remembered for the deflated Sharpe ratio: a strategy whose parameters
+    // were picked as the best of 2 000 sweeps has to clear a far higher bar
+    // than one typed in by hand, and the statistics panel cannot know that
+    // number unless the sweep tells it.
+    lastTrials = s.combinations || 1;
     const rows = result.results;
 
     if (!rows.length) {
@@ -515,5 +521,7 @@ const Strategy = (() => {
     get catalog() { return catalog; },
     get selected() { return current; },
     get lastResult() { return lastBacktest; },
+    // How many parameter combinations were tried to reach the current values.
+    get lastTrials() { return lastTrials; },
   };
 })();

@@ -15,6 +15,7 @@ from backend.api import (
     routes_indicators,
     routes_market,
     routes_notify,
+    routes_portfolio,
     routes_paper,
     routes_plugins,
     routes_stats,
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_validation.router)
     app.include_router(routes_stats.router)
     app.include_router(routes_notify.router)
+    app.include_router(routes_portfolio.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

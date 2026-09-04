@@ -145,7 +145,7 @@ def _():
 def _():
     try:
         optimize("example_ema_cross", trending(200), "1h",
-                 [ParamRange("fast", 5, 10, 5)], mode="bayesian")
+                 [ParamRange("fast", 5, 10, 5)], mode="annealing")
     except ValueError as exc:
         assert "unknown mode" in str(exc), exc
     else:

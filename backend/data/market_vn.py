@@ -187,6 +187,48 @@ def intraday_symbols() -> set[str]:
     return {r[0] for r in rows}
 
 
+def daily_closes(symbols: list[str], lookback: int) -> dict[str, dict]:
+    """Most recent ``lookback`` daily closes for each symbol.
+
+    One query for the whole basket rather than one per symbol: the portfolio
+    panel asks for up to fifty names plus the index, and fifty round trips over
+    a VPN is the difference between a page that answers and a page that hangs.
+
+    The window is per symbol — ``row_number`` partitions by symbol — so a name
+    whose feed lags a few sessions still gets its own most recent `lookback`
+    rows rather than being truncated by whatever the busiest symbol has.
+
+    Returns ``{symbol: {date: close}}``. Non-positive closes are dropped: they
+    are data errors, and a zero close would produce an infinite log return.
+    """
+    if not symbols:
+        return {}
+
+    rows = query(
+        """
+        SELECT symbol, trading_date, close
+        FROM (
+            SELECT symbol, trading_date, close,
+                   row_number() OVER (
+                       PARTITION BY symbol ORDER BY trading_date DESC
+                   ) AS rn
+            FROM api.v_history_1d
+            WHERE symbol = ANY(%s)
+        ) ranked
+        WHERE rn <= %s
+        ORDER BY symbol, trading_date
+        """,
+        (list(symbols), int(lookback)),
+    )
+
+    out: dict[str, dict] = {}
+    for symbol, trading_date, close in rows:
+        if close is None or float(close) <= 0:
+            continue
+        out.setdefault(symbol, {})[trading_date] = float(close)
+    return out
+
+
 def freshness() -> list[dict]:
     rows = query("SELECT symbol, data_as_of FROM api.v_data_freshness ORDER BY data_as_of DESC")
     return [

@@ -70,6 +70,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg>
         <span>Kết quả</span>
       </button>
+      <button class="rail-btn" data-panel="portfolio" role="tab" title="Danh mục">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/></svg>
+        <span>Danh mục</span>
+      </button>
       <button class="rail-btn" data-panel="paper" role="tab" title="Paper trading">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
         <span>Paper</span>
@@ -140,15 +144,15 @@
             <div class="field-group">
               <div class="field-group-title">Chi phí &amp; vốn</div>
               <div class="params">
-                <label class="param-row"><span>Vốn ban đầu</span>
+                <label class="param-row"><span>Vốn ban đầu <button type="button" class="info-btn" data-explain="exec.capital" aria-label="Giải thích Vốn ban đầu" title="Giải thích Vốn ban đầu">i</button></span>
                   <input id="exec-capital" type="number" value="10000" min="100" step="100" /></label>
-                <label class="param-row"><span>% vốn/lệnh</span>
+                <label class="param-row"><span>% vốn/lệnh <button type="button" class="info-btn" data-explain="exec.size" aria-label="Giải thích % vốn mỗi lệnh" title="Giải thích % vốn mỗi lệnh">i</button></span>
                   <input id="exec-size" type="number" value="100" min="1" max="100" step="1" /></label>
-                <label class="param-row"><span>Đòn bẩy</span>
+                <label class="param-row"><span>Đòn bẩy <button type="button" class="info-btn" data-explain="exec.leverage" aria-label="Giải thích Đòn bẩy" title="Giải thích Đòn bẩy">i</button></span>
                   <input id="exec-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
-                <label class="param-row"><span>Phí (%)</span>
+                <label class="param-row"><span>Phí (%) <button type="button" class="info-btn" data-explain="exec.fee" aria-label="Giải thích Phí giao dịch" title="Giải thích Phí giao dịch">i</button></span>
                   <input id="exec-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
-                <label class="param-row"><span>Trượt giá (%)</span>
+                <label class="param-row"><span>Trượt giá (%) <button type="button" class="info-btn" data-explain="exec.slippage" aria-label="Giải thích Trượt giá" title="Giải thích Trượt giá">i</button></span>
                   <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
               </div>
             </div>
@@ -241,6 +245,7 @@
             <button class="subtab" data-restab="stats" role="tab">Thống kê</button>
           </div>
           <div class="panel-head-actions">
+            <button id="open-report" class="btn btn-sm" title="Mở báo cáo backtest đầy đủ">Báo cáo</button>
             <button id="export-csv" class="btn btn-quiet btn-sm" title="Tải danh sách lệnh ra CSV">CSV</button>
             <button id="export-png" class="btn btn-quiet btn-sm" title="Tải biểu đồ ra ảnh PNG">PNG</button>
           </div>
@@ -274,6 +279,53 @@
         </div>
       </section>
 
+      <!-- ---------- Quant Portfolio ---------- -->
+      <section class="panel" data-panel="portfolio">
+        <div class="panel-head">
+          <h2>Danh mục</h2>
+          <div class="panel-head-actions">
+            <span id="pf-count" class="badge">—</span>
+            <button class="info-btn" data-explain="pf.about" title="Trang này đo cái gì">i</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <p class="hint">
+            Nhập vị thế cổ phiếu Việt Nam của bạn. Mọi con số đo từ chính lịch sử
+            giá mà database của team có — không có lợi suất hay tương quan giả định.
+            Không có gì được lưu lại.
+          </p>
+
+          <datalist id="pf-symbols"></datalist>
+          <div id="pf-rows" class="pf-rows"></div>
+          <button id="pf-add" class="btn btn-quiet btn-sm btn-block">+ Thêm mã</button>
+
+          <div class="field-group">
+            <label class="param-row stack"><span>Tiền mặt (đồng)</span>
+              <input id="pf-cash" type="text" inputmode="numeric" placeholder="0" /></label>
+            <label class="param-row"><span>Cửa sổ đo
+              <button type="button" class="info-btn" data-explain="pf.lookback"
+                      title="Giải thích cửa sổ đo">i</button></span>
+              <select id="pf-lookback">
+                <option value="126">6 tháng</option>
+                <option value="252" selected>1 năm</option>
+                <option value="504">2 năm</option>
+              </select></label>
+            <label class="param-row"><span>Kỳ dự phóng
+              <button type="button" class="info-btn" data-explain="pf.horizon"
+                      title="Giải thích kỳ dự phóng">i</button></span>
+              <select id="pf-horizon">
+                <option value="21">1 tháng</option>
+                <option value="63" selected>3 tháng</option>
+                <option value="126">6 tháng</option>
+                <option value="252">1 năm</option>
+              </select></label>
+          </div>
+
+          <button id="pf-run" class="btn btn-primary btn-block">Phân tích danh mục</button>
+          <p id="pf-message" class="hint"></p>
+        </div>
+      </section>
+
       <!-- ---------- Paper trading ---------- -->
       <section class="panel" data-panel="paper">
         <div class="panel-head">
@@ -289,9 +341,31 @@
           <div id="paper-sessions" class="paper-list"></div>
 
           <div class="field-group" style="margin-top:14px">
-            <div class="field-group-title">Thông báo Telegram</div>
+            <div class="field-group-title">
+              Thông báo Telegram
+              <button type="button" class="info-btn" data-explain="notify.telegram"
+                      aria-label="Cách lấy token và chat id"
+                      title="Cách lấy token và chat id">i</button>
+            </div>
             <p class="hint" id="notify-status">Đang kiểm tra…</p>
-            <button id="notify-test" class="btn btn-block">Gửi tin thử</button>
+
+            <label class="param-row stack"><span>Bot token</span>
+              <input id="notify-token" type="password" autocomplete="off"
+                     spellcheck="false" placeholder="123456789:AA…" /></label>
+            <label class="param-row stack"><span>Chat id</span>
+              <input id="notify-chat" type="text" autocomplete="off"
+                     spellcheck="false" inputmode="numeric" placeholder="987654321" /></label>
+
+            <div class="btn-row">
+              <button id="notify-save" class="btn btn-primary">Lưu</button>
+              <button id="notify-test" class="btn">Gửi tin thử</button>
+              <button id="notify-clear" class="btn btn-quiet" title="Xoá token khỏi máy">Xoá</button>
+            </div>
+            <p class="hint tiny">
+              Token được ghi vào file <code>.env</code> trên máy bạn — file này đã nằm trong
+              <code>.gitignore</code> nên không bao giờ lên git. Trang này chỉ hiển thị lại
+              token đã che.
+            </p>
           </div>
         </div>
       </section>
@@ -332,6 +406,7 @@
   <input type="file" id="import-file" accept=".py,text/x-python" hidden />
 
   <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/explain.js"></script>
   <script src="/static/js/favourites.js"></script>
   <script src="/static/js/resize.js"></script>
   <script src="/static/js/api.js"></script>
@@ -339,6 +414,8 @@
   <script src="/static/js/indicators.js"></script>
   <script src="/static/js/strategy.js"></script>
   <script src="/static/js/paper.js"></script>
+  <script src="/static/js/report.js"></script>
+  <script src="/static/js/portfolio.js"></script>
   <script src="/static/js/validation.js"></script>
   <script src="/static/js/live.js"></script>
   <script src="/static/js/app.js"></script>

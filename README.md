@@ -10,7 +10,7 @@ Bitcoin (Binance) và **chứng khoán Việt Nam** (HOSE, từ database của t
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
 - **Tối ưu tham số** bằng grid search hoặc random search, kèm cảnh báo overfit
 - **Walk-forward validation**, **Monte Carlo** và **kiểm định thống kê** (phân phối,
-  bước ngẫu nhiên, suy diễn, Bayes) — kiểm tra xem kết quả có thật không
+  bước ngẫu nhiên, suy diễn) — kiểm tra xem kết quả có thật không
 - **So sánh nhiều chiến lược** cạnh nhau, và **xuất CSV / PNG**
 - **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
 - **Paper trading** — chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
@@ -159,19 +159,33 @@ chứ không phải lợi thế thật.
 .venv\Scripts\python.exe tests/test_engine.py            # 12 checks - engine backtest
 .venv\Scripts\python.exe tests/test_metrics.py           # 9  checks - chỉ số hiệu năng
 .venv\Scripts\python.exe tests/test_strategy_pipeline.py # 9  checks - toàn tuyến chiến lược
-.venv\Scripts\python.exe tests/test_optimizer.py         # 12 checks - grid search
+.venv\Scripts\python.exe tests/test_optimizer.py         # 18 checks - grid search
 .venv\Scripts\python.exe tests/test_stream.py            # 9  checks - luồng realtime
 .venv\Scripts\python.exe tests/test_paper.py             # 10 checks - paper trading
 .venv\Scripts\python.exe tests/test_market_vn.py         # 20 checks - dữ liệu thị trường VN
+.venv\Scripts\python.exe tests/test_stats.py             # 38 checks - kiểm định thống kê
+.venv\Scripts\python.exe tests/test_report.py            # 23 checks - báo cáo backtest
+.venv\Scripts\python.exe tests/test_portfolio.py         # 31 checks - danh mục + Telegram
 ```
 
-Tổng 87 checks. `test_market_vn.py` có 11 kiểm tra chạy offline và 9 kiểm tra
+Tổng 179 checks. `test_market_vn.py` có 11 kiểm tra chạy offline và 9 kiểm tra
 cần VPN — phần cần VPN sẽ **báo bỏ qua** chứ không báo lỗi khi VPN tắt.
 
 Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
 comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
 equity trông rất thuyết phục — đây là thứ ngăn cách giữa điều đó và kết quả
 đáng tin.
+
+`test_stats.py` chạy trên chuỗi tổng hợp có tính chất **biết trước**: bước ngẫu
+nhiên, AR(1) hồi quy trung bình, AR(1) xu hướng, GARCH. Điều quan trọng không
+phải là các hàm trả về số, mà là chúng **không bác bỏ** trên dữ liệu không có
+cấu trúc. Một bộ kiểm định chỉ chạy trên dữ liệu thị trường thật không phân
+biệt được một kiểm định hoạt động đúng với một kiểm định luôn nói "có ý nghĩa".
+
+`test_portfolio.py` không cần VPN: hàm phân tích nhận loader làm tham số, nên
+nó chạy trên chuỗi giá tổng hợp có cấu trúc tương quan biết trước — đó là cách
+duy nhất kiểm tra được đóng góp rủi ro, vì trên dữ liệu thật không có đáp án
+độc lập để đối chiếu.
 
 ---
 
@@ -389,38 +403,209 @@ Tab *Chiến lược → Kiểm định* có hai nút riêng cho phần này. Ch
 **cấu trúc thật** với **ngẫu nhiên trông giống cấu trúc** — chuỗi giá ngẫu nhiên
 vẫn tạo ra xu hướng, mẫu hình và chiến lược trông có lãi.
 
+Mỗi kiểm định trả về cùng một cấu trúc và hiện đủ trong nút **(i)** cạnh nó:
+tên, giả thuyết H₀ và H₁ viết bằng lời, thống kê, bậc tự do, p thô, p đã hiệu
+chỉnh, kết luận, và **giả định** mà kiểm định đó đứng trên. Một p-value không
+kèm giả định là một con số không đọc được.
+
+### Bốn điều làm cho phần này chặt chẽ
+
+1. **Đa kiểm định.** Chạy 9 kiểm định ở α = 0.05 thì xác suất có ít nhất một
+   kết quả "có ý nghĩa" do may rủi là 37%. Toàn bộ họ được hiệu chỉnh
+   **Benjamini–Hochberg**, và cả hai cột p đều hiện. Trên BTC 1h thực tế, cột
+   này đã lật kết luận: Ljung–Box p thô 0.041 (có ý nghĩa) → p hiệu chỉnh
+   0.075 (không).
+2. **Nói rõ đang chạy phiên bản nào.** Tỷ số phương sai có hai thống kê z —
+   một giả định phương sai đồng nhất, một bền với phương sai thay đổi. Trên
+   BTC 1h ở kỳ hạn q = 4, z đồng nhất là −2.35 (bác bỏ bước ngẫu nhiên) còn z
+   bền là −1.32 (không bác bỏ). **Cả hai đều được báo cáo**, và kết luận đọc
+   theo z bền.
+3. **Không bác bỏ ≠ chấp nhận H₀.** ADF luôn đi kèm **KPSS**, vốn đảo ngược
+   giả thuyết; bốn tổ hợp kết quả cho bốn kết luận khác nhau, trong đó có
+   "dữ liệu không đủ để nói gì".
+4. **Mỗi kiểm định tham số có một kiểm định phi tham số đi kèm.** Lợi suất
+   hầu như không bao giờ theo phân phối chuẩn, nên kết luận không được phụ
+   thuộc vào giả định đó.
+
 ### Phân tích chuỗi giá
 
 | Nhóm | Kiểm định | Trả lời câu hỏi |
 |---|---|---|
-| Phân phối | Jarque–Bera, độ lệch, độ nhọn | Lợi suất có theo phân phối chuẩn không? |
-| Rủi ro đuôi | VaR / CVaR 95% và 99% | Ngày tệ nhất trong 20 và trong 100 mất bao nhiêu? |
-| Quá trình | ADF | Chuỗi có dừng không? |
-| | Ljung–Box | Lợi suất có tự tương quan — tức có gì để khai thác? |
-| | Hurst, tỷ số phương sai | Xu hướng, hồi quy trung bình, hay bước ngẫu nhiên? |
-| | Ljung–Box trên \|lợi suất\| | Biến động có gom cụm không? |
+| Phân phối | Jarque–Bera, D'Agostino K² | Lợi suất có theo phân phối chuẩn không? |
+| | Độ lệch, độ nhọn **kèm sai số chuẩn** | Lệch khỏi chuẩn có đáng kể, hay chỉ là nhiễu mẫu? |
+| Rủi ro đuôi | VaR / CVaR 95% và 99%, kèm KTC bootstrap | Ngày tệ nhất mất bao nhiêu — và **có bao nhiêu quan sát** đỡ con số đó? |
+| Tính dừng | ADF **và** KPSS | Chuỗi có dừng không, và hai kiểm định có đồng thuận không? |
+| Cấu trúc | Ljung–Box | Lợi suất có tự tương quan — tức có hướng để khai thác? |
+| | Hurst R/S **hiệu chỉnh Anis–Lloyd**, p-value hoán vị | Có bộ nhớ dài không? |
+| | Tỷ số phương sai Lo–MacKinlay + **Chow–Denning** | Xu hướng, hồi quy trung bình, hay bước ngẫu nhiên? |
+| Biến động | **Engle ARCH-LM** | Biến động có gom cụm không? |
+
+Hai điểm kỹ thuật đáng nói, vì bản triển khai phổ biến hay làm sai:
+
+- **Hurst.** Công thức `sqrt(std(diff))` lan truyền trên blog cho H ≈ 0.6 trên
+  một chuỗi hoàn toàn ngẫu nhiên, và người đọc kết luận "có xu hướng" từ nhiễu.
+  Ở đây dùng R/S trên đoạn không chồng lấn, trừ kỳ vọng Anis–Lloyd của chuỗi
+  độc lập, và lấy p-value bằng **hoán vị chính chuỗi đó** — giữ nguyên phân
+  phối biên, chỉ phá trật tự thời gian.
+- **Biến động gom cụm.** Ljung–Box trên `|lợi suất|` là một xấp xỉ không có
+  phân phối tới hạn chuẩn. Kiểm định đúng là **Engle ARCH-LM**, và đó là cái
+  đang chạy.
 
 ### Kiểm định chiến lược
 
-- **Suy diễn:** t-test một phía trên lợi suất từng lệnh — lợi thế quan sát được
-  có khác 0 một cách có ý nghĩa, hay chỉ là may?
-- **Bayes:** hậu nghiệm Beta–Nhị thức trên tỷ lệ thắng, kèm khoảng tin cậy 95%
-  và xác suất tỷ lệ thắng thật vượt 50%. Bề rộng khoảng tin cậy là thứ mà một
-  con số tỷ lệ thắng đơn lẻ che mất.
+Ba cách hỏi cùng một câu, vì mỗi cách hỏng ở một chỗ khác nhau. Nếu chúng cho
+kết luận khác nhau thì **bản thân điều đó là thông tin**: kết luận đang phụ
+thuộc vào giả định chứ không phải vào dữ liệu.
+
+| Kiểm định | Cần giả định gì | Khi nào tin |
+|---|---|---|
+| t một mẫu, một phía | Độc lập **và** xấp xỉ chuẩn | Mạnh nhất khi giả định đúng |
+| Wilcoxon dấu-hạng | Đối xứng, không cần chuẩn | Khi phân phối lệch |
+| **Hoán vị dấu** | Gần như không giả định gì | Đáng tin nhất — đọc cái này trước |
+| Bootstrap BCa | Không giả định phân phối | Khoảng tin cậy cho lợi suất trung bình |
+
+Kèm theo:
+
+- **Lực kiểm định.** p = 0.30 trên 25 lệnh không nói "chiến lược vô dụng"; nó
+  nói "25 lệnh không đủ để biết". Panel tính lực thật và số lệnh cần cho 80%.
+- **PSR** (Bailey & López de Prado) — xác suất Sharpe thật > 0, có tính độ
+  lệch và độ nhọn, nên **không** giả định phân phối chuẩn.
+- **DSR — Sharpe khử phồng.** Đây là phần quan trọng nhất với một nền tảng có
+  tính năng quét tham số. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực
+  đại của 2 000 biến ngẫu nhiên. Số tổ hợp của lần quét gần nhất được truyền
+  thẳng vào, nên một Sharpe có PSR 94% có thể rơi xuống DSR 3% sau khi khử
+  phồng — và con số thứ hai mới là con số đúng.
+- **MinTRL** — cần bao nhiêu nến để Sharpe hiện tại đạt mức tin cậy 95%.
+
+> **Bayes đã được gỡ bỏ.** Hậu nghiệm Beta–Nhị thức trên tỷ lệ thắng không còn
+> trong nền tảng.
+
+---
+
+## Báo cáo backtest đầy đủ
+
+Nút **Báo cáo** ở panel *Kết quả* mở một cửa sổ ở giữa trang, sáu tab, theo bộ
+chỉ số của AmiBroker.
+
+| Tab | Có gì |
+|---|---|
+| Tổng quan | Lãi ròng, CAR, **RAR** (lợi suất đã chia cho phơi nhiễm), CAR/MDD, Sharpe, đường vốn so với mua-và-giữ |
+| Lệnh | **Tách riêng mua và bán**, hệ số lợi nhuận, kỳ vọng, tỷ lệ lãi/lỗ, chuỗi thắng/thua dài nhất |
+| Rủi ro | Sụt giảm tối đa, **chỉ số Ulcer**, UPI, hệ số phục hồi, **hệ số K**, thời gian dưới đỉnh |
+| Theo kỳ | Bảng lợi suất **năm × tháng**, chia kỳ theo giờ Việt Nam |
+| Phân phối | Histogram lợi suất từng lệnh, tán xạ **MAE–kết quả** |
+| Học máy | Xem tín hiệu như bộ phân loại hướng nến kế tiếp |
+
+Ba con số đáng chú ý, vì chúng nói ra những thứ bảng tóm tắt giấu đi:
+
+- **Tách mua/bán.** Rất nhiều chiến lược "hai chiều" chỉ kiếm tiền ở một
+  chiều. Trên BTC 1h, `example_ema_cross` lãi +915 ở chiều mua và lỗ −837 ở
+  chiều bán — bảng gộp chỉ hiện +78.
+- **Lệnh lớn nhất chiếm bao nhiêu tổng lãi.** Nếu một lệnh là 57% lợi nhuận
+  thì hệ số lợi nhuận đang mô tả một lần may, không mô tả chiến lược. Panel
+  cảnh báo khi con số này vượt 40%.
+- **MAE của lệnh thắng.** Đây là ngưỡng dừng lỗ không được vượt qua: đặt chặt
+  hơn mức đó nghĩa là cắt đúng những lệnh lẽ ra có lãi.
+
+### Đánh giá học máy
+
+Áp dụng cho **mọi** chiến lược, không riêng chiến lược ML, vì nó tách hai thứ
+mà lợi nhuận trộn lẫn: mô hình đoán đúng hướng bao nhiêu lần, và mỗi lần đúng
+ăn được bao nhiêu.
+
+- Độ chính xác, và **đường cơ sở** (luôn đoán lớp phổ biến hơn). So với 50% là
+  sai — thị trường hiếm khi cân bằng 50/50.
+- Kiểm định nhị thức một phía cho chênh lệch so với đường cơ sở.
+- Precision / recall / F1 cho từng chiều, MCC, ma trận nhầm lẫn.
+- Nếu chiến lược gán `df["ml_probability"]` trong `signals()` thì có thêm
+  ROC-AUC, điểm Brier, log-loss và bảng hiệu chuẩn.
+
+Trên BTC 1h, `example_ema_cross` đạt độ chính xác 48.5% so với đường cơ sở
+50.4% — tức là nó **không** dự đoán được hướng. Lợi nhuận (khi có) đến từ độ
+lớn của những lần đúng, không từ tần suất đúng. Đó là một sự thật mà con số
+lợi nhuận một mình không bao giờ nói ra.
+
+---
+
+## Quant Portfolio
+
+Panel **Danh mục** đo rủi ro thật của một rổ cổ phiếu Việt Nam đã nhập. Chuyển
+từ tính năng cùng tên trên quantpercent.com; phần toán giữ nguyên.
+
+Nguyên tắc: **mọi con số đều đo được từ lịch sử giá mà database có, hoặc bị bỏ
+đi.** Không có lợi suất giả định, không có tương quan giả định. Mã nào không đủ
+lịch sử thì được báo trong danh sách "không phân tích được", chứ không được gán
+một con số trông hợp lý. Không có gì được lưu lại.
+
+Con số quan trọng nhất là **đóng góp rủi ro**:
+
+```
+phần rủi ro của vị thế i  =  wᵢ · (Σw)ᵢ / (wᵀΣw)
+```
+
+Bạn đã biết mỗi mã chiếm bao nhiêu phần trăm *tiền*. Điều bạn không thấy là
+một mã chiếm 25% tiền có thể chiếm 45% rủi ro, vì nó vừa biến động mạnh hơn
+vừa đi cùng chiều với phần còn lại. Trên một danh mục thật, VIC chiếm 28.8%
+tiền nhưng **63.1% rủi ro**.
+
+| Tab | Có gì |
+|---|---|
+| Tổng quan | Giá trị, lãi/lỗ, mức rủi ro, beta, VaR/CVaR, và biểu đồ **tiền so với rủi ro** |
+| Từng mã | Bảng đầy đủ, **sắp xếp theo rủi ro chứ không theo tiền** |
+| Đa dạng hoá | HHI, số mã hiệu dụng, **số cược độc lập**, tương quan trung bình, cặp giống nhau nhất |
+| Dự phóng | Bootstrap khối cho kỳ 1–12 tháng, kèm đường cong xác suất sụt giảm |
+
+Hiệp phương sai dùng **co rút Ledoit–Wolf** về mục tiêu tương quan hằng số, có
+số hạng `rho`. Bỏ `rho` — cách rút gọn phổ biến — làm cường độ co rút bão hoà ở
+1.0 trên lợi suất ngày Việt Nam: mọi tương quan sụp về trung bình và ma trận
+mất đúng cái cấu trúc panel này tồn tại để tìm. Cường độ co rút được hiện ra để
+bạn biết bao nhiêu phần kết quả đến từ dữ liệu.
+
+**Hai khác biệt so với bản trên quantpercent.com**, cả hai do quyền truy cập:
+
+- **Không có ngành.** Bản gốc lấy ngành từ `web.symbols`; tài khoản đọc ở đây
+  chỉ thấy schema `api`. Phần tỷ trọng theo ngành bị **bỏ hẳn** thay vì đoán
+  ngành từ mã cổ phiếu.
+- **Dự phóng tự tính.** Bản gốc mượn một lần chạy Monte-Carlo VN-Index của mô
+  hình RARF-FHE rồi ánh xạ qua beta và căn bậc hai thời gian. Nền tảng này
+  không có lần chạy đó, và mượn số của một mô hình không kiểm chứng được thì
+  tệ hơn là tự mô phỏng — nên ở đây là **bootstrap khối tĩnh** (Politis–Romano)
+  trên chính chuỗi lợi suất của danh mục.
+
+  Lấy theo khối chứ không lấy từng ngày độc lập là có chủ ý: kiểm định ARCH gần
+  như luôn bác bỏ giả thuyết biến động cố định, và lấy mẫu độc lập sẽ phá vỡ
+  hiện tượng gom cụm, **đánh giá thấp có hệ thống** xác suất của những đợt sụt
+  sâu. Giới hạn thật của nó — mô phỏng không bao giờ sinh ra cú sốc lớn hơn cú
+  sốc lớn nhất đã từng có trong cửa sổ — được ghi ngay trên tab đó.
 
 ---
 
 ## Thông báo Telegram
 
-Tuỳ chọn. Thêm vào `.env`:
+Tuỳ chọn, và **cấu hình được ngay trên web**: panel *Paper* → khung *Thông báo
+Telegram*. Nhập token và chat id rồi bấm **Lưu**.
+
+1. Nhắn cho **@BotFather**, gõ `/newbot` — nó trả về token dạng `123456789:AA…`
+2. Nhắn một câu bất kỳ cho chính bot vừa tạo
+3. Mở `https://api.telegram.org/bot<TOKEN>/getUpdates`, lấy `message.chat.id`
+4. Dán cả hai vào form rồi bấm **Lưu**, sau đó bấm **Gửi tin thử**
+
+Token được ghi vào `.env` trên máy bạn (file này đã nằm trong `.gitignore` nên
+không bao giờ lên git) và có hiệu lực ngay, không cần khởi động lại. Trang web
+chỉ hiện lại token đã che — phần bí mật sau dấu hai chấm không bao giờ được gửi
+về trình duyệt.
+
+Vẫn có thể đặt thẳng trong `.env` như trước:
 
 ```
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 ```
 
-Lấy token từ **@BotFather**; lấy chat id bằng cách nhắn cho bot rồi mở
-`https://api.telegram.org/bot<TOKEN>/getUpdates`.
+Nút **Lưu** kiểm tra token qua `getMe` **trước khi** ghi xuống — lưu một token
+hỏng rồi báo lỗi sau sẽ để lại file chứa thứ không dùng được, và sự kiện paper
+trading kế tiếp lặng lẽ thất bại. Token hợp lệ vẫn chưa chứng minh chat id
+đúng; chỉ **Gửi tin thử** làm được việc đó.
 
 Sau đó mỗi lần phiên paper trading vào hoặc đóng lệnh sẽ có tin nhắn. Bỏ trống
 thì nền tảng **không gửi gì cả**, và Telegram hỏng cũng không làm phiên dừng.
@@ -436,8 +621,13 @@ thì nền tảng **không gửi gì cả**, và Telegram hỏng cũng không l�
   giá và khung chỉ báo. Nhấn đúp để về mặc định. Kích thước được nhớ lại.
 - **Đánh dấu sao:** bấm ☆ cạnh mã, chỉ báo hoặc chiến lược. Mục đã đánh dấu
   nổi lên nhóm riêng ở đầu danh sách.
-- **Nút i:** mọi chỉ báo và chiến lược đều có nút giải thích — đo cái gì, đọc
-  thế nào, và điều dễ hiểu sai.
+- **Nút (i):** một popover dùng chung cho toàn bộ nền tảng. Nó gắn được vào
+  bất cứ thứ gì — chỉ báo, chiến lược, từng ô cài đặt chi phí, từng chỉ số
+  backtest, từng dòng trong bảng kiểm định thống kê. Với một chỉ số, nó nói đo
+  cái gì, đọc thế nào, và **hỏng ở đâu**; với một kiểm định, nó nói H₀, H₁,
+  thống kê, cả hai cột p, và giả định. Nút luôn hiện chứ không đợi rê chuột,
+  vì một nút chỉ xuất hiện khi rê chuột thì trên màn hình cảm ứng là không tồn
+  tại.
 
 ---
 
@@ -468,11 +658,26 @@ backend/
     builtin.py         bọc 185 chỉ báo pandas-ta-classic
     loader.py          nạp file .py của bạn
     registry.py        catalog hợp nhất + đường compute
+  strategy/
+    engine.py          khớp lệnh, phí, đòn bẩy, thanh lý, MFE/MAE
+    metrics.py         chỉ số tóm tắt
+  analysis/
+    stats.py           kiểm định thống kê (không Bayes)
+    report.py          báo cáo kiểu AmiBroker + đánh giá ML
+  portfolio/
+    analytics.py       Quant Portfolio: Ledoit-Wolf, đóng góp rủi ro, bootstrap
+  notify/telegram.py   thông báo + ghi cấu hình vào .env
   api/
     app.py             FastAPI + phục vụ frontend
     routes_data.py     /api/candles, /api/backfill, /api/coverage
     routes_indicators.py  /api/indicators, /api/indicators/compute
+    routes_stats.py    /api/stats/series, /api/stats/strategy
+    routes_portfolio.py   /api/portfolio/analyze
+    routes_notify.py   /api/notify/status, /settings, /test
 frontend/              giao diện (Lightweight Charts, không cần build)
+  js/explain.js        popover (i) dùng chung + từ điển thuật ngữ
+  js/report.js         cửa sổ báo cáo backtest
+  js/portfolio.js      panel Quant Portfolio
 plugins/indicators/    ← chỉ báo Python của bạn
 data_store/qp.duckdb   database
 ```

@@ -26,6 +26,7 @@
     runMonteCarlo: document.getElementById('run-montecarlo'),
     runCompare: document.getElementById('run-compare'),
     compareList: document.getElementById('compare-list'),
+    openReport: document.getElementById('open-report'),
     exportCsv: document.getElementById('export-csv'),
     exportPng: document.getElementById('export-png'),
     formatDialog: document.getElementById('format-dialog'),
@@ -623,29 +624,77 @@ def signals(df, params):
 
   async function setupNotify() {
     const label = document.getElementById('notify-status');
-    const button = document.getElementById('notify-test');
+    const tokenInput = document.getElementById('notify-token');
+    const chatInput = document.getElementById('notify-chat');
+    const saveButton = document.getElementById('notify-save');
+    const testButton = document.getElementById('notify-test');
+    const clearButton = document.getElementById('notify-clear');
 
-    try {
-      const status = await API.notifyStatus();
+    Explain.define('notify.telegram', {
+      title: 'Thông báo Telegram',
+      what: 'Mỗi khi một phiên paper trading vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
+      how: '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên — nó trả về một token dạng 123456789:AA…\n'
+        + '2. Nhắn một câu bất kỳ cho chính bot vừa tạo.\n'
+        + '3. Mở https://api.telegram.org/bot<TOKEN>/getUpdates và lấy giá trị message.chat.id.\n'
+        + '4. Dán cả hai vào đây rồi bấm Lưu.',
+      watch: 'Nút Lưu chỉ kiểm tra được token có hợp lệ hay không. Chat id sai vẫn qua được bước đó mà không tin nào tới nơi — nên sau khi lưu hãy bấm "Gửi tin thử" một lần.',
+      source: 'Token được ghi vào .env trên máy này. WhatsApp không có ở đây vì nó đòi tài khoản Business, xét duyệt mẫu tin và một nhà cung cấp trung gian.',
+    });
+
+    /** Paint the panel from a status payload. */
+    function apply(status) {
+      // The token box is a password field that never receives the real token:
+      // the server only ever returns a masked form, so the placeholder shows
+      // what is stored and an empty box means "leave it alone".
+      tokenInput.value = '';
+      tokenInput.placeholder = status.bot_token_masked || '123456789:AA…';
+      chatInput.value = status.chat_id || '';
+
       if (status.reachable) {
-        label.innerHTML = `Đang bật qua <strong>@${status.bot_username}</strong>. ` +
-          'Mỗi lần phiên paper vào hoặc đóng lệnh sẽ có tin nhắn.';
-        button.disabled = false;
+        label.innerHTML = `Đang bật qua <strong>@${status.bot_username}</strong>. `
+          + 'Mỗi lần phiên paper vào hoặc đóng lệnh sẽ có tin nhắn.';
       } else {
-        label.textContent = status.message ||
-          'Chưa bật. Thêm TELEGRAM_BOT_TOKEN và TELEGRAM_CHAT_ID vào .env rồi khởi động lại.';
-        // Leave the button live even when unconfigured: pressing it is how you
-        // find out what is missing.
-        button.disabled = false;
+        label.textContent = status.message || 'Chưa bật.';
       }
-    } catch (err) {
-      label.textContent = err.message;
+      clearButton.disabled = !status.bot_token_masked;
     }
 
-    button.addEventListener('click', () =>
-      withButton(button, 'Đang gửi…', async () => {
+    async function refresh() {
+      try {
+        apply(await API.notifyStatus());
+      } catch (err) {
+        label.textContent = err.message;
+      }
+    }
+
+    await refresh();
+
+    saveButton.addEventListener('click', () =>
+      withButton(saveButton, 'Đang kiểm tra…', async () => {
+        const token = tokenInput.value.trim();
+        const chatId = chatInput.value.trim();
+        if (!token) {
+          toast('Dán bot token vào ô phía trên.', true);
+          return;
+        }
+        if (!chatId) {
+          toast('Thiếu chat id.', true);
+          return;
+        }
+        apply(await API.notifySave({ botToken: token, chatId }));
+        toast('Đã lưu. Bấm "Gửi tin thử" để chắc chắn chat id đúng.');
+      }));
+
+    testButton.addEventListener('click', () =>
+      withButton(testButton, 'Đang gửi…', async () => {
         await API.notifyTest();
         toast('Đã gửi tin thử — kiểm tra Telegram');
+      }));
+
+    clearButton.addEventListener('click', () =>
+      withButton(clearButton, 'Đang xoá…', async () => {
+        apply(await API.notifyClear());
+        toast('Đã xoá token khỏi máy.');
       }));
   }
 
@@ -840,6 +889,10 @@ def signals(df, params):
   }
 
   async function start() {
+    // Before anything renders: every panel emits (i) buttons, and they are
+    // inert until the shared popover is listening.
+    Explain.init();
+    Report.init({ onToast: toast });
     ChartManager.init(el.chartMain);
     // Dividers change the chart's box, so the charts re-measure on every drag.
     Resizer.init({ onChange: () => ChartManager.refreshSize() });
@@ -848,6 +901,22 @@ def signals(df, params):
     setupFormatHelp();
     setupStars();
     setupNotify();
+
+    Portfolio.init({
+      elements: {
+        rows: document.getElementById('pf-rows'),
+        add: document.getElementById('pf-add'),
+        cash: document.getElementById('pf-cash'),
+        horizon: document.getElementById('pf-horizon'),
+        lookback: document.getElementById('pf-lookback'),
+        run: document.getElementById('pf-run'),
+        count: document.getElementById('pf-count'),
+        message: document.getElementById('pf-message'),
+        datalist: document.getElementById('pf-symbols'),
+      },
+      onToast: toast,
+      withButton,
+    });
 
     Indicators.init({
       elements: {
@@ -1021,6 +1090,25 @@ def signals(df, params):
       withButton(e.currentTarget, 'Đang tính…', async () => {
         await Validation.runStrategyStats(Strategy.currentParams());
         showResults('stats');
+      }));
+
+    // The report is fetched on demand rather than with every backtest: it is
+    // roughly a hundred times the payload, and most runs are never opened.
+    el.openReport.addEventListener('click', () =>
+      withButton(el.openReport, 'Đang dựng…', async () => {
+        const strategy = Strategy.selected;
+        if (!strategy) {
+          toast('Chọn một chiến lược ở tab Chiến lược trước.', true);
+          return;
+        }
+        Report.open(await API.report({
+          strategyId: strategy.id,
+          symbol: state.symbol,
+          timeframe: state.timeframe,
+          limit: state.limit,
+          params: Strategy.currentParams(),
+          execution: Strategy.execution(),
+        }));
       }));
 
     el.exportCsv.addEventListener('click', () => Validation.exportTrades(Strategy.lastResult));

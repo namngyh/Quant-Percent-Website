@@ -18,6 +18,7 @@ from backend.optimizer.grid import (
     grid_size,
     optimize,
 )
+from backend.analysis.report import build_report
 from backend.strategy import registry
 from backend.strategy.base import StrategyError
 from backend.strategy.engine import BacktestConfig
@@ -52,6 +53,36 @@ class BacktestRequest(BaseModel):
     params: dict = Field(default_factory=dict)
     limit: int | None = None
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
+
+
+@router.post("/report")
+def report(request: BacktestRequest) -> dict:
+    """The full AmiBroker-style report for one backtest.
+
+    Separate from ``/backtest`` because it is an order of magnitude more data —
+    monthly tables, per-trade excursions, chart series — and the results panel
+    refreshes on every parameter change. Paying that cost only when the report
+    window is actually opened keeps the panel responsive.
+    """
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    config = request.execution.to_config()
+
+    try:
+        spec, resolved, result, probability = registry.simulate(
+            request.strategy_id, df, timeframe, request.params, config
+        )
+        payload = build_report(result, df, timeframe, probability=probability)
+    except StrategyError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        log.exception("report failed")
+        raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
+
+    payload["strategy_id"] = spec.id
+    payload["strategy_name"] = spec.name
+    payload["params"] = resolved
+    payload["symbol"] = request.symbol
+    return payload
 
 
 class SweepRange(BaseModel):

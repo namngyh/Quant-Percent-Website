@@ -60,6 +60,90 @@ def configured() -> bool:
     return bool(token and chat_id)
 
 
+def mask(token: str | None) -> str | None:
+    """Show enough of a token to recognise it, never enough to use it.
+
+    A bot token looks like ``123456789:AAH...``. The numeric half is the bot's
+    id and is not a secret; the half after the colon is. So the id is shown in
+    full — it is what lets you tell two bots apart — and the secret half is
+    reduced to its last four characters.
+    """
+    if not token:
+        return None
+    head, _, tail = token.partition(":")
+    if not tail:
+        return "…" + token[-4:]
+    return f"{head}:…{tail[-4:]}"
+
+
+# ------------------------------------------------------------ ghi cấu hình
+
+ENV_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+
+
+def _rewrite_env(values: dict[str, str]) -> None:
+    """Set keys in ``.env`` in place, keeping every other line untouched.
+
+    Rewritten rather than appended: appending a second ``TELEGRAM_BOT_TOKEN=``
+    line works with python-dotenv today but leaves the file with two answers to
+    the same question, and the next person to read it has no way to know which
+    one is live. Comments, blank lines, ordering and — most importantly —
+    ``MARKET_DSN`` all survive unchanged.
+
+    The write goes to a temporary file in the same directory and is then moved
+    over the original, so an interrupted write cannot leave a half-written
+    ``.env`` behind and take the market database down with it.
+    """
+    env_file = PROJECT_ROOT / ".env"
+    lines = (
+        env_file.read_text(encoding="utf-8").splitlines()
+        if env_file.exists() else []
+    )
+
+    remaining = dict(values)
+    out: list[str] = []
+    for line in lines:
+        stripped = line.lstrip()
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if not stripped.startswith("#") and key in remaining:
+            out.append(f"{key}={remaining.pop(key)}")
+        else:
+            out.append(line)
+
+    for key, value in remaining.items():
+        out.append(f"{key}={value}")
+
+    temp = env_file.with_suffix(".env.tmp")
+    temp.write_text("\n".join(out) + "\n", encoding="utf-8")
+    temp.replace(env_file)
+
+
+def save_credentials(token: str, chat_id: str) -> None:
+    """Persist a token and chat id, and make them live immediately.
+
+    Both places matter: ``os.environ`` so the running process picks the change
+    up without a restart, and ``.env`` so it survives one. ``.env`` is
+    gitignored, which is the whole reason the token goes there rather than into
+    any file the project tracks.
+    """
+    token = token.strip()
+    chat_id = chat_id.strip()
+
+    os.environ["TELEGRAM_BOT_TOKEN"] = token
+    os.environ["TELEGRAM_CHAT_ID"] = chat_id
+    _rewrite_env({"TELEGRAM_BOT_TOKEN": token, "TELEGRAM_CHAT_ID": chat_id})
+    # Never log the token itself, not even at debug level.
+    log.info("đã lưu cấu hình Telegram cho chat %s", chat_id)
+
+
+def clear_credentials() -> None:
+    """Forget the token. Used when the user wants notifications off for good."""
+    for key in ENV_KEYS:
+        os.environ.pop(key, None)
+    _rewrite_env({key: "" for key in ENV_KEYS})
+    log.info("đã xoá cấu hình Telegram")
+
+
 async def send(text: str, *, silent: bool = False) -> dict:
     """Gửi một tin nhắn. Trả về {sent, ...}; không bao giờ ném ngoại lệ."""
     token, chat_id = credentials()
@@ -95,14 +179,21 @@ async def send(text: str, *, silent: bool = False) -> dict:
         return {"sent": False, "reason": f"{type(exc).__name__}: {exc}"}
 
 
-async def check() -> dict:
-    """Xác minh token và chat id mà không gửi tin cho người dùng."""
-    token, chat_id = credentials()
+async def verify(token: str, chat_id: str) -> dict:
+    """Ask Telegram whether a token works, without messaging anyone.
+
+    ``getMe`` is the right call here: it proves the token is valid and names
+    the bot, and it is invisible to the chat. Verifying by sending a message
+    would spam the user every time the settings page loads.
+
+    A valid token says nothing about whether the *chat id* is right — only
+    sending can prove that, which is what the "gửi tin thử" button is for.
+    """
     if not token or not chat_id:
         return {
             "configured": False,
             "reachable": False,
-            "message": "Chưa có TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID trong .env",
+            "message": "Chưa có token hoặc chat id.",
         }
 
     try:
@@ -128,6 +219,20 @@ async def check() -> dict:
             "reachable": False,
             "message": f"Không kết nối được Telegram: {exc}",
         }
+
+
+async def check() -> dict:
+    """Trạng thái hiện tại, kèm token đã che, cho màn hình cài đặt."""
+    token, chat_id = credentials()
+    result = await verify(token or "", chat_id or "")
+    if not token or not chat_id:
+        result["message"] = (
+            "Chưa cấu hình. Nhập token và chat id ngay trên trang này, "
+            "hoặc đặt TELEGRAM_BOT_TOKEN và TELEGRAM_CHAT_ID trong .env."
+        )
+    result["bot_token_masked"] = mask(token)
+    result["chat_id"] = chat_id
+    return result
 
 
 # ------------------------------------------------------- tin nhắn sự kiện

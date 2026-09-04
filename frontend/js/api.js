@@ -89,19 +89,48 @@ const API = (() => {
     compareStrategies: ({ entries, symbol, timeframe, limit, execution }) =>
       post('/api/validate/compare', { entries, symbol, timeframe, limit, execution }),
 
-    statsSeries: ({ symbol, timeframe, limit }) =>
-      post('/api/stats/series', { symbol, timeframe, limit }),
-
-    statsStrategy: ({ strategyId, symbol, timeframe, limit, params, execution }) =>
-      post('/api/stats/strategy', {
+    report: ({ strategyId, symbol, timeframe, limit, params, execution }) =>
+      post('/api/strategies/report', {
         strategy_id: strategyId, symbol, timeframe, limit, params, execution,
       }),
 
+    statsSeries: ({ symbol, timeframe, limit }) =>
+      post('/api/stats/series', { symbol, timeframe, limit }),
+
+    statsStrategy: ({ strategyId, symbol, timeframe, limit, params, execution, nTrials }) =>
+      post('/api/stats/strategy', {
+        strategy_id: strategyId,
+        symbol,
+        timeframe,
+        limit,
+        params,
+        execution,
+        // The number of parameter combinations behind these params. Passing it
+        // is what makes the deflated Sharpe ratio mean anything.
+        n_trials: nTrials || 1,
+      }),
+
     vnSymbols: () => request('/api/markets/vn/symbols'),
+
+    // POST even though nothing is written: the holdings are the user's own
+    // position data, and keeping them out of the URL keeps them out of access
+    // logs, browser history and referrer headers.
+    portfolioAnalyze: ({ holdings, cash, horizonDays, lookbackDays }) =>
+      post('/api/portfolio/analyze', {
+        holdings, cash, horizon_days: horizonDays, lookback_days: lookbackDays,
+      }),
     vnStatus: () => request('/api/markets/vn/status'),
 
     notifyStatus: () => request('/api/notify/status'),
     notifyTest: () => post('/api/notify/test'),
+    // PUT rather than POST: saving the same settings twice must leave the same
+    // state, and the browser must not be able to create a second credential.
+    notifySave: ({ botToken, chatId }) =>
+      request('/api/notify/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ bot_token: botToken, chat_id: chatId }),
+      }),
+    notifyClear: () => request('/api/notify/settings', { method: 'DELETE' }),
 
     paperSessions: () => request('/api/paper'),
 
