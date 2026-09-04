@@ -9,32 +9,33 @@ Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ 
 
 ---
 
-## Cài đặt
+## Chạy hằng ngày
+
+**Lần đầu tiên (chỉ một lần):** nháy đúp **`setup.bat`** — tạo môi trường ảo và cài thư viện.
+
+**Mỗi lần muốn dùng:** nháy đúp **`start.bat`**. Trình duyệt tự mở ở
+http://127.0.0.1:8000. Đóng cửa sổ đen đó là tắt nền tảng.
+
+Không cần gõ lệnh gì. Muốn tiện hơn: chuột phải `start.bat` → *Gửi tới* →
+*Desktop (tạo lối tắt)*.
+
+### Cập nhật dữ liệu
+
+Dữ liệu **không tự cập nhật**. Khi muốn kéo nến mới nhất, bấm nút
+**"Cập nhật dữ liệu"** ở góc trên bên phải — nó tải tiếp từ nến cuối cùng đã có,
+cho đúng khung thời gian đang xem.
+
+### Chạy bằng dòng lệnh (tuỳ chọn)
 
 ```bash
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe run.py              # mở nền tảng
+.venv\Scripts\python.exe run.py --reload     # tự khởi động lại khi sửa code backend
+.venv\Scripts\python.exe scripts/backfill.py -t 1h 4h 1d   # tải hàng loạt
 ```
-
-## Chạy
-
-**Bước 1 — tải dữ liệu** (chạy khi server đang tắt):
-
-```bash
-.venv\Scripts\python.exe scripts/backfill.py -t 1h 4h 1d
-```
-
-**Bước 2 — mở nền tảng:**
-
-```bash
-.venv\Scripts\python.exe run.py
-```
-
-Trình duyệt tự mở ở http://127.0.0.1:8000
 
 > **Lưu ý:** DuckDB chỉ cho phép **một tiến trình ghi** tại một thời điểm. Vì vậy
-> `scripts/backfill.py` và `run.py` không chạy đồng thời được. Khi server đang chạy,
-> hãy dùng nút **"Cập nhật dữ liệu"** trên giao diện thay cho script.
+> `scripts/backfill.py` và `run.py` không chạy đồng thời được. Khi nền tảng đang bật,
+> hãy dùng nút "Cập nhật dữ liệu" thay cho script.
 
 ---
 
