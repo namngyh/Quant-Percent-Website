@@ -500,11 +500,13 @@ def signals(df, params):
 
   // ---------- Navigation ----------
 
-  function openPanel(name) {
+  /** Open a panel. `toggle` is for the rail, where clicking the open one closes
+      it; everything else — a sub-tab, a finished backtest — only ever opens. */
+  function openPanel(name, { toggle = false } = {}) {
     const host = el.panelHost;
     const current = document.querySelector('.rail-btn.active')?.dataset.panel;
 
-    if (current === name && !host.classList.contains('collapsed')) {
+    if (toggle && current === name && !host.classList.contains('collapsed')) {
       host.classList.add('collapsed');      // clicking the open one closes it
       ChartManager.refreshSize();           // the chart just gained the space
       return;
@@ -527,7 +529,7 @@ def signals(df, params):
 
   function setupNavigation() {
     for (const btn of document.querySelectorAll('.rail-btn')) {
-      btn.addEventListener('click', () => openPanel(btn.dataset.panel));
+      btn.addEventListener('click', () => openPanel(btn.dataset.panel, { toggle: true }));
     }
 
     for (const tab of document.querySelectorAll('[data-subtab]')) {

@@ -156,13 +156,24 @@ const ChartManager = (() => {
     mainChart.timeScale().fitContent();
   }
 
-  /** Convert {times, values[key]} into the {time, value} pairs the chart wants. */
+  /** Convert {times, values[key]} into the points the chart wants.
+
+     A missing value becomes a *whitespace* point — `{time}` with no value —
+     rather than being dropped. The library reserves the slot and breaks the
+     line there, which looks the same, but the series keeps one entry per
+     candle.
+
+     That matters because the sub-panes are separate charts kept in step by
+     logical (index) range. Dropping the warm-up values left an indicator with
+     1 445 points against 2 000 candles, so index 500 in the pane was a
+     different bar from index 500 on the price chart and the panes drifted out
+     of line — each ending short of the newest candle by a different amount. */
   function toPoints(times, values) {
     const points = [];
     for (let i = 0; i < times.length; i += 1) {
       const value = values[i];
-      if (value === null || value === undefined) continue; // gap: skip, don't zero
-      points.push({ time: toChart(times[i]), value });
+      const time = toChart(times[i]);
+      points.push(value === null || value === undefined ? { time } : { time, value });
     }
     return points;
   }
