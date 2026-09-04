@@ -316,7 +316,7 @@ export const MODELS: ModelConfig[] = [
     },
     horizons: [5, 20, 60],
     show_performance: false,
-    show_forecast: false,
+    show_forecast: true,
     show_internal_signal: false,
     tagline: {
       vi: "Ước lượng phạm vi tăng giảm, mức giảm từ đỉnh và biến động của VN-Index ở nhiều thời hạn.",
