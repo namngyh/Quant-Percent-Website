@@ -97,10 +97,13 @@ def load_strategy_file(path: Path) -> StrategySpec:
     if side not in VALID_SIDES:
         raise StrategyLoadError(f"{path.name}: side must be one of {VALID_SIDES}, got '{side}'")
 
+    doc = " ".join((module.__doc__ or "").split())
+
     return StrategySpec(
         id=path.stem,
         name=meta.get("name", path.stem),
         description=meta.get("description", ""),
+        help={"what": doc[:900]},
         side=side,
         params=_parse_params(meta.get("params")),
         signals=signals_fn,

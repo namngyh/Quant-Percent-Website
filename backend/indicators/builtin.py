@@ -21,6 +21,7 @@ import pandas as pd
 import pandas_ta_classic as pta
 
 from backend.indicators.base import IndicatorError, IndicatorSpec, ParamSpec
+from backend.indicators.descriptions import describe
 
 log = logging.getLogger(__name__)
 
@@ -204,7 +205,8 @@ def build_builtin_specs() -> dict[str, IndicatorSpec]:
             continue  # not a price-series indicator (e.g. helpers)
 
         category = categories[name]
-        doc = (inspect.getdoc(fn) or "").strip().split("\n")[0][:200]
+        full_doc = (inspect.getdoc(fn) or "").strip()
+        doc = full_doc.split("\n")[0][:200]
 
         specs[name] = IndicatorSpec(
             id=name,
@@ -213,6 +215,7 @@ def build_builtin_specs() -> dict[str, IndicatorSpec]:
             category=category,
             source="builtin",
             description=doc,
+            help=describe(name, full_doc),
             params=_build_param_specs(sig, name),
             calculate=_make_calculate(fn, price_inputs),
         )

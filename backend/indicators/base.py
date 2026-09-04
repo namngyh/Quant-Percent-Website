@@ -126,6 +126,8 @@ class IndicatorSpec:
     category: str = "custom"
     source: Literal["builtin", "plugin"] = "builtin"
     description: str = ""
+    # Longer, plain-language explanation shown behind the ⓘ button.
+    help: dict = field(default_factory=dict)
     params: list[ParamSpec] = field(default_factory=list)
     outputs: list[OutputSpec] = field(default_factory=list)
     calculate: Callable[[pd.DataFrame, dict], Any] | None = None
@@ -143,6 +145,7 @@ class IndicatorSpec:
             "category": self.category,
             "source": self.source,
             "description": self.description,
+            "help": self.help,
             "params": [p.as_dict() for p in self.params],
             "outputs": [o.as_dict(i) for i, o in enumerate(self.outputs)],
         }

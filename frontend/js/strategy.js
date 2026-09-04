@@ -493,7 +493,10 @@ const Strategy = (() => {
     context = config.context;
     onResult = config.onResult;
 
-    elements.select.addEventListener('change', () => select(elements.select.value));
+    elements.select.addEventListener('change', () => {
+      select(elements.select.value);
+      if (config.onSelect) config.onSelect(elements.select.value);
+    });
 
     elements.mode.addEventListener('change', () => {
       elements.samplesRow.hidden = elements.mode.value !== 'random';

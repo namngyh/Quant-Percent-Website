@@ -103,6 +103,9 @@ def load_plugin_file(path: Path) -> IndicatorSpec:
     if kind not in VALID_KINDS:
         raise PluginLoadError(f"{path.name}: type must be 'overlay' or 'panel', got '{kind}'")
 
+    # The file's own docstring is the explanation; nobody else can write it.
+    doc = " ".join((module.__doc__ or "").split())
+
     return IndicatorSpec(
         id=f"plugin:{path.stem}",
         name=meta.get("name", path.stem),
@@ -110,6 +113,12 @@ def load_plugin_file(path: Path) -> IndicatorSpec:
         category=meta.get("category", "custom"),
         source="plugin",
         description=meta.get("description", ""),
+        help={
+            "source": "docstring" if doc else "none",
+            "what": doc[:900],
+            "how": "",
+            "watch": "",
+        },
         params=_parse_params(meta.get("params")),
         outputs=_parse_outputs(meta.get("outputs")),
         calculate=calculate,

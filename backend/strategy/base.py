@@ -54,6 +54,8 @@ class StrategySpec:
     id: str
     name: str
     description: str = ""
+    # Longer explanation, taken from the file's docstring.
+    help: dict = field(default_factory=dict)
     side: Side = "both"
     params: list[ParamSpec] = field(default_factory=list)
     signals: Callable[[pd.DataFrame, dict], pd.Series] | None = None
@@ -67,6 +69,7 @@ class StrategySpec:
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "help": self.help,
             "side": self.side,
             "params": [p.as_dict() for p in self.params],
         }

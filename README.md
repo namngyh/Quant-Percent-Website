@@ -5,11 +5,12 @@ Bitcoin (Binance) và **chứng khoán Việt Nam** (HOSE, từ database của t
 
 - Dữ liệu OHLCV từ **Binance** (public API, không cần API key), lưu vào **DuckDB**
 - Chart nến bằng **Lightweight Charts** (thư viện mã nguồn mở của TradingView)
-- **189 chỉ báo** dùng ngay (gồm Bollinger Bands và vài mô hình ML đơn giản), tham số chỉnh trực tiếp bằng slider trên giao diện
+- **189 chỉ báo** và **4 chiến lược** dùng ngay (gồm Bollinger Bands và vài mô hình ML đơn giản), tham số chỉnh trực tiếp bằng slider trên giao diện
 - Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
 - **Tối ưu tham số** bằng grid search hoặc random search, kèm cảnh báo overfit
-- **Walk-forward validation** và **Monte Carlo** — kiểm tra xem kết quả có thật không
+- **Walk-forward validation**, **Monte Carlo** và **kiểm định thống kê** (phân phối,
+  bước ngẫu nhiên, suy diễn, Bayes) — kiểm tra xem kết quả có thật không
 - **So sánh nhiều chiến lược** cạnh nhau, và **xuất CSV / PNG**
 - **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
 - **Paper trading** — chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
@@ -379,6 +380,64 @@ Hai nút **CSV** và **PNG** ở góc panel *Kết quả*:
   khi so sánh, file gộp mọi chiến lược kèm cột phân biệt. Có BOM UTF-8 nên Excel
   mở tiếng Việt không lỗi font.
 - **PNG** — ảnh biểu đồ đúng như đang hiển thị.
+
+---
+
+## Kiểm định thống kê
+
+Tab *Chiến lược → Kiểm định* có hai nút riêng cho phần này. Chúng phân biệt
+**cấu trúc thật** với **ngẫu nhiên trông giống cấu trúc** — chuỗi giá ngẫu nhiên
+vẫn tạo ra xu hướng, mẫu hình và chiến lược trông có lãi.
+
+### Phân tích chuỗi giá
+
+| Nhóm | Kiểm định | Trả lời câu hỏi |
+|---|---|---|
+| Phân phối | Jarque–Bera, độ lệch, độ nhọn | Lợi suất có theo phân phối chuẩn không? |
+| Rủi ro đuôi | VaR / CVaR 95% và 99% | Ngày tệ nhất trong 20 và trong 100 mất bao nhiêu? |
+| Quá trình | ADF | Chuỗi có dừng không? |
+| | Ljung–Box | Lợi suất có tự tương quan — tức có gì để khai thác? |
+| | Hurst, tỷ số phương sai | Xu hướng, hồi quy trung bình, hay bước ngẫu nhiên? |
+| | Ljung–Box trên \|lợi suất\| | Biến động có gom cụm không? |
+
+### Kiểm định chiến lược
+
+- **Suy diễn:** t-test một phía trên lợi suất từng lệnh — lợi thế quan sát được
+  có khác 0 một cách có ý nghĩa, hay chỉ là may?
+- **Bayes:** hậu nghiệm Beta–Nhị thức trên tỷ lệ thắng, kèm khoảng tin cậy 95%
+  và xác suất tỷ lệ thắng thật vượt 50%. Bề rộng khoảng tin cậy là thứ mà một
+  con số tỷ lệ thắng đơn lẻ che mất.
+
+---
+
+## Thông báo Telegram
+
+Tuỳ chọn. Thêm vào `.env`:
+
+```
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+```
+
+Lấy token từ **@BotFather**; lấy chat id bằng cách nhắn cho bot rồi mở
+`https://api.telegram.org/bot<TOKEN>/getUpdates`.
+
+Sau đó mỗi lần phiên paper trading vào hoặc đóng lệnh sẽ có tin nhắn. Bỏ trống
+thì nền tảng **không gửi gì cả**, và Telegram hỏng cũng không làm phiên dừng.
+
+> Không hỗ trợ WhatsApp: nó đòi tài khoản Business, xét duyệt mẫu tin nhắn và
+> một nhà cung cấp trung gian — quá nặng cho một công cụ chạy trên máy cá nhân.
+
+---
+
+## Tuỳ chỉnh giao diện
+
+- **Kéo giãn:** kéo đường phân cách giữa panel và biểu đồ, hoặc giữa biểu đồ
+  giá và khung chỉ báo. Nhấn đúp để về mặc định. Kích thước được nhớ lại.
+- **Đánh dấu sao:** bấm ☆ cạnh mã, chỉ báo hoặc chiến lược. Mục đã đánh dấu
+  nổi lên nhóm riêng ở đầu danh sách.
+- **Nút i:** mọi chỉ báo và chiến lược đều có nút giải thích — đo cái gì, đọc
+  thế nào, và điều dễ hiểu sai.
 
 ---
 

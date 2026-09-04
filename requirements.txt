@@ -29,3 +29,7 @@ python-dotenv>=1.0
 
 # --- Machine-learning indicators (plugins/indicators/ml_*.py) ---
 scikit-learn>=1.5
+
+# --- Statistical tests (ADF, Ljung-Box) ---
+statsmodels>=0.14
+scipy>=1.11

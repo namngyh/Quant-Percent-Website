@@ -31,6 +31,7 @@
     </div>
 
     <div class="topbar-controls">
+      <button id="star-symbol" class="star star-lg" title="Đánh dấu mã này">☆</button>
       <select id="symbol" aria-label="Symbol"></select>
       <div id="timeframes" class="tf-group" role="group" aria-label="Khung thời gian"></div>
       <select id="limit" aria-label="Số nến" title="Số nến hiển thị">
@@ -84,7 +85,7 @@
           <h2>Chỉ báo</h2>
           <div class="panel-head-actions">
             <span id="catalog-count" class="badge">—</span>
-            <button class="btn btn-quiet btn-sm" data-format-help="indicator" title="Xem định dạng file">ⓘ</button>
+            <button class="info-btn" data-format-help="indicator" title="Xem định dạng file .py">i</button>
             <button class="btn btn-quiet btn-sm" data-import="indicator">Nhập .py</button>
           </div>
         </div>
@@ -110,14 +111,18 @@
           <h2>Chiến lược</h2>
           <div class="panel-head-actions">
             <span id="strategy-count" class="badge">—</span>
-            <button class="btn btn-quiet btn-sm" data-format-help="strategy" title="Xem định dạng file">ⓘ</button>
+            <button class="info-btn" data-format-help="strategy" title="Xem định dạng file .py">i</button>
             <button class="btn btn-quiet btn-sm" data-import="strategy">Nhập .py</button>
           </div>
         </div>
 
         <div class="panel-body">
           <div id="strategy-errors" class="load-errors" hidden></div>
-          <select id="strategy-select"></select>
+          <div class="row-with-star">
+            <button id="star-strategy" class="star" title="Đánh dấu chiến lược này">☆</button>
+            <select id="strategy-select"></select>
+            <button id="info-strategy" class="info-btn" title="Giải thích chiến lược">i</button>
+          </div>
           <p id="strategy-desc" class="hint"></p>
 
           <div class="subtabs" role="tablist">
@@ -204,6 +209,16 @@
             </div>
 
             <div class="field-group">
+              <div class="field-group-title">Kiểm định thống kê</div>
+              <p class="hint">
+                Dữ liệu có gì để khai thác không, và lợi thế quan sát được có
+                khác 0 một cách có ý nghĩa không.
+              </p>
+              <button id="run-stats-series" class="btn btn-block">Phân tích chuỗi giá</button>
+              <button id="run-stats-strategy" class="btn btn-block">Kiểm định chiến lược</button>
+            </div>
+
+            <div class="field-group">
               <div class="field-group-title">So sánh chiến lược</div>
               <p class="hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
               <div id="compare-list" class="compare-list"></div>
@@ -223,6 +238,7 @@
             <button class="subtab" data-restab="trades" role="tab">Lệnh</button>
             <button class="subtab" data-restab="optimize" role="tab">Tối ưu</button>
             <button class="subtab" data-restab="validation" role="tab">Kiểm định</button>
+            <button class="subtab" data-restab="stats" role="tab">Thống kê</button>
           </div>
           <div class="panel-head-actions">
             <button id="export-csv" class="btn btn-quiet btn-sm" title="Tải danh sách lệnh ra CSV">CSV</button>
@@ -250,6 +266,11 @@
               <p class="empty">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
             </div>
           </div>
+          <div class="subpanel" data-respanel="stats">
+            <div id="stats-output" class="scroll-area">
+              <p class="empty">Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -266,13 +287,26 @@
             nến kế tiếp. Phiên vẫn chạy khi bạn đóng trình duyệt.
           </p>
           <div id="paper-sessions" class="paper-list"></div>
+
+          <div class="field-group" style="margin-top:14px">
+            <div class="field-group-title">Thông báo Telegram</div>
+            <p class="hint" id="notify-status">Đang kiểm tra…</p>
+            <button id="notify-test" class="btn btn-block">Gửi tin thử</button>
+          </div>
         </div>
       </section>
     </aside>
 
+    <div id="resize-panel" class="resize-handle resize-x"
+         role="separator" aria-orientation="vertical"
+         title="Kéo để đổi bề rộng · nhấn đúp để về mặc định"></div>
+
     <!-- ============ Charts ============ -->
     <section class="charts">
       <div id="chart-main" class="chart-pane chart-main"></div>
+      <div id="resize-panes" class="resize-handle resize-y"
+           role="separator" aria-orientation="horizontal"
+           title="Kéo để đổi chiều cao khung chỉ báo · nhấn đúp để về mặc định"></div>
       <div id="panes"></div>
       <div id="loading" class="loading" hidden><div class="spinner"></div></div>
     </section>
@@ -298,6 +332,8 @@
   <input type="file" id="import-file" accept=".py,text/x-python" hidden />
 
   <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/favourites.js"></script>
+  <script src="/static/js/resize.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/indicators.js"></script>

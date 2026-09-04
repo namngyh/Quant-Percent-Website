@@ -869,3 +869,121 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
     stroke-dashoffset: 0;
   }
 }
+
+/* ==================== Star ==================== */
+
+.star {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.star:hover { color: var(--warn); background: var(--surface-2); }
+.star.on { color: #e0a000; }
+.star-sm { font-size: 13px; padding: 1px 2px; }
+.star-lg { font-size: 17px; }
+
+.row-with-star { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.row-with-star select { flex: 1; min-width: 0; }
+
+/* ==================== Info button ====================
+ *
+ * The earlier ⓘ glyph was thin and easy to miss at 11px. A filled circle with
+ * a serif-ish "i" reads as a button at any size, and it is the same control
+ * everywhere so it becomes familiar rather than decorative. */
+
+.info-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+}
+.info-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.cat-item .info-btn { opacity: 0; margin-left: 4px; }
+.cat-item:hover .info-btn, .cat-item .info-btn:focus-visible { opacity: 1; }
+.active-head .info-btn { margin-left: auto; }
+.active-head .active-remove { margin-left: 4px; }
+
+/* The header buttons that open the format help sit next to a text button, so
+   they get the same treatment rather than being a bare glyph. */
+.panel-head-actions .info-btn { width: 19px; height: 19px; font-size: 13px; }
+
+/* ==================== Help dialog content ==================== */
+
+.help-section { margin-bottom: 14px; }
+.help-section:last-child { margin-bottom: 0; }
+.help-label {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 4px;
+}
+.help-text { font-size: 13px; line-height: 1.6; margin: 0; }
+.help-section.watch .help-text {
+  background: var(--warn-soft);
+  border-left: 3px solid var(--warn);
+  padding: 9px 11px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.help-params { margin-top: 4px; }
+.help-params td { text-align: left; font-family: var(--sans); font-size: 12px; padding: 5px 6px; }
+.help-params td:first-child { font-family: var(--mono); color: var(--text-dim); width: 130px; }
+.help-source {
+  font-size: 10.5px; color: var(--text-faint); margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid var(--border-soft);
+}
+
+/* ==================== Resize handles ====================
+ *
+ * Deliberately thin but with a wider grab area than they look: a 4px target is
+ * hard to hit, so the visible line sits inside a 9px hit zone. */
+
+.resize-handle {
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  z-index: 5;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  background: var(--border);
+  transition: background 0.12s;
+}
+
+.resize-x { width: 5px; cursor: col-resize; }
+.resize-x::after { inset: 0 2px; }
+
+.resize-y { height: 5px; cursor: row-resize; margin-top: -3px; }
+.resize-y::after { inset: 2px 0; }
+
+.resize-handle:hover::after,
+.resize-handle.active::after,
+.resize-handle:focus-visible::after { background: var(--accent); }
+.resize-handle:focus-visible { outline: none; }
+
+/* While dragging, stop text selection and pointer events fighting the drag. */
+body.resizing { user-select: none; cursor: col-resize; }
+body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
+
+/* Pane height comes from the variable the resizer writes. */
+#panes .chart-pane { height: var(--pane-h, 128px); }

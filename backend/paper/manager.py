@@ -18,6 +18,7 @@ import time
 import pandas as pd
 
 from backend.data import sources, store
+from backend.notify import telegram
 from backend.paper.engine import PaperSession, PaperTrade
 from backend.strategy import registry
 from backend.strategy.engine import BacktestConfig
@@ -202,6 +203,15 @@ class PaperManager:
                 session.on_closed_candle, candle, self._signal_fn(session)
             )
             await asyncio.to_thread(self._persist, session)
+
+            # Push to the phone as well. Failures are logged inside the
+            # notifier and never interrupt trading.
+            if events and telegram.configured():
+                snapshot = session.snapshot()
+                for event in events:
+                    text = telegram.format_paper_event(snapshot, event)
+                    if text:
+                        await telegram.send(text)
 
             if self._notify:
                 for event in events:

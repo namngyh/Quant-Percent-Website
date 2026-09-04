@@ -8,6 +8,7 @@ const Indicators = (() => {
   let elements = {};
   let onCompute = async () => {};
   let onRemove = () => {};
+  let onExplain = () => {};
 
   /** instanceId -> { spec, params, error } */
   const active = new Map();
@@ -55,7 +56,12 @@ const Indicators = (() => {
     const activeIds = new Set([...active.values()].map((i) => i.spec.id));
 
     const groups = new Map();
-    for (const spec of matches) {
+    // Starred indicators get their own group at the top, so the handful you
+    // actually use are not buried among 189.
+    const { starred, rest } = Favourites.sort('indicator', matches);
+    if (starred.length) groups.set('★ đánh dấu', starred);
+
+    for (const spec of rest) {
       const key = spec.source === 'plugin' ? 'của bạn (python)' : spec.category;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(spec);
@@ -74,8 +80,10 @@ const Indicators = (() => {
         const plugin = spec.source === 'plugin' ? ' plugin' : '';
         html +=
           `<div class="cat-item${on}${plugin}" data-id="${escapeHtml(spec.id)}" title="${escapeHtml(spec.description || spec.name)}">` +
+          Favourites.button('indicator', spec.id, { size: 'star-sm' }) +
           `<span class="cat-item-name">${escapeHtml(spec.name)}</span>` +
           `<span class="cat-item-kind">${spec.kind === 'overlay' ? 'overlay' : 'panel'}</span>` +
+          `<button class="info-btn" data-info="${escapeHtml(spec.id)}" title="Giải thích chỉ báo">i</button>` +
           `</div>`;
       }
       html += '</div>';
@@ -85,6 +93,13 @@ const Indicators = (() => {
     for (const node of elements.catalog.querySelectorAll('.cat-item')) {
       node.addEventListener('click', () => add(node.dataset.id));
     }
+    for (const btn of elements.catalog.querySelectorAll('[data-info]')) {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();     // explaining an indicator must not add it
+        onExplain(catalog.find((s) => s.id === btn.dataset.info));
+      });
+    }
+    Favourites.bind(elements.catalog, renderCatalog);
   }
 
   // ---------- Active instances ----------
@@ -149,6 +164,7 @@ const Indicators = (() => {
           <span class="swatch" style="background:${escapeHtml(color)}"></span>
           <span class="active-name">${escapeHtml(spec.name)}</span>
           <span class="active-kind">${spec.kind}</span>
+          <button class="info-btn" data-info-active="${escapeHtml(spec.id)}" title="Giải thích chỉ báo">i</button>
           <button class="btn btn-ghost btn-sm active-remove" data-remove="${escapeHtml(instanceId)}">✕</button>
         </div>`;
 
@@ -184,6 +200,10 @@ const Indicators = (() => {
     for (const btn of elements.active.querySelectorAll('[data-remove]')) {
       btn.addEventListener('click', () => remove(btn.dataset.remove));
     }
+    for (const btn of elements.active.querySelectorAll('[data-info-active]')) {
+      btn.addEventListener('click', () =>
+        onExplain(catalog.find((s) => s.id === btn.dataset.infoActive)));
+    }
 
     for (const input of elements.active.querySelectorAll('[data-param]')) {
       const item = input.closest('.active-item');
@@ -218,6 +238,7 @@ const Indicators = (() => {
     elements = config.elements;
     onCompute = config.onCompute;
     onRemove = config.onRemove;
+    onExplain = config.onExplain || (() => {});
     elements.search.addEventListener('input', () => debounce('search', renderCatalog, 120));
     elements.clearAll.addEventListener('click', clearAll);
   }

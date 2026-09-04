@@ -89,8 +89,19 @@ const API = (() => {
     compareStrategies: ({ entries, symbol, timeframe, limit, execution }) =>
       post('/api/validate/compare', { entries, symbol, timeframe, limit, execution }),
 
+    statsSeries: ({ symbol, timeframe, limit }) =>
+      post('/api/stats/series', { symbol, timeframe, limit }),
+
+    statsStrategy: ({ strategyId, symbol, timeframe, limit, params, execution }) =>
+      post('/api/stats/strategy', {
+        strategy_id: strategyId, symbol, timeframe, limit, params, execution,
+      }),
+
     vnSymbols: () => request('/api/markets/vn/symbols'),
     vnStatus: () => request('/api/markets/vn/status'),
+
+    notifyStatus: () => request('/api/notify/status'),
+    notifyTest: () => post('/api/notify/test'),
 
     paperSessions: () => request('/api/paper'),
 

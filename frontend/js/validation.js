@@ -241,6 +241,152 @@ const Validation = (() => {
     elements.output.innerHTML = html;
   }
 
+
+  // ---------- Statistics ----------
+
+  async function runSeriesStats() {
+    const ctx = context();
+    const result = await API.statsSeries({
+      symbol: ctx.symbol, timeframe: ctx.timeframe, limit: ctx.limit,
+    });
+    renderSeriesStats(result);
+    return result;
+  }
+
+  function renderSeriesStats(r) {
+    const d = r.distribution;
+    const s = r.stochastic;
+    if (d.error) { elements.stats.innerHTML = `<p class="empty">${esc(d.error)}</p>`; return; }
+
+    let html = '';
+
+    // The headline finding, in words, before any table.
+    const randomWalk = s.variance_ratio?.random_walk && !s.has_autocorrelation;
+    if (randomWalk) {
+      html += `<div class="callout warn"><strong>Chuỗi này gần như bước ngẫu nhiên.</strong>
+        Không tìm thấy tự tương quan trong lợi suất (Ljung–Box p = ${s.ljungbox_p.toFixed(3)}),
+        và tỷ số phương sai không bác bỏ được bước ngẫu nhiên. Chỉ báo dựa trên
+        <em>hướng</em> giá quá khứ sẽ rất khó ăn thua ở đây.</div>`;
+    }
+    if (s.has_volatility_clustering) {
+      html += `<div class="callout good"><strong>Biến động có gom cụm.</strong>
+        Đây là cấu trúc thật và khai thác được — dù hướng giá khó dự đoán, thì
+        <em>mức độ dao động</em> lại có quán tính.</div>`;
+    }
+    if (!d.is_normal) {
+      html += `<div class="callout warn">Lợi suất <strong>không theo phân phối chuẩn</strong>
+        (độ nhọn thừa ${d.kurtosis_excess.toFixed(1)}, chuẩn là 0). Đuôi dày hơn nhiều so với
+        giả định chuẩn, nên Sharpe và mọi công thức giả định chuẩn đều
+        <strong>đánh giá thấp rủi ro đuôi</strong>.</div>`;
+    }
+
+    html += '<div class="metrics">';
+    html += card('Độ nhọn thừa', d.kurtosis_excess.toFixed(2), d.kurtosis_excess > 1 ? 'neg' : '',
+      'chuẩn = 0');
+    html += card('Độ lệch', d.skew.toFixed(3), '', d.skew < 0 ? 'đuôi trái dày hơn' : 'đuôi phải dày hơn');
+    html += card('VaR 95%', `${d.var_95_pct.toFixed(2)}%`, 'neg', `CVaR ${d.cvar_95_pct.toFixed(2)}%`);
+    html += card('VaR 99%', `${d.var_99_pct.toFixed(2)}%`, 'neg', `CVaR ${d.cvar_99_pct.toFixed(2)}%`);
+    html += card('Hurst', Number.isFinite(s.hurst) ? s.hurst.toFixed(3) : '—', '', s.hurst_reading);
+    html += card('Tỷ số phương sai',
+      s.variance_ratio?.variance_ratio?.toFixed(3) ?? '—', '',
+      s.variance_ratio?.random_walk ? 'không bác bỏ bước ngẫu nhiên' : 'khác bước ngẫu nhiên');
+    html += '</div>';
+
+    const row = (name, value, verdict, cls = '') =>
+      `<tr><td>${esc(name)}</td><td>${value}</td><td class="${cls}">${esc(verdict)}</td></tr>`;
+
+    html += '<table class="data-table"><thead><tr><th>Kiểm định</th><th>Giá trị</th><th>Kết luận</th></tr></thead><tbody>';
+    html += row('Jarque–Bera (chuẩn)', `p = ${d.jarque_bera_p.toExponential(1)}`,
+      d.is_normal ? 'phân phối chuẩn' : 'KHÔNG chuẩn', d.is_normal ? '' : 'neg');
+    if (s.adf_price_p !== undefined) {
+      html += row('ADF trên giá', `p = ${s.adf_price_p.toFixed(4)}`,
+        s.adf_price_stationary ? 'dừng' : 'không dừng');
+      html += row('ADF trên lợi suất', `p = ${s.adf_return_p.toExponential(1)}`,
+        s.adf_return_stationary ? 'dừng' : 'không dừng',
+        s.adf_return_stationary ? 'pos' : 'neg');
+    }
+    if (s.ljungbox_p !== undefined) {
+      html += row(`Ljung–Box (${s.ljungbox_lags} độ trễ)`, `p = ${s.ljungbox_p.toFixed(4)}`,
+        s.has_autocorrelation ? 'CÓ tự tương quan' : 'không có',
+        s.has_autocorrelation ? 'pos' : '');
+    }
+    if (s.volatility_clustering_p !== undefined) {
+      html += row('Ljung–Box trên |lợi suất|', `p = ${s.volatility_clustering_p.toExponential(1)}`,
+        s.has_volatility_clustering ? 'CÓ gom cụm biến động' : 'không',
+        s.has_volatility_clustering ? 'pos' : '');
+    }
+    if (s.variance_ratio?.z_score !== undefined) {
+      html += row(`Tỷ số phương sai (q=${s.variance_ratio.period})`,
+        `z = ${s.variance_ratio.z_score.toFixed(2)}`,
+        s.variance_ratio.random_walk ? 'không bác bỏ bước ngẫu nhiên' : 'bác bỏ bước ngẫu nhiên');
+    }
+    html += '</tbody></table>';
+    html += `<p class="table-note">Trên ${r.bars.toLocaleString('vi-VN')} nến
+      ${esc(r.symbol || '')} ${esc(r.timeframe || '')}. Mức ý nghĩa 5%.</p>`;
+
+    elements.stats.innerHTML = html;
+  }
+
+  async function runStrategyStats(params) {
+    const ctx = context();
+    const result = await API.statsStrategy({
+      strategyId: elements.strategySelect.value,
+      symbol: ctx.symbol, timeframe: ctx.timeframe, limit: ctx.limit,
+      params, execution: execution(),
+    });
+    renderStrategyStats(result);
+    return result;
+  }
+
+  function renderStrategyStats(r) {
+    if (r.error) { elements.stats.innerHTML = `<p class="empty">${esc(r.error)}</p>`; return; }
+    const inf = r.inference;
+    const bay = r.bayesian;
+    let html = '';
+
+    if (inf.error) {
+      html += `<div class="callout warn">${esc(inf.error)}</div>`;
+    } else if (!inf.significant) {
+      html += `<div class="callout warn"><strong>Lợi thế chưa có ý nghĩa thống kê.</strong>
+        Lợi suất trung bình mỗi lệnh ${inf.mean_return_pct >= 0 ? '+' : ''}${inf.mean_return_pct.toFixed(3)}%,
+        p = ${inf.p_value_one_sided.toFixed(3)} — không bác bỏ được giả thuyết
+        "lợi thế bằng 0". Khoảng tin cậy 95% vẫn chứa số 0.</div>`;
+    } else {
+      html += `<div class="callout good"><strong>Lợi thế có ý nghĩa thống kê</strong>
+        (p = ${inf.p_value_one_sided.toFixed(4)}). Vẫn nên chạy walk-forward:
+        kiểm định này không biết tham số đã được chọn bằng hậu nghiệm hay chưa.</div>`;
+    }
+    if (inf.underpowered) {
+      html += `<div class="callout warn">Chỉ ${inf.n_trades} lệnh — quá ít để kiểm định
+        có sức mạnh. Kết luận nào rút ra ở đây cũng mong manh.</div>`;
+    }
+
+    html += '<div class="metrics">';
+    if (!inf.error) {
+      html += card('Lợi suất TB/lệnh', `${inf.mean_return_pct >= 0 ? '+' : ''}${inf.mean_return_pct.toFixed(3)}%`,
+        sign(inf.mean_return_pct), `${inf.n_trades} lệnh`);
+      html += card('p (một phía)', inf.p_value_one_sided.toFixed(4),
+        inf.significant ? 'pos' : 'neg', inf.significant ? 'có ý nghĩa' : 'không có ý nghĩa');
+      html += card('KTC 95%',
+        `${inf.ci95_low_pct.toFixed(2)}% … ${inf.ci95_high_pct.toFixed(2)}%`, '',
+        'chứa 0 nghĩa là chưa kết luận được');
+    }
+    html += card('Tỷ lệ thắng quan sát', `${bay.observed_win_rate_pct.toFixed(1)}%`, '',
+      `${bay.wins} thắng / ${bay.losses} thua`);
+    html += card('Bayes · khoảng tin 95%',
+      `${bay.credible_95_low_pct.toFixed(1)}–${bay.credible_95_high_pct.toFixed(1)}%`, '',
+      `rộng ${bay.credible_width_pct.toFixed(1)} điểm`);
+    html += card('P(thắng thật > 50%)', `${bay.prob_better_than_coin_pct.toFixed(1)}%`,
+      bay.prob_better_than_coin_pct > 50 ? 'pos' : 'neg');
+    html += '</div>';
+
+    html += `<p class="table-note">Hậu nghiệm Beta–Nhị thức với tiên nghiệm ${esc(bay.prior)}
+      (phân phối đều — chưa giả định gì). Bề rộng khoảng tin cậy là thứ mà một con số
+      tỷ lệ thắng đơn lẻ che mất: với ít lệnh, nó rộng đến mức gần như vô dụng.</p>`;
+
+    elements.stats.innerHTML = html;
+  }
+
   // ---------- Export ----------
 
   function download(filename, content, type = 'text/csv;charset=utf-8') {
@@ -349,6 +495,7 @@ const Validation = (() => {
 
   return {
     init, runWalkForward, runMonteCarlo, runCompare,
+    runSeriesStats, runStrategyStats,
     exportTrades, exportChart,
     get last() { return lastResult; },
   };

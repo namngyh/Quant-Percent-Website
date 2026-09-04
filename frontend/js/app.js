@@ -33,6 +33,10 @@
     formatClose: document.getElementById('format-close'),
     formatDownload: document.getElementById('format-download'),
     formatCopy: document.getElementById('format-copy'),
+    formatFoot: document.querySelector('.dialog-foot'),
+    starSymbol: document.getElementById('star-symbol'),
+    starStrategy: document.getElementById('star-strategy'),
+    infoStrategy: document.getElementById('info-strategy'),
   };
 
   const state = { symbol: null, timeframe: null, limit: 2000 };
@@ -229,6 +233,23 @@
       setStatus(`Thị trường VN không khả dụng: ${err.message}`, 'error');
     }
 
+    symbolGroups = groups;
+    rebuildSymbolOptions();
+  }
+
+  let symbolGroups = [];
+
+  /** Render the picker, lifting starred symbols into a group of their own. */
+  function rebuildSymbolOptions() {
+    const chosen = el.symbol.value || state.symbol;
+    const all = symbolGroups.flatMap((g) => g.options);
+    const starredIds = new Set(Favourites.list('symbol'));
+    const starred = all.filter((o) => starredIds.has(o.id));
+
+    const groups = starred.length
+      ? [{ label: `★ Đánh dấu (${starred.length})`, options: starred }, ...symbolGroups]
+      : symbolGroups;
+
     el.symbol.innerHTML = groups
       .map(
         (g) =>
@@ -237,6 +258,8 @@
           '</optgroup>',
       )
       .join('');
+
+    if (chosen) el.symbol.value = chosen;
   }
 
   /** Live and backfill are Binance-only; say so rather than failing on click. */
@@ -431,6 +454,7 @@ def signals(df, params):
     if (!tpl) return;
     currentTemplate = tpl;
 
+    el.formatFoot.hidden = false;
     document.getElementById('format-title').textContent = tpl.title;
     el.formatBody.innerHTML =
       `<p class="hint">${tpl.intro}</p>` +
@@ -496,6 +520,133 @@ def signals(df, params):
         </label>`,
       )
       .join('');
+  }
+
+
+  // ---------- Explaining an indicator or strategy ----------
+  //
+  // Every entry carries its own explanation from the backend: a curated
+  // Vietnamese one where we wrote it, the library docstring otherwise, and for
+  // a plugin the file's own docstring — which is the only place the author
+  // could have put it.
+
+  function explain(spec) {
+    if (!spec) return;
+    currentTemplate = null;                 // this dialog has nothing to download
+
+    const help = spec.help || {};
+    const esc = (v) => String(v ?? '').replace(
+      /[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+    let html = '';
+    if (help.what) {
+      html += `<div class="help-section">
+        <div class="help-label">Đo cái gì</div>
+        <p class="help-text">${esc(help.what)}</p></div>`;
+    }
+    if (help.how) {
+      html += `<div class="help-section">
+        <div class="help-label">Đọc thế nào</div>
+        <p class="help-text">${esc(help.how)}</p></div>`;
+    }
+    if (help.watch) {
+      html += `<div class="help-section watch">
+        <div class="help-label">Cần lưu ý</div>
+        <p class="help-text">${esc(help.watch)}</p></div>`;
+    }
+    if (!html) {
+      html = '<p class="empty">Chỉ báo này chưa có mô tả.</p>';
+    }
+
+    if (spec.params?.length) {
+      html += '<div class="help-section"><div class="help-label">Tham số</div>' +
+        '<table class="data-table help-params"><tbody>' +
+        spec.params.map((prm) => {
+          const range = prm.min !== null && prm.max !== null
+            ? ` (${prm.min}–${prm.max})` : '';
+          return `<tr><td>${esc(prm.name)}</td><td>${esc(prm.label)} — mặc định
+            <strong>${esc(prm.default)}</strong>${range}</td></tr>`;
+        }).join('') +
+        '</tbody></table></div>';
+    }
+
+    if (spec.outputs?.length) {
+      html += `<div class="help-section"><div class="help-label">Đường vẽ</div>
+        <p class="help-text">${spec.outputs.map((o) => esc(o.label)).join(' · ')}</p></div>`;
+    }
+
+    const origin = {
+      curated: 'Mô tả do nền tảng viết.',
+      docstring: 'Lấy từ tài liệu gốc của thư viện hoặc của file.',
+      none: '',
+    }[help.source] || '';
+    if (origin) html += `<div class="help-source">${origin}</div>`;
+
+    document.getElementById('format-title').textContent = spec.name;
+    el.formatBody.innerHTML = html;
+    el.formatFoot.hidden = true;            // nothing to download or copy here
+    el.formatDialog.hidden = false;
+  }
+
+  // ---------- Stars ----------
+
+  function refreshStars() {
+    const symbolOn = Favourites.has('symbol', state.symbol);
+    el.starSymbol.textContent = symbolOn ? '★' : '☆';
+    el.starSymbol.classList.toggle('on', symbolOn);
+
+    const strategyId = document.getElementById('strategy-select').value;
+    const strategyOn = Favourites.has('strategy', strategyId);
+    el.starStrategy.textContent = strategyOn ? '★' : '☆';
+    el.starStrategy.classList.toggle('on', strategyOn);
+  }
+
+  function setupStars() {
+    el.starSymbol.addEventListener('click', () => {
+      Favourites.toggle('symbol', state.symbol);
+      refreshStars();
+      rebuildSymbolOptions();               // starred symbols move to the top
+    });
+
+    el.starStrategy.addEventListener('click', () => {
+      Favourites.toggle('strategy', document.getElementById('strategy-select').value);
+      refreshStars();
+    });
+
+    el.infoStrategy.addEventListener('click', () => {
+      const id = document.getElementById('strategy-select').value;
+      explain((Strategy.catalog || []).find((s) => s.id === id));
+    });
+  }
+
+  // ---------- Notifications ----------
+
+  async function setupNotify() {
+    const label = document.getElementById('notify-status');
+    const button = document.getElementById('notify-test');
+
+    try {
+      const status = await API.notifyStatus();
+      if (status.reachable) {
+        label.innerHTML = `Đang bật qua <strong>@${status.bot_username}</strong>. ` +
+          'Mỗi lần phiên paper vào hoặc đóng lệnh sẽ có tin nhắn.';
+        button.disabled = false;
+      } else {
+        label.textContent = status.message ||
+          'Chưa bật. Thêm TELEGRAM_BOT_TOKEN và TELEGRAM_CHAT_ID vào .env rồi khởi động lại.';
+        // Leave the button live even when unconfigured: pressing it is how you
+        // find out what is missing.
+        button.disabled = false;
+      }
+    } catch (err) {
+      label.textContent = err.message;
+    }
+
+    button.addEventListener('click', () =>
+      withButton(button, 'Đang gửi…', async () => {
+        await API.notifyTest();
+        toast('Đã gửi tin thử — kiểm tra Telegram');
+      }));
   }
 
   // ---------- Navigation ----------
@@ -690,9 +841,13 @@ def signals(df, params):
 
   async function start() {
     ChartManager.init(el.chartMain);
+    // Dividers change the chart's box, so the charts re-measure on every drag.
+    Resizer.init({ onChange: () => ChartManager.refreshSize() });
     setupNavigation();
     setupImport();
     setupFormatHelp();
+    setupStars();
+    setupNotify();
 
     Indicators.init({
       elements: {
@@ -705,6 +860,7 @@ def signals(df, params):
       },
       onCompute: computeIndicator,
       onRemove: (instanceId) => ChartManager.remove(instanceId),
+      onExplain: explain,
     });
 
     Strategy.init({
@@ -731,6 +887,7 @@ def signals(df, params):
         slippage: document.getElementById('exec-slippage'),
       },
       context: () => ({ ...state }),
+      onSelect: refreshStars,
       onResult: (result) => {
         markerSource = 'backtest';
         ChartManager.setTradeMarkers(result.trades);
@@ -753,6 +910,7 @@ def signals(df, params):
         testBars: document.getElementById('wf-test'),
         simulations: document.getElementById('mc-sims'),
         output: document.getElementById('validation-output'),
+        stats: document.getElementById('stats-output'),
       },
       context: () => ({ ...state }),
       execution: () => Strategy.execution(),
@@ -797,6 +955,7 @@ def signals(df, params):
       Indicators.setCatalog(await API.catalog());
       await Strategy.load();
       renderComparePicker();
+      refreshStars();
       await Paper.refresh();
     } catch (err) {
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');
@@ -808,6 +967,7 @@ def signals(df, params):
 
     el.symbol.addEventListener('change', () => {
       state.symbol = el.symbol.value;
+      refreshStars();
       buildTimeframeButtons();      // markets differ in what they offer
       applyMarketCapabilities();
       loadCandles();
@@ -849,6 +1009,18 @@ def signals(df, params):
         }
         await Validation.runCompare(entries);
         showResults('validation');
+      }));
+
+    document.getElementById('run-stats-series').addEventListener('click', (e) =>
+      withButton(e.currentTarget, 'Đang tính…', async () => {
+        await Validation.runSeriesStats();
+        showResults('stats');
+      }));
+
+    document.getElementById('run-stats-strategy').addEventListener('click', (e) =>
+      withButton(e.currentTarget, 'Đang tính…', async () => {
+        await Validation.runStrategyStats(Strategy.currentParams());
+        showResults('stats');
       }));
 
     el.exportCsv.addEventListener('click', () => Validation.exportTrades(Strategy.lastResult));
