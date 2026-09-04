@@ -270,7 +270,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   word-break: break-word;
 }
 
-.plugin-errors {
+.load-errors {
   background: rgba(210, 153, 34, 0.1);
   border: 1px solid rgba(210, 153, 34, 0.3);
   border-radius: var(--radius);
@@ -325,3 +325,216 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* ==================== Sidebar tabs ==================== */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 10px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.tab-panel { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.tab-panel.active { display: flex; }
+
+.scroll-panel { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ==================== Form groups ==================== */
+
+.field-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: var(--bg-inset);
+}
+.field-group-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.hint { color: var(--text-faint); font-size: 11px; margin: 0 0 8px; line-height: 1.45; }
+
+.param-row {
+  display: grid;
+  grid-template-columns: 1fr 84px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.param-row:last-child { margin-bottom: 0; }
+.param-row input, .param-row select { width: 100%; }
+
+.btn-block { width: 100%; justify-content: center; }
+
+#strategy-select { width: 100%; }
+
+/* ==================== Sweep ranges ==================== */
+
+.sweep-list { display: grid; gap: 7px; margin-bottom: 8px; }
+.sweep-item {
+  display: grid;
+  grid-template-columns: 16px 1fr repeat(3, 52px);
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.sweep-item > span { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+.sweep-item input[type="number"] { width: 100%; padding: 3px 5px; font-size: 11px; }
+.sweep-item input[type="number"]:disabled { opacity: 0.35; }
+.sweep-head {
+  display: grid;
+  grid-template-columns: 16px 1fr repeat(3, 52px);
+  gap: 5px;
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.sweep-head span:nth-child(n+3) { text-align: center; }
+
+/* ==================== Results panel ==================== */
+
+.results {
+  width: 400px;
+  flex-shrink: 0;
+  background: var(--bg-raised);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.results[hidden] { display: none; }
+
+.results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+.results-tabs { display: flex; }
+.rtab {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 10px 13px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
+.rtab:hover { color: var(--text); }
+.rtab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.results-body { flex: 1; overflow: hidden; display: flex; }
+.rpanel { display: none; flex: 1; overflow-y: auto; padding: 12px; flex-direction: column; }
+.rpanel.active { display: flex; }
+
+/* ---- Metrics ---- */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.metric { background: var(--bg-inset); padding: 8px 10px; }
+.metric-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-faint);
+  margin-bottom: 3px;
+}
+.metric-value { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+.metric-value.pos { color: var(--up); }
+.metric-value.neg { color: var(--down); }
+.metric-sub { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+.metric.wide { grid-column: 1 / -1; }
+
+.callout {
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.callout.warn {
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  color: var(--warn);
+}
+.callout.bad {
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--danger);
+}
+
+/* ---- Equity chart ---- */
+
+.equity-wrap { display: flex; flex-direction: column; flex: 1; min-height: 180px; }
+.equity-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.equity-chart { flex: 1; min-height: 160px; border: 1px solid var(--border); border-radius: var(--radius); }
+
+/* ---- Tables ---- */
+
+.data-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10.5px; }
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+  color: var(--text-faint);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: right;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td { padding: 4px 6px; border-bottom: 1px solid var(--border-soft); text-align: right; white-space: nowrap; }
+.data-table tbody tr:hover { background: var(--border-soft); }
+.data-table .pos { color: var(--up); }
+.data-table .neg { color: var(--down); }
+.data-table .muted { color: var(--text-faint); }
+.data-table tbody tr.best { background: var(--accent-soft); }
+
+.trades, .optimize-results { flex: 1; overflow: auto; }
+
+.table-note { font-size: 10px; color: var(--text-faint); margin: 8px 0 0; line-height: 1.5; }

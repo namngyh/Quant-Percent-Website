@@ -6,6 +6,8 @@ Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ 
 - Chart nến bằng **Lightweight Charts** (thư viện mã nguồn mở của TradingView)
 - **187 chỉ báo** dùng ngay, tham số chỉnh trực tiếp bằng slider trên giao diện
 - Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
+- **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
+- **Tối ưu tham số** bằng grid search, kèm cảnh báo overfit
 
 ---
 
@@ -80,6 +82,84 @@ Xem 2 file mẫu có sẵn: `example_ema_ribbon.py` (overlay) và `example_zscor
 
 Nếu file có lỗi, nền tảng **không sập** — lỗi hiện ở ô cảnh báo vàng trên sidebar,
 các chỉ báo khác vẫn chạy bình thường.
+
+---
+
+## Viết chiến lược riêng
+
+Tạo file `.py` trong `plugins/strategies/`. Chiến lược chỉ quyết định **nên
+long, short hay đứng ngoài** ở mỗi nến — nó không đặt lệnh và không tính khối
+lượng. Engine lo phần đó, nên mọi chiến lược đều được đo bằng cùng một thước.
+
+```python
+import pandas as pd
+
+STRATEGY = {
+    "name": "EMA Cross của tôi",
+    "side": "both",                  # "long" | "short" | "both"
+    "params": {
+        "fast": {"type": "int", "default": 20, "min": 2, "max": 200},
+        "slow": {"type": "int", "default": 50, "min": 3, "max": 400},
+    },
+}
+
+def signals(df, params):
+    fast = df["close"].ewm(span=params["fast"], adjust=False).mean()
+    slow = df["close"].ewm(span=params["slow"], adjust=False).mean()
+
+    out = pd.Series(0, index=df.index)
+    out[fast > slow] = 1      # long
+    out[fast < slow] = -1     # short
+    out.iloc[: params["slow"]] = 0   # cửa sổ khởi động: đứng ngoài
+    return out
+```
+
+Xem 2 file mẫu: `example_ema_cross.py` (thuận xu hướng) và
+`example_rsi_reversal.py` (hồi quy trung bình, có lúc đứng ngoài thị trường).
+
+### Backtest được thực hiện thế nào
+
+Đây là các giả định mà **mọi con số kết quả đều dựa vào** — biết chúng thì mới
+đọc kết quả cho đúng:
+
+| Điểm | Cách xử lý |
+|---|---|
+| **Khớp lệnh** | Tín hiệu tính xong lúc nến `i` đóng → vào lệnh ở **giá mở nến `i+1`**. Không thể giao dịch bằng giá chưa nhìn thấy (không có look-ahead bias). |
+| **Phí** | Tính cả hai chiều, trên notional. Mặc định 0.04% (taker Binance futures). |
+| **Trượt giá** | Giá khớp bị làm xấu đi theo chiều bất lợi. Mặc định 0.02%. |
+| **Vốn** | Mỗi lệnh ký quỹ `% vốn` hiện có, điều khiển `ký quỹ × đòn bẩy` notional. |
+| **Thanh lý** | Vị thế đòn bẩy bị thanh lý **trong nến** khi lỗ chạm mức ký quỹ — kiểm tra bằng giá thấp nhất (long) / cao nhất (short), nên râu nến quét qua không bị bỏ sót. |
+| **Vị thế** | Mỗi lúc chỉ một vị thế. Đảo chiều = đóng và mở lại trong cùng nến. |
+
+Kết quả luôn hiển thị **mua-và-giữ** bên cạnh lợi nhuận chiến lược. Lãi 40%
+trong giai đoạn mà chỉ cần giữ đã lãi 120% thực chất là thua lỗ.
+
+### Tối ưu tham số
+
+Tích ô bên trái tham số cần quét, đặt dải **Từ / Đến / Bước**, chọn chỉ số xếp
+hạng rồi bấm **Chạy tối ưu**. Nhấn một hàng trong bảng để nạp bộ tham số đó và
+chạy backtest đầy đủ.
+
+Kết quả không chỉ đưa ô tốt nhất mà còn cho biết **bao nhiêu phần trăm tổ hợp
+có lãi** và **trung vị**. Nếu chỉ vài phần trăm tổ hợp có lãi mà ô đứng đầu lại
+vượt xa trung vị, nền tảng sẽ cảnh báo **overfit** — dáng đó thường là may mắn
+chứ không phải lợi thế thật.
+
+---
+
+## Kiểm thử
+
+```bash
+.venv\Scripts\python.exe tests/test_engine.py            # 12 checks - engine backtest
+.venv\Scripts\python.exe tests/test_metrics.py           # 9  checks - chỉ số hiệu năng
+.venv\Scripts\python.exe tests/test_strategy_pipeline.py # 9  checks - toàn tuyến chiến lược
+.venv\Scripts\python.exe tests/test_optimizer.py         # 12 checks - grid search
+```
+
+Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
+comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
+equity trông rất thuyết phục — đây là thứ ngăn cách giữa điều đó và kết quả
+đáng tin.
 
 ---
 

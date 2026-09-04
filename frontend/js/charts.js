@@ -191,5 +191,112 @@ const ChartManager = (() => {
     for (const id of [...panes.keys()]) removePane(id);
   }
 
-  return { init, setCandles, drawOverlay, drawPane, remove, clearAll };
+
+  /* Entry and exit markers for a backtest, drawn on the candles. */
+  function setTradeMarkers(trades) {
+    const markers = [];
+    for (const t of trades) {
+      const isLong = t.side === 'long';
+      markers.push({
+        time: t.entry_time,
+        position: isLong ? 'belowBar' : 'aboveBar',
+        color: isLong ? '#26a69a' : '#ef5350',
+        shape: isLong ? 'arrowUp' : 'arrowDown',
+        text: isLong ? 'L' : 'S',
+      });
+      markers.push({
+        time: t.exit_time,
+        position: isLong ? 'aboveBar' : 'belowBar',
+        color: t.exit_reason === 'liquidation' ? '#f85149' : '#6e7681',
+        shape: 'circle',
+        text: t.exit_reason === 'liquidation' ? 'LIQ' : '',
+      });
+    }
+    // Markers must be sorted by time or the library drops them silently.
+    markers.sort((a, b) => a.time - b.time);
+    candleSeries.setMarkers(markers);
+  }
+
+  function clearTradeMarkers() {
+    if (candleSeries) candleSeries.setMarkers([]);
+  }
+
+  return { init, setCandles, drawOverlay, drawPane, remove, clearAll, setTradeMarkers, clearTradeMarkers };
+})();
+
+/* The equity curve, drawn in the results panel. Its own small chart rather
+   than a pane of the price chart: equity is denominated in account currency
+   and spans a different range, and it should stay readable while the price
+   chart is scrolled or zoomed independently. */
+
+const EquityChart = (() => {
+  let chart = null;
+  let series = null;
+  let baseline = null;
+
+  function ensure(container) {
+    if (chart) return;
+
+    chart = LightweightCharts.createChart(container, {
+      layout: {
+        background: { color: '#0a0e14' },
+        textColor: '#6e7681',
+        fontSize: 10,
+        fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+      },
+      grid: {
+        vertLines: { color: 'rgba(33,38,45,0.5)' },
+        horzLines: { color: 'rgba(33,38,45,0.5)' },
+      },
+      rightPriceScale: { borderColor: '#21262d' },
+      timeScale: { borderColor: '#21262d', timeVisible: true, secondsVisible: false },
+      crosshair: { mode: 0 },
+      autoSize: true,
+    });
+
+    series = chart.addAreaSeries({
+      lineColor: '#2962ff',
+      topColor: 'rgba(41,98,255,0.28)',
+      bottomColor: 'rgba(41,98,255,0.02)',
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+
+    // Starting capital, so being under water is visible at a glance.
+    baseline = chart.addLineSeries({
+      color: '#3d444d',
+      lineWidth: 1,
+      lineStyle: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+  }
+
+  function render(container, times, equity, initialCapital) {
+    ensure(container);
+
+    const points = [];
+    const flat = [];
+    let previousTime = null;
+
+    for (let i = 0; i < times.length; i += 1) {
+      // Lightweight Charts rejects duplicate or out-of-order timestamps.
+      if (previousTime !== null && times[i] <= previousTime) continue;
+      previousTime = times[i];
+      points.push({ time: times[i], value: equity[i] });
+      flat.push({ time: times[i], value: initialCapital });
+    }
+
+    series.setData(points);
+    baseline.setData(flat);
+    chart.timeScale().fitContent();
+  }
+
+  function clear() {
+    if (series) series.setData([]);
+    if (baseline) baseline.setData([]);
+  }
+
+  return { render, clear };
 })();

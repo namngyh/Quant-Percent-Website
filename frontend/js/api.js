@@ -46,5 +46,28 @@ const API = (() => {
 
     backfill: ({ symbols, timeframes } = {}) =>
       post('/api/backfill', { symbols, timeframes }),
+
+    strategies: () => request('/api/strategies'),
+
+    backtest: ({ strategyId, symbol, timeframe, params, limit, execution }) =>
+      post('/api/strategies/backtest', {
+        strategy_id: strategyId,
+        symbol,
+        timeframe,
+        params,
+        limit,
+        execution,
+      }),
+
+    optimize: ({ strategyId, symbol, timeframe, ranges, limit, metric, execution }) =>
+      post('/api/strategies/optimize', {
+        strategy_id: strategyId,
+        symbol,
+        timeframe,
+        ranges,
+        limit,
+        metric,
+        execution,
+      }),
   };
 })();

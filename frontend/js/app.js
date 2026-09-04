@@ -1,5 +1,5 @@
-/* Application wiring: loads config, candles and the indicator catalog, then
-   keeps the chart in step with the controls. */
+/* Application wiring: loads config, candles, indicators and strategies, then
+   keeps the charts in step with the controls. */
 
 (() => {
   const el = {
@@ -11,13 +11,16 @@
     loading: document.getElementById('loading'),
     chartMain: document.getElementById('chart-main'),
     panes: document.getElementById('panes'),
+    results: document.getElementById('results'),
+    closeResults: document.getElementById('close-results'),
+    runBacktest: document.getElementById('run-backtest'),
+    runOptimize: document.getElementById('run-optimize'),
   };
 
   const state = {
     symbol: null,
     timeframe: null,
     limit: 2000,
-    candleCount: 0,
   };
 
   // Timeframes at or below this show a time (not just a date) on the axis.
@@ -43,13 +46,12 @@
         limit: state.limit,
       });
 
-      state.candleCount = data.count;
-
       if (!data.count) {
         // Drop the drawings too, or lines computed from the previous timeframe
         // would linger over an empty chart. The active list is left intact, so
         // they redraw as soon as this series has data.
         ChartManager.clearAll();
+        ChartManager.clearTradeMarkers();
         ChartManager.setCandles([], [], { timeVisible: false });
         setStatus(`${state.symbol} ${state.timeframe} — chưa có dữ liệu, bấm "Cập nhật dữ liệu"`, 'error');
         return;
@@ -65,6 +67,8 @@
           `${last.close.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
       );
 
+      // Anything drawn from the previous series is stale now.
+      ChartManager.clearTradeMarkers();
       await Indicators.recomputeAll();
     } catch (err) {
       setStatus(err.message, 'error');
@@ -131,10 +135,62 @@
     }
   }
 
+  function setupTabs() {
+    for (const tab of document.querySelectorAll('.tab')) {
+      tab.addEventListener('click', () => {
+        for (const t of document.querySelectorAll('.tab')) {
+          t.classList.toggle('active', t === tab);
+        }
+        for (const panel of document.querySelectorAll('.tab-panel')) {
+          panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab);
+        }
+      });
+    }
+
+    for (const rtab of document.querySelectorAll('.rtab')) {
+      rtab.addEventListener('click', () => {
+        for (const t of document.querySelectorAll('.rtab')) {
+          t.classList.toggle('active', t === rtab);
+        }
+        for (const panel of document.querySelectorAll('.rpanel')) {
+          panel.classList.toggle('active', panel.dataset.rpanel === rtab.dataset.rtab);
+        }
+      });
+    }
+  }
+
+  function showResults(tab) {
+    el.results.hidden = false;
+    if (!tab) return;
+    for (const t of document.querySelectorAll('.rtab')) {
+      t.classList.toggle('active', t.dataset.rtab === tab);
+    }
+    for (const panel of document.querySelectorAll('.rpanel')) {
+      panel.classList.toggle('active', panel.dataset.rpanel === tab);
+    }
+  }
+
+  async function withButton(button, label, work) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = label;
+    setLoading(true);
+    try {
+      await work();
+    } catch (err) {
+      setStatus(err.message, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+      setLoading(false);
+    }
+  }
+
   // ---------- Boot ----------
 
   async function start() {
     ChartManager.init(el.chartMain);
+    setupTabs();
 
     Indicators.init({
       elements: {
@@ -147,6 +203,29 @@
       },
       onCompute: computeIndicator,
       onRemove: (instanceId) => ChartManager.remove(instanceId),
+    });
+
+    Strategy.init({
+      elements: {
+        select: document.getElementById('strategy-select'),
+        desc: document.getElementById('strategy-desc'),
+        count: document.getElementById('strategy-count'),
+        errors: document.getElementById('strategy-errors'),
+        params: document.getElementById('strategy-params'),
+        sweep: document.getElementById('sweep-ranges'),
+        metric: document.getElementById('opt-metric'),
+        metrics: document.getElementById('metrics'),
+        trades: document.getElementById('trades'),
+        optimize: document.getElementById('optimize-results'),
+        equityChart: document.getElementById('equity-chart'),
+        capital: document.getElementById('exec-capital'),
+        size: document.getElementById('exec-size'),
+        leverage: document.getElementById('exec-leverage'),
+        fee: document.getElementById('exec-fee'),
+        slippage: document.getElementById('exec-slippage'),
+      },
+      context: () => ({ ...state }),
+      onResult: (result) => ChartManager.setTradeMarkers(result.trades),
     });
 
     try {
@@ -162,8 +241,8 @@
       el.symbol.value = state.symbol;
       buildTimeframeButtons(config.timeframes);
 
-      const catalog = await API.catalog();
-      Indicators.setCatalog(catalog);
+      Indicators.setCatalog(await API.catalog());
+      await Strategy.load();
     } catch (err) {
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');
       return;
@@ -178,6 +257,24 @@
       loadCandles();
     });
     el.backfill.addEventListener('click', runBackfill);
+    el.closeResults.addEventListener('click', () => {
+      el.results.hidden = true;
+      ChartManager.clearTradeMarkers();
+    });
+
+    el.runBacktest.addEventListener('click', () =>
+      withButton(el.runBacktest, 'Đang chạy…', async () => {
+        showResults('summary');
+        await Strategy.runBacktest();
+      }),
+    );
+
+    el.runOptimize.addEventListener('click', () =>
+      withButton(el.runOptimize, 'Đang quét…', async () => {
+        showResults('optimize');
+        await Strategy.runOptimize();
+      }),
+    );
 
     await loadCandles();
   }

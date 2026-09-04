@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
-from backend.api import routes_data, routes_indicators
+from backend.api import routes_data, routes_indicators, routes_strategy
 from backend.data import store
 
 logging.basicConfig(
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
 
     app.include_router(routes_data.router)
     app.include_router(routes_indicators.router)
+    app.include_router(routes_strategy.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

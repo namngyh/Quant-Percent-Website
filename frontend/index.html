@@ -43,25 +43,90 @@
 
   <main class="layout">
     <aside class="sidebar">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Chỉ báo</h2>
-          <span id="catalog-count" class="badge">—</span>
-        </div>
-        <input id="search" type="search" placeholder="Tìm chỉ báo (ema, rsi, macd…)" autocomplete="off" />
-        <div id="plugin-errors" class="plugin-errors" hidden></div>
-        <div id="catalog" class="catalog"></div>
-      </section>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="indicators" role="tab">Chỉ báo</button>
+        <button class="tab" data-tab="strategy" role="tab">Chiến lược</button>
+      </nav>
 
-      <section class="panel active-panel">
-        <div class="panel-head">
-          <h2>Đang bật</h2>
-          <button id="clear-all" class="btn btn-ghost btn-sm">Xóa hết</button>
+      <!-- ---------------- Indicators ---------------- -->
+      <div class="tab-panel active" data-panel="indicators">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Danh mục</h2>
+            <span id="catalog-count" class="badge">—</span>
+          </div>
+          <input id="search" type="search" placeholder="Tìm chỉ báo (ema, rsi, macd…)" autocomplete="off" />
+          <div id="plugin-errors" class="load-errors" hidden></div>
+          <div id="catalog" class="catalog"></div>
+        </section>
+
+        <section class="panel active-panel">
+          <div class="panel-head">
+            <h2>Đang bật</h2>
+            <button id="clear-all" class="btn btn-ghost btn-sm">Xóa hết</button>
+          </div>
+          <div id="active" class="active-list">
+            <p class="empty">Chưa có chỉ báo nào. Chọn từ danh sách bên trên.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ---------------- Strategy ---------------- -->
+      <div class="tab-panel" data-panel="strategy">
+        <div class="scroll-panel">
+          <div class="panel-head">
+            <h2>Chiến lược</h2>
+            <span id="strategy-count" class="badge">—</span>
+          </div>
+          <div id="strategy-errors" class="load-errors" hidden></div>
+          <select id="strategy-select"></select>
+          <p id="strategy-desc" class="hint"></p>
+
+          <div class="field-group">
+            <div class="field-group-title">Tham số</div>
+            <div id="strategy-params" class="params"></div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-group-title">Chi phí &amp; vốn</div>
+            <div class="params">
+              <label class="param-row">
+                <span>Vốn ban đầu</span>
+                <input id="exec-capital" type="number" value="10000" min="100" step="100" />
+              </label>
+              <label class="param-row">
+                <span>% vốn/lệnh</span>
+                <input id="exec-size" type="number" value="100" min="1" max="100" step="1" />
+              </label>
+              <label class="param-row">
+                <span>Đòn bẩy</span>
+                <input id="exec-leverage" type="number" value="1" min="1" max="125" step="1" />
+              </label>
+              <label class="param-row">
+                <span>Phí (%)</span>
+                <input id="exec-fee" type="number" value="0.04" min="0" max="1" step="0.01" />
+              </label>
+              <label class="param-row">
+                <span>Trượt giá (%)</span>
+                <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" />
+              </label>
+            </div>
+          </div>
+
+          <button id="run-backtest" class="btn btn-primary btn-block">Chạy backtest</button>
+
+          <div class="field-group">
+            <div class="field-group-title">Tối ưu tham số</div>
+            <p class="hint">Chọn tham số cần quét, đặt dải giá trị.</p>
+            <div id="sweep-ranges" class="sweep-list"></div>
+            <label class="param-row">
+              <span>Xếp hạng theo</span>
+              <select id="opt-metric"></select>
+            </label>
+            <button id="run-optimize" class="btn btn-block">Chạy tối ưu</button>
+          </div>
         </div>
-        <div id="active" class="active-list">
-          <p class="empty">Chưa có chỉ báo nào. Chọn từ danh sách bên trên.</p>
-        </div>
-      </section>
+      </div>
     </aside>
 
     <section class="charts">
@@ -69,12 +134,45 @@
       <div id="panes"></div>
       <div id="loading" class="loading" hidden><div class="spinner"></div></div>
     </section>
+
+    <!-- ---------------- Results ---------------- -->
+    <aside id="results" class="results" hidden>
+      <div class="results-head">
+        <div class="results-tabs">
+          <button class="rtab active" data-rtab="summary">Kết quả</button>
+          <button class="rtab" data-rtab="trades">Lệnh</button>
+          <button class="rtab" data-rtab="optimize">Tối ưu</button>
+        </div>
+        <button id="close-results" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+
+      <div class="results-body">
+        <div class="rpanel active" data-rpanel="summary">
+          <div id="metrics" class="metrics"></div>
+          <div class="equity-wrap">
+            <div class="equity-label">Đường vốn (equity)</div>
+            <div id="equity-chart" class="equity-chart"></div>
+          </div>
+        </div>
+
+        <div class="rpanel" data-rpanel="trades">
+          <div id="trades" class="trades"></div>
+        </div>
+
+        <div class="rpanel" data-rpanel="optimize">
+          <div id="optimize-results" class="optimize-results">
+            <p class="empty">Chưa chạy tối ưu.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
   </main>
 
   <script src="/static/vendor/lightweight-charts.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/indicators.js"></script>
+  <script src="/static/js/strategy.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>
