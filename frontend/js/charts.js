@@ -6,6 +6,18 @@
    by mirroring the time scale and crosshair between them. */
 
 const ChartManager = (() => {
+  /* Lightweight Charts renders its axis in UTC and v4 has no timezone option,
+     so every timestamp is shifted by the display offset on the way in. Vietnam
+     is UTC+7 all year — no daylight saving — so a fixed offset is exact, and a
+     timezone library would buy nothing.
+
+     Everything stored, compared and sent by the backend stays UTC; this offset
+     exists only so the axis reads in the time the market actually traded. */
+  const TZ_OFFSET_SECONDS = 7 * 3600;
+  const TZ_LABEL = 'GMT+7';
+
+  const toChart = (epochSeconds) => epochSeconds + TZ_OFFSET_SECONDS;
+
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
@@ -85,10 +97,15 @@ const ChartManager = (() => {
     for (const chart of allCharts()) {
       chart.applyOptions({ timeScale: { ...THEME.timeScale, timeVisible, secondsVisible: false } });
     }
-    candleSeries.setData(candles);
+    candleSeries.setData(
+      candles.map((c) => ({
+        time: toChart(c.time),
+        open: c.open, high: c.high, low: c.low, close: c.close,
+      })),
+    );
     volumeSeries.setData(
       volumes.map((v) => ({
-        time: v.time,
+        time: toChart(v.time),
         value: v.value,
         color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
       })),
@@ -102,7 +119,7 @@ const ChartManager = (() => {
     for (let i = 0; i < times.length; i += 1) {
       const value = values[i];
       if (value === null || value === undefined) continue; // gap: skip, don't zero
-      points.push({ time: times[i], value });
+      points.push({ time: toChart(times[i]), value });
     }
     return points;
   }
@@ -212,26 +229,43 @@ const ChartManager = (() => {
   }
 
 
-  /* Entry and exit markers for a backtest, drawn on the candles. */
-  function setTradeMarkers(trades) {
+  /* Entry and exit markers, used by both backtests and paper sessions.
+
+     `openPosition` marks a position a paper session is still holding: it has
+     an entry but no exit yet, and leaving it off would make a running session
+     look like it had never traded. */
+  function setTradeMarkers(trades, openPosition = null) {
     const markers = [];
+
     for (const t of trades) {
       const isLong = t.side === 'long';
       markers.push({
-        time: t.entry_time,
+        time: toChart(t.entry_time),
         position: isLong ? 'belowBar' : 'aboveBar',
         color: isLong ? '#12805c' : '#c8372d',
         shape: isLong ? 'arrowUp' : 'arrowDown',
         text: isLong ? 'L' : 'S',
       });
       markers.push({
-        time: t.exit_time,
+        time: toChart(t.exit_time),
         position: isLong ? 'aboveBar' : 'belowBar',
         color: t.exit_reason === 'liquidation' ? '#c8372d' : '#949ca6',
         shape: 'circle',
         text: t.exit_reason === 'liquidation' ? 'LIQ' : '',
       });
     }
+
+    if (openPosition && openPosition.entry_time) {
+      const isLong = openPosition.side > 0;
+      markers.push({
+        time: toChart(openPosition.entry_time),
+        position: isLong ? 'belowBar' : 'aboveBar',
+        color: isLong ? '#12805c' : '#c8372d',
+        shape: isLong ? 'arrowUp' : 'arrowDown',
+        text: isLong ? 'LONG ●' : 'SHORT ●',
+      });
+    }
+
     // Markers must be sorted by time or the library drops them silently.
     markers.sort((a, b) => a.time - b.time);
     candleSeries.setMarkers(markers);
@@ -248,14 +282,14 @@ const ChartManager = (() => {
   function updateCandle(candle) {
     if (!candleSeries) return;
     candleSeries.update({
-      time: candle.time,
+      time: toChart(candle.time),
       open: candle.open,
       high: candle.high,
       low: candle.low,
       close: candle.close,
     });
     volumeSeries.update({
-      time: candle.time,
+      time: toChart(candle.time),
       value: candle.volume,
       color: candle.close >= candle.open ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
     });
@@ -269,7 +303,8 @@ const ChartManager = (() => {
   }
 
   return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll,
-           setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime };
+           setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime,
+           timezoneLabel: TZ_LABEL, toChartTime: toChart };
 })();
 
 /* The equity curve, drawn in the results panel. Its own small chart rather
@@ -332,8 +367,9 @@ const EquityChart = (() => {
       // Lightweight Charts rejects duplicate or out-of-order timestamps.
       if (previousTime !== null && times[i] <= previousTime) continue;
       previousTime = times[i];
-      points.push({ time: times[i], value: equity[i] });
-      flat.push({ time: times[i], value: initialCapital });
+      // Same display offset as the price chart, so the two line up.
+      points.push({ time: ChartManager.toChartTime(times[i]), value: equity[i] });
+      flat.push({ time: ChartManager.toChartTime(times[i]), value: initialCapital });
     }
 
     series.setData(points);

@@ -21,18 +21,19 @@
     <div class="topbar-controls">
       <select id="symbol" aria-label="Symbol"></select>
       <div id="timeframes" class="tf-group" role="group" aria-label="Khung thời gian"></div>
-      <select id="limit" aria-label="Số nến">
-        <option value="500">500 nến</option>
-        <option value="1000">1 000 nến</option>
-        <option value="2000" selected>2 000 nến</option>
-        <option value="5000">5 000 nến</option>
-        <option value="10000">10 000 nến</option>
-        <option value="20000">20 000 nến</option>
+      <select id="limit" aria-label="Số nến" title="Số nến hiển thị">
+        <option value="500">500</option>
+        <option value="1000">1 000</option>
+        <option value="2000" selected>2 000</option>
+        <option value="5000">5 000</option>
+        <option value="10000">10 000</option>
+        <option value="20000">20 000</option>
       </select>
     </div>
 
     <div class="topbar-right">
-      <span id="status" class="status"></span>
+      <span id="status" class="status" title=""></span>
+      <span class="tz-badge" title="Mọi giờ trên biểu đồ là giờ Việt Nam">GMT+7</span>
       <button id="live-toggle" class="btn btn-quiet live-toggle" title="Bật/tắt nến realtime">
         <span id="live-dot" class="live-dot"></span>
         <span id="live-label">Realtime</span>

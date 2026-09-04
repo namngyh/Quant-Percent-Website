@@ -22,12 +22,13 @@ import contextlib
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 import pandas as pd
 import websockets
 
-from backend.data import store
+from backend.data import market_vn, sources, store
 from backend.data.binance import INTERVAL_MS
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,23 @@ WS_BASE = "wss://data-stream.binance.vision/ws"
 
 RECONNECT_BASE_DELAY = 1.0
 RECONNECT_MAX_DELAY = 60.0
+
+# --- Vietnam polling ---------------------------------------------------------
+#
+# The HOSE database has no push channel, so live bars come from polling it. The
+# floor on freshness is the data itself: there are no ticks, so a 1m chart can
+# only move once a minute however often we ask. Polling every few seconds
+# during the session simply means a new bar appears as soon as it is written.
+#
+# Outside the session nothing is being written, so the loop backs right off
+# rather than asking a question with a known answer several times a minute.
+VN_POLL_SECONDS = 5
+VN_IDLE_POLL_SECONDS = 120
+
+# The Vietnamese session, 09:00-15:00 local, is 02:00-08:00 UTC. A margin
+# either side covers the pre-open and the ATC auction.
+VN_SESSION_START_UTC = 1
+VN_SESSION_END_UTC = 9
 
 Broadcast = Callable[[dict], Awaitable[None]]
 
@@ -89,6 +107,18 @@ def persist(candle: dict) -> int:
         ]
     )
     return store.upsert_candles(candle["symbol"], candle["timeframe"], frame)
+
+
+def _vn_session_open(now: datetime | None = None) -> bool:
+    """Is the Vietnamese market plausibly trading right now?
+
+    Used only to decide how eagerly to poll, so the bounds are generous: being
+    wrong costs one unnecessary query, not a missed bar.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.weekday() >= 5:                       # Saturday, Sunday
+        return False
+    return VN_SESSION_START_UTC <= now.hour < VN_SESSION_END_UTC
 
 
 class StreamManager:
@@ -167,6 +197,93 @@ class StreamManager:
             self._watchers.clear()
 
     async def _run(self, series: Series) -> None:
+        """Feed one series, by whichever means that market offers."""
+        if sources.is_vietnam(series.symbol):
+            await self._run_vn_poll(series)
+        else:
+            await self._run_binance(series)
+
+    async def _run_vn_poll(self, series: Series) -> None:
+        """Poll the team database and emit bars as they are written.
+
+        Only *newly closed* bars are emitted. `market_vn.get_candles` already
+        excludes the minute in progress, and inventing a forming candle from
+        the last quote would put a bar on the chart that the database never
+        recorded.
+
+        Nothing is written to DuckDB here: this data lives in Postgres and is
+        read from there every time.
+        """
+        _, bare = sources.parse(series.symbol)
+        last_seen: int | None = None
+        announced = False
+        delay = VN_POLL_SECONDS
+
+        while True:
+            try:
+                frame = await asyncio.to_thread(
+                    market_vn.get_candles, bare, series.timeframe, None, None, 5
+                )
+
+                if not announced:
+                    await self._broadcast(
+                        {
+                            "type": "stream_status",
+                            "symbol": series.symbol,
+                            "timeframe": series.timeframe,
+                            "connected": True,
+                            "mode": "poll",
+                        }
+                    )
+                    announced = True
+                    delay = VN_POLL_SECONDS
+
+                if not frame.empty:
+                    rows = frame.to_dict("records")
+                    if last_seen is None:
+                        # First pass only establishes where we are; the chart
+                        # already has these bars from its initial load.
+                        last_seen = int(rows[-1]["open_time"])
+                    else:
+                        for row in rows:
+                            open_time = int(row["open_time"])
+                            if open_time <= last_seen:
+                                continue
+                            last_seen = open_time
+                            await self._emit(
+                                {
+                                    "symbol": series.symbol,
+                                    "timeframe": series.timeframe,
+                                    "open_time": open_time,
+                                    "open": float(row["open"]),
+                                    "high": float(row["high"]),
+                                    "low": float(row["low"]),
+                                    "close": float(row["close"]),
+                                    "volume": float(row["volume"]),
+                                    "closed": True,
+                                }
+                            )
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.warning("VN poll for %s failed: %s", series.symbol, exc)
+                if announced:
+                    await self._broadcast(
+                        {
+                            "type": "stream_status",
+                            "symbol": series.symbol,
+                            "timeframe": series.timeframe,
+                            "connected": False,
+                            "error": str(exc),
+                        }
+                    )
+                    announced = False
+                delay = min(max(delay * 2, VN_POLL_SECONDS), VN_IDLE_POLL_SECONDS)
+
+            await asyncio.sleep(delay if _vn_session_open() else VN_IDLE_POLL_SECONDS)
+
+    async def _run_binance(self, series: Series) -> None:
         """Hold one upstream connection open, reconnecting with backoff."""
         url = f"{WS_BASE}/{series.stream_name}"
         delay = RECONNECT_BASE_DELAY

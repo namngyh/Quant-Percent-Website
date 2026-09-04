@@ -55,14 +55,18 @@ def _():
     assert sources.parse(sources.qualify("vn", "VIC")) == ("vn", "VIC")
 
 
-@check("backfill and live streaming are refused for Vietnam symbols")
+@check("backfill is refused for Vietnam symbols, but live data is not")
 def _():
-    # The team database is read-only and has no push feed; both must be known
-    # up front rather than discovered by a failing request.
+    # The team database is read-only, so there is nothing for us to backfill.
     assert sources.supports_backfill("BTCUSDT")
     assert not sources.supports_backfill("VN:VNINDEX")
+
+    # Both markets do go live, by different means: Binance pushes over a
+    # socket, the HOSE database is polled.
     assert sources.supports_live_stream("BTCUSDT")
-    assert not sources.supports_live_stream("VN:VNINDEX")
+    assert sources.supports_live_stream("VN:VNINDEX")
+    assert sources.live_mode("BTCUSDT") == "push"
+    assert sources.live_mode("VN:VNINDEX") == "poll"
 
 
 @check("each market advertises its own timeframes")

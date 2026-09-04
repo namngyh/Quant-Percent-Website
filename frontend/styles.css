@@ -648,3 +648,55 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d8dce2; border-radius: 6px; border: 2px solid var(--surface); }
 ::-webkit-scrollbar-thumb:hover { background: #c3c9d1; }
+
+/* ==================== Top bar fitting ====================
+ *
+ * The symbol picker sizes itself to its widest option, and the Vietnamese
+ * names pushed it to 387px — enough to shove the buttons on the right off a
+ * 1280px screen. Everything in the bar now has a ceiling and is allowed to
+ * shrink, so the bar fits the window instead of the window having to fit it. */
+
+.topbar { gap: 14px; min-width: 0; }
+.topbar-controls { min-width: 0; flex-shrink: 1; }
+.topbar-right { min-width: 0; flex-shrink: 1; }
+
+#symbol {
+  width: 190px;
+  max-width: 190px;
+  flex-shrink: 0;
+  text-overflow: ellipsis;
+}
+#limit { width: 84px; flex-shrink: 0; }
+
+.tf-group { flex-shrink: 0; }
+.tf-btn { padding: 4px 8px; }
+
+.status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.tz-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+/* Below this the wordmark is the first thing that can go without losing
+   anything functional. */
+@media (max-width: 1180px) {
+  .brand-name { display: none; }
+}
+@media (max-width: 1040px) {
+  #limit { display: none; }
+}

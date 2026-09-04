@@ -48,8 +48,18 @@ def supports_backfill(symbol: str) -> bool:
 
 
 def supports_live_stream(symbol: str) -> bool:
-    """Binance pushes over WebSocket. The VN database has no push channel."""
-    return not is_vietnam(symbol)
+    """Both markets can go live, by different means.
+
+    Binance pushes over a WebSocket; the Vietnam database has no push channel
+    and is polled instead. Either way a subscription produces live bars, which
+    is what callers actually want to know.
+    """
+    return True
+
+
+def live_mode(symbol: str) -> str:
+    """How this symbol goes live: "push" or "poll"."""
+    return "poll" if is_vietnam(symbol) else "push"
 
 
 def timeframes_for(symbol: str) -> list[str]:

@@ -135,28 +135,17 @@ async def live(ws: WebSocket) -> None:
             if action == "subscribe":
                 symbol = message.get("symbol") or settings.chart.default_symbol
 
-                # Binance has no feed for a HOSE symbol. Drop the old
-                # subscription and say why, rather than opening a socket for a
-                # stream name that will never carry anything.
-                if not sources.supports_live_stream(symbol):
-                    await hub.streams.unsubscribe(ws)
-                    await ws.send_json({
-                        "type": "stream_status",
-                        "symbol": symbol,
-                        "timeframe": message.get("timeframe"),
-                        "connected": False,
-                        "unsupported": True,
-                        "message": "Thị trường VN chưa có luồng realtime; dữ liệu cập nhật khi tải lại.",
-                    })
-                else:
-                    try:
-                        await hub.streams.subscribe(
-                            ws,
-                            symbol,
-                            message.get("timeframe") or settings.chart.default_timeframe,
-                        )
-                    except ValueError as exc:
-                        await ws.send_json({"type": "error", "message": str(exc)})
+                # Both markets are live now: Binance pushes over a socket,
+                # the HOSE database is polled. The stream manager picks the
+                # right one from the symbol.
+                try:
+                    await hub.streams.subscribe(
+                        ws,
+                        symbol,
+                        message.get("timeframe") or settings.chart.default_timeframe,
+                    )
+                except ValueError as exc:
+                    await ws.send_json({"type": "error", "message": str(exc)})
 
             elif action == "unsubscribe":
                 await hub.streams.unsubscribe(ws)

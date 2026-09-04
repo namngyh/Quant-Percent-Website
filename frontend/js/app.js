@@ -75,7 +75,13 @@
 
       ChartManager.clearTradeMarkers();
       await Indicators.recomputeAll();
-      if (!isVN(state.symbol)) Live.subscribe(state.symbol, state.timeframe);
+      drawPaperMarkers();
+      Live.subscribe(state.symbol, state.timeframe);
+
+      // Fill any gap left while the app was closed, then redraw including it.
+      if (await catchUpIfBehind(data)) {
+        await loadCandles();
+      }
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
@@ -107,7 +113,8 @@
     el.liveDot.className = `live-dot ${dot}`;
     el.liveToggle.classList.toggle('on', liveState === 'live' || liveState === 'connecting');
     el.liveLabel.textContent = {
-      live: 'Đang chạy', connecting: 'Đang nối…', offline: 'Mất kết nối', error: 'Lỗi',
+      live: isVN(state.symbol) ? 'Đang theo dõi' : 'Đang chạy',
+      connecting: 'Đang nối…', offline: 'Mất kết nối', error: 'Lỗi',
     }[liveState] || 'Realtime';
   }
 
@@ -230,12 +237,83 @@
       ? 'Dữ liệu VN đến từ database của team và chỉ đọc — không cần backfill.'
       : 'Kéo nến mới nhất từ Binance';
 
-    el.liveToggle.disabled = vn;
+    // Live works for both markets, by different means: Binance pushes, the
+    // HOSE database is polled. Nothing to disable here.
+    el.liveToggle.disabled = false;
     el.liveToggle.title = vn
-      ? 'Thị trường VN chưa có luồng realtime; tải lại để thấy nến mới.'
-      : 'Bật/tắt nến realtime';
+      ? 'Nến mới từ database của team, kiểm tra mỗi vài giây trong phiên'
+      : 'Nến realtime từ Binance';
+  }
 
-    if (vn && Live.enabled) Live.setEnabled(false);
+
+  // ---------- Catching up ----------
+  //
+  // The local crypto store only advances while this app is running, so after
+  // the laptop has been shut a day it is a day behind. Closing that gap is
+  // mechanical — the backfill already resumes from the newest stored bar — so
+  // it happens on load rather than waiting for someone to notice the hole.
+  // The Vietnam database is read live and is never behind.
+
+  const MAX_AUTO_CATCHUP_BARS = 5000;   // beyond this, ask rather than assume
+
+  let catchingUp = false;
+
+  async function catchUpIfBehind(data) {
+    if (catchingUp || !data.can_backfill || !data.bars_behind) return false;
+
+    if (data.bars_behind > MAX_AUTO_CATCHUP_BARS) {
+      setStatus(
+        `${state.symbol} ${state.timeframe} — thiếu ${data.bars_behind.toLocaleString('vi-VN')} nến, ` +
+          'bấm "Cập nhật dữ liệu"',
+        'busy',
+      );
+      return false;
+    }
+
+    catchingUp = true;
+    try {
+      setStatus(`Đang bù ${data.bars_behind.toLocaleString('vi-VN')} nến còn thiếu…`, 'busy');
+      const report = await API.backfill({
+        symbols: [state.symbol],
+        timeframes: [state.timeframe],
+      });
+      if (report.total_rows > 0) {
+        toast(`Đã tự bù ${report.total_rows.toLocaleString('vi-VN')} nến`);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      setStatus(`Không bù được dữ liệu: ${err.message}`, 'error');
+      return false;
+    } finally {
+      catchingUp = false;
+    }
+  }
+
+  // ---------- Trade markers ----------
+  //
+  // Backtests and paper sessions draw on the same candles, so whichever was
+  // asked for last owns them rather than the two fighting over the chart.
+
+  let markerSource = 'backtest';
+
+  function drawPaperMarkers() {
+    if (markerSource !== 'paper') return;
+
+    const session = (Paper.sessions || []).find(
+      (s) => s.symbol === state.symbol && s.timeframe === state.timeframe,
+    );
+    if (!session) {
+      ChartManager.clearTradeMarkers();
+      return;
+    }
+
+    // A running session usually holds a position: an entry with no exit yet.
+    // Without it a live session looks like it had never traded.
+    const open = session.position !== 0 && session.entry_time
+      ? { side: session.position, entry_time: session.entry_time }
+      : null;
+    ChartManager.setTradeMarkers(session.trades || [], open);
   }
 
   // ---------- Navigation ----------
@@ -256,7 +334,10 @@
     for (const panel of document.querySelectorAll('.panel')) {
       panel.classList.toggle('active', panel.dataset.panel === name);
     }
-    if (name === 'paper') Paper.refresh();
+    if (name === 'paper') {
+      markerSource = 'paper';
+      Paper.refresh().then(drawPaperMarkers);
+    }
   }
 
   function setupNavigation() {
@@ -437,7 +518,10 @@
         slippage: document.getElementById('exec-slippage'),
       },
       context: () => ({ ...state }),
-      onResult: (result) => ChartManager.setTradeMarkers(result.trades),
+      onResult: (result) => {
+        markerSource = 'backtest';
+        ChartManager.setTradeMarkers(result.trades);
+      },
     });
 
     Paper.init({
@@ -453,7 +537,10 @@
       onCandleClose: onLiveCandleClose,
       onPluginsChanged,
       onStatus: setLiveState,
-      onPaperUpdate: (session) => Paper.apply(session),
+      onPaperUpdate: (session) => {
+        Paper.apply(session);
+        drawPaperMarkers();
+      },
       onPaperEvent: (sessionId, event) => {
         if (event.type === 'entry') {
           toast(`Paper: vào ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`);
@@ -521,7 +608,9 @@
           Live.setEnabled(true);
           Live.subscribe(state.symbol, state.timeframe);
         }
+        markerSource = 'paper';
         openPanel('paper');
+        drawPaperMarkers();
         toast('Đã bắt đầu phiên paper trading');
       }));
 

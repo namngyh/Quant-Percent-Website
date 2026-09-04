@@ -220,6 +220,7 @@ trading**. Phiên xuất hiện ở tab *Paper*.
 | Sống sót restart | Trạng thái ghi vào DuckDB sau mỗi nến đóng; tắt server rồi bật lại, phiên tiếp tục nguyên vẹn |
 | Khởi động ấm | Nạp 2 000 nến lịch sử để chỉ báo qua cửa sổ khởi động ngay từ đầu |
 | Cập nhật | Vị thế và lãi/lỗ đẩy thẳng lên giao diện khi có nến mới, không cần bấm làm mới |
+| Ký hiệu trên chart | Điểm vào/ra vẽ ngay trên nến, kể cả vị thế đang mở |
 
 ---
 
@@ -292,6 +293,48 @@ sẵn trong database), tránh kéo hàng trăm nghìn dòng qua VPN để gộp 
   realtime tự khoá khi bạn chọn mã VN.
 - Gặp `permission denied` thì **hỏi người quản trị**, đừng tìm đường vòng.
 - Truy vấn giới hạn 30 giây (server cắt ở 60), luôn lọc theo mã và khoảng thời gian.
+
+---
+
+## Giờ hiển thị
+
+Mọi thời gian trên biểu đồ là **giờ Việt Nam (GMT+7)** — có nhãn `GMT+7` trên
+thanh trên. Việt Nam không đổi giờ theo mùa nên đây là con số cố định, chính xác
+quanh năm.
+
+Bên trong, mọi thứ vẫn lưu và so sánh theo **UTC** (cả Binance lẫn HOSE). Chỉ
+lúc vẽ lên chart mới cộng offset. Nhờ vậy dữ liệu hai thị trường so được với
+nhau, còn trục thời gian thì đọc theo giờ bạn giao dịch.
+
+---
+
+## Dữ liệu tự cập nhật đến đâu
+
+| Nguồn | Cách hoạt động |
+|---|---|
+| **Bitcoin (Binance)** | Kho DuckDB chỉ tiến khi app đang chạy. Mở app lên, nó **tự đo xem thiếu bao nhiêu nến và tự bù** — không cần bấm "Cập nhật dữ liệu". Bật Realtime thì nến mới về qua WebSocket. |
+| **Việt Nam (HOSE)** | Đọc thẳng database của team nên **không bao giờ lạc hậu**. Bật Realtime thì nền tảng hỏi database mỗi vài giây trong phiên và vẽ nến mới ngay khi nó được ghi. |
+
+Chỉ khi thiếu quá 5 000 nến (nghỉ rất lâu) nền tảng mới dừng lại và mời bạn bấm
+nút, vì lúc đó là một lần tải lớn nên để bạn chủ động.
+
+> **Giới hạn của "realtime" với dữ liệu VN:** database không có dữ liệu tick,
+> nến 1 phút là mức chi tiết nhất. Nên chart khung 1m nhích một lần mỗi phút —
+> đó đã là mức nhanh nhất dữ liệu cho phép, hỏi dày hơn cũng không hơn được.
+
+### Tốn tài nguyên bao nhiêu
+
+Đo thực tế trên máy bạn khi đang chạy BTC 1m realtime **và** một phiên paper
+trading:
+
+| | |
+|---|---|
+| RAM | ~208 MB, ổn định (không tăng dần) |
+| CPU | **0,3%** toàn máy (3,4% của một lõi) |
+| Mạng | Vài KB/giây |
+
+Nhẹ hơn một tab trình duyệt thông thường. Phần nặng là backtest và tối ưu, và
+chúng chỉ chạy khi bạn bấm nút.
 
 ---
 

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend.data import market_vn, service, sources, store
-from backend.data.binance import INTERVAL_MS, to_ms
+from backend.data.binance import INTERVAL_MS, now_ms, to_ms
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["data"])
@@ -121,10 +121,24 @@ def candles(
         }
 
     times = (df["open_time"] // 1000).astype("int64").tolist()
+
+    # How stale is the newest bar, in whole bars? The Vietnam database is read
+    # live and is never behind; only the local crypto store can fall behind
+    # while the machine is off.
+    last_ms = int(df["open_time"].iloc[-1])
+    interval = INTERVAL_MS.get(timeframe)
+    if interval and sources.supports_backfill(symbol):
+        bars_behind = max(0, int((now_ms() - last_ms) // interval) - 1)
+    else:
+        bars_behind = 0
+
     return {
         "symbol": symbol,
         "timeframe": timeframe,
         "count": len(df),
+        "last_ms": last_ms,
+        "bars_behind": bars_behind,
+        "can_backfill": sources.supports_backfill(symbol),
         "candles": [
             {"time": t, "open": o, "high": h, "low": l, "close": c}
             for t, o, h, l, c in zip(
