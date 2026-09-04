@@ -221,7 +221,35 @@ const ChartManager = (() => {
     if (candleSeries) candleSeries.setMarkers([]);
   }
 
-  return { init, setCandles, drawOverlay, drawPane, remove, clearAll, setTradeMarkers, clearTradeMarkers };
+
+  /* Live updates. Lightweight Charts replaces the last bar when update() is
+     called with its timestamp, and appends when the timestamp is newer — so
+     the same call handles both a forming candle and the birth of a new one. */
+  function updateCandle(candle) {
+    if (!candleSeries) return;
+    candleSeries.update({
+      time: candle.time,
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+    });
+    volumeSeries.update({
+      time: candle.time,
+      value: candle.volume,
+      color: candle.close >= candle.open ? 'rgba(38,166,154,0.4)' : 'rgba(239,83,80,0.4)',
+    });
+  }
+
+  /** Timestamp (epoch seconds) of the newest candle the chart holds. */
+  function lastCandleTime() {
+    if (!candleSeries) return null;
+    const bar = candleSeries.dataByIndex(Number.MAX_SAFE_INTEGER, -1);
+    return bar ? bar.time : null;
+  }
+
+  return { init, setCandles, drawOverlay, drawPane, remove, clearAll,
+           setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime };
 })();
 
 /* The equity curve, drawn in the results panel. Its own small chart rather

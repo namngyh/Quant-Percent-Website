@@ -15,6 +15,9 @@
     closeResults: document.getElementById('close-results'),
     runBacktest: document.getElementById('run-backtest'),
     runOptimize: document.getElementById('run-optimize'),
+    liveToggle: document.getElementById('live-toggle'),
+    liveDot: document.getElementById('live-dot'),
+    liveLabel: document.getElementById('live-label'),
   };
 
   const state = {
@@ -70,6 +73,9 @@
       // Anything drawn from the previous series is stale now.
       ChartManager.clearTradeMarkers();
       await Indicators.recomputeAll();
+
+      // Point the live feed at whatever we are now looking at.
+      Live.subscribe(state.symbol, state.timeframe);
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
@@ -90,6 +96,70 @@
       ChartManager.drawOverlay(instanceId, result);
     } else {
       ChartManager.drawPane(instanceId, result, el.panes);
+    }
+  }
+
+
+  // ---------- Live ----------
+
+  let recomputeTimer = null;
+
+  // Named `liveState`, not `state`: destructuring it as `state` would shadow
+  // the module-level state object and make a later edit here quietly wrong.
+  function setLiveState({ state: liveState }) {
+    const dot = { live: 'live', connecting: 'connecting', offline: 'offline' }[liveState] || '';
+    el.liveDot.className = `live-dot ${dot}`;
+    el.liveToggle.classList.toggle('on', liveState === 'live' || liveState === 'connecting');
+    el.liveLabel.textContent = {
+      live: 'Đang chạy',
+      connecting: 'Đang nối…',
+      offline: 'Mất kết nối',
+      error: 'Lỗi',
+    }[liveState] || 'Realtime';
+  }
+
+  function onLiveCandle(candle) {
+    ChartManager.updateCandle({
+      time: Math.floor(candle.open_time / 1000),
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+      volume: candle.volume,
+    });
+
+    const price = candle.close.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    setStatus(`${state.symbol} ${state.timeframe} · live · ${price}`);
+  }
+
+  function onLiveCandleClose() {
+    // Indicators only mean anything on settled candles, so they are recomputed
+    // when one closes rather than on every tick. The debounce covers the case
+    // where several closes land together after a reconnect.
+    clearTimeout(recomputeTimer);
+    recomputeTimer = setTimeout(() => Indicators.recomputeAll(), 500);
+  }
+
+  function toast(message) {
+    const node = document.createElement('div');
+    node.className = 'toast';
+    node.textContent = message;
+    document.body.appendChild(node);
+    setTimeout(() => node.remove(), 3200);
+  }
+
+  async function onPluginsChanged(kind) {
+    try {
+      if (kind === 'strategies') {
+        await Strategy.load();
+        toast('Đã nạp lại chiến lược từ file');
+      } else {
+        Indicators.setCatalog(await API.catalog());
+        await Indicators.recomputeAll();
+        toast('Đã nạp lại chỉ báo từ file');
+      }
+    } catch (err) {
+      setStatus(err.message, 'error');
     }
   }
 
@@ -228,6 +298,13 @@
       onResult: (result) => ChartManager.setTradeMarkers(result.trades),
     });
 
+    Live.init({
+      onCandle: onLiveCandle,
+      onCandleClose: onLiveCandleClose,
+      onPluginsChanged,
+      onStatus: setLiveState,
+    });
+
     try {
       const config = await API.config();
 
@@ -257,6 +334,11 @@
       loadCandles();
     });
     el.backfill.addEventListener('click', runBackfill);
+    el.liveToggle.addEventListener('click', () => {
+      const turningOn = !Live.enabled;
+      Live.setEnabled(turningOn);
+      if (turningOn) Live.subscribe(state.symbol, state.timeframe);
+    });
     el.closeResults.addEventListener('click', () => {
       el.results.hidden = true;
       ChartManager.clearTradeMarkers();

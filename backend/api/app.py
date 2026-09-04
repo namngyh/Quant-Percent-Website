@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
-from backend.api import routes_data, routes_indicators, routes_strategy
+from backend.api import routes_data, routes_indicators, routes_strategy, routes_stream
 from backend.data import store
 
 logging.basicConfig(
@@ -26,8 +26,10 @@ FRONTEND_DIR = settings.project_root / "frontend"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.get_connection()  # create the schema before the first request
+    routes_stream.hub.start_plugin_watcher()
     log.info("QP-TRACKING ready at http://%s:%s", settings.server.host, settings.server.port)
     yield
+    await routes_stream.hub.close()
     store.close_connection()
 
 
@@ -42,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_data.router)
     app.include_router(routes_indicators.router)
     app.include_router(routes_strategy.router)
+    app.include_router(routes_stream.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

@@ -8,6 +8,7 @@ Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ 
 - Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
 - **Tối ưu tham số** bằng grid search, kèm cảnh báo overfit
+- **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
 
 ---
 
@@ -154,12 +155,43 @@ chứ không phải lợi thế thật.
 .venv\Scripts\python.exe tests/test_metrics.py           # 9  checks - chỉ số hiệu năng
 .venv\Scripts\python.exe tests/test_strategy_pipeline.py # 9  checks - toàn tuyến chiến lược
 .venv\Scripts\python.exe tests/test_optimizer.py         # 12 checks - grid search
+.venv\Scripts\python.exe tests/test_stream.py            # 9  checks - luồng realtime
 ```
+
+Tổng 51 checks.
 
 Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
 comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
 equity trông rất thuyết phục — đây là thứ ngăn cách giữa điều đó và kết quả
 đáng tin.
+
+---
+
+## Realtime & hot-reload
+
+### Nến trực tiếp
+
+Bấm nút **Realtime** ở góc trên bên phải. Chấm tròn chuyển xanh và nhấp nháy khi
+luồng đang chạy; nến cuối trên chart tự cập nhật vài lần mỗi giây.
+
+Cách hoạt động, và vì sao lại thế:
+
+| Điểm | Cách xử lý |
+|---|---|
+| **Nến đang hình thành** | Đẩy thẳng lên chart, **không ghi database**. Binance cập nhật vài lần mỗi giây; ghi từng lần chỉ để lưu một con số sắp thay đổi là vô ích. |
+| **Nến đóng** | Ghi vào DuckDB bằng cùng đường upsert với backfill, nên hai nguồn không thể lệch nhau. |
+| **Chỉ báo** | Tính lại **khi nến đóng**, không phải mỗi tick. Giá trị chỉ báo chỉ có nghĩa khi nến chốt. |
+| **Kết nối** | Một kết nối upstream cho mỗi khung đang xem; không còn ai xem thì đóng. Tự nối lại có backoff khi rớt mạng. |
+
+Đổi khung thời gian thì luồng tự chuyển theo.
+
+### Hot-reload
+
+Khi realtime đang bật, sửa file trong `plugins/` là nền tảng **tự nạp lại**, không
+cần F5. Thông báo nhỏ hiện ở dưới màn hình, chỉ báo trên chart vẽ lại với logic mới.
+
+Đây là điểm khác biệt lớn nhất khi bạn đang loay hoay chỉnh một công thức: sửa
+file, lưu, nhìn chart đổi.
 
 ---
 
@@ -203,9 +235,11 @@ data_store/qp.duckdb   database
 
 ## Trạng thái
 
-- **Giai đoạn 1 — xong.** Dữ liệu, chart, 187 chỉ báo (dựng sẵn + plugin), chỉnh tham số live.
-- **Giai đoạn 3 — xong.** Chiến lược bằng Python, backtest có phí/trượt giá/thanh lý, tối ưu grid search.
-- **Giai đoạn 2 — chưa làm.** Realtime qua WebSocket Binance; hot-reload file `.py` (hiện phải F5 trang).
+Cả ba giai đoạn đã xong.
+
+- **Giai đoạn 1.** Dữ liệu, chart, 187 chỉ báo (dựng sẵn + plugin), chỉnh tham số live.
+- **Giai đoạn 2.** Nến realtime qua WebSocket Binance, hot-reload file `.py`.
+- **Giai đoạn 3.** Chiến lược bằng Python, backtest có phí/trượt giá/thanh lý, tối ưu grid search.
 
 ### Dữ liệu hiện có
 
