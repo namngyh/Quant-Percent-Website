@@ -93,11 +93,32 @@ OVERLAY_EXTRAS = {
 # on the price axis despite pandas-ta filing them under `overlap`.
 PANEL_EXTRAS: set[str] = {"linregangle", "linregslope"}
 
-# Parameters whose sensible default differs from the shared table. `scalar`
-# means "scale to 0-100" for RSI-like indicators but "band width in ATRs" for
-# Keltner Channels, where 100 produces bands hundreds of thousands wide.
+# Parameters whose sensible default differs from the shared table.
+#
+# The table maps a parameter *name* to a value, but the same name means
+# different things to different indicators: `scalar` is "scale to 0-100" for
+# RSI and "band width in ATRs" for Keltner; `na`/`nb`/`nc` are plain multiples
+# for some indicators and smoothing coefficients below 1 for Holt-Winters,
+# where feeding in 6.0 makes the recursion diverge to NaN.
+#
+# `scripts/audit_indicator_defaults.py` finds these by computing every
+# indicator both ways and reporting where ours yields fewer usable values.
 PARAM_OVERRIDES: dict[str, dict[str, dict]] = {
     "kc": {"scalar": {"type": "float", "default": 2.0, "min": 0.1, "max": 10.0, "step": 0.1}},
+    "hwc": {
+        # Holt-Winters smoothing coefficients: each must stay below 1.
+        "na": {"type": "float", "default": 0.2, "min": 0.01, "max": 0.99, "step": 0.01},
+        "nb": {"type": "float", "default": 0.1, "min": 0.01, "max": 0.99, "step": 0.01},
+        "nc": {"type": "float", "default": 0.1, "min": 0.01, "max": 0.99, "step": 0.01},
+        "scalar": {"type": "float", "default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1},
+    },
+}
+
+# Parameters to leave off the UI for a specific indicator, so the library's own
+# default applies. `tos_stdevall` regresses over the whole series unless given a
+# length; pinning it to 14 leaves almost nothing to draw.
+PARAM_SUPPRESS: dict[str, set[str]] = {
+    "tos_stdevall": {"length"},
 }
 
 # Left out of the catalog:
@@ -124,9 +145,10 @@ def _classify(name: str, category: str) -> str:
 def _build_param_specs(sig: inspect.Signature, indicator: str) -> list[ParamSpec]:
     specs: list[ParamSpec] = []
     overrides = PARAM_OVERRIDES.get(indicator, {})
+    suppressed = PARAM_SUPPRESS.get(indicator, set())
     for param in sig.parameters.values():
         name = param.name
-        if name in PRICE_PARAMS or name in HIDDEN_PARAMS:
+        if name in PRICE_PARAMS or name in HIDDEN_PARAMS or name in suppressed:
             continue
         meta = overrides.get(name) or PARAM_DEFAULTS.get(name)
         if meta is None:

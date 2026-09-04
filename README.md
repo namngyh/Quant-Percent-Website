@@ -5,10 +5,12 @@ Bitcoin (Binance) và **chứng khoán Việt Nam** (HOSE, từ database của t
 
 - Dữ liệu OHLCV từ **Binance** (public API, không cần API key), lưu vào **DuckDB**
 - Chart nến bằng **Lightweight Charts** (thư viện mã nguồn mở của TradingView)
-- **187 chỉ báo** dùng ngay, tham số chỉnh trực tiếp bằng slider trên giao diện
+- **189 chỉ báo** dùng ngay (gồm Bollinger Bands và vài mô hình ML đơn giản), tham số chỉnh trực tiếp bằng slider trên giao diện
 - Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
 - **Tối ưu tham số** bằng grid search hoặc random search, kèm cảnh báo overfit
+- **Walk-forward validation** và **Monte Carlo** — kiểm tra xem kết quả có thật không
+- **So sánh nhiều chiến lược** cạnh nhau, và **xuất CSV / PNG**
 - **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
 - **Paper trading** — chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
 
@@ -335,6 +337,48 @@ trading:
 
 Nhẹ hơn một tab trình duyệt thông thường. Phần nặng là backtest và tối ưu, và
 chúng chỉ chạy khi bạn bấm nút.
+
+---
+
+## Kiểm định kết quả
+
+Ba công cụ ở tab *Chiến lược → Kiểm định*. Chúng cùng trả lời một câu hỏi: **con
+số backtest kia đáng tin đến đâu?**
+
+### Walk-forward
+
+Tối ưu tham số trên một cửa sổ, rồi áp **nguyên bộ tham số đó** lên cửa sổ kế
+tiếp — dữ liệu mô hình chưa từng thấy. Trượt cửa sổ, lặp lại.
+
+Cột "Ngoài mẫu" là ước lượng trung thực duy nhất. Khoảng cách giữa trong mẫu và
+ngoài mẫu chính là **cái giá của việc chọn tham số bằng hậu nghiệm**.
+
+Cần nhiều nến: đặt *Candles* từ 5 000 trở lên để có 3–5 vòng. Dưới 3 vòng nền
+tảng sẽ **từ chối kết luận** thay vì đưa ra nhận định từ một hai con số.
+
+### Monte Carlo
+
+Lấy chính các lệnh của chiến lược, xáo lại thứ tự hàng nghìn lần. Cái thay đổi
+là may rủi, cái giữ nguyên là lợi thế — nên dải kết quả cho biết con số thật
+nằm ở đâu trong vùng hợp lý, thay vì một điểm duy nhất dễ gây tự tin nhầm.
+
+Báo cả **xác suất lỗ** và **xác suất mất trên 90% vốn**.
+
+### So sánh
+
+Chạy nhiều chiến lược trên **cùng nến, cùng phí, cùng khoảng thời gian** rồi
+xếp bảng, có cả dòng mua-và-giữ để đối chiếu.
+
+---
+
+## Xuất kết quả
+
+Hai nút **CSV** và **PNG** ở góc panel *Kết quả*:
+
+- **CSV** — danh sách lệnh (giờ Việt Nam, giá vào/ra, lãi lỗ, lý do thoát). Sau
+  khi so sánh, file gộp mọi chiến lược kèm cột phân biệt. Có BOM UTF-8 nên Excel
+  mở tiếng Việt không lỗi font.
+- **PNG** — ảnh biểu đồ đúng như đang hiển thị.
 
 ---
 

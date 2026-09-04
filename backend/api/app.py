@@ -18,6 +18,7 @@ from backend.api import (
     routes_plugins,
     routes_strategy,
     routes_stream,
+    routes_validation,
 )
 from backend.data import market_vn
 from backend.paper.manager import manager as paper_manager
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_paper.router)
     app.include_router(routes_plugins.router)
     app.include_router(routes_market.router)
+    app.include_router(routes_validation.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

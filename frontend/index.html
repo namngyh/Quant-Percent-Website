@@ -8,6 +8,18 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 </head>
 <body>
+  <div id="splash" class="splash">
+    <div class="splash-inner">
+      <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="17" y="13" width="25" height="25" />
+        <rect x="58" y="62" width="25" height="25" />
+        <path d="M19 81 L81 19" />
+      </svg>
+      <div class="splash-word">QUANT<strong>PERCENT</strong></div>
+      <div class="splash-bar"><span></span></div>
+      <div class="splash-status" id="splash-status">Đang khởi động…</div>
+    </div>
+  </div>
   <header class="topbar">
     <div class="brand" title="Quant Percent">
       <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
@@ -72,6 +84,7 @@
           <h2>Chỉ báo</h2>
           <div class="panel-head-actions">
             <span id="catalog-count" class="badge">—</span>
+            <button class="btn btn-quiet btn-sm" data-format-help="indicator" title="Xem định dạng file">ⓘ</button>
             <button class="btn btn-quiet btn-sm" data-import="indicator">Nhập .py</button>
           </div>
         </div>
@@ -97,6 +110,7 @@
           <h2>Chiến lược</h2>
           <div class="panel-head-actions">
             <span id="strategy-count" class="badge">—</span>
+            <button class="btn btn-quiet btn-sm" data-format-help="strategy" title="Xem định dạng file">ⓘ</button>
             <button class="btn btn-quiet btn-sm" data-import="strategy">Nhập .py</button>
           </div>
         </div>
@@ -109,6 +123,7 @@
           <div class="subtabs" role="tablist">
             <button class="subtab active" data-subtab="run" role="tab">Chạy</button>
             <button class="subtab" data-subtab="opt" role="tab">Tối ưu</button>
+            <button class="subtab" data-subtab="check" role="tab">Kiểm định</button>
           </div>
 
           <div class="subpanel active" data-subpanel="run">
@@ -156,6 +171,46 @@
             <div id="sweep-size" class="sweep-size"></div>
             <button id="run-optimize" class="btn btn-primary btn-block">Chạy tối ưu</button>
           </div>
+
+          <!-- Validation -->
+          <div class="subpanel" data-subpanel="check">
+            <div class="field-group">
+              <div class="field-group-title">Walk-forward</div>
+              <p class="hint">
+                Tối ưu trên một cửa sổ rồi áp <em>nguyên tham số đó</em> lên cửa sổ
+                kế tiếp — dữ liệu chưa từng thấy. Chỉ kết quả ngoài mẫu mới đáng tin.
+                Dùng dải quét ở tab <strong>Tối ưu</strong>.
+              </p>
+              <p class="hint">
+                Cần nhiều nến: với cửa sổ mặc định, hãy đặt <strong>Candles</strong>
+                từ 5&nbsp;000 trở lên để có đủ 3–5 vòng.
+              </p>
+              <label class="param-row"><span>Cửa sổ huấn luyện</span>
+                <input id="wf-train" type="number" value="1000" min="50" step="50" /></label>
+              <label class="param-row"><span>Cửa sổ kiểm tra</span>
+                <input id="wf-test" type="number" value="250" min="50" step="50" /></label>
+              <button id="run-walkforward" class="btn btn-primary btn-block">Chạy walk-forward</button>
+            </div>
+
+            <div class="field-group">
+              <div class="field-group-title">Monte Carlo</div>
+              <p class="hint">
+                Xáo lại thứ tự các lệnh nhiều lần để biết kết quả thật nằm ở đâu
+                trong vùng hợp lý, thay vì tin vào một con số duy nhất.
+              </p>
+              <label class="param-row"><span>Số mô phỏng</span>
+                <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
+              <button id="run-montecarlo" class="btn btn-block">Chạy Monte Carlo</button>
+            </div>
+
+            <div class="field-group">
+              <div class="field-group-title">So sánh chiến lược</div>
+              <p class="hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
+              <div id="compare-list" class="compare-list"></div>
+              <button id="run-compare" class="btn btn-block">So sánh</button>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -167,6 +222,11 @@
             <button class="subtab active" data-restab="summary" role="tab">Tổng quan</button>
             <button class="subtab" data-restab="trades" role="tab">Lệnh</button>
             <button class="subtab" data-restab="optimize" role="tab">Tối ưu</button>
+            <button class="subtab" data-restab="validation" role="tab">Kiểm định</button>
+          </div>
+          <div class="panel-head-actions">
+            <button id="export-csv" class="btn btn-quiet btn-sm" title="Tải danh sách lệnh ra CSV">CSV</button>
+            <button id="export-png" class="btn btn-quiet btn-sm" title="Tải biểu đồ ra ảnh PNG">PNG</button>
           </div>
         </div>
         <div class="panel-body">
@@ -184,6 +244,11 @@
           </div>
           <div class="subpanel" data-respanel="optimize">
             <div id="optimize-results" class="scroll-area"><p class="empty">Chưa chạy tối ưu.</p></div>
+          </div>
+          <div class="subpanel" data-respanel="validation">
+            <div id="validation-output" class="scroll-area">
+              <p class="empty">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -213,6 +278,22 @@
     </section>
   </main>
 
+
+  <!-- Plugin format help -->
+  <div id="format-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="format-title">
+      <div class="dialog-head">
+        <h2 id="format-title">Định dạng file</h2>
+        <button id="format-close" class="btn btn-quiet btn-sm">✕</button>
+      </div>
+      <div class="dialog-body" id="format-body"></div>
+      <div class="dialog-foot">
+        <button id="format-download" class="btn btn-primary">Tải file mẫu</button>
+        <button id="format-copy" class="btn">Sao chép mã</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Shared by every "Nhập .py" button -->
   <input type="file" id="import-file" accept=".py,text/x-python" hidden />
 
@@ -222,6 +303,7 @@
   <script src="/static/js/indicators.js"></script>
   <script src="/static/js/strategy.js"></script>
   <script src="/static/js/paper.js"></script>
+  <script src="/static/js/validation.js"></script>
   <script src="/static/js/live.js"></script>
   <script src="/static/js/app.js"></script>
 </body>

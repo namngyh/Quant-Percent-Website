@@ -64,11 +64,51 @@ const ChartManager = (() => {
     });
   }
 
+  /* Sizing is done here rather than with the library's `autoSize`.
+     That option collapses the chart when its container is briefly 0 wide — a
+     hidden panel, a minimised window — and does not always recover when the
+     space comes back, leaving a chart stuck at a few pixels. Measuring the
+     container ourselves and applying the size is deterministic. */
+  const sizers = new Map();
+
+  function trackSize(chart, container) {
+    const apply = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width > 0 && height > 0) chart.resize(width, height);
+    };
+    apply();
+
+    const observer = new ResizeObserver(apply);
+    observer.observe(container);
+    sizers.set(chart, { observer, container });
+    return observer;
+  }
+
+  function untrackSize(chart) {
+    const entry = sizers.get(chart);
+    if (entry) {
+      entry.observer.disconnect();
+      sizers.delete(chart);
+    }
+  }
+
+  /* Re-measure every chart on demand.
+
+     ResizeObserver is the primary mechanism but it is delivered on the
+     rendering lifecycle, so a page that is not painting — a background tab, a
+     hidden pane — never receives it and the chart stays at whatever size it
+     last saw. Calling this after anything that changes the layout covers that
+     without waiting for a frame. */
+  function refreshSize() {
+    for (const [chart, entry] of sizers) {
+      const { width, height } = entry.container.getBoundingClientRect();
+      if (width > 0 && height > 0) chart.resize(width, height);
+    }
+  }
+
   function init(container) {
-    mainChart = LightweightCharts.createChart(container, {
-      ...THEME,
-      autoSize: true,
-    });
+    mainChart = LightweightCharts.createChart(container, { ...THEME });
+    trackSize(mainChart, container);
 
     candleSeries = mainChart.addCandlestickSeries({
       upColor: '#12805c',
@@ -88,6 +128,9 @@ const ChartManager = (() => {
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.86, bottom: 0 },
     });
+
+    // A window resize always reaches us, even when the observer does not.
+    window.addEventListener('resize', refreshSize);
 
     syncFrom(mainChart);
     return mainChart;
@@ -185,9 +228,9 @@ const ChartManager = (() => {
 
     const chart = LightweightCharts.createChart(element, {
       ...THEME,
-      autoSize: true,
       timeScale: { ...THEME.timeScale, visible: false },
     });
+    trackSize(chart, element);
 
     for (const output of result.outputs) {
       const isHistogram = output.plot_type === 'histogram';
@@ -213,6 +256,7 @@ const ChartManager = (() => {
   function removePane(instanceId) {
     const pane = panes.get(instanceId);
     if (!pane) return;
+    untrackSize(pane.chart);
     pane.chart.remove();
     pane.element.remove();
     panes.delete(instanceId);
@@ -302,9 +346,14 @@ const ChartManager = (() => {
     return bar ? bar.time : null;
   }
 
+  /** A canvas of the price chart as drawn, for export. */
+  function screenshot() {
+    return mainChart ? mainChart.takeScreenshot() : null;
+  }
+
   return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll,
            setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime,
-           timezoneLabel: TZ_LABEL, toChartTime: toChart };
+           screenshot, refreshSize, timezoneLabel: TZ_LABEL, toChartTime: toChart };
 })();
 
 /* The equity curve, drawn in the results panel. Its own small chart rather
@@ -334,7 +383,6 @@ const EquityChart = (() => {
       rightPriceScale: { borderColor: '#e2e5ea' },
       timeScale: { borderColor: '#e2e5ea', timeVisible: true, secondsVisible: false },
       crosshair: { mode: 0 },
-      autoSize: true,
     });
 
     series = chart.addAreaSeries({
@@ -344,6 +392,15 @@ const EquityChart = (() => {
       lineWidth: 2,
       priceLineVisible: false,
     });
+
+    // Own the sizing here too — the results panel is hidden most of the time,
+    // which is exactly the case that leaves autoSize stuck at zero.
+    const fit = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width > 0 && height > 0) chart.resize(width, height);
+    };
+    fit();
+    new ResizeObserver(fit).observe(container);
 
     // Starting capital, so being under water is visible at a glance.
     baseline = chart.addLineSeries({

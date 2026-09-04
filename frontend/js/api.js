@@ -75,6 +75,20 @@ const API = (() => {
     sweepSize: ({ ranges, bars }) =>
       post('/api/strategies/optimize/size', { ranges, bars }),
 
+    walkForward: ({ strategyId, symbol, timeframe, limit, ranges, metric, trainBars, testBars, execution }) =>
+      post('/api/validate/walk-forward', {
+        strategy_id: strategyId, symbol, timeframe, limit, ranges, metric,
+        train_bars: trainBars, test_bars: testBars, execution,
+      }),
+
+    monteCarlo: ({ strategyId, symbol, timeframe, limit, params, simulations, execution }) =>
+      post('/api/validate/monte-carlo', {
+        strategy_id: strategyId, symbol, timeframe, limit, params, simulations, execution,
+      }),
+
+    compareStrategies: ({ entries, symbol, timeframe, limit, execution }) =>
+      post('/api/validate/compare', { entries, symbol, timeframe, limit, execution }),
+
     vnSymbols: () => request('/api/markets/vn/symbols'),
     vnStatus: () => request('/api/markets/vn/status'),
 

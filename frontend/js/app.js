@@ -22,6 +22,17 @@
     liveDot: document.getElementById('live-dot'),
     liveLabel: document.getElementById('live-label'),
     importFile: document.getElementById('import-file'),
+    runWalkForward: document.getElementById('run-walkforward'),
+    runMonteCarlo: document.getElementById('run-montecarlo'),
+    runCompare: document.getElementById('run-compare'),
+    compareList: document.getElementById('compare-list'),
+    exportCsv: document.getElementById('export-csv'),
+    exportPng: document.getElementById('export-png'),
+    formatDialog: document.getElementById('format-dialog'),
+    formatBody: document.getElementById('format-body'),
+    formatClose: document.getElementById('format-close'),
+    formatDownload: document.getElementById('format-download'),
+    formatCopy: document.getElementById('format-copy'),
   };
 
   const state = { symbol: null, timeframe: null, limit: 2000 };
@@ -316,6 +327,177 @@
     ChartManager.setTradeMarkers(session.trades || [], open);
   }
 
+
+  // ---------- Plugin format help ----------
+  //
+  // Imported files must match a shape, and teammates who did not build this
+  // have no way to know it. The template is shown where the import button is,
+  // and can be downloaded as a working file to edit rather than retyped.
+
+  const TEMPLATES = {
+    indicator: {
+      title: 'Định dạng chỉ báo',
+      filename: 'chi_bao_mau.py',
+      intro:
+        'File cần đúng hai thứ: một dict <code>INDICATOR</code> mô tả chỉ báo, ' +
+        'và một hàm <code>calculate(df, params)</code> trả về giá trị. ' +
+        'Không cần import gì ngoài thư viện bạn dùng.',
+      notes: [
+        ['<code>type</code>', '<code>"overlay"</code> nếu cùng thang giá (EMA, Bollinger); <code>"panel"</code> nếu khác thang (RSI, MACD)'],
+        ['<code>params</code>', 'Mỗi tham số thành một thanh trượt. Kiểu: <code>int</code>, <code>float</code>, <code>bool</code>'],
+        ['<code>outputs</code>', 'Mỗi phần tử là một đường vẽ. <code>key</code> phải khớp key trả về'],
+        ['<code>df</code>', 'DataFrame có <code>open, high, low, close, volume</code>, index là thời gian UTC'],
+        ['Trả về', 'dict <code>{key: Series}</code>, hoặc một Series / DataFrame'],
+      ],
+      code: `"""Chỉ báo mẫu — copy file này, đổi tên rồi sửa logic."""
+
+INDICATOR = {
+    "name": "Kênh giá của tôi",
+    "type": "overlay",          # "overlay" đè lên nến | "panel" khung riêng
+    "category": "custom",
+    "description": "Kênh cao/thấp N nến.",
+    "params": {
+        "length": {"type": "int", "default": 20, "min": 2, "max": 200,
+                   "label": "Số nến"},
+        "show_mid": {"type": "bool", "default": True, "label": "Vẽ đường giữa"},
+    },
+    "outputs": [
+        {"key": "upper", "label": "Trên",  "color": "#12805c"},
+        {"key": "mid",   "label": "Giữa",  "color": "#949ca6"},
+        {"key": "lower", "label": "Dưới",  "color": "#c8372d"},
+    ],
+}
+
+
+def calculate(df, params):
+    n = params["length"]
+    upper = df["high"].rolling(n).max()
+    lower = df["low"].rolling(n).min()
+    mid = (upper + lower) / 2
+    if not params["show_mid"]:
+        mid = mid * float("nan")
+    return {"upper": upper, "mid": mid, "lower": lower}
+`,
+    },
+    strategy: {
+      title: 'Định dạng chiến lược',
+      filename: 'chien_luoc_mau.py',
+      intro:
+        'File cần một dict <code>STRATEGY</code> và một hàm ' +
+        '<code>signals(df, params)</code> trả về Series gồm <code>1</code> (long), ' +
+        '<code>-1</code> (short) hoặc <code>0</code> (đứng ngoài) cho mỗi nến.',
+      notes: [
+        ['<code>side</code>', '<code>"long"</code>, <code>"short"</code> hoặc <code>"both"</code> — tín hiệu ngược chiều sẽ bị bỏ'],
+        ['Trả về', '<code>pd.Series</code> cùng độ dài với <code>df</code>, giá trị 1 / -1 / 0'],
+        ['Nhân quả', 'Giá trị tại nến <em>i</em> chỉ được dùng dữ liệu tới lúc nến <em>i</em> đóng'],
+        ['Khớp lệnh', 'Engine khớp ở <strong>giá mở nến kế tiếp</strong>, nên bạn không thể vô tình dùng giá chưa xảy ra'],
+        ['Khởi động', 'Đặt 0 cho khoảng đầu khi chỉ báo chưa đủ dữ liệu'],
+      ],
+      code: `"""Chiến lược mẫu — copy file này, đổi tên rồi sửa logic."""
+
+import pandas as pd
+
+STRATEGY = {
+    "name": "Vượt đỉnh N nến",
+    "side": "both",             # "long" | "short" | "both"
+    "description": "Mua khi vượt đỉnh, bán khi thủng đáy.",
+    "params": {
+        "lookback": {"type": "int", "default": 20, "min": 5, "max": 200,
+                     "label": "Số nến nhìn lại"},
+    },
+}
+
+
+def signals(df, params):
+    n = params["lookback"]
+    # shift(1): đỉnh/đáy của N nến TRƯỚC, không tính nến hiện tại.
+    highest = df["high"].rolling(n).max().shift(1)
+    lowest = df["low"].rolling(n).min().shift(1)
+
+    out = pd.Series(0, index=df.index, dtype="int8")
+    out[df["close"] > highest] = 1
+    out[df["close"] < lowest] = -1
+
+    out.iloc[:n] = 0            # cửa sổ khởi động: đứng ngoài
+    return out
+`,
+    },
+  };
+
+  let currentTemplate = null;
+
+  function showFormatHelp(kind) {
+    const tpl = TEMPLATES[kind];
+    if (!tpl) return;
+    currentTemplate = tpl;
+
+    document.getElementById('format-title').textContent = tpl.title;
+    el.formatBody.innerHTML =
+      `<p class="hint">${tpl.intro}</p>` +
+      `<pre class="code-block"><code>${tpl.code
+        .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])}</code></pre>` +
+      '<table class="data-table format-notes"><tbody>' +
+      tpl.notes.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') +
+      '</tbody></table>' +
+      '<p class="hint">Nếu file sai định dạng, nền tảng từ chối kèm lý do và ' +
+      '<strong>không ghi vào đĩa</strong> — thư mục của bạn không bao giờ lẫn file hỏng.</p>';
+
+    el.formatDialog.hidden = false;
+  }
+
+  function setupFormatHelp() {
+    for (const btn of document.querySelectorAll('[data-format-help]')) {
+      btn.addEventListener('click', () => showFormatHelp(btn.dataset.formatHelp));
+    }
+    el.formatClose.addEventListener('click', () => { el.formatDialog.hidden = true; });
+    el.formatDialog.addEventListener('click', (e) => {
+      if (e.target === el.formatDialog) el.formatDialog.hidden = true;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') el.formatDialog.hidden = true;
+    });
+
+    el.formatDownload.addEventListener('click', () => {
+      if (!currentTemplate) return;
+      const blob = new Blob([currentTemplate.code], { type: 'text/x-python;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentTemplate.filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(`Đã tải ${currentTemplate.filename}`);
+    });
+
+    el.formatCopy.addEventListener('click', async () => {
+      if (!currentTemplate) return;
+      try {
+        await navigator.clipboard.writeText(currentTemplate.code);
+        toast('Đã sao chép mã mẫu');
+      } catch {
+        toast('Trình duyệt chặn sao chép — dùng nút Tải file mẫu.', true);
+      }
+    });
+  }
+
+  // ---------- Compare picker ----------
+
+  function renderComparePicker() {
+    const specs = Strategy.catalog || [];
+    if (!specs.length) {
+      el.compareList.innerHTML = '<p class="empty">Chưa có chiến lược nào.</p>';
+      return;
+    }
+    el.compareList.innerHTML = specs
+      .map(
+        (s) => `<label class="compare-item">
+          <input type="checkbox" data-compare="${s.id}" checked />
+          <span>${s.name}</span>
+        </label>`,
+      )
+      .join('');
+  }
+
   // ---------- Navigation ----------
 
   function openPanel(name) {
@@ -324,6 +506,7 @@
 
     if (current === name && !host.classList.contains('collapsed')) {
       host.classList.add('collapsed');      // clicking the open one closes it
+      ChartManager.refreshSize();           // the chart just gained the space
       return;
     }
 
@@ -334,6 +517,8 @@
     for (const panel of document.querySelectorAll('.panel')) {
       panel.classList.toggle('active', panel.dataset.panel === name);
     }
+    ChartManager.refreshSize();
+
     if (name === 'paper') {
       markerSource = 'paper';
       Paper.refresh().then(drawPaperMarkers);
@@ -476,10 +661,36 @@
 
   // ---------- Boot ----------
 
+  // ---------- Splash ----------
+  //
+  // It covers the gap before the chart has data. Each boot step names itself,
+  // so a slow first load reads as progress rather than a stalled animation.
+
+  const splash = document.getElementById('splash');
+  const splashStatus = document.getElementById('splash-status');
+  const bootedAt = Date.now();
+
+  function splashSay(message) {
+    if (splashStatus) splashStatus.textContent = message;
+  }
+
+  function dismissSplash() {
+    if (!splash) return;
+    // Let the mark finish drawing even when the data arrives instantly;
+    // a splash that flickers away mid-stroke looks like a glitch.
+    const elapsed = Date.now() - bootedAt;
+    const wait = Math.max(0, 1250 - elapsed);
+    setTimeout(() => {
+      splash.classList.add('done');
+      setTimeout(() => splash.remove(), 600);
+    }, wait);
+  }
+
   async function start() {
     ChartManager.init(el.chartMain);
     setupNavigation();
     setupImport();
+    setupFormatHelp();
 
     Indicators.init({
       elements: {
@@ -532,6 +743,21 @@
       onToast: toast,
     });
 
+    Validation.init({
+      elements: {
+        strategySelect: document.getElementById('strategy-select'),
+        metric: document.getElementById('opt-metric'),
+        trainBars: document.getElementById('wf-train'),
+        testBars: document.getElementById('wf-test'),
+        simulations: document.getElementById('mc-sims'),
+        output: document.getElementById('validation-output'),
+      },
+      context: () => ({ ...state }),
+      execution: () => Strategy.execution(),
+      catalog: () => Strategy.catalog,
+      onToast: toast,
+    });
+
     Live.init({
       onCandle: onLiveCandle,
       onCandleClose: onLiveCandleClose,
@@ -553,21 +779,28 @@
     });
 
     try {
+      splashSay('Đang đọc cấu hình…');
       const config = await API.config();
       state.symbol = config.default_symbol;
       state.timeframe = config.default_timeframe;
       state.limit = Number(el.limit.value);
 
+      splashSay('Đang nạp danh mục mã…');
       await loadSymbolOptions(config);
       el.symbol.value = state.symbol;
       buildTimeframeButtons();
       applyMarketCapabilities();
 
+      splashSay('Đang nạp chỉ báo và chiến lược…');
       Indicators.setCatalog(await API.catalog());
       await Strategy.load();
+      renderComparePicker();
       await Paper.refresh();
     } catch (err) {
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');
+      splashSay(err.message);
+      // Left up on failure: an empty app with no explanation is worse than a
+      // splash that says what went wrong.
       return;
     }
 
@@ -592,6 +825,33 @@
         showResults('summary');
       }));
 
+    el.runWalkForward.addEventListener('click', () =>
+      withButton(el.runWalkForward, 'Đang chạy…', async () => {
+        await Validation.runWalkForward(Strategy.sweepRanges());
+        showResults('validation');
+      }));
+
+    el.runMonteCarlo.addEventListener('click', () =>
+      withButton(el.runMonteCarlo, 'Đang mô phỏng…', async () => {
+        await Validation.runMonteCarlo(Strategy.currentParams());
+        showResults('validation');
+      }));
+
+    el.runCompare.addEventListener('click', () =>
+      withButton(el.runCompare, 'Đang so sánh…', async () => {
+        const entries = [...el.compareList.querySelectorAll('[data-compare]:checked')]
+          .map((box) => ({ strategy_id: box.dataset.compare }));
+        if (!entries.length) {
+          toast('Chọn ít nhất một chiến lược.', true);
+          return;
+        }
+        await Validation.runCompare(entries);
+        showResults('validation');
+      }));
+
+    el.exportCsv.addEventListener('click', () => Validation.exportTrades(Strategy.lastResult));
+    el.exportPng.addEventListener('click', () => Validation.exportChart());
+
     el.runOptimize.addEventListener('click', () =>
       withButton(el.runOptimize, 'Đang quét…', async () => {
         const result = await Strategy.runOptimize();
@@ -614,7 +874,9 @@
         toast('Đã bắt đầu phiên paper trading');
       }));
 
+    splashSay('Đang tải nến…');
     await loadCandles();
+    dismissSplash();
   }
 
   start();

@@ -11,6 +11,7 @@ const Strategy = (() => {
   let context = () => ({});
   let onResult = () => {};
   let current = null; // the selected spec
+  let lastBacktest = null;
   let params = {};
   let sweep = {}; // paramName -> {enabled, start, stop, step}
 
@@ -253,6 +254,7 @@ const Strategy = (() => {
       params,
       execution: execution(),
     });
+    lastBacktest = result;
     renderResult(result);
     onResult(result);
     return result;
@@ -502,6 +504,13 @@ const Strategy = (() => {
 
   return {
     init, load, runBacktest, runOptimize, startPaper,
+    // Exposed so validation and comparison reuse exactly the parameters and
+    // costs the backtest just used, rather than assembling their own.
+    execution,
+    sweepRanges: enabledRanges,
+    currentParams: () => ({ ...params }),
+    get catalog() { return catalog; },
     get selected() { return current; },
+    get lastResult() { return lastBacktest; },
   };
 })();

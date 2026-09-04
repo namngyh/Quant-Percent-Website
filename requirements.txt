@@ -26,3 +26,6 @@ pyyaml>=6.0
 psycopg[binary]>=3.2
 psycopg_pool>=3.2
 python-dotenv>=1.0
+
+# --- Machine-learning indicators (plugins/indicators/ml_*.py) ---
+scikit-learn>=1.5
