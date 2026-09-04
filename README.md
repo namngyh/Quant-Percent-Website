@@ -125,8 +125,26 @@ data_store/qp.duckdb   database
 
 **Giai đoạn 1 — xong.** Dữ liệu, chart, chỉ báo (dựng sẵn + plugin), chỉnh tham số live.
 
-Giai đoạn tiếp theo:
+### Đang làm dở (cập nhật 2026-09-04)
 
-- **GĐ 2** — realtime qua WebSocket Binance
-- **GĐ 3** — chiến lược vào/ra lệnh bằng Python, backtest (equity, win-rate, max
-  drawdown, Sharpe), tối ưu tham số bằng grid search
+**Dữ liệu `1m` chưa tải hết.** Năm khung `5m, 15m, 1h, 4h, 1d` đã đủ tới hôm nay
+(~3,12 triệu nến tổng cộng). Riêng khung `1m` mới tới **2020-12-21**, còn khoảng
+3 triệu nến nữa.
+
+Tiếp tục bằng một trong hai cách — an toàn, tự động chạy tiếp từ nến cuối:
+
+```bash
+.venv\Scripts\python.exe scripts/backfill.py -t 1m
+```
+
+hoặc mở nền tảng, chọn khung `1m`, bấm **"Cập nhật dữ liệu"**. Mất khoảng 20–25 phút.
+
+### Giai đoạn tiếp theo — chưa bắt đầu
+
+- **GĐ 2** — realtime qua WebSocket Binance; hot-reload file `.py` (hiện phải F5 trang)
+- **GĐ 3** — chiến lược vào/ra lệnh bằng Python `signals(df, indicators, params)`,
+  backtest (equity curve, win-rate, profit factor, max drawdown, Sharpe, danh sách
+  lệnh), tối ưu tham số bằng grid search, long + short
+
+**Chưa quyết:** làm GĐ2 hay GĐ3 trước. Khuyến nghị **GĐ3** — backtest và tối ưu là
+giá trị cốt lõi; realtime chỉ có ý nghĩa khi đã có chiến lược để chạy.
