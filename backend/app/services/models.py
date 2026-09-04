@@ -23,6 +23,27 @@ def is_locked(model: Model, authenticated: bool) -> bool:
     return model.access == "members" and not authenticated
 
 
+async def last_output_by_model(session: AsyncSession) -> dict[str, object]:
+    """Latest published output per model, from the forecast table itself.
+
+    The card used to date every model from `web.models.updated_at`, which is
+    the day someone last edited its catalogue entry. Eleven of the twelve
+    models have never written a forecast, so that label put a recent-looking
+    date beside models that have produced nothing. This reads the only source
+    that can answer the question honestly, and returns nothing for a model
+    that has never run.
+    """
+    rows = (
+        await session.execute(
+            text(
+                "SELECT model_id, max(data_as_of) AS last_output "
+                "FROM quant.model_forecasts GROUP BY model_id"
+            )
+        )
+    ).mappings().all()
+    return {r["model_id"]: r["last_output"] for r in rows}
+
+
 async def list_models(
     session: AsyncSession, *, authenticated: bool
 ) -> ModelList:
@@ -33,6 +54,8 @@ async def list_models(
             .order_by(Model.sort_order, Model.slug)
         )
     ).all()
+
+    last_output = await last_output_by_model(session)
 
     freshness = build_freshness(
         max((m.updated_at for m in rows), default=None),
@@ -58,6 +81,7 @@ async def list_models(
                 sparkline=m.sparkline,
                 sparkline_label=m.sparkline_label,
                 updated_at=m.updated_at,
+                last_output_at=last_output.get(m.slug),
             )
             for m in rows
         ],
@@ -70,7 +94,9 @@ async def get_model(session: AsyncSession, slug: str) -> Model | None:
     )
 
 
-def to_detail(model: Model, *, authenticated: bool) -> ModelDetail:
+def to_detail(
+    model: Model, *, authenticated: bool, last_output_at: object = None
+) -> ModelDetail:
     return ModelDetail(
         slug=model.slug,
         name=model.name,
@@ -93,6 +119,7 @@ def to_detail(model: Model, *, authenticated: bool) -> ModelDetail:
         sparkline_label=model.sparkline_label,
         research_profile=model.research_profile,
         updated_at=model.updated_at,
+        last_output_at=last_output_at,
     )
 
 

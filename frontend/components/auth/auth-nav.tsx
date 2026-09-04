@@ -93,7 +93,7 @@ export function AuthNav({
       </Link>
       <Link
         href="/login"
-        className="rounded-md bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-colors hover:bg-brand-strong"
+        className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-accent-strong"
       >
         {t("signIn")}
       </Link>

@@ -8,6 +8,7 @@ import { DataState } from "@/components/states/data-state";
 import { useApi } from "@/lib/api/fetcher";
 import type { PerformanceSeries } from "@/lib/api/types";
 import { fmtNumber } from "@/lib/format";
+import { FEATURED_STRATEGY } from "@/config/strategies";
 
 /**
  * The 2024-2026 result, drawn from what that run actually recorded.
@@ -20,7 +21,7 @@ import { fmtNumber } from "@/lib/format";
  * instead — which is the granularity the data has.
  */
 
-const WALK_FORWARD = "vn30f1m-walk-forward";
+const WALK_FORWARD = FEATURED_STRATEGY;
 
 function Panel({
   title,

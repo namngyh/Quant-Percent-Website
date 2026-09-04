@@ -1,0 +1,143 @@
+# Test rồi deploy quantpercent.com.
+#
+# Push vào main -> chạy test backend và frontend song song -> chỉ khi CẢ HAI
+# xanh mới SSH vào VPS chạy backend/deploy/deploy.sh.
+#
+# Xem toàn bộ quá trình ở tab Actions của repo.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # Cho phép bấm "Run workflow" trong tab Actions để deploy lại mà không cần
+  # push gì thêm — hữu ích khi VPS lỗi và bạn chỉ muốn chạy lại.
+  workflow_dispatch:
+
+# Hai lần deploy chạy chồng lên nhau sẽ giẫm chân nhau trên VPS (cùng git
+# reset, cùng docker build). Xếp hàng thay vì huỷ, để lần push sau vẫn được
+# deploy chứ không bị bỏ quên.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test-backend:
+    name: Test backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.12 khớp với backend/Dockerfile, để test chạy đúng phiên bản mà
+      # production dùng.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      # Không chạy ruff/mypy ở đây: code cũ trong repo đang có sẵn lỗi của hai
+      # công cụ này, bật lên là chặn mọi deploy dù code mới hoàn toàn sạch.
+      # Muốn bật thì phải dọn code cũ trước, làm thành một việc riêng.
+      - run: python -m pytest -q
+
+  test-frontend:
+    name: Test frontend (typecheck, lint, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24 khớp với frontend/Dockerfile.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+
+      # Build thật. Đây là lưới an toàn quan trọng nhất của frontend: gần như
+      # mọi lỗi làm hỏng trang đều lộ ra ở bước này, trước khi chạm tới VPS.
+      - run: npm run build
+
+      # Không chạy `npm run check:copy`: nó cần Chrome thật cộng một server
+      # đang chạy ở cổng 3000. Vẫn chạy tay khi sửa nội dung tiếng Việt/Anh.
+
+  deploy:
+    name: Deploy lên VPS
+    # Dòng này là cái van an toàn: test đỏ thì job này không chạy, VPS giữ
+    # nguyên bản cũ.
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+
+    # Đọc secret vào biến môi trường một lần ở đây, thay vì nhúng chúng thẳng
+    # vào giữa câu lệnh shell. Hai cái lợi: nội dung secret không bao giờ bị
+    # ghép thành mã shell (dấu nháy hay xuống dòng trong khoá đều vô hại), và
+    # khi secret rỗng thì biến rỗng — kiểm tra được, thay vì lặng lẽ dựng ra
+    # một câu lệnh méo mó.
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+      # Mặc định repo nằm ở ~/Quant-Percent-Website. Nếu trên VPS của bạn nó ở
+      # chỗ khác, thêm secret VPS_REPO_DIR thay vì sửa file này.
+      REPO_DIR: ${{ secrets.VPS_REPO_DIR || '~/Quant-Percent-Website' }}
+
+    steps:
+      # Thiếu secret thì ssh nhận đối số đích rỗng, in ra nguyên bảng "usage"
+      # rồi thoát 255 — một thông báo chẳng nói lên điều gì. Kiểm tra trước ở
+      # đây để lỗi tự giải thích chính nó.
+      - name: Kiểm tra đã có đủ secret chưa
+        run: |
+          missing=""
+          [ -n "$VPS_HOST" ]     || missing="$missing VPS_HOST"
+          [ -n "$VPS_USER" ]     || missing="$missing VPS_USER"
+          [ -n "$VPS_SSH_KEY" ]  || missing="$missing VPS_SSH_KEY"
+          [ -n "$VPS_HOST_KEY" ] || missing="$missing VPS_HOST_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Chua cau hinh secret:$missing"
+            echo "Them tai: Settings > Secrets and variables > Actions > New repository secret"
+            echo "Truoc khi them du, phan test van chay binh thuong con deploy dung o day."
+            echo "VPS van nguyen trang, khong co gi bi thay doi."
+            exit 1
+          fi
+          echo "Du 4 secret, di tiep."
+
+      # Dùng lệnh ssh thuần thay vì action của bên thứ ba: chỉ vài dòng, đọc
+      # là hiểu, và không phải tin vào code người lạ có quyền vào server.
+      - name: Chuẩn bị khoá SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Ghi sẵn host key để biết chắc đang nói chuyện với đúng máy chủ của
+          # mình, không phải kẻ đứng giữa giả mạo.
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Chạy deploy.sh trên VPS
+        run: |
+          # $HOME chứ không phải ~ trong giá trị của -o: bash không bung dấu ~
+          # nằm sau dấu = ở vị trí này, ssh sẽ đi tìm một thư mục tên "~".
+          ssh -i "$HOME/.ssh/deploy_key" \
+              -o "UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+              -o StrictHostKeyChecking=yes \
+              "$VPS_USER@$VPS_HOST" \
+              "bash $REPO_DIR/backend/deploy/deploy.sh"
+
+      # Xoá khoá kể cả khi bước trên fail, để nó không nằm lại trên máy chạy.
+      - name: Dọn khoá
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

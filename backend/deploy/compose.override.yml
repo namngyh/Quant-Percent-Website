@@ -1,0 +1,38 @@
+# Cấu hình riêng của máy chủ production.
+#
+# File này PHẢI được truyền cùng compose.production.yml trong mọi lệnh:
+#   docker compose --env-file .env.production \
+#     -f compose.production.yml -f compose.override.yml <lệnh>
+#
+# Chạy thiếu nó thì Compose vẫn nhận ra project "quantpercent-production" và
+# chỉnh stack về đúng mô tả trong compose.production.yml — nghĩa là gỡ mất cả
+# hai mục dưới đây. `deploy.sh` đã truyền sẵn đủ hai file.
+#
+# Trước đây file này chỉ tồn tại trên VPS, không có trong Git. Nay đưa vào để
+# dựng lại máy chủ từ số không là việc làm được, thay vì phụ thuộc vào một ổ
+# đĩa duy nhất.
+
+services:
+  caddy:
+    volumes:
+      # Chứng chỉ Cloudflare Origin mà Caddyfile trỏ tới. Chỉ-đọc: container
+      # không có lý do gì để ghi vào đây.
+      #
+      # Hai file này KHÔNG nằm trong Git (origin-key.pem là khoá riêng). Chúng
+      # phải có sẵn trên máy chủ trước khi deploy — deploy.sh kiểm tra ở bước
+      # 1/6 và dừng ngay nếu thiếu.
+      - /etc/caddy/certs:/etc/caddy/certs:ro
+
+  timescaledb:
+    ports:
+      # Mở PostgreSQL cho máy DataPro ở nhà kết nối qua VPN.
+      #
+      # Gắn vào đúng IP của card mạng VPN, KHÔNG phải 0.0.0.0 — database không
+      # hề nghe trên Internet. Đây là điều kiện bắt buộc; deploy/README.md nói
+      # rõ không bao giờ được phơi PostgreSQL ra ngoài.
+      #
+      # Địa chỉ để cứng thay vì dùng biến môi trường là có chủ ý: nếu VPN sập,
+      # Docker báo "cannot assign requested address" và dừng hẳn — một lỗi ồn
+      # ào, thấy ngay. Còn nếu dùng biến mà quên điền, nó sẽ lặng lẽ gắn vào
+      # 127.0.0.1 và DataPro mất kết nối mà không ai hiểu vì sao.
+      - "10.10.0.1:5432:5432"

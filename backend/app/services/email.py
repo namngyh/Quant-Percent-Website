@@ -136,6 +136,28 @@ async def send_email_verification(email: str, token: str, locale: str) -> None:
     await send_email(email, subject, body)
 
 
+async def _notify(subject: str, lines: list[str]) -> bool:
+    """Send an inbound-message notification, and make a failure recoverable.
+
+    Feedback and applications are not written to the database — mail is the
+    only copy. ``send_email`` swallows failures by design, so the body is
+    logged when it does not go out; otherwise a provider outage would lose
+    what somebody took the trouble to write.
+    """
+    if not settings.contact_notify_email:
+        log.error(
+            "no CONTACT_NOTIFY_EMAIL set, dropping: %s\n%s",
+            subject,
+            "\n".join(lines),
+        )
+        return False
+    body = "\n".join(lines)
+    sent = await send_email(settings.contact_notify_email, subject, body)
+    if not sent:
+        log.error("notification not delivered: %s\n%s", subject, body)
+    return sent
+
+
 async def notify_contact(record: dict) -> bool:
     if not settings.contact_notify_email:
         return False
@@ -153,4 +175,39 @@ async def notify_contact(record: dict) -> bool:
         settings.contact_notify_email,
         f"[quantpercent.com] {record.get('inquiry_type')} — {record.get('name')}",
         "\n".join(lines),
+    )
+
+
+async def notify_feedback(record: dict) -> bool:
+    """Member feedback. The sender comes from the session, not the form."""
+    return await _notify(
+        "[quantpercent.com] feedback "
+        f"{record.get('category')} — {record.get('name')}",
+        [
+            f"From: {record.get('name')} <{record.get('email')}>",
+            f"Category: {record.get('category')}",
+            f"Locale: {record.get('locale')}",
+            "",
+            str(record.get("message", "")),
+        ],
+    )
+
+
+async def notify_join(record: dict) -> bool:
+    """An application to join the team."""
+    role = record.get("role")
+    if role == "other":
+        role = f"other ({record.get('role_other') or '-'})"
+    return await _notify(
+        f"[quantpercent.com] join {role} — {record.get('name')}",
+        [
+            f"Name: {record.get('name')}",
+            f"Email: {record.get('email')}",
+            f"Phone: {record.get('phone') or '-'}",
+            f"Role: {role}",
+            f"Link: {record.get('link') or '-'}",
+            f"Locale: {record.get('locale')}",
+            "",
+            str(record.get("about") or "-"),
+        ],
     )

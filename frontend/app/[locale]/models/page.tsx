@@ -98,11 +98,16 @@ export default async function ModelsPage({
   return (
     <main>
       <DisclosureBanner variant={usesDatabaseApi() ? "legal" : "mock"} />
+      <div className="page-head">
+        <div className="container-qp relative py-14 desk:py-20">
+          <h1 className="title-lg">{t("title")}</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-dim">
+            {t("description")}
+          </p>
+        </div>
+      </div>
       <div className="container-qp py-12 desk:py-16">
-        <h1 className="title-lg">{t("title")}</h1>
-        <p className="mt-4 max-w-2xl text-ink">{t("description")}</p>
-
-        <div className="mt-10 space-y-3">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-full shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-dim sm:w-24">
               {t("filters.market")}

@@ -84,7 +84,14 @@ class ModelSummary(ApiModel):
     key_output: dict
     sparkline: list[float] | None = None
     sparkline_label: dict | None = None
+    # When the catalogue entry for this model was last revised. It says
+    # nothing about whether the model has run.
     updated_at: datetime
+    # The timestamp of this model's most recent published output, or None when
+    # it has never produced any. Kept separate from `updated_at` because the
+    # card used to show that field under an "Updated" label, which read as a
+    # run date on eleven models that have never run.
+    last_output_at: datetime | None = None
 
 
 class ModelList(Freshness):

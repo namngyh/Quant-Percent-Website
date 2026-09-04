@@ -94,12 +94,16 @@ export type ModelCardData = Pick<
   | "horizons"
   | "tagline"
   | "keyOutput"
->;
+> & {
+  /** When this model last published output, or undefined if it never has.
+   *  Comes from quant.model_forecasts, not from the catalogue entry. */
+  lastOutputAt?: string | null;
+};
 
 export const MODELS: ModelConfig[] = [
   {
     slug: "raemf-mc",
-    name: "RAEMF-VB-MC",
+    name: "Tempus VNI",
     code: "QP-F01",
     markets: ["VNINDEX"],
     category: "forecasting",
@@ -165,7 +169,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     slug: "rarf-fhe",
-    name: "RARF-FHE",
+    name: "Certus",
     code: "QP-F02",
     markets: ["VNINDEX", "VN30"],
     category: "forecasting",
@@ -289,7 +293,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     slug: "msdp",
-    name: "MSDP",
+    name: "Causa",
     code: "QP-F03",
     markets: ["VNINDEX"],
     category: "forecasting",
@@ -370,7 +374,7 @@ export const MODELS: ModelConfig[] = [
     show_performance: true,
     show_forecast: false,
     show_internal_signal: false,
-    strategySlug: "vn30f1m-walk-forward",
+    strategySlug: "vn30f1m-modus-2024-2026",
     tagline: {
       vi: "Hệ thống giao dịch có quy tắc cho hợp đồng tương lai VN30F1M, hiện mới được thử nghiệm trên dữ liệu quá khứ.",
       en: "A rule-based VN30F1M futures system currently tested only on historical data.",

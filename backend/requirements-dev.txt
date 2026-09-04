@@ -3,3 +3,10 @@ pytest==8.3.4
 pytest-asyncio==0.25.0
 ruff==0.8.4
 mypy==1.14.0
+
+# `daily-update.bat` runs database/scripts/*.py with this virtualenv, and those
+# scripts talk to PostgreSQL over psycopg rather than the asyncpg driver the
+# API uses. It is declared here rather than in requirements.txt so it stays out
+# of the production image, which never runs them. Without it the scheduled
+# daily update fails at the export and load steps with ModuleNotFoundError.
+psycopg[binary]>=3.2

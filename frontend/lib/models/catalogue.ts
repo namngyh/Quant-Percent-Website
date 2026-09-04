@@ -31,6 +31,7 @@ interface ApiModelSummary {
   sparkline: number[] | null;
   sparkline_label: ModelConfig["sparklineLabel"] | null;
   updated_at: string;
+  last_output_at?: string | null;
 }
 
 interface ApiModelDetail extends ApiModelSummary {
@@ -86,6 +87,7 @@ function toCard(model: ApiModelSummary): ModelCardData {
     featured: model.featured,
     version: model.version,
     updatedAt: model.updated_at,
+    lastOutputAt: model.last_output_at ?? null,
     sparkline: model.sparkline ?? undefined,
     sparklineLabel: model.sparkline_label ?? undefined,
     // How to scale the card figure and where its reference sits. This

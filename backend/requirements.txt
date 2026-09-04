@@ -8,6 +8,10 @@ asyncpg>=0.31.0
 alembic>=1.14.0
 pydantic>=2.12.0
 pydantic-settings>=2.7.0
+# app/services/portfolio.py does the covariance work in numpy. It reached
+# requirements.lock without ever being declared here, so the image built and
+# every fresh dev environment failed on import.
+numpy>=2.3.0
 email-validator>=2.2.0
 argon2-cffi>=23.1.0
 pyjwt>=2.10.1

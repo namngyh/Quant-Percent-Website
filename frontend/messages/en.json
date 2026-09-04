@@ -25,6 +25,14 @@
       "title": "Contact",
       "description": "Contact Quant Percent about research collaboration, data or technology partnerships, or register your interest."
     },
+    "feedback": {
+      "title": "Feedback",
+      "description": "Send Quant Percent feedback on the interface, the data, the models or the writing. Members only."
+    },
+    "join": {
+      "title": "Build with us",
+      "description": "Help build and grow the Quant Percent team: AI/ML engineers, mathematicians, developers and other roles."
+    },
     "legal": {
       "title": "Legal",
       "description": "Terms of use and important disclosures about Quant Percent's quantitative research content."
@@ -75,7 +83,12 @@
     "legal": "Legal",
     "privacy": "Privacy policy",
     "disclaimer": "Quant Percent is currently a research group. This website provides information only. It is not investment advice, an offer to invest or a guarantee of returns.",
-    "copyright": "© {year} Quant Percent. All rights reserved."
+    "copyright": "© {year} Quant Percent. All rights reserved.",
+    "connectNav": "Connect",
+    "contactLink": "Contact",
+    "feedbackLink": "Feedback",
+    "joinLink": "Build with us",
+    "contactEmail": "quantpercent@gmail.com"
   },
   "common": {
     "mockNotice": "Market data is updated from Quant Percent's own collection system. Model output and performance figures come from research reports, each stating its data period and scope.",
@@ -170,8 +183,29 @@
   },
   "home": {
     "hero": {
+      "eyebrow": "Quantitative research",
+      "weAre": "We are",
+      "roles": [
+        "researchers",
+        "people who ask questions",
+        "mathematicians",
+        "machine learning engineers",
+        "statisticians",
+        "people who test hypotheses",
+        "data scientists",
+        "risk analysts",
+        "data engineers",
+        "market observers",
+        "people who live in probabilities",
+        "quantitative traders",
+        "software engineers",
+        "investors"
+      ],
+      "finale": "all of the above",
+      "titleLead": "Understand Vietnam's markets",
+      "titleAccent": "through data.",
       "title": "Understand Vietnam's Markets Through Data.",
-      "description": "Quant Percent helps investors see market direction, risk and possible outcomes more clearly. Every result explains the data, how it was tested and what it cannot prove.",
+      "description": "Every result is published with the data behind it, how it was tested, and what it cannot prove.",
       "primaryCta": "View Today's Market",
       "secondaryCta": "Explore the Models"
     },
@@ -182,28 +216,10 @@
       "volatility": "Volatility",
       "riskState": "Risk state"
     },
-    "numbers": {
-      "eyebrow": "What we publish",
-      "title": "Research with clear evidence and limits",
-      "models": "models in the research catalogue",
-      "strategies": "years tested: 2024, 2025, 2026",
-      "horizons": "forecast periods from 1 to 60 sessions",
-      "validation": "multiple checks of result stability",
-      "focus": "Vietnam-focused research"
-    },
     "systems": {
       "eyebrow": "Our models",
-      "title": "Each model answers a specific question",
-      "description": "Some models estimate market direction, some measure risk and others show how stocks move together. Each page explains the result in plain language.",
+      "title": "Each model answers one question",
       "viewAllModels": "View all models"
-    },
-    "performance": {
-      "eyebrow": "Test results",
-      "title": "More than a return number",
-      "description": "Each report shows returns alongside losses from peak, trading costs, the data period and remaining uncertainty.",
-      "cta": "View Results and Risks",
-      "byYear": "Year by year",
-      "partialNote": "* 2026 has data through 30 June only"
     },
     "cta": {
       "title": "Want to discuss a model or a research partnership?",
@@ -213,37 +229,24 @@
     "portfolio": {
       "eyebrow": "Quant Portfolio",
       "title": "Where is your portfolio carrying risk?",
-      "description": "An account statement shows what share of the portfolio each holding represents, but not which holding contributes most of the risk. The two figures often diverge substantially. Enter your holdings and the system measures them against the price history of those stocks.",
+      "description": "A broker statement tells you what share of your money each holding is. It does not tell you which holding carries most of the risk — and the two are usually far apart.",
       "example": "An actual result from the tool: “VIC represents 36.2% of portfolio value but contributes 74.0% of total risk.”",
       "cta": "Analyse my portfolio",
-      "noSignup": "No sign-up, nothing stored",
-      "step1": {
-        "title": "Enter what you hold",
-        "body": "Ticker and share count. Every stock listed on HOSE is supported. Cost basis is optional."
-      },
-      "step2": {
-        "title": "See where the risk sits",
-        "body": "Compare each holding's share of capital against its share of risk, the effective level of diversification, and the most correlated pair."
-      },
-      "step3": {
-        "title": "Know the possible loss",
-        "body": "Loss thresholds, the deepest decline and the probability of a decline ahead, expressed in dong alongside percentages."
-      }
+      "noSignup": "No sign-up, nothing stored"
     },
     "comparison": {
       "eyebrow": "Against the market",
       "title": "Higher return than the market, at lower risk",
-      "description": "From the start of 2024 to mid 2026, Model Modus achieved a higher increase in capital than {benchmark} while holding a position about a fifth of the time and recording a materially smaller decline. That combination is what merits attention in a rule-based system.",
       "start": "Start 2024",
       "benchmarkLabel": "{benchmark} index",
       "drawdownLabel": "Deepest fall",
-      "drawdownNote": "Over the same period {benchmark} declined {benchmarkValue}, roughly {ratio} times deeper. This is the loss a holder had to absorb before the portfolio recovered.",
+      "drawdownNote": "Over the same period {benchmark} fell {benchmarkValue} — {ratio}× deeper.",
       "exposureLabel": "Share of time holding a position",
-      "exposureNote": "For the remaining time the system holds no position and carries none of the market's movement.",
-      "sharpeLabel": "Return against volatility",
-      "sharpeNote": "The Sharpe ratio, measuring return earned per unit of volatility accepted. A value above 1 is generally considered good.",
-      "basisNote": "Model Modus trades a leveraged futures contract; {benchmark} is an unleveraged index return. Both lines cover the same period and the same trading days.",
-      "cta": "See the full test results"
+      "exposureNote": "The rest of the time the system holds nothing and carries no market risk.",
+      "basisNote": "Modus trades leveraged futures; {benchmark} is an unleveraged index return.",
+      "cta": "See the full test results",
+      "payoffLabel": "Average win against average loss",
+      "payoffNote": "Only {winRate} of trades win. The system earns on the size of the gap, not on winning often."
     }
   },
   "market": {
@@ -341,10 +344,11 @@
     "card": {
       "market": "Market",
       "category": "Purpose",
-      "updated": "Updated",
       "keyOutput": "Main result",
       "rangeLow": "Low",
-      "rangeHigh": "High"
+      "rangeHigh": "High",
+      "lastOutput": "Latest output",
+      "noOutput": "No output yet"
     },
     "locked": {
       "badge": "Sign-in required",
@@ -555,31 +559,38 @@
     }
   },
   "about": {
-    "title": "About",
-    "whatTitle": "What Quant Percent is",
-    "whatText": "Quant Percent is a data-driven market research group. We build models to understand market direction, estimate risk and test rule-based trading methods in Vietnam.",
-    "focusTitle": "Market focus",
-    "focusText": "We focus on the VN-Index, stocks listed on HOSE and the VN30F1M futures contract. Keeping the scope fixed lets data collection, model building and testing stay consistent.",
-    "philosophyTitle": "Research philosophy",
-    "philosophyText": "Forecasts are never certain, return always comes with risk, and every model has periods when it works poorly. Every conclusion on this site states where the data came from, which period it was tested on and what its limits are.",
-    "visionTitle": "Long-term vision",
-    "visionText": "To build an asset management organization in Vietnam where decisions are based on data, technology and a clear risk process.",
-    "developingTitle": "Areas under development",
-    "developingItems": [
-      "Multi-horizon forecasting for indices and stocks",
-      "Quantitative trading systems for derivatives",
-      "Equity analytics and ranking platform",
-      "Risk measurement and simulation tools",
-      "Data infrastructure and model monitoring"
-    ],
-    "note": "Quant Percent does not currently operate formal asset management and does not raise or accept capital through this website.",
-    "lead": "We build quantitative tools for the Vietnamese market, and publish what does not work alongside what does. Most quantitative research does not survive contact with new data — we think that is worth saying rather than hiding.",
-    "stageTitle": "Where we are",
-    "stageText": "Quant Percent is in its research and validation phase. Four models have completed independent chronological testing, the data system runs daily across every stock listed on HOSE, and Model Modus has been through three years of validation.\n\nThe next step is supervised operation before any increase in scale.",
+    "title": "About us",
+    "lead": "Quant Percent is a quantitative research group working on the Vietnamese market. We build models, test them on data they have never seen, and publish the ones that do not work alongside the ones that do. Most quantitative research does not survive contact with new data — we think that should be said out loud rather than hidden.",
+    "whatTitle": "Who we are",
+    "whatText": "A quantitative research group. We take no capital, run no portfolios for anyone else, and sell no buy-or-sell recommendations.\n\nWhat we produce is models, testing methodology, and public reports carrying enough data for a reader to judge the work themselves instead of taking our word for it.",
     "publishTitle": "What we publish",
-    "publishText": "Every report states the data period, the validation method and a full set of performance and risk metrics. Results are broken out by period, including periods that lost money.\n\nA model version enters use only after clearing independent validation criteria.",
-    "ctaTitle": "Interested in this line of research?",
-    "ctaText": "We speak with institutional investors, data partners and research collaborators.",
+    "publishText": "Every report states the data period, the testing method, and the full set of performance and risk figures. Results are broken out by period, including the losing ones.\n\nWhere the data is not enough to conclude something, we say it is not enough rather than filling in a plausible-looking number.",
+    "founder": {
+      "name": "Phạm Minh Huy",
+      "roles": [
+        "Founder",
+        "Quantitative Researcher",
+        "AI Engineer"
+      ],
+      "bio": "The question that has followed me from the first day is still the same: why trust an indicator you do not understand? It is what brought me to mathematics and data — not to predict the market, but to understand it. And I believe every investor, institutional or individual, deserves that lens: the one that lets them see past the numbers on the surface to the real shape of the market moving underneath."
+    },
+    "philosophyTitle": "Research principles",
+    "philosophyText": "A forecast is never certain, return always travels with risk, and every model has a stretch where it performs badly.\n\nEvery conclusion on this site states where the data came from, which period it was tested over, and what its limits are. A result without those three is not ready to publish.",
+    "focusTitle": "Research scope",
+    "focusText": "We concentrate on the VN-Index, stocks listed on HOSE, and the VN30F1M futures contract.\n\nThe narrow scope is deliberate: it lets data collection, model construction and validation stay consistent, rather than covering everything and going shallow everywhere.",
+    "stageTitle": "Where we are now",
+    "stageText": "Quant Percent is at the research and validation stage. Four models have completed an independent, time-ordered testing cycle, the data system runs daily across every stock listed on HOSE, and Model Modus has been through three years of validation.\n\nThe next step is supervised operation: running the models in real time and comparing live results against the tested ones, for long enough to know how far apart the two are.",
+    "developingTitle": "Areas in development",
+    "developingItems": [
+      "Index and stock forecasts across multiple time frames",
+      "Rule-based trading systems for the derivatives market",
+      "Stock analysis and comparison tools",
+      "Risk scenario measurement tools",
+      "Data infrastructure and model quality monitoring"
+    ],
+    "note": "Quant Percent does not currently operate a formal capital management business and does not raise or accept discretionary funds through this website.",
+    "ctaTitle": "Interested in working on this?",
+    "ctaText": "We talk to research groups, data partners, and quantitative practitioners with an interest in the Vietnamese market.",
     "ctaButton": "Get in touch"
   },
   "contact": {
@@ -616,6 +627,71 @@
       }
     },
     "registerNote": "Leaving your details is not an investment commitment. Quant Percent is not raising or accepting capital; your information is used only to respond and discuss future research or partnership opportunities."
+  },
+  "feedback": {
+    "title": "Feedback",
+    "description": "Something unclear, missing or simply worth doing better? Tell us — every piece of feedback is read.",
+    "note": "Feedback requires an account so we know who sent it and can follow up. Registration is free and requires no payment details.",
+    "gate": {
+      "title": "Sign in to send feedback",
+      "description": "Sign in or create a free account to send feedback to Quant Percent."
+    },
+    "form": {
+      "signedInAs": "Sending as {email}",
+      "category": "What this is about",
+      "categories": {
+        "ui": "Interface and experience",
+        "data_model": "Data and models",
+        "content": "Writing and content",
+        "bug": "Technical problem",
+        "other": "Something else"
+      },
+      "message": "Your feedback",
+      "submit": "Send feedback",
+      "sending": "Sending…",
+      "success": "Thank you. We have received your feedback and will look into it.",
+      "errorGeneric": "Could not send your feedback. Please try again later.",
+      "errorRateLimit": "You are sending too quickly. Please try again in a few minutes.",
+      "errorUnauthorized": "Your session has expired. Please sign in again and resend.",
+      "validation": {
+        "categoryRequired": "Please choose what this is about",
+        "messageRequired": "Please enter your feedback",
+        "messageTooShort": "Feedback must be at least 10 characters"
+      }
+    }
+  },
+  "join": {
+    "title": "Build with us",
+    "description": "Quant Percent is looking for people who want to help build and grow the team. If that sounds like you, leave your details and we will be in touch.",
+    "note": "This is not a formal hiring process yet. Your details are used only to contact you and discuss how we might work together.",
+    "form": {
+      "name": "Full name",
+      "email": "Email",
+      "phone": "Phone (optional)",
+      "role": "Role you want to join or apply for",
+      "roles": {
+        "ai_ml_engineer": "AI/ML engineer",
+        "mathematician": "Mathematician",
+        "developer": "Developer",
+        "other": "Something else"
+      },
+      "roleOther": "Tell us which role you have in mind",
+      "about": "Short introduction or experience (optional)",
+      "link": "Link to your CV, GitHub or LinkedIn (optional)",
+      "consent": "I agree to Quant Percent's privacy policy.",
+      "submit": "Send details",
+      "sending": "Sending…",
+      "success": "Thank you. We will get in touch with you as soon as we can.",
+      "errorGeneric": "Could not send your details. Please try again later.",
+      "errorRateLimit": "You are sending too quickly. Please try again in a few minutes.",
+      "validation": {
+        "nameRequired": "Please enter your name",
+        "emailRequired": "Please enter your email",
+        "emailInvalid": "Invalid email address",
+        "roleRequired": "Please choose a role",
+        "consentRequired": "You must agree to the privacy policy to submit"
+      }
+    }
   },
   "legal": {
     "title": "Legal",
@@ -764,6 +840,13 @@
     "description": "The page you are looking for does not exist or has been moved.",
     "backHome": "Back to home"
   },
+  "error": {
+    "title": "The system is temporarily unavailable",
+    "description": "This page could not load. Your data is unaffected — Quant Percent stores nothing from your session. Try reloading, or go back to the home page.",
+    "retry": "Try again",
+    "backHome": "Back to home",
+    "reference": "Reference"
+  },
   "portfolio": {
     "eyebrow": "Quant Portfolio",
     "title": "Where is your portfolio concentrating risk?",
@@ -782,7 +865,7 @@
       "cash": "Cash in the portfolio (VND)",
       "cashNote": "Cash counts towards portfolio value but carries no risk.",
       "horizon": "Investment period",
-      "horizonNote": "Used for the forward decline estimate.",
+      "horizonNote": "Changing the period changes every probability in the forward decline estimate.",
       "horizons": {
         "m1": "1 month",
         "m3": "3 months",
@@ -865,11 +948,11 @@
       "downside": "Downside volatility",
       "downsideNote": "counting declining sessions only",
       "forwardHeading": "Chance of a decline ahead",
-      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios) and carries it across to the portfolio using a beta of {beta}.",
+      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios, {baseDays} sessions each) and carries it across to the portfolio: scaled by a beta of {beta} for how closely the book tracks the index, then stretched by square-root-of-time to answer for the {horizonDays} sessions you picked. The decline levels below are fixed — what moves with the portfolio and the period is the probability.",
       "colDecline": "Decline",
       "colChance": "Chance",
       "declineRow": "falls more than {pct} (about {amount})",
-      "forwardCaveat": "This is an indirect estimate: it carries the index's risk across by beta, so it does not capture risk specific to the individual holdings. A simulated probability is not a certainty.",
+      "forwardCaveat": "This is an indirect estimate. It carries the index's risk across by beta, so it does not capture risk specific to the individual holdings, and the square-root-of-time stretch ignores both drift and volatility clustering — the further from the {baseDays}-session simulation, the looser it gets. A simulated probability is not a certainty.",
       "provenanceLabel": "Data provenance",
       "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions, current to {asOf}. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
       "glossaryHeading": "How to read these figures",
@@ -886,7 +969,7 @@
         "correlation": "The figure {value} is the average correlation across every pair of stocks in the portfolio. Closer to 1 means the holdings move together and diversification is less effective; closer to 0 means they are more independent."
       },
       "exceedanceTitle": "Chance of exceeding each decline",
-      "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not.",
+      "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not. The horizontal axis is fixed, so two portfolios — or one portfolio at two periods — can be read against the same scale.",
       "lossScaleTitle": "In money, on your portfolio",
       "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded."
     }

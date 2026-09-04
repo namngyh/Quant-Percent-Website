@@ -68,8 +68,12 @@ rem --- Co du lieu moi cho hom nay khong? ----------------------------
 rem Ingestion chi ghi bar khi thi truong mo. Khong co bar hom nay nghia
 rem la ngay nghi le hoac may thu thap khong chay; dung lai thay vi chay
 rem model tren du lieu cu roi ghi de du bao dang dung.
+rem Dem qua PG_DSN, dung database ma cac buoc sau se ghi vao. Truoc day
+rem dong nay goi "docker exec qp-timescaledb" - container local, gan cung -
+rem nen khi ingestion chuyen sang VPS thi cong gac dem mot database khong ai
+rem ghi vao nua, va job bo qua moi ngay ma van tra ve exit code 0.
 set "HASBAR="
-for /f %%v in ('docker exec qp-timescaledb psql -U quant -d market -t -A -c "select count(*) from bars_1m where (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = current_date" 2^>nul') do set "HASBAR=%%v"
+for /f "usebackq delims=" %%v in (`""%PY_BE%" "%ROOT%\database\scripts\has_bars_today.py""`) do set "HASBAR=%%v"
 if not defined HASBAR call :fail "Khong doc duoc database." & goto :done
 if "%HASBAR%"=="0" call :log "Khong co bar nao hom nay - co the la ngay nghi. Bo qua." & goto :done
 call :log "Co %HASBAR% bar phut hom nay - tiep tuc."

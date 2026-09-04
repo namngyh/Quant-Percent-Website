@@ -43,9 +43,12 @@ async def model_detail(
     slug: str, session: SessionDep, user: OptionalUser
 ) -> ModelDetail:
     model = await _load(session, slug)
+    last_output = (await service.last_output_by_model(session)).get(slug)
     # Metadata stays public so the page keeps its context and SEO;
     # the model's output is what requires a session.
-    return service.to_detail(model, authenticated=user is not None)
+    return service.to_detail(
+        model, authenticated=user is not None, last_output_at=last_output
+    )
 
 
 @router.get("/{slug}/latest", response_model=ForecastRecords)
