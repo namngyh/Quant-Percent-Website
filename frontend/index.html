@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QP-TRACKING</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">QP</span>
+      <span class="brand-name">TRACKING</span>
+    </div>
+
+    <div class="control-group">
+      <label for="symbol">Symbol</label>
+      <select id="symbol"></select>
+    </div>
+
+    <div class="control-group">
+      <label>Timeframe</label>
+      <div id="timeframes" class="tf-buttons"></div>
+    </div>
+
+    <div class="control-group">
+      <label for="limit">Candles</label>
+      <select id="limit">
+        <option value="500">500</option>
+        <option value="1000">1 000</option>
+        <option value="2000" selected>2 000</option>
+        <option value="5000">5 000</option>
+        <option value="10000">10 000</option>
+        <option value="20000">20 000</option>
+      </select>
+    </div>
+
+    <div class="topbar-right">
+      <span id="status" class="status"></span>
+      <button id="backfill" class="btn btn-primary">Cập nhật dữ liệu</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Chỉ báo</h2>
+          <span id="catalog-count" class="badge">—</span>
+        </div>
+        <input id="search" type="search" placeholder="Tìm chỉ báo (ema, rsi, macd…)" autocomplete="off" />
+        <div id="plugin-errors" class="plugin-errors" hidden></div>
+        <div id="catalog" class="catalog"></div>
+      </section>
+
+      <section class="panel active-panel">
+        <div class="panel-head">
+          <h2>Đang bật</h2>
+          <button id="clear-all" class="btn btn-ghost btn-sm">Xóa hết</button>
+        </div>
+        <div id="active" class="active-list">
+          <p class="empty">Chưa có chỉ báo nào. Chọn từ danh sách bên trên.</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="charts">
+      <div id="chart-main" class="chart-pane chart-main"></div>
+      <div id="panes"></div>
+      <div id="loading" class="loading" hidden><div class="spinner"></div></div>
+    </section>
+  </main>
+
+  <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/indicators.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
