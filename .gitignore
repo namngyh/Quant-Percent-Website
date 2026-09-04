@@ -19,3 +19,8 @@ data_store/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Secrets — never commit. Connection strings live here, not in code.
+.env
+.env.*
+!.env.example

@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.config import settings
-from backend.data import service, store
+from backend.data import market_vn, service, sources, store
 from backend.data.binance import INTERVAL_MS, to_ms
 
 log = logging.getLogger(__name__)
@@ -34,13 +34,38 @@ async def health() -> dict:
 
 @router.get("/config")
 async def get_config() -> dict:
-    """Everything the UI needs to populate its selectors."""
+    """Everything the UI needs to populate its selectors.
+
+    The Vietnam symbol list is not included here: it is 389 rows behind a VPN,
+    and a config call that blocks or fails when the VPN is off would stop the
+    whole app loading. The UI fetches it separately, on demand.
+    """
     return {
         "symbols": settings.data.symbols,
         "timeframes": settings.data.timeframes,
         "default_symbol": settings.chart.default_symbol,
         "default_timeframe": settings.chart.default_timeframe,
         "max_candles": settings.chart.max_candles,
+        "markets": [
+            {
+                "id": sources.CRYPTO,
+                "label": "Crypto · Binance",
+                "symbols": settings.data.symbols,
+                "timeframes": settings.data.timeframes,
+                "live": True,
+                "backfill": True,
+                "available": True,
+            },
+            {
+                "id": sources.VIETNAM,
+                "label": "Việt Nam · HOSE",
+                "symbols": [],           # fetched from /api/markets/vn/symbols
+                "timeframes": market_vn.SUPPORTED_TIMEFRAMES,
+                "live": False,
+                "backfill": False,
+                "available": market_vn.configured(),
+            },
+        ],
     }
 
 
@@ -64,8 +89,12 @@ def candles(
     symbol = symbol or settings.chart.default_symbol
     timeframe = timeframe or settings.chart.default_timeframe
 
-    if timeframe not in INTERVAL_MS:
-        raise HTTPException(400, f"unsupported timeframe '{timeframe}'")
+    allowed = sources.timeframes_for(symbol)
+    if timeframe not in allowed:
+        raise HTTPException(
+            400,
+            f"Khung `{timeframe}` không có cho {symbol}. Hỗ trợ: {', '.join(allowed)}.",
+        )
 
     max_candles = settings.chart.max_candles
     limit = min(limit or max_candles, max_candles)
@@ -76,7 +105,10 @@ def candles(
     except ValueError as exc:
         raise HTTPException(400, f"bad date: {exc}") from exc
 
-    df = store.get_candles(symbol, timeframe, start_ms, end_ms, limit)
+    try:
+        df = sources.get_candles(symbol, timeframe, start_ms, end_ms, limit)
+    except market_vn.MarketUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
 
     if df.empty:
         return {
@@ -109,6 +141,13 @@ def candles(
 @router.post("/backfill")
 async def backfill(request: BackfillRequest) -> dict:
     """Fetch missing candles from Binance. Resumes from what is already stored."""
+    for symbol in request.symbols or settings.data.symbols:
+        if not sources.supports_backfill(symbol):
+            raise HTTPException(
+                400,
+                f"{symbol} đến từ database của team và chỉ đọc — không backfill được.",
+            )
+
     if _backfill_lock.locked():
         raise HTTPException(409, "a backfill is already running")
 

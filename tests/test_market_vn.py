@@ -1,0 +1,303 @@
+"""Checks for the Vietnam market source.
+
+Run directly:  .venv\\Scripts\\python.exe tests/test_market_vn.py
+
+Routing and frame shaping are tested without a network, so these run whether or
+not the VPN is up. The live checks at the end are skipped — reported, not
+failed — when the database is unreachable, since being off the VPN is a normal
+state for this machine and not a broken build.
+"""
+
+from __future__ import annotations
+
+import sys
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import pandas as pd  # noqa: E402
+
+from backend.data import market_vn, sources  # noqa: E402
+
+CHECKS = []
+LIVE_CHECKS = []
+
+
+def check(name):
+    def wrap(fn):
+        CHECKS.append((name, fn))
+        return fn
+    return wrap
+
+
+def live(name):
+    def wrap(fn):
+        LIVE_CHECKS.append((name, fn))
+        return fn
+    return wrap
+
+
+# ------------------------------------------------------------ routing (offline)
+
+@check("a VN: prefix routes to the Vietnam market, anything else to crypto")
+def _():
+    assert sources.parse("VN:VN30F1M") == ("vn", "VN30F1M")
+    assert sources.parse("vn:vnindex") == ("vn", "VNINDEX")
+    assert sources.parse("BTCUSDT") == ("crypto", "BTCUSDT")
+    assert sources.is_vietnam("VN:VIC") and not sources.is_vietnam("BTCUSDT")
+
+
+@check("qualify and parse round-trip")
+def _():
+    assert sources.qualify("vn", "VIC") == "VN:VIC"
+    assert sources.qualify("crypto", "BTCUSDT") == "BTCUSDT"
+    assert sources.parse(sources.qualify("vn", "VIC")) == ("vn", "VIC")
+
+
+@check("backfill and live streaming are refused for Vietnam symbols")
+def _():
+    # The team database is read-only and has no push feed; both must be known
+    # up front rather than discovered by a failing request.
+    assert sources.supports_backfill("BTCUSDT")
+    assert not sources.supports_backfill("VN:VNINDEX")
+    assert sources.supports_live_stream("BTCUSDT")
+    assert not sources.supports_live_stream("VN:VNINDEX")
+
+
+@check("each market advertises its own timeframes")
+def _():
+    vn = sources.timeframes_for("VN:VN30F1M")
+    assert "1d" in vn and "1m" in vn and "30m" in vn, vn
+    crypto = sources.timeframes_for("BTCUSDT")
+    assert "1h" in crypto, crypto
+
+
+@check("an unsupported timeframe is refused before any query runs")
+def _():
+    try:
+        market_vn.get_candles("VNINDEX", "3d")
+    except market_vn.MarketUnavailable as exc:
+        assert "không có cho thị trường VN" in str(exc), exc
+    else:
+        raise AssertionError("expected a timeframe check")
+
+
+@check("daily bars are keyed at UTC midnight of the trading date")
+def _():
+    ms = market_vn._to_ms(date(2026, 9, 4))
+    when = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    assert (when.year, when.month, when.day) == (2026, 9, 4), when
+    assert (when.hour, when.minute) == (0, 0), when
+
+
+@check("a naive timestamp is read as UTC, not as local time")
+def _():
+    # ts is documented as UTC; treating a naive value as local would shift the
+    # whole session by seven hours and quietly corrupt every intraday chart.
+    naive = market_vn._to_ms(datetime(2026, 9, 4, 7, 11))
+    aware = market_vn._to_ms(datetime(2026, 9, 4, 7, 11, tzinfo=timezone.utc))
+    assert naive == aware, (naive, aware)
+
+
+@check("an empty result still has the right columns and dtypes")
+def _():
+    frame = market_vn._frame([])
+    assert list(frame.columns) == ["open_time", "open", "high", "low", "close", "volume"]
+    assert frame.empty
+    assert frame["open_time"].dtype == "int64", frame.dtypes
+
+
+@check("rows become the same OHLCV frame the DuckDB store returns")
+def _():
+    rows = [
+        (datetime(2026, 9, 4, 7, 11, tzinfo=timezone.utc), 1979.9, 1980.5, 1978.8, 1980.4, 933),
+        (datetime(2026, 9, 4, 7, 12, tzinfo=timezone.utc), 1980.3, 1982.7, 1979.4, 1982.0, 2119),
+    ]
+    frame = market_vn._frame(rows)
+    assert len(frame) == 2
+    assert frame["open_time"].iloc[0] == 1788505860000, frame["open_time"].iloc[0]
+    assert frame["close"].iloc[1] == 1982.0
+    assert frame["volume"].dtype == "float64"
+    # Same shape as the crypto store, so nothing downstream can tell them apart.
+    assert list(frame.columns) == ["open_time", "open", "high", "low", "close", "volume"]
+
+
+@check("a null volume becomes zero rather than NaN")
+def _():
+    rows = [(datetime(2026, 9, 4, tzinfo=timezone.utc), 1.0, 2.0, 0.5, 1.5, None)]
+    assert market_vn._frame(rows)["volume"].iloc[0] == 0.0
+
+
+@check("connection errors are translated into something actionable")
+def _():
+    cases = {
+        "connection timed out": "VPN",
+        "could not translate host name": "VPN",
+        "password authentication failed for user": "đăng nhập",
+        "permission denied for view bars_1d": "quản trị",
+    }
+    for raw, expected in cases.items():
+        message = market_vn._friendly(RuntimeError(raw))
+        assert expected.lower() in message.lower(), (raw, message)
+
+
+# ---------------------------------------------------------------- live (VPN)
+
+@live("the database answers and reports our read-only user")
+def _():
+    rows = market_vn.query("SELECT current_user")
+    assert rows[0][0] == "qp_remote", rows
+
+
+@live("minute bars exclude the candle currently being written")
+def _():
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=20)
+    assert not frame.empty, "no minute bars returned"
+    newest = pd.to_datetime(frame["open_time"].iloc[-1], unit="ms", utc=True)
+    now = pd.Timestamp.now(tz="UTC").floor("min")
+    assert newest < now, f"newest bar {newest} is in the current minute {now}"
+
+
+@live("candles come back oldest first")
+def _():
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=30)
+    assert frame["open_time"].is_monotonic_increasing, "not sorted ascending"
+
+
+@live("intraday timestamps land inside the Vietnamese session")
+def _():
+    # 09:00-15:00 in Ho Chi Minh City is 02:00-08:00 UTC. Bars outside that
+    # would mean the timezone handling is wrong somewhere.
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=200)
+    hours = pd.to_datetime(frame["open_time"], unit="ms", utc=True).dt.tz_convert(
+        "Asia/Ho_Chi_Minh"
+    ).dt.hour
+    assert hours.between(9, 15).all(), sorted(hours.unique())
+
+
+@live("wider frames are aggregated from the minute bars, not invented")
+def _():
+    minutes = market_vn.get_candles("VN30F1M", "1m", limit=600)
+    quarters = market_vn.get_candles("VN30F1M", "15m", limit=20)
+    assert not quarters.empty
+
+    # Every 15m bar must sit on a 15-minute boundary and stay within the day's
+    # high/low from the minute data covering it.
+    starts = pd.to_datetime(quarters["open_time"], unit="ms", utc=True)
+    assert (starts.dt.minute % 15 == 0).all(), starts.dt.minute.unique()
+    assert quarters["high"].max() <= minutes["high"].max() * 1.001
+    assert quarters["low"].min() >= minutes["low"].min() * 0.999
+
+
+@live("daily history reaches back further than the minute history")
+def _():
+    daily = market_vn.coverage("VNINDEX", "1d")
+    assert daily and daily["count"] > 4000, daily
+    first = pd.to_datetime(daily["first"], unit="ms", utc=True)
+    assert first.year <= 2010, first
+
+
+@live("the symbol list covers the whole exchange and flags intraday coverage")
+def _():
+    symbols = market_vn.list_symbols()
+    intraday = market_vn.intraday_symbols()
+    assert len(symbols) > 300, len(symbols)
+    assert 0 < len(intraday) < len(symbols), (len(intraday), len(symbols))
+    assert "VN30F1M" in intraday
+
+
+@live("the account holds no write privileges")
+def _():
+    # Asked of the catalogue rather than attempted. Trying an INSERT to see
+    # whether it fails is both a worse test — a temp-table probe "passes" on a
+    # fetch error, not a refusal — and the wrong thing to do to somebody
+    # else's production database.
+    rows = market_vn.query(
+        """
+        SELECT
+            has_table_privilege(current_user, 'api.v_quote', 'INSERT'),
+            has_table_privilege(current_user, 'api.v_quote', 'UPDATE'),
+            has_table_privilege(current_user, 'api.v_quote', 'DELETE'),
+            has_table_privilege(current_user, 'api.v_quote', 'SELECT'),
+            has_schema_privilege(current_user, 'public', 'CREATE'),
+            (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+        """
+    )
+    insert, update, delete, select, create_public, superuser = rows[0]
+    assert select, "should be able to read api.v_quote"
+    assert not insert and not update and not delete, (insert, update, delete)
+    assert not create_public, "read-only account can create objects in public"
+    assert not superuser, "read-only account is a superuser"
+
+
+@live("only the api schema is reachable")
+def _():
+    # Asked of the catalogue, so this never becomes an attempt to reach what is
+    # documented as off limits. `has_schema_privilege` raises on a schema that
+    # does not exist, so existence is checked first.
+    rows = market_vn.query(
+        """
+        SELECT nspname,
+               has_schema_privilege(current_user, nspname, 'USAGE') AS usable
+        FROM pg_namespace
+        WHERE nspname IN ('api', 'quant', 'web', 'public')
+        ORDER BY nspname
+        """
+    )
+    privileges = {name: usable for name, usable in rows}
+    assert privileges.get("api"), f"the api schema should be readable: {privileges}"
+
+    for restricted in ("quant", "web"):
+        if restricted in privileges:
+            assert not privileges[restricted], (
+                f"schema `{restricted}` is readable but was documented as denied"
+            )
+
+
+# --------------------------------------------------------------------------
+
+def run(items) -> tuple[int, int]:
+    passed = failed = 0
+    for name, fn in items:
+        try:
+            fn()
+            print(f"  PASS  {name}")
+            passed += 1
+        except AssertionError as exc:
+            print(f"  FAIL  {name}")
+            print(f"          {exc}")
+            failed += 1
+        except Exception as exc:
+            print(f"  ERROR {name}")
+            print(f"          {type(exc).__name__}: {exc}")
+            failed += 1
+    return passed, failed
+
+
+def main() -> int:
+    print("Offline checks (routing and shaping):")
+    passed, failed = run(CHECKS)
+
+    print("\nLive checks (need the team VPN):")
+    if not market_vn.configured():
+        print("  SKIP  MARKET_DSN chưa cấu hình")
+        return 1 if failed else 0
+
+    try:
+        market_vn.query("SELECT 1")
+    except market_vn.MarketUnavailable as exc:
+        print(f"  SKIP  không kết nối được: {exc}")
+        print(f"\n{passed} passed, {failed} failed, live checks skipped")
+        return 1 if failed else 0
+
+    live_passed, live_failed = run(LIVE_CHECKS)
+    passed += live_passed
+    failed += live_failed
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -20,6 +20,7 @@ from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from backend.config import settings
+from backend.data import sources
 from backend.data.stream import StreamManager
 
 log = logging.getLogger(__name__)
@@ -132,14 +133,30 @@ async def live(ws: WebSocket) -> None:
             action = message.get("action")
 
             if action == "subscribe":
-                try:
-                    await hub.streams.subscribe(
-                        ws,
-                        message.get("symbol") or settings.chart.default_symbol,
-                        message.get("timeframe") or settings.chart.default_timeframe,
-                    )
-                except ValueError as exc:
-                    await ws.send_json({"type": "error", "message": str(exc)})
+                symbol = message.get("symbol") or settings.chart.default_symbol
+
+                # Binance has no feed for a HOSE symbol. Drop the old
+                # subscription and say why, rather than opening a socket for a
+                # stream name that will never carry anything.
+                if not sources.supports_live_stream(symbol):
+                    await hub.streams.unsubscribe(ws)
+                    await ws.send_json({
+                        "type": "stream_status",
+                        "symbol": symbol,
+                        "timeframe": message.get("timeframe"),
+                        "connected": False,
+                        "unsupported": True,
+                        "message": "Thị trường VN chưa có luồng realtime; dữ liệu cập nhật khi tải lại.",
+                    })
+                else:
+                    try:
+                        await hub.streams.subscribe(
+                            ws,
+                            symbol,
+                            message.get("timeframe") or settings.chart.default_timeframe,
+                        )
+                    except ValueError as exc:
+                        await ws.send_json({"type": "error", "message": str(exc)})
 
             elif action == "unsubscribe":
                 await hub.streams.unsubscribe(ws)

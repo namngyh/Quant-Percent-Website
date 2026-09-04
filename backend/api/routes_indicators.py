@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.config import settings
-from backend.data import store
+from backend.data import market_vn, sources
 from backend.indicators import registry
 from backend.indicators.base import IndicatorError
 
@@ -52,9 +52,13 @@ def compute(request: ComputeRequest) -> dict:
     timeframe = request.timeframe or settings.chart.default_timeframe
     limit = min(request.limit or settings.chart.max_candles, settings.chart.max_candles)
 
-    df = store.get_candles(symbol, timeframe, limit=limit)
+    try:
+        df = sources.get_candles(symbol, timeframe, limit=limit)
+    except market_vn.MarketUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
     if df.empty:
-        raise HTTPException(404, f"no candles stored for {symbol} {timeframe}")
+        raise HTTPException(404, f"Không có nến cho {symbol} {timeframe}")
 
     try:
         return registry.compute(request.indicator_id, df, request.params)

@@ -1,6 +1,7 @@
 # Quant Percent
 
-Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ báo** trên dữ liệu Bitcoin.
+Nền tảng chạy local để **theo dõi, thử nghiệm và tối ưu chỉ báo** trên dữ liệu
+Bitcoin (Binance) và **chứng khoán Việt Nam** (HOSE, từ database của team).
 
 - Dữ liệu OHLCV từ **Binance** (public API, không cần API key), lưu vào **DuckDB**
 - Chart nến bằng **Lightweight Charts** (thư viện mã nguồn mở của TradingView)
@@ -158,9 +159,11 @@ chứ không phải lợi thế thật.
 .venv\Scripts\python.exe tests/test_optimizer.py         # 12 checks - grid search
 .venv\Scripts\python.exe tests/test_stream.py            # 9  checks - luồng realtime
 .venv\Scripts\python.exe tests/test_paper.py             # 10 checks - paper trading
+.venv\Scripts\python.exe tests/test_market_vn.py         # 20 checks - dữ liệu thị trường VN
 ```
 
-Tổng 67 checks.
+Tổng 87 checks. `test_market_vn.py` có 11 kiểm tra chạy offline và 9 kiểm tra
+cần VPN — phần cần VPN sẽ **báo bỏ qua** chứ không báo lỗi khi VPN tắt.
 
 Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
 comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
@@ -228,6 +231,67 @@ ghi**, rồi đặt vào đúng thư mục.
 
 File lỗi bị từ chối kèm lý do và **không được ghi vào đĩa** — nếu không, thư mục
 sẽ đầy file hỏng mà bạn phải tự dọn.
+
+---
+
+## Thị trường Việt Nam (HOSE)
+
+Dữ liệu lấy **trực tiếp** từ TimescaleDB của team qua VPN, không sao chép về máy.
+Cố ý như vậy: dữ liệu ghi liên tục trong phiên, DuckDB chỉ cho một tiến trình
+ghi, và một bản sao cục bộ chỉ thêm việc phải đồng bộ mà không cho thấy gì hơn.
+
+### Cài đặt
+
+```bash
+copy .env.example .env
+```
+
+Mở `.env`, điền mật khẩu vào `MARKET_DSN`. File này **đã được gitignore** — đừng
+bao giờ viết mật khẩu vào mã nguồn.
+
+Kiểm tra kết nối:
+
+```bash
+.venv\Scripts\python.exe scripts/check_market_db.py
+```
+
+> **Phải bật VPN của team (Tailscale).** Database không nghe trên Internet — đó
+> là chủ ý. Báo timeout hoặc không tìm thấy máy chủ thì gần như chắc chắn là
+> VPN chưa bật, không phải lỗi cấu hình.
+>
+> Nếu team dùng Tailscale, host là địa chỉ `100.x` của VPS (`tailscale status`
+> để xem), không phải `10.10.0.1`.
+
+### Cách dùng
+
+Chọn mã ở ô Symbol trên thanh trên. Danh sách chia ba nhóm:
+
+| Nhóm | Số mã | Khung thời gian |
+|---|---|---|
+| Crypto · Binance | 1 | `1m` → `1d`, có realtime |
+| Việt Nam — có nến phút | 35 | `1m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `1d` |
+| Việt Nam — chỉ nến ngày | 354 | `1d` |
+
+Mã Việt Nam dùng tiền tố `VN:` (ví dụ `VN:VN30F1M`). Chỉ báo, backtest và tối ưu
+chạy y hệt như với Bitcoin — engine không biết dữ liệu đến từ đâu.
+
+### Ba điều đã mã hoá sẵn, để không tính sai
+
+| Đặc điểm dữ liệu | Cách xử lý |
+|---|---|
+| **Không có dữ liệu tick** | Mức chi tiết nhất là nến 1 phút |
+| **`v_history_1m` không có cột `is_final`** | Mọi truy vấn lọc `ts < date_trunc('minute', now())`, nên nến đang hình thành không bao giờ lọt vào tính toán |
+| **`ts` lưu theo UTC** | Phiên VN 09:00–15:00 là 02:00–08:00 UTC; chỉ đổi múi giờ khi hiển thị |
+
+Khung `5m`–`4h` được **gộp từ nến 1 phút ngay trên server** (chỉ `1m` và `1d` có
+sẵn trong database), tránh kéo hàng trăm nghìn dòng qua VPN để gộp tại máy.
+
+### Giới hạn
+
+- Tài khoản **chỉ đọc**, chỉ thấy schema `api`. Nút "Cập nhật dữ liệu" và
+  realtime tự khoá khi bạn chọn mã VN.
+- Gặp `permission denied` thì **hỏi người quản trị**, đừng tìm đường vòng.
+- Truy vấn giới hạn 30 giây (server cắt ở 60), luôn lọc theo mã và khoảng thời gian.
 
 ---
 

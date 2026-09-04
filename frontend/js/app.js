@@ -75,7 +75,7 @@
 
       ChartManager.clearTradeMarkers();
       await Indicators.recomputeAll();
-      Live.subscribe(state.symbol, state.timeframe);
+      if (!isVN(state.symbol)) Live.subscribe(state.symbol, state.timeframe);
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
@@ -141,6 +141,101 @@
     } catch (err) {
       setStatus(err.message, 'error');
     }
+  }
+
+
+  // ---------- Markets ----------
+  //
+  // Two sources: Binance crypto in the local store, and the team's HOSE
+  // database over the VPN. A `VN:` prefix on the symbol is what routes a
+  // request, so the market a symbol belongs to is readable from the symbol.
+
+  const markets = { crypto: null, vn: null };
+
+  const isVN = (symbol) => String(symbol || '').startsWith('VN:');
+
+  function timeframesFor(symbol) {
+    if (isVN(symbol)) return markets.vn?.timeframes || ['1d'];
+    return markets.crypto?.timeframes || ['1h'];
+  }
+
+  /** Symbols without minute bars can only be charted daily. */
+  function symbolHasIntraday(symbol) {
+    if (!isVN(symbol)) return true;
+    const entry = markets.vn?.index?.get(symbol);
+    return entry ? entry.has_intraday : true;
+  }
+
+  function allowedTimeframes(symbol) {
+    const all = timeframesFor(symbol);
+    return symbolHasIntraday(symbol) ? all : all.filter((tf) => tf === '1d');
+  }
+
+  async function loadSymbolOptions(config) {
+    markets.crypto = config.markets?.find((m) => m.id === 'crypto') || {
+      symbols: config.symbols, timeframes: config.timeframes,
+    };
+
+    const groups = [
+      { label: 'Crypto · Binance', options: markets.crypto.symbols.map((s) => ({ id: s, text: s })) },
+    ];
+
+    // Best effort: the VN list lives behind the VPN, and the app must still
+    // work on crypto when that is off.
+    try {
+      const vn = await API.vnSymbols();
+      markets.vn = {
+        timeframes: vn.timeframes,
+        index: new Map(vn.symbols.map((s) => [s.id, s])),
+      };
+
+      const withMinutes = vn.symbols.filter((s) => s.has_intraday);
+      const dailyOnly = vn.symbols.filter((s) => !s.has_intraday);
+      const label = (s) => `${s.symbol}${s.name && s.name !== s.symbol ? ' · ' + s.name : ''}`;
+
+      if (withMinutes.length) {
+        groups.push({
+          label: `Việt Nam · HOSE — có nến phút (${withMinutes.length})`,
+          options: withMinutes.map((s) => ({ id: s.id, text: label(s) })),
+        });
+      }
+      if (dailyOnly.length) {
+        groups.push({
+          label: `Việt Nam · HOSE — chỉ nến ngày (${dailyOnly.length})`,
+          options: dailyOnly.map((s) => ({ id: s.id, text: label(s) })),
+        });
+      }
+    } catch (err) {
+      markets.vn = null;
+      // Not fatal, and not silent either: say why the VN names are missing.
+      setStatus(`Thị trường VN không khả dụng: ${err.message}`, 'error');
+    }
+
+    el.symbol.innerHTML = groups
+      .map(
+        (g) =>
+          `<optgroup label="${g.label}">` +
+          g.options.map((o) => `<option value="${o.id}">${o.text}</option>`).join('') +
+          '</optgroup>',
+      )
+      .join('');
+  }
+
+  /** Live and backfill are Binance-only; say so rather than failing on click. */
+  function applyMarketCapabilities() {
+    const vn = isVN(state.symbol);
+
+    el.backfill.disabled = vn;
+    el.backfill.title = vn
+      ? 'Dữ liệu VN đến từ database của team và chỉ đọc — không cần backfill.'
+      : 'Kéo nến mới nhất từ Binance';
+
+    el.liveToggle.disabled = vn;
+    el.liveToggle.title = vn
+      ? 'Thị trường VN chưa có luồng realtime; tải lại để thấy nến mới.'
+      : 'Bật/tắt nến realtime';
+
+    if (vn && Live.enabled) Live.setEnabled(false);
   }
 
   // ---------- Navigation ----------
@@ -238,9 +333,17 @@
 
   // ---------- Controls ----------
 
-  function buildTimeframeButtons(timeframes) {
+  function buildTimeframeButtons() {
+    const allowed = allowedTimeframes(state.symbol);
+
+    // Keep the current timeframe if this symbol has it; otherwise fall back to
+    // one it does, rather than charting a frame that will come back empty.
+    if (!allowed.includes(state.timeframe)) {
+      state.timeframe = allowed.includes('1d') ? '1d' : allowed[allowed.length - 1];
+    }
+
     el.timeframes.innerHTML = '';
-    for (const tf of timeframes) {
+    for (const tf of allowed) {
       const button = document.createElement('button');
       button.className = `tf-btn${tf === state.timeframe ? ' active' : ''}`;
       button.textContent = tf;
@@ -368,9 +471,10 @@
       state.timeframe = config.default_timeframe;
       state.limit = Number(el.limit.value);
 
-      el.symbol.innerHTML = config.symbols.map((s) => `<option value="${s}">${s}</option>`).join('');
+      await loadSymbolOptions(config);
       el.symbol.value = state.symbol;
-      buildTimeframeButtons(config.timeframes);
+      buildTimeframeButtons();
+      applyMarketCapabilities();
 
       Indicators.setCatalog(await API.catalog());
       await Strategy.load();
@@ -380,7 +484,12 @@
       return;
     }
 
-    el.symbol.addEventListener('change', () => { state.symbol = el.symbol.value; loadCandles(); });
+    el.symbol.addEventListener('change', () => {
+      state.symbol = el.symbol.value;
+      buildTimeframeButtons();      // markets differ in what they offer
+      applyMarketCapabilities();
+      loadCandles();
+    });
     el.limit.addEventListener('change', () => { state.limit = Number(el.limit.value); loadCandles(); });
     el.backfill.addEventListener('click', runBackfill);
 

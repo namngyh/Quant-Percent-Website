@@ -13,11 +13,13 @@ from backend.config import settings
 from backend.api import (
     routes_data,
     routes_indicators,
+    routes_market,
     routes_paper,
     routes_plugins,
     routes_strategy,
     routes_stream,
 )
+from backend.data import market_vn
 from backend.paper.manager import manager as paper_manager
 from backend.data import store
 
@@ -48,6 +50,7 @@ async def lifespan(app: FastAPI):
 
     await paper_manager.close()
     await routes_stream.hub.close()
+    market_vn.close_pool()
     store.close_connection()
 
 
@@ -65,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_stream.router)
     app.include_router(routes_paper.router)
     app.include_router(routes_plugins.router)
+    app.include_router(routes_market.router)
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

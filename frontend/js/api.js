@@ -75,6 +75,9 @@ const API = (() => {
     sweepSize: ({ ranges, bars }) =>
       post('/api/strategies/optimize/size', { ranges, bars }),
 
+    vnSymbols: () => request('/api/markets/vn/symbols'),
+    vnStatus: () => request('/api/markets/vn/status'),
+
     paperSessions: () => request('/api/paper'),
 
     paperStart: ({ strategyId, symbol, timeframe, params, execution }) =>

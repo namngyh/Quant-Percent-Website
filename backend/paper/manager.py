@@ -17,7 +17,7 @@ import time
 
 import pandas as pd
 
-from backend.data import store
+from backend.data import sources, store
 from backend.paper.engine import PaperSession, PaperTrade
 from backend.strategy import registry
 from backend.strategy.engine import BacktestConfig
@@ -119,7 +119,7 @@ class PaperManager:
         # Seed with recent history so the strategy is warm from the first
         # candle rather than sitting flat through its own warm-up window.
         history = await asyncio.to_thread(
-            store.get_candles, symbol, timeframe, None, None, WARMUP_BARS
+            sources.get_candles, symbol, timeframe, None, None, WARMUP_BARS
         )
         if not history.empty:
             session.history = history[
@@ -264,7 +264,7 @@ class PaperManager:
         session.bars_seen = d["bars_seen"]
         session.trades = [PaperTrade(**t) for t in d.get("trades", [])]
 
-        history = store.get_candles(session.symbol, session.timeframe, limit=WARMUP_BARS)
+        history = sources.get_candles(session.symbol, session.timeframe, limit=WARMUP_BARS)
         if not history.empty:
             session.history = history[
                 ["open_time", "open", "high", "low", "close", "volume"]

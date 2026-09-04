@@ -20,3 +20,9 @@ websockets>=14.0
 
 # --- Config ---
 pyyaml>=6.0
+
+# --- Team market database (Vietnam / HOSE) ---
+# TimescaleDB on the team VPS, read-only, reachable over the Tailscale VPN.
+psycopg[binary]>=3.2
+psycopg_pool>=3.2
+python-dotenv>=1.0

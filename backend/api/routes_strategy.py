@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.config import settings
-from backend.data import store
+from backend.data import market_vn, sources
 from backend.optimizer.grid import (
     DEFAULT_SAMPLES,
     MAX_COMBINATIONS,
@@ -86,9 +86,13 @@ def _load_candles(symbol: str | None, timeframe: str | None, limit: int | None):
     timeframe = timeframe or settings.chart.default_timeframe
     limit = min(limit or settings.chart.max_candles, settings.chart.max_candles)
 
-    df = store.get_candles(symbol, timeframe, limit=limit)
+    try:
+        df = sources.get_candles(symbol, timeframe, limit=limit)
+    except market_vn.MarketUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
     if df.empty:
-        raise HTTPException(404, f"no candles stored for {symbol} {timeframe}")
+        raise HTTPException(404, f"Không có nến cho {symbol} {timeframe}")
     return df, timeframe
 
 
