@@ -59,7 +59,7 @@ const API = (() => {
         execution,
       }),
 
-    optimize: ({ strategyId, symbol, timeframe, ranges, limit, metric, execution }) =>
+    optimize: ({ strategyId, symbol, timeframe, ranges, limit, metric, execution, mode, samples }) =>
       post('/api/strategies/optimize', {
         strategy_id: strategyId,
         symbol,
@@ -68,6 +68,11 @@ const API = (() => {
         limit,
         metric,
         execution,
+        mode,
+        samples,
       }),
+
+    sweepSize: ({ ranges, bars }) =>
+      post('/api/strategies/optimize/size', { ranges, bars }),
   };
 })();

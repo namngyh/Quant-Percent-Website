@@ -14,7 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from backend.optimizer.grid import ParamRange, build_grid, optimize  # noqa: E402
+from backend.optimizer.grid import (  # noqa: E402
+    MAX_COMBINATIONS,
+    ParamRange,
+    build_grid,
+    build_random,
+    grid_size,
+    optimize,
+)
 from backend.strategy.engine import BacktestConfig  # noqa: E402
 
 HOUR = 3_600_000
@@ -64,12 +71,85 @@ def _():
 
 @check("an oversized grid is refused before it runs for hours")
 def _():
+    ranges = [ParamRange("a", 1, 200, 1), ParamRange("b", 1, 200, 1)]
+    assert grid_size(ranges) == 40_000, grid_size(ranges)
     try:
-        build_grid([ParamRange("a", 1, 200, 1), ParamRange("b", 1, 200, 1)])
+        build_grid(ranges)
     except ValueError as exc:
-        assert "exceeds the limit" in str(exc), exc
+        # The message names the size, the limit, and the way out.
+        assert "40,000" in str(exc) and f"{MAX_COMBINATIONS:,}" in str(exc), exc
+        assert "ngẫu nhiên" in str(exc).lower(), exc
     else:
         raise AssertionError("expected a size guard")
+
+
+@check("grid_size counts without building the grid")
+def _():
+    assert grid_size([]) == 1
+    assert grid_size([ParamRange("a", 1, 10, 1)]) == 10
+    assert grid_size([ParamRange("a", 1, 10, 1), ParamRange("b", 0, 1, 0.25)]) == 50
+    # Big enough that enumerating it would be the wrong move.
+    huge = [ParamRange(n, 1, 100, 1) for n in "abcde"]
+    assert grid_size(huge) == 100**5
+
+
+@check("random sampling draws distinct combinations from the space")
+def _():
+    ranges = [ParamRange("a", 1, 100, 1), ParamRange("b", 1, 100, 1)]
+    picked = build_random(ranges, 200, seed=1)
+    assert len(picked) == 200, len(picked)
+    unique = {tuple(sorted(p.items())) for p in picked}
+    assert len(unique) == 200, "sampling must not repeat a combination"
+    for p in picked:
+        assert 1 <= p["a"] <= 100 and 1 <= p["b"] <= 100, p
+
+
+@check("random sampling is reproducible for a given seed")
+def _():
+    ranges = [ParamRange("a", 1, 50, 1), ParamRange("b", 1, 50, 1)]
+    first = build_random(ranges, 40, seed=42)
+    again = build_random(ranges, 40, seed=42)
+    other = build_random(ranges, 40, seed=43)
+    assert first == again, "same seed should give the same sample"
+    assert first != other, "different seeds should differ"
+
+
+@check("sampling a space smaller than the budget returns the whole space")
+def _():
+    ranges = [ParamRange("a", 1, 4, 1), ParamRange("b", 1, 3, 1)]   # 12 cells
+    picked = build_random(ranges, 500, seed=1)
+    assert len(picked) == 12, len(picked)
+
+
+@check("random mode runs an oversized space that grid mode refuses")
+def _():
+    ranges = [ParamRange("fast", 2, 60, 1), ParamRange("slow", 10, 300, 1)]
+    assert grid_size(ranges) > MAX_COMBINATIONS, grid_size(ranges)
+
+    try:
+        optimize("example_ema_cross", trending(400), "1h", ranges, mode="grid")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("grid mode should have refused")
+
+    out = optimize("example_ema_cross", trending(400), "1h", ranges,
+                   mode="random", samples=25, seed=5)
+    s = out["summary"]
+    assert s["mode"] == "random" and s["completed"] == 25, s
+    assert s["space_size"] == grid_size(ranges), s
+    assert 0 < s["coverage_pct"] < 1, s["coverage_pct"]
+
+
+@check("an unknown mode is rejected")
+def _():
+    try:
+        optimize("example_ema_cross", trending(200), "1h",
+                 [ParamRange("fast", 5, 10, 5)], mode="bayesian")
+    except ValueError as exc:
+        assert "unknown mode" in str(exc), exc
+    else:
+        raise AssertionError("expected a mode check")
 
 
 @check("a bad step is rejected rather than looping forever")

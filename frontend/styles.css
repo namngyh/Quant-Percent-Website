@@ -585,3 +585,16 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   from { opacity: 0; transform: translate(-50%, 8px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* ==================== Sweep size hint ==================== */
+
+.sweep-size {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  margin: 6px 0 8px;
+  font-family: var(--mono);
+}
+.sweep-size .big { color: var(--text); font-weight: 600; }
+.sweep-size.over { color: var(--warn); }
+.sweep-size.over .big { color: var(--warn); }

@@ -88,8 +88,17 @@ OVERLAY_EXTRAS = {
     "psar", "pmax", "sarext", "cksp", "cpr",
 }
 
-# `overlap`-category members that are not price-scale after all.
-PANEL_EXTRAS: set[str] = set()
+# `overlap`-category members that are not price-scale after all. Linear
+# regression angle is degrees and slope is a rate of change; neither belongs
+# on the price axis despite pandas-ta filing them under `overlap`.
+PANEL_EXTRAS: set[str] = {"linregangle", "linregslope"}
+
+# Parameters whose sensible default differs from the shared table. `scalar`
+# means "scale to 0-100" for RSI-like indicators but "band width in ATRs" for
+# Keltner Channels, where 100 produces bands hundreds of thousands wide.
+PARAM_OVERRIDES: dict[str, dict[str, dict]] = {
+    "kc": {"scalar": {"type": "float", "default": 2.0, "min": 0.1, "max": 10.0, "step": 0.1}},
+}
 
 # Left out of the catalog:
 #   beta, correl — need a second, external price series (a market benchmark);
@@ -112,13 +121,14 @@ def _classify(name: str, category: str) -> str:
     return "overlay" if category == "overlap" else "panel"
 
 
-def _build_param_specs(sig: inspect.Signature) -> list[ParamSpec]:
+def _build_param_specs(sig: inspect.Signature, indicator: str) -> list[ParamSpec]:
     specs: list[ParamSpec] = []
+    overrides = PARAM_OVERRIDES.get(indicator, {})
     for param in sig.parameters.values():
         name = param.name
         if name in PRICE_PARAMS or name in HIDDEN_PARAMS:
             continue
-        meta = PARAM_DEFAULTS.get(name)
+        meta = overrides.get(name) or PARAM_DEFAULTS.get(name)
         if meta is None:
             continue  # unknown knob: let pandas-ta use its own default
         specs.append(ParamSpec(name=name, **meta))
@@ -181,7 +191,7 @@ def build_builtin_specs() -> dict[str, IndicatorSpec]:
             category=category,
             source="builtin",
             description=doc,
-            params=_build_param_specs(sig),
+            params=_build_param_specs(sig, name),
             calculate=_make_calculate(fn, price_inputs),
         )
 

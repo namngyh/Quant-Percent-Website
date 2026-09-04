@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 import logging
 import math
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -27,8 +28,16 @@ from backend.strategy.engine import BacktestConfig
 
 log = logging.getLogger(__name__)
 
-# Guards against a sweep that would run for hours by accident.
-MAX_COMBINATIONS = 2000
+# A full grid runs about 10 ms per combination on 2 000 candles and 37 ms on
+# 20 000, so this cap is roughly a minute of waiting. Beyond it, sweeping every
+# cell stops being the right tool.
+MAX_COMBINATIONS = 5000
+
+# Random search samples the same space instead of enumerating it. When only a
+# couple of parameters actually matter — the usual case — sampling finds the
+# good region far sooner than marching through every cell of a large grid.
+MAX_SAMPLES = 5000
+DEFAULT_SAMPLES = 500
 
 RANKABLE_METRICS = (
     "sharpe",
@@ -66,6 +75,14 @@ class ParamRange:
         return [round(v, 10) for v in raw]
 
 
+def grid_size(ranges: list[ParamRange]) -> int:
+    """How many combinations a full sweep of these ranges would produce."""
+    total = 1
+    for r in ranges:
+        total *= len(r.values())
+    return total
+
+
 def build_grid(ranges: list[ParamRange]) -> list[dict]:
     """Cartesian product of every range, as a list of parameter dicts."""
     if not ranges:
@@ -74,16 +91,51 @@ def build_grid(ranges: list[ParamRange]) -> list[dict]:
     names = [r.name for r in ranges]
     axes = [r.values() for r in ranges]
 
-    total = 1
-    for axis in axes:
-        total *= len(axis)
+    total = grid_size(ranges)
     if total > MAX_COMBINATIONS:
         raise ValueError(
-            f"{total:,} combinations exceeds the limit of {MAX_COMBINATIONS:,}. "
-            "Widen the steps or sweep fewer parameters at once."
+            f"Quét toàn bộ {total:,} tổ hợp sẽ mất quá lâu "
+            f"(giới hạn {MAX_COMBINATIONS:,}). "
+            "Hãy nới bước nhảy, thu hẹp dải, hoặc chuyển sang chế độ ngẫu nhiên."
         )
 
     return [dict(zip(names, combo, strict=True)) for combo in itertools.product(*axes)]
+
+
+def build_random(ranges: list[ParamRange], samples: int, seed: int | None = None) -> list[dict]:
+    """Draw distinct random combinations from the same space a grid would cover.
+
+    Returns unique combinations: sampling with replacement would waste the
+    budget re-testing cells, and the whole point of the budget is coverage.
+    If the space is smaller than the requested sample count, the full space is
+    returned — there is nothing to sample.
+    """
+    if not ranges:
+        return [{}]
+
+    samples = max(1, min(samples, MAX_SAMPLES))
+    names = [r.name for r in ranges]
+    axes = [r.values() for r in ranges]
+
+    if grid_size(ranges) <= samples:
+        return [dict(zip(names, combo, strict=True)) for combo in itertools.product(*axes)]
+
+    rng = random.Random(seed)
+    seen: set[tuple] = set()
+    picked: list[dict] = []
+
+    # Bounded attempts: near-saturated spaces would otherwise spin looking for
+    # the last few unseen combinations.
+    attempts = 0
+    while len(picked) < samples and attempts < samples * 20:
+        attempts += 1
+        combo = tuple(rng.choice(axis) for axis in axes)
+        if combo in seen:
+            continue
+        seen.add(combo)
+        picked.append(dict(zip(names, combo, strict=True)))
+
+    return picked
 
 
 def _sort_key(row: dict, metric: str) -> float:
@@ -103,13 +155,22 @@ def optimize(
     config: BacktestConfig | None = None,
     metric: str = "sharpe",
     top_n: int = 50,
+    mode: str = "grid",
+    samples: int = DEFAULT_SAMPLES,
+    seed: int | None = None,
     progress_cb: Callable[[int, int], None] | None = None,
 ) -> dict:
-    """Run the sweep and return the ranked table plus summary statistics."""
+    """Run the sweep and return the ranked table plus summary statistics.
+
+    ``mode`` is "grid" (every combination) or "random" (a sample of them).
+    """
     if metric not in RANKABLE_METRICS:
         raise ValueError(f"cannot rank by '{metric}'; choose from {RANKABLE_METRICS}")
+    if mode not in ("grid", "random"):
+        raise ValueError(f"unknown mode '{mode}'; expected 'grid' or 'random'")
 
-    grid = build_grid(ranges)
+    full_size = grid_size(ranges) if ranges else 1
+    grid = build_grid(ranges) if mode == "grid" else build_random(ranges, samples, seed)
     total = len(grid)
     rows: list[dict] = []
     failures: list[dict] = []
@@ -154,6 +215,9 @@ def optimize(
     finite = scores[np.isfinite(scores)]
 
     summary = {
+        "mode": mode,
+        "space_size": full_size,
+        "coverage_pct": (len(rows) / full_size * 100.0) if full_size else 100.0,
         "combinations": total,
         "completed": len(rows),
         "failed": len(failures),

@@ -58,6 +58,34 @@ def get_spec(indicator_id: str) -> IndicatorSpec:
     return spec
 
 
+
+def _assign_panes(outputs: list[dict], values: dict[str, list], df: pd.DataFrame) -> None:
+    """Mark outputs that cannot share the price axis.
+
+    A static overlay/panel label is per-indicator, but several indicators mix
+    scales inside one result: Bollinger Bands returns three price-level bands
+    plus a bandwidth and a percent; SuperTrend returns a price line plus a
+    direction of -1/1. Drawing those on the price axis forces it down toward
+    zero and squashes the candles into a strip.
+
+    So the decision is made per output, from the numbers themselves: an output
+    whose whole range sits far off the candle range gets its own pane. Being
+    data-driven rather than a hard-coded list, this also covers plugins.
+    """
+    low = float(df["low"].min())
+    high = float(df["high"].max())
+
+    for output in outputs:
+        series = [v for v in values.get(output["key"], []) if v is not None]
+        if not series:
+            output["pane"] = "price"
+            continue
+
+        lo, hi = min(series), max(series)
+        off_scale = hi < low * 0.5 or lo > high * 2.0
+        output["pane"] = "separate" if off_scale else "price"
+
+
 def compute(indicator_id: str, df: pd.DataFrame, params: dict | None = None) -> dict:
     """Run one indicator over a candle frame.
 
@@ -111,13 +139,20 @@ def compute(indicator_id: str, df: pd.DataFrame, params: dict | None = None) -> 
     else:
         outputs = derived_outputs
 
+    payload_outputs = [o.as_dict(i) for i, o in enumerate(outputs)]
+    if spec.kind == "overlay":
+        _assign_panes(payload_outputs, values, df)
+    else:
+        for output in payload_outputs:
+            output["pane"] = "separate"
+
     return {
         "id": spec.id,
         "name": spec.name,
         "kind": spec.kind,
         "source": spec.source,
         "params": resolved,
-        "outputs": [o.as_dict(i) for i, o in enumerate(outputs)],
+        "outputs": payload_outputs,
         "values": values,
         "times": [int(t) // 1000 for t in df["open_time"].tolist()],
     }

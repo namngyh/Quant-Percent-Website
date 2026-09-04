@@ -126,6 +126,26 @@ const ChartManager = (() => {
     overlays.set(instanceId, seriesList);
   }
 
+  /* Draw one indicator, splitting its outputs by the pane the backend assigned.
+
+     An indicator is not always all-price or all-panel: Bollinger Bands puts
+     three bands on the price axis and a bandwidth and percent somewhere else.
+     Outputs marked "separate" go to their own pane so they cannot drag the
+     price axis toward zero. */
+  function draw(instanceId, result, paneContainer) {
+    remove(instanceId);
+
+    const onPrice = result.outputs.filter((o) => o.pane !== 'separate');
+    const offScale = result.outputs.filter((o) => o.pane === 'separate');
+
+    if (onPrice.length) {
+      drawOverlay(instanceId, { ...result, outputs: onPrice });
+    }
+    if (offScale.length) {
+      drawPane(instanceId, { ...result, outputs: offScale }, paneContainer);
+    }
+  }
+
   function removeOverlay(instanceId) {
     const seriesList = overlays.get(instanceId);
     if (!seriesList) return;
@@ -248,7 +268,7 @@ const ChartManager = (() => {
     return bar ? bar.time : null;
   }
 
-  return { init, setCandles, drawOverlay, drawPane, remove, clearAll,
+  return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll,
            setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime };
 })();
 

@@ -145,13 +145,87 @@ const Strategy = (() => {
       box.addEventListener('change', () => {
         sweep[box.dataset.sweepOn].enabled = box.checked;
         renderSweep();
+        scheduleSize();
       });
     }
     for (const input of elements.sweep.querySelectorAll('[data-sweep]')) {
       input.addEventListener('input', () => {
         sweep[input.dataset.sweep][input.dataset.key] = Number(input.value);
+        scheduleSize();
       });
     }
+
+    updateSize();
+  }
+
+  // ---------- Sweep size ----------
+  //
+  // Shown before the button is pressed, because the alternative is launching a
+  // sweep and finding out from an error that it was never going to run. The
+  // parameter space of a real strategy reaches millions of combinations very
+  // quickly, and that should be visible while the ranges are being typed.
+
+  let sizeTimer = null;
+
+  function scheduleSize() {
+    clearTimeout(sizeTimer);
+    sizeTimer = setTimeout(updateSize, 250);
+  }
+
+  function enabledRanges() {
+    return Object.entries(sweep)
+      .filter(([, s]) => s.enabled)
+      .map(([name, s]) => ({ name, start: s.start, stop: s.stop, step: s.step }));
+  }
+
+  function fmtDuration(seconds) {
+    if (seconds < 60) return `${seconds.toFixed(0)} giây`;
+    if (seconds < 3600) return `${(seconds / 60).toFixed(0)} phút`;
+    return `${(seconds / 3600).toFixed(1)} giờ`;
+  }
+
+  async function updateSize() {
+    const box = elements.sweepSize;
+    if (!box) return;
+
+    const ranges = enabledRanges();
+    if (!ranges.length) {
+      box.className = 'sweep-size';
+      box.textContent = 'Chưa chọn tham số nào để quét.';
+      return;
+    }
+
+    let info;
+    try {
+      info = await API.sweepSize({ ranges, bars: context().limit || 2000 });
+    } catch (err) {
+      box.className = 'sweep-size over';
+      box.textContent = err.message;
+      return;
+    }
+
+    const axes = info.per_axis.map((a) => `${a.name}×${a.values}`).join(' · ');
+    const total = info.combinations.toLocaleString('vi-VN');
+
+    if (elements.mode.value === 'random') {
+      const samples = Math.min(Number(elements.samples.value) || 500, info.combinations);
+      const seconds = (info.estimated_seconds / Math.max(info.combinations, 1)) * samples;
+      const coverage = (samples / info.combinations) * 100;
+      box.className = 'sweep-size';
+      box.innerHTML =
+        `Không gian <span class="big">${total}</span> tổ hợp — ${axes}<br>` +
+        `Lấy <span class="big">${samples.toLocaleString('vi-VN')}</span> mẫu ` +
+        `(${coverage < 0.01 ? '&lt;0,01' : coverage.toFixed(2)}%) ≈ ${fmtDuration(seconds)}`;
+      return;
+    }
+
+    box.className = `sweep-size${info.exceeds_limit ? ' over' : ''}`;
+    box.innerHTML =
+      `<span class="big">${total}</span> tổ hợp — ${axes}<br>` +
+      (info.exceeds_limit
+        ? `Vượt giới hạn ${info.max_combinations.toLocaleString('vi-VN')}, ước tính ` +
+          `${fmtDuration(info.estimated_seconds)}. Nới bước nhảy hoặc chuyển sang <strong>Ngẫu nhiên</strong>.`
+        : `Ước tính ${fmtDuration(info.estimated_seconds)}`);
   }
 
   // ---------- Execution settings ----------
@@ -297,9 +371,7 @@ const Strategy = (() => {
   async function runOptimize() {
     if (!current) return null;
 
-    const ranges = Object.entries(sweep)
-      .filter(([, s]) => s.enabled)
-      .map(([name, s]) => ({ name, start: s.start, stop: s.stop, step: s.step }));
+    const ranges = enabledRanges();
 
     if (!ranges.length) {
       elements.optimize.innerHTML =
@@ -315,6 +387,8 @@ const Strategy = (() => {
       limit: ctx.limit,
       ranges,
       metric: elements.metric.value,
+      mode: elements.mode.value,
+      samples: Number(elements.samples.value) || 500,
       execution: execution(),
     });
 
@@ -340,8 +414,14 @@ const Strategy = (() => {
     }
 
     html += '<div class="metrics">';
-    html += metricCard('Số tổ hợp', String(s.combinations), '',
-      s.failed ? `${s.failed} lỗi` : '');
+    html += metricCard(
+      s.mode === 'random' ? 'Số mẫu đã chạy' : 'Số tổ hợp',
+      String(s.combinations),
+      '',
+      s.mode === 'random'
+        ? `${s.coverage_pct < 0.01 ? '<0,01' : s.coverage_pct.toFixed(2)}% của ${s.space_size.toLocaleString('vi-VN')}`
+        : (s.failed ? `${s.failed} lỗi` : ''),
+    );
     html += metricCard('Có lãi', `${s.profitable_pct.toFixed(0)}%`,
       s.profitable_pct >= 50 ? 'pos' : 'neg', `${s.profitable}/${s.completed}`);
     html += metricCard('Trung vị lợi nhuận', pct(s.median_return_pct),
@@ -396,6 +476,12 @@ const Strategy = (() => {
     onResult = config.onResult;
 
     elements.select.addEventListener('change', () => select(elements.select.value));
+
+    elements.mode.addEventListener('change', () => {
+      elements.samplesRow.hidden = elements.mode.value !== 'random';
+      updateSize();
+    });
+    elements.samples.addEventListener('input', scheduleSize);
   }
 
   return { init, load, runBacktest, runOptimize, get selected() { return current; } };

@@ -9,7 +9,15 @@ from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend.data import store
-from backend.optimizer.grid import RANKABLE_METRICS, ParamRange, optimize
+from backend.optimizer.grid import (
+    DEFAULT_SAMPLES,
+    MAX_COMBINATIONS,
+    MAX_SAMPLES,
+    RANKABLE_METRICS,
+    ParamRange,
+    grid_size,
+    optimize,
+)
 from backend.strategy import registry
 from backend.strategy.base import StrategyError
 from backend.strategy.engine import BacktestConfig
@@ -62,7 +70,15 @@ class OptimizeRequest(BaseModel):
     limit: int | None = None
     metric: str = "sharpe"
     top_n: int = Field(default=50, ge=1, le=500)
+    mode: str = "grid"
+    samples: int = Field(default=DEFAULT_SAMPLES, ge=1, le=MAX_SAMPLES)
+    seed: int | None = None
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
+
+
+class SizeRequest(BaseModel):
+    ranges: list[SweepRange]
+    bars: int = 2000
 
 
 def _load_candles(symbol: str | None, timeframe: str | None, limit: int | None):
@@ -89,6 +105,9 @@ def catalog() -> dict:
         "strategies": items,
         "load_errors": registry.get_load_errors(),
         "rankable_metrics": list(RANKABLE_METRICS),
+        "max_combinations": MAX_COMBINATIONS,
+        "max_samples": MAX_SAMPLES,
+        "default_samples": DEFAULT_SAMPLES,
     }
 
 
@@ -127,6 +146,9 @@ def run_optimize(request: OptimizeRequest) -> dict:
             config=request.execution.to_config(),
             metric=request.metric,
             top_n=request.top_n,
+            mode=request.mode,
+            samples=request.samples,
+            seed=request.seed,
         )
     except (ValueError, StrategyError) as exc:
         # Grid too large, bad step, unknown metric, unknown strategy — all
@@ -135,3 +157,30 @@ def run_optimize(request: OptimizeRequest) -> dict:
     except Exception as exc:
         log.exception("optimize failed for %s", request.strategy_id)
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
+
+
+# Rough per-combination cost, measured on this machine: ~10 ms over 2 000
+# candles and ~37 ms over 20 000. Linear in bar count is close enough for a
+# "this will take about a minute" hint.
+MS_PER_COMBO_PER_1K_BARS = 5.0
+
+
+@router.post("/optimize/size")
+def optimize_size(request: SizeRequest) -> dict:
+    """How big a sweep would be, so the UI can say so before it is launched."""
+    try:
+        ranges = [ParamRange(r.name, r.start, r.stop, r.step) for r in request.ranges]
+        total = grid_size(ranges) if ranges else 0
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    per_combo_ms = MS_PER_COMBO_PER_1K_BARS * max(request.bars, 1) / 1000.0
+    return {
+        "combinations": total,
+        "estimated_seconds": round(total * per_combo_ms / 1000.0, 1),
+        "max_combinations": MAX_COMBINATIONS,
+        "exceeds_limit": total > MAX_COMBINATIONS,
+        "per_axis": [
+            {"name": r.name, "values": len(r.values())} for r in ranges
+        ],
+    }

@@ -92,11 +92,9 @@
       limit: state.limit,
     });
 
-    if (result.kind === 'overlay') {
-      ChartManager.drawOverlay(instanceId, result);
-    } else {
-      ChartManager.drawPane(instanceId, result, el.panes);
-    }
+    // The backend tags each output with the pane it belongs in, so one call
+    // handles pure overlays, pure panels, and the mixed case.
+    ChartManager.draw(instanceId, result, el.panes);
   }
 
 
@@ -284,12 +282,16 @@
         params: document.getElementById('strategy-params'),
         sweep: document.getElementById('sweep-ranges'),
         metric: document.getElementById('opt-metric'),
+        mode: document.getElementById('opt-mode'),
+        samples: document.getElementById('opt-samples'),
+        samplesRow: document.getElementById('opt-samples-row'),
+        sweepSize: document.getElementById('sweep-size'),
         metrics: document.getElementById('metrics'),
         trades: document.getElementById('trades'),
         optimize: document.getElementById('optimize-results'),
         equityChart: document.getElementById('equity-chart'),
         capital: document.getElementById('exec-capital'),
-        size: document.getElementById('exec-size'),
+        size: document.getElementById('exec-size'),   // % of equity per trade
         leverage: document.getElementById('exec-leverage'),
         fee: document.getElementById('exec-fee'),
         slippage: document.getElementById('exec-slippage'),
