@@ -138,7 +138,7 @@ const I18n = (() => {
     // ---------------- portfolio panel
     'pf.title':           { vi: 'Danh mục', en: 'Portfolio' },
     'pf.about':           { vi: 'Trang này đo cái gì', en: 'What this page measures' },
-    'pf.lead':            { vi: 'Nhập vị thế cổ phiếu Việt Nam của bạn. Mọi con số đo từ chính lịch sử giá mà database của team có — không có lợi suất hay tương quan giả định. Không có gì được lưu lại.', en: 'Enter your Vietnamese equity positions. Every number is measured from the price history the team database holds — no assumed returns, no assumed correlations. Nothing is stored.' },
+    'pf.lead':            { vi: 'Nhập vị thế cổ phiếu Việt Nam của bạn. Mọi con số đo từ chính lịch sử giá mà database của team có, không có lợi suất hay tương quan giả định. Không có gì được lưu lại.', en: 'Enter your Vietnamese equity positions. Every number is measured from the price history the team database holds: no assumed returns, no assumed correlations. Nothing is stored.' },
     'pf.add':             { vi: '+ Thêm mã', en: '+ Add a symbol' },
     'pf.quickAdd':        { vi: 'Thêm nhanh:', en: 'Quick add:' },
     'pf.cash':            { vi: 'Tiền mặt (đồng)', en: 'Cash (VND)' },
@@ -174,13 +174,13 @@ const I18n = (() => {
     'tg.clear':           { vi: 'Xoá', en: 'Clear' },
     'tg.clearTitle':      { vi: 'Xoá token khỏi máy', en: 'Remove the token from this machine' },
     'tg.checking':        { vi: 'Đang kiểm tra…', en: 'Checking…' },
-    'tg.privacy':         { vi: 'Token được ghi vào file .env trên máy bạn — file này đã nằm trong .gitignore nên không bao giờ lên git. Trang này chỉ hiển thị lại token đã che.', en: 'The token is written to .env on this machine — that file is gitignored, so it never reaches git. This page only ever shows it back masked.' },
+    'tg.privacy':         { vi: 'Token được ghi vào file .env trên máy bạn (file này đã nằm trong .gitignore nên không bao giờ lên git. Trang này chỉ hiển thị lại token đã che.', en: 'The token is written to .env on this machine (that file is gitignored, so it never reaches git. This page only ever shows it back masked.' },
     'tg.on':              { vi: 'Đang bật qua <strong>@{bot}</strong>. Mỗi lần phiên paper vào hoặc đóng lệnh sẽ có tin nhắn.', en: 'Active via <strong>@{bot}</strong>. You get a message whenever a paper session opens or closes a trade.' },
     'tg.off':             { vi: 'Chưa bật.', en: 'Not configured.' },
     'tg.needToken':       { vi: 'Dán bot token vào ô phía trên.', en: 'Paste the bot token into the field above.' },
     'tg.needChat':        { vi: 'Thiếu chat id.', en: 'Chat id is missing.' },
     'tg.saved':           { vi: 'Đã lưu. Bấm "Gửi tin thử" để chắc chắn chat id đúng.', en: 'Saved. Press “Send a test” to confirm the chat id is right.' },
-    'tg.sent':            { vi: 'Đã gửi tin thử — kiểm tra Telegram', en: 'Test sent — check Telegram' },
+    'tg.sent':            { vi: 'Đã gửi tin thử: kiểm tra Telegram', en: 'Test sent: check Telegram' },
     'tg.cleared':         { vi: 'Đã xoá token khỏi máy.', en: 'Token removed from this machine.' },
     'tg.saving':          { vi: 'Đang kiểm tra…', en: 'Verifying…' },
     'tg.sending':         { vi: 'Đang gửi…', en: 'Sending…' },
@@ -303,7 +303,7 @@ const tp = (value) => I18n.pick(value);
 
 /* Inline pair, for prose that appears exactly once.
  *
- * The dictionary above is for anything said in more than one place — a label
+ * The dictionary above is for anything said in more than one place: a label
  * that has to match between a rail button and a panel heading, say. The report
  * and portfolio windows are the opposite case: several hundred sentences, each
  * used once, most of them a full explanation rather than a label. Routing

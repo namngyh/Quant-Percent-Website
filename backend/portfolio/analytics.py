@@ -33,7 +33,7 @@ một tuỳ chọn nâng cao.
   căn bậc hai của thời gian. Nền tảng này không có lần chạy đó, và mượn số của
   một mô hình mà mình không kiểm chứng được thì tệ hơn là tự mô phỏng. Nên
   phần dự phóng ở đây là **bootstrap khối** trên chính chuỗi lợi suất của danh
-  mục — xem ``forward_risk``.
+  mục, xem ``forward_risk``.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ MIN_OBSERVATIONS = 60
 # Các mức sụt giảm mà bảng dự phóng báo cáo. Cố định chứ không suy ra từ danh
 # mục: khi ngưỡng thay đổi theo từng danh mục thì mọi danh mục đều cho cùng một
 # đường cong ở những nhãn hơi khác nhau, và bảng không đọc được. Cố định trục
-# đẩy phần khác biệt về đúng chỗ người đọc nhìn thấy — cột xác suất.
+# đẩy phần khác biệt về đúng chỗ người đọc nhìn thấy: cột xác suất.
 DRAWDOWN_THRESHOLDS = (0.03, 0.05, 0.07, 0.10, 0.15, 0.20, 0.30)
 
 MAX_HOLDINGS = 50
@@ -72,7 +72,7 @@ _RNG = np.random.default_rng(20260101)
 
 
 class PortfolioError(ValueError):
-    """Danh mục không đo được — do dữ liệu, không phải do lỗi lập trình."""
+    """Danh mục không đo được do dữ liệu, không phải do lỗi lập trình."""
 
 
 # ------------------------------------------------------------------ dữ liệu
@@ -104,8 +104,8 @@ def _daily_log_returns(closes: dict) -> dict:
     """Lợi suất log từng phiên, so với phiên liền trước của chính chuỗi đó.
 
     Khoá theo ngày để một chuỗi ghép được với chuỗi khác vốn giữ tập phiên khác
-    — cần thiết vì chỉ số và cổ phiếu không phải lúc nào cũng có cùng số phiên
-    trong cửa sổ.
+    (cần thiết vì chỉ số và cổ phiếu không phải lúc nào cũng có cùng số phiên
+    trong cửa sổ).
     """
     ordered = sorted(closes)
     return {
@@ -120,7 +120,7 @@ def _daily_log_returns(closes: dict) -> dict:
 def ledoit_wolf(returns: np.ndarray) -> tuple[np.ndarray, float]:
     """Hiệp phương sai mẫu, co rút về mục tiêu tương quan hằng số.
 
-    Ledoit và Wolf (2004), **có** số hạng rho. Bỏ rho — cách rút gọn phổ biến —
+    Ledoit và Wolf (2004), **có** số hạng rho. Bỏ rho (cách rút gọn phổ biến)
     làm cường độ co rút bị thổi lên, và trên lợi suất ngày của thị trường Việt
     Nam nó bão hoà ở 1.0: mọi tương quan sụp về giá trị trung bình và ma trận
     mất đúng cái cấu trúc mà phân tích này tồn tại để tìm. Một rổ toàn mã cùng
@@ -210,7 +210,7 @@ def forward_risk(
     Dùng bootstrap khối tĩnh (Politis–Romano 1994) chứ không lấy mẫu độc lập
     từng ngày. Lý do: kiểm định ARCH ở tab Thống kê gần như luôn bác bỏ giả
     thuyết biến động cố định. Lấy mẫu độc lập sẽ phá vỡ hiện tượng gom cụm biến
-    động, và **đánh giá thấp có hệ thống** xác suất của những đợt sụt sâu — vốn
+    động, và **đánh giá thấp có hệ thống** xác suất của những đợt sụt sâu, vốn
     xảy ra chính vì các phiên xấu đi liền nhau. Lấy theo khối giữ lại điều đó.
 
     Độ dài khối kỳ vọng lấy theo quy tắc n^(1/3), là quy tắc thông dụng cho
@@ -530,7 +530,7 @@ def _notes(positions: list[dict], unpriced: list[str], shrinkage: float) -> list
         if standout["risk_gap_pct"] > 5:
             notes.append(bi(
                 f"{standout['symbol']} chiếm {standout['weight_pct']:.1f}% tiền "
-                f"nhưng {standout['risk_contribution_pct']:.1f}% rủi ro — cao hơn "
+                f"nhưng {standout['risk_contribution_pct']:.1f}% rủi ro, cao hơn "
                 f"{standout['risk_gap_pct']:.1f} điểm phần trăm so với cỡ vị thế. "
                 "Nguyên nhân là nó vừa biến động mạnh hơn vừa đi cùng chiều với "
                 "phần còn lại của danh mục.",
@@ -545,11 +545,11 @@ def _notes(positions: list[dict], unpriced: list[str], shrinkage: float) -> list
         listed = ", ".join(unpriced)
         notes.append(bi(
             "Không phân tích được: " + listed +
-            f" — chưa đủ {MIN_OBSERVATIONS} phiên lịch sử. Các mã này bị loại "
+            f": chưa đủ {MIN_OBSERVATIONS} phiên lịch sử. Các mã này bị loại "
             "khỏi mọi con số bên trên, nên danh mục được đo không phải là danh "
             "mục bạn đã nhập.",
             "Could not be analysed: " + listed +
-            f" — fewer than {MIN_OBSERVATIONS} sessions of history. These are "
+            f": fewer than {MIN_OBSERVATIONS} sessions of history. These are "
             "excluded from every figure above, so the portfolio measured is not "
             "the portfolio you entered.",
         ))

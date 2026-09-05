@@ -159,7 +159,7 @@ async def backfill(request: BackfillRequest) -> dict:
         if not sources.supports_backfill(symbol):
             raise HTTPException(
                 400,
-                f"{symbol} đến từ database của team và chỉ đọc — không backfill được.",
+                f"{symbol} đến từ database của team và chỉ đọc, không backfill được.",
             )
 
     if _backfill_lock.locked():

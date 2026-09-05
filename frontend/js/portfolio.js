@@ -1,4 +1,4 @@
-/* Quant Portfolio — ported from quantpercent.com.
+/* Quant Portfolio: ported from quantpercent.com.
  *
  * The form lives in the side panel because it is a list of short fields; the
  * result opens in the report window because it is not. A weight-against-risk
@@ -7,7 +7,7 @@
  *
  * The one number this page exists for is risk contribution. A reader already
  * knows what share of their money is in each name. What they cannot see is
- * that a quarter of the money can be most of the risk — so that gap is stated
+ * that a quarter of the money can be most of the risk, so that gap is stated
  * in a sentence, drawn as a paired bar, and sorted to the top of the table,
  * rather than left to be noticed.
  */
@@ -43,7 +43,7 @@ const Portfolio = (() => {
     'cao': L('cao', 'high'),
   }[state] || state);
 
-  /** Money in dong, abbreviated — 563.240.000 does not read at a glance. */
+  /** Money in dong, abbreviated: 563.240.000 does not read at a glance. */
   function dong(value) {
     if (!Number.isFinite(value)) return '—';
     const magnitude = Math.abs(value);
@@ -311,7 +311,7 @@ const Portfolio = (() => {
         </div>`;
       }).join('')}
       <p class="table-note">${esc(L(
-        'Cột phải là chênh lệch giữa phần rủi ro và phần tiền. Số dương (đỏ) nghĩa là vị thế đó gánh nhiều rủi ro hơn tỷ trọng vốn gợi ý — do biến động mạnh hơn hoặc tương quan cao với rổ còn lại.',
+        'Cột phải là chênh lệch giữa phần rủi ro và phần tiền. Số dương (đỏ) nghĩa là vị thế đó gánh nhiều rủi ro hơn tỷ trọng vốn gợi ý, do biến động mạnh hơn hoặc tương quan cao với rổ còn lại.',
         'The right column is the gap between share of risk and share of money. Positive means the position carries more risk than its size suggests.'))}</p>
     </div>`;
   }
@@ -518,8 +518,8 @@ const Portfolio = (() => {
       }).join('') +
       `</tbody></table>
       <p class="table-note">${esc(L(
-        `Sắp xếp theo phần rủi ro, không theo phần tiền — đó là thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${d.last_session}, quy về đồng (feed niêm yết theo nghìn đồng).`,
-        `Sorted by share of risk rather than share of money — that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>
+        `Sắp xếp theo phần rủi ro, không theo phần tiền, đó là thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${d.last_session}, quy về đồng (feed niêm yết theo nghìn đồng).`,
+        `Sorted by share of risk rather than share of money: that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>
     </div>`;
   }
 
@@ -550,8 +550,8 @@ const Portfolio = (() => {
     html += correlationHeatmap(d);
 
     html += `<p class="table-note" style="margin-top:14px">${esc(L(
-      'Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn và trừ cả phần tương quan — mười mã cùng ngành với tương quan 0,7 hành xử như khoảng ba cược, không phải mười.',
-      'Effective assets counts money only: ten equal names give 10, ten names where one holds 80% give about 1.5. Effective bets goes further and removes correlation — ten names in one sector correlated at 0.7 behave like about three bets, not ten.'))}</p>
+      'Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn và trừ cả phần tương quan: mười mã cùng ngành với tương quan 0,7 hành xử như khoảng ba cược, không phải mười.',
+      'Effective assets counts money only: ten equal names give 10, ten names where one holds 80% give about 1.5. Effective bets goes further and removes correlation: ten names in one sector correlated at 0.7 behave like about three bets, not ten.'))}</p>
       <p class="table-note">${esc(L('Hiệp phương sai dùng co rút Ledoit–Wolf',
         'Covariance uses Ledoit–Wolf shrinkage'))}
       ${Explain.button('p.shrinkage', { title: L('Giải thích co rút', 'Explain shrinkage') })},
@@ -572,8 +572,8 @@ const Portfolio = (() => {
       `Mô phỏng ${f.horizon_days} phiên tới`,
       `Simulating the next ${f.horizon_days} sessions`))}</strong>
       ${esc(L(
-        `bằng ${paths} đường đi, lấy mẫu theo khối ${nf(f.block_length, 0)} phiên từ chính ${f.observations} phiên lịch sử của danh mục này. Lấy theo khối chứ không lấy từng ngày độc lập, để giữ lại hiện tượng biến động gom cụm — nếu bỏ nó, xác suất của những đợt sụt sâu bị đánh giá thấp một cách có hệ thống.`,
-        `over ${paths} paths, sampled in blocks of ${nf(f.block_length, 0)} sessions from this portfolio's own ${f.observations} sessions of history. Blocks rather than independent days, to keep volatility clustering — dropping it systematically understates the odds of a deep fall.`))}</div>`;
+        `bằng ${paths} đường đi, lấy mẫu theo khối ${nf(f.block_length, 0)} phiên từ chính ${f.observations} phiên lịch sử của danh mục này. Lấy theo khối chứ không lấy từng ngày độc lập, để giữ lại hiện tượng biến động gom cụm, nếu bỏ nó, xác suất của những đợt sụt sâu bị đánh giá thấp một cách có hệ thống.`,
+        `over ${paths} paths, sampled in blocks of ${nf(f.block_length, 0)} sessions from this portfolio's own ${f.observations} sessions of history. Blocks rather than independent days, to keep volatility clustering: dropping it systematically understates the odds of a deep fall.`))}</div>`;
 
     html += '<div class="metrics">';
     html += metric(L('Lợi suất kỳ vọng', 'Expected return'), pct(f.expected_return_pct),
@@ -734,7 +734,7 @@ const Portfolio = (() => {
       elements.message.textContent = t('pf.ready', { n: known.size });
     } catch (err) {
       // The VPN being off is by far the likeliest cause, and the message the
-      // backend already produces says so — so it is passed straight through.
+      // backend already produces says so, so it is passed straight through.
       elements.message.textContent = err.message;
     }
   }

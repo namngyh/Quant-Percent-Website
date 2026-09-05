@@ -6,20 +6,20 @@ Bitcoin (Binance) và **chứng khoán Việt Nam** (HOSE, từ database của t
 - Dữ liệu OHLCV từ **Binance** (public API, không cần API key), lưu vào **DuckDB**
 - Chart nến bằng **Lightweight Charts** (thư viện mã nguồn mở của TradingView)
 - **189 chỉ báo** và **4 chiến lược** dùng ngay (gồm Bollinger Bands và vài mô hình ML đơn giản), tham số chỉnh trực tiếp bằng slider trên giao diện
-- Thêm **chỉ báo riêng bằng file Python** — thả file vào `plugins/indicators/`
+- Thêm **chỉ báo riêng bằng file Python**: thả file vào `plugins/indicators/`
 - **Backtest chiến lược** viết bằng Python, có phí và trượt giá, khớp lệnh không nhìn trước
 - **Tối ưu tham số** bằng grid search hoặc random search, kèm cảnh báo overfit
 - **Walk-forward validation**, **Monte Carlo** và **kiểm định thống kê** (phân phối,
-  bước ngẫu nhiên, suy diễn) — kiểm tra xem kết quả có thật không
+  bước ngẫu nhiên, suy diễn): kiểm tra xem kết quả có thật không
 - **So sánh nhiều chiến lược** cạnh nhau, và **xuất CSV / PNG**
 - **Nến realtime** qua WebSocket Binance, và **hot-reload** file `.py` khi bạn sửa
-- **Paper trading** — chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
+- **Paper trading**: chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo
 
 ---
 
 ## Chạy hằng ngày
 
-**Lần đầu tiên (chỉ một lần):** nháy đúp **`setup.bat`** — tạo môi trường ảo và cài thư viện.
+**Lần đầu tiên (chỉ một lần):** nháy đúp **`setup.bat`**: tạo môi trường ảo và cài thư viện.
 
 **Mỗi lần muốn dùng:** nháy đúp **`start.bat`**. Trình duyệt tự mở ở
 http://127.0.0.1:8000. Đóng cửa sổ đen đó là tắt nền tảng.
@@ -30,7 +30,7 @@ Không cần gõ lệnh gì. Muốn tiện hơn: chuột phải `start.bat` → 
 ### Cập nhật dữ liệu
 
 Dữ liệu **không tự cập nhật**. Khi muốn kéo nến mới nhất, bấm nút
-**"Cập nhật dữ liệu"** ở góc trên bên phải — nó tải tiếp từ nến cuối cùng đã có,
+**"Cập nhật dữ liệu"** ở góc trên bên phải: nó tải tiếp từ nến cuối cùng đã có,
 cho đúng khung thời gian đang xem.
 
 ### Chạy bằng dòng lệnh (tuỳ chọn)
@@ -63,11 +63,11 @@ Database chứa dữ liệu cổ phiếu và phái sinh Việt Nam (HOSE, VN30, 
 Liên hệ quản trị viên (Admin Quant Percent) để được:
 - Thêm email/máy của bạn vào mạng riêng ảo Tailscale của Quant Percent (nhận lời mời vào Tailnet).
 - Cung cấp thông tin tài khoản DB:
-  - **Host**: Địa chỉ IP Tailscale của VPS (thường là `100.x.y.z` hoặc `10.10.0.1`).
+  - **Host Tailscale VPS**: `100.84.96.26` (hoặc `qp-vps.tailc84100.ts.net`)
   - **Port**: `5432`
   - **Database**: `market`
   - **User**: `qp_remote` (tài khoản read-only)
-  - **Password**: Mật khẩu riêng do team cấp
+  - **Password**: `dulieuvn30choteam2026`
 
 #### Bước 2: Cài đặt và kích hoạt Tailscale VPN
 1. Tải và cài đặt Tailscale: [https://tailscale.com/download](https://tailscale.com/download)
@@ -76,7 +76,7 @@ Liên hệ quản trị viên (Admin Quant Percent) để được:
    ```bash
    tailscale status
    ```
-   Hoặc ping thử địa chỉ IP của VPS: `ping 100.x.y.z`.
+   Hoặc ping thử địa chỉ IP của VPS: `ping 100.84.96.26`.
 > ⚠️ **LƯU Ý QUAN TRỌNG:** Bất cứ khi nào bạn tắt VPN Tailscale, ứng dụng sẽ không thể tới được máy chủ và báo lỗi *Connection timeout* hoặc *Could not translate host name*. Đây là cơ chế bảo mật có chủ đích, không phải lỗi cấu hình. Hãy luôn bật Tailscale trước khi làm việc với dữ liệu VN.
 
 #### Bước 3: Cấu hình mật khẩu và chuỗi kết nối (.env)
@@ -85,13 +85,13 @@ Liên hệ quản trị viên (Admin Quant Percent) để được:
    copy .env.example .env
    ```
    *(Lưu ý: Nếu bạn vừa chạy `setup.bat` hoặc `start.bat`, file `.env` đã được tự động tạo sẵn).*
-2. Mở file `.env` bằng bất kỳ trình soạn thảo nào (VS Code, Notepad...) và điền mật khẩu thật vào biến `MARKET_DSN`:
+2. Mở file `.env` bằng bất kỳ trình soạn thảo nào (VS Code, Notepad...) và cấu hình biến `MARKET_DSN`:
    ```env
    # Định dạng: postgresql://[user]:[password]@[host]:[port]/[database]
-   MARKET_DSN=postgresql://qp_remote:MAT_KHAU_DO_ADMIN_CAP@100.x.y.z:5432/market
+   MARKET_DSN=postgresql://qp_remote:dulieuvn30choteam2026@100.84.96.26:5432/market
    ```
-   - Thay `MAT_KHAU_DO_ADMIN_CAP` bằng mật khẩu được cấp.
-   - Thay `100.x.y.z` bằng IP Tailscale VPS của team.
+   - Mật khẩu chính thức: `dulieuvn30choteam2026`
+   - IP máy chủ VPS trong mạng Tailscale: `100.84.96.26`
    - *Ghi chú:* File `.env` nằm trong `.gitignore`, không bao giờ bị đưa lên Git, đảm bảo an toàn tuyệt đối cho mật khẩu.
 
 #### Bước 4: Kiểm tra kết nối độc lập
@@ -257,7 +257,7 @@ mỗi tham số bạn khai báo.
 
 Xem 2 file mẫu có sẵn: `example_ema_ribbon.py` (overlay) và `example_zscore.py` (panel).
 
-Nếu file có lỗi, nền tảng **không sập** — lỗi hiện ở ô cảnh báo vàng trên sidebar,
+Nếu file có lỗi, nền tảng **không sập**: lỗi hiện ở ô cảnh báo vàng trên sidebar,
 các chỉ báo khác vẫn chạy bình thường.
 
 ---
@@ -265,7 +265,7 @@ các chỉ báo khác vẫn chạy bình thường.
 ## Viết chiến lược riêng
 
 Tạo file `.py` trong `plugins/strategies/`. Chiến lược chỉ quyết định **nên
-long, short hay đứng ngoài** ở mỗi nến — nó không đặt lệnh và không tính khối
+long, short hay đứng ngoài** ở mỗi nến: nó không đặt lệnh và không tính khối
 lượng. Engine lo phần đó, nên mọi chiến lược đều được đo bằng cùng một thước.
 
 ```python
@@ -296,7 +296,7 @@ Xem 2 file mẫu: `example_ema_cross.py` (thuận xu hướng) và
 
 ### Backtest được thực hiện thế nào
 
-Đây là các giả định mà **mọi con số kết quả đều dựa vào** — biết chúng thì mới
+Đây là các giả định mà **mọi con số kết quả đều dựa vào**: biết chúng thì mới
 đọc kết quả cho đúng:
 
 | Điểm | Cách xử lý |
@@ -305,7 +305,7 @@ Xem 2 file mẫu: `example_ema_cross.py` (thuận xu hướng) và
 | **Phí** | Tính cả hai chiều, trên notional. Mặc định 0.04% (taker Binance futures). |
 | **Trượt giá** | Giá khớp bị làm xấu đi theo chiều bất lợi. Mặc định 0.02%. |
 | **Vốn** | Mỗi lệnh ký quỹ `% vốn` hiện có, điều khiển `ký quỹ × đòn bẩy` notional. |
-| **Thanh lý** | Vị thế đòn bẩy bị thanh lý **trong nến** khi lỗ chạm mức ký quỹ — kiểm tra bằng giá thấp nhất (long) / cao nhất (short), nên râu nến quét qua không bị bỏ sót. |
+| **Thanh lý** | Vị thế đòn bẩy bị thanh lý **trong nến** khi lỗ chạm mức ký quỹ: kiểm tra bằng giá thấp nhất (long) / cao nhất (short), nên râu nến quét qua không bị bỏ sót. |
 | **Vị thế** | Mỗi lúc chỉ một vị thế. Đảo chiều = đóng và mở lại trong cùng nến. |
 
 Kết quả luôn hiển thị **mua-và-giữ** bên cạnh lợi nhuận chiến lược. Lãi 40%
@@ -319,7 +319,7 @@ chạy backtest đầy đủ.
 
 Kết quả không chỉ đưa ô tốt nhất mà còn cho biết **bao nhiêu phần trăm tổ hợp
 có lãi** và **trung vị**. Nếu chỉ vài phần trăm tổ hợp có lãi mà ô đứng đầu lại
-vượt xa trung vị, nền tảng sẽ cảnh báo **overfit** — dáng đó thường là may mắn
+vượt xa trung vị, nền tảng sẽ cảnh báo **overfit**: dáng đó thường là may mắn
 chứ không phải lợi thế thật.
 
 ---
@@ -340,11 +340,11 @@ chứ không phải lợi thế thật.
 ```
 
 Tổng 179 checks. `test_market_vn.py` có 11 kiểm tra chạy offline và 9 kiểm tra
-cần VPN — phần cần VPN sẽ **báo bỏ qua** chứ không báo lỗi khi VPN tắt.
+cần VPN: phần cần VPN sẽ **báo bỏ qua** chứ không báo lỗi khi VPN tắt.
 
 Mọi con số kỳ vọng trong `test_engine.py` đều được tính tay và ghi trong
 comment. Một engine tính sai phí hoặc khớp lệnh sớm một nến vẫn cho ra đường
-equity trông rất thuyết phục — đây là thứ ngăn cách giữa điều đó và kết quả
+equity trông rất thuyết phục: đây là thứ ngăn cách giữa điều đó và kết quả
 đáng tin.
 
 `test_stats.py` chạy trên chuỗi tổng hợp có tính chất **biết trước**: bước ngẫu
@@ -354,7 +354,7 @@ cấu trúc. Một bộ kiểm định chỉ chạy trên dữ liệu thị trư
 biệt được một kiểm định hoạt động đúng với một kiểm định luôn nói "có ý nghĩa".
 
 `test_portfolio.py` không cần VPN: hàm phân tích nhận loader làm tham số, nên
-nó chạy trên chuỗi giá tổng hợp có cấu trúc tương quan biết trước — đó là cách
+nó chạy trên chuỗi giá tổng hợp có cấu trúc tương quan biết trước: đó là cách
 duy nhất kiểm tra được đóng góp rủi ro, vì trên dữ liệu thật không có đáp án
 độc lập để đối chiếu.
 
@@ -391,7 +391,7 @@ file, lưu, nhìn chart đổi.
 ## Paper trading
 
 Chạy chiến lược **tiến về phía trước** trên dữ liệu thật với tiền ảo. Mục đích là
-kiểm chứng xem backtest có nói thật hay không — nên nó dùng **đúng luật khớp lệnh
+kiểm chứng xem backtest có nói thật hay không, nên nó dùng **đúng luật khớp lệnh
 của backtest**: tín hiệu ở nến đóng, khớp ở giá mở nến kế tiếp, cùng phí và trượt
 giá, cùng cách tính thanh lý.
 
@@ -404,7 +404,7 @@ trading**. Phiên xuất hiện ở tab *Paper*.
 
 | Đặc điểm | Chi tiết |
 |---|---|
-| Chạy nền | Phiên **vẫn giao dịch khi bạn đóng trình duyệt** — nó tự giữ kết nối dữ liệu riêng |
+| Chạy nền | Phiên **vẫn giao dịch khi bạn đóng trình duyệt**: nó tự giữ kết nối dữ liệu riêng |
 | Sống sót restart | Trạng thái ghi vào DuckDB sau mỗi nến đóng; tắt server rồi bật lại, phiên tiếp tục nguyên vẹn |
 | Khởi động ấm | Nạp 2 000 nến lịch sử để chỉ báo qua cửa sổ khởi động ngay từ đầu |
 | Cập nhật | Vị thế và lãi/lỗ đẩy thẳng lên giao diện khi có nến mới, không cần bấm làm mới |
@@ -418,7 +418,7 @@ Nút **Nhập .py** ở tab *Chỉ báo* và *Chiến lược*. Chọn file, h�
 là chỉ báo hay chiến lược (qua `INDICATOR` hoặc `STRATEGY`), **kiểm tra trước khi
 ghi**, rồi đặt vào đúng thư mục.
 
-File lỗi bị từ chối kèm lý do và **không được ghi vào đĩa** — nếu không, thư mục
+File lỗi bị từ chối kèm lý do và **không được ghi vào đĩa**: nếu không, thư mục
 sẽ đầy file hỏng mà bạn phải tự dọn.
 
 ---
@@ -435,8 +435,7 @@ ghi, và một bản sao cục bộ chỉ thêm việc phải đồng bộ mà k
 copy .env.example .env
 ```
 
-Mở `.env`, điền mật khẩu vào `MARKET_DSN`. File này **đã được gitignore** — đừng
-bao giờ viết mật khẩu vào mã nguồn.
+Mở `.env`, điền mật khẩu vào `MARKET_DSN`. File này **đã được gitignore**: đừng bao giờ viết mật khẩu vào mã nguồn.
 
 Kiểm tra kết nối:
 
@@ -444,8 +443,7 @@ Kiểm tra kết nối:
 .venv\Scripts\python.exe scripts/check_market_db.py
 ```
 
-> **Phải bật VPN của team (Tailscale).** Database không nghe trên Internet — đó
-> là chủ ý. Báo timeout hoặc không tìm thấy máy chủ thì gần như chắc chắn là
+> **Phải bật VPN của team (Tailscale).** Database không nghe trên Internet: đó là chủ ý. Báo timeout hoặc không tìm thấy máy chủ thì gần như chắc chắn là
 > VPN chưa bật, không phải lỗi cấu hình.
 >
 > Nếu team dùng Tailscale, host là địa chỉ `100.x` của VPS (`tailscale status`
@@ -458,11 +456,11 @@ Chọn mã ở ô Symbol trên thanh trên. Danh sách chia ba nhóm:
 | Nhóm | Số mã | Khung thời gian |
 |---|---|---|
 | Crypto · Binance | 1 | `1m` → `1d`, có realtime |
-| Việt Nam — có nến phút | 35 | `1m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `1d` |
-| Việt Nam — chỉ nến ngày | 354 | `1d` |
+| Việt Nam: có nến phút | 35 | `1m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `1d` |
+| Việt Nam: chỉ nến ngày | 354 | `1d` |
 
 Mã Việt Nam dùng tiền tố `VN:` (ví dụ `VN:VN30F1M`). Chỉ báo, backtest và tối ưu
-chạy y hệt như với Bitcoin — engine không biết dữ liệu đến từ đâu.
+chạy y hệt như với Bitcoin: engine không biết dữ liệu đến từ đâu.
 
 ### Ba điều đã mã hoá sẵn, để không tính sai
 
@@ -486,7 +484,7 @@ sẵn trong database), tránh kéo hàng trăm nghìn dòng qua VPN để gộp 
 
 ## Giờ hiển thị
 
-Mọi thời gian trên biểu đồ là **giờ Việt Nam (GMT+7)** — có nhãn `GMT+7` trên
+Mọi thời gian trên biểu đồ là **giờ Việt Nam (GMT+7)**: có nhãn `GMT+7` trên
 thanh trên. Việt Nam không đổi giờ theo mùa nên đây là con số cố định, chính xác
 quanh năm.
 
@@ -500,14 +498,14 @@ nhau, còn trục thời gian thì đọc theo giờ bạn giao dịch.
 
 | Nguồn | Cách hoạt động |
 |---|---|
-| **Bitcoin (Binance)** | Kho DuckDB chỉ tiến khi app đang chạy. Mở app lên, nó **tự đo xem thiếu bao nhiêu nến và tự bù** — không cần bấm "Cập nhật dữ liệu". Bật Realtime thì nến mới về qua WebSocket. |
+| **Bitcoin (Binance)** | Kho DuckDB chỉ tiến khi app đang chạy. Mở app lên, nó **tự đo xem thiếu bao nhiêu nến và tự bù, không cần bấm "Cập nhật dữ liệu". Bật Realtime thì nến mới về qua WebSocket. |
 | **Việt Nam (HOSE)** | Đọc thẳng database của team nên **không bao giờ lạc hậu**. Bật Realtime thì nền tảng hỏi database mỗi vài giây trong phiên và vẽ nến mới ngay khi nó được ghi. |
 
 Chỉ khi thiếu quá 5 000 nến (nghỉ rất lâu) nền tảng mới dừng lại và mời bạn bấm
 nút, vì lúc đó là một lần tải lớn nên để bạn chủ động.
 
 > **Giới hạn của "realtime" với dữ liệu VN:** database không có dữ liệu tick,
-> nến 1 phút là mức chi tiết nhất. Nên chart khung 1m nhích một lần mỗi phút —
+> nến 1 phút là mức chi tiết nhất. Nên chart khung 1m nhích một lần mỗi phút,
 > đó đã là mức nhanh nhất dữ liệu cho phép, hỏi dày hơn cũng không hơn được.
 
 ### Tốn tài nguyên bao nhiêu
@@ -534,7 +532,7 @@ số backtest kia đáng tin đến đâu?**
 ### Walk-forward
 
 Tối ưu tham số trên một cửa sổ, rồi áp **nguyên bộ tham số đó** lên cửa sổ kế
-tiếp — dữ liệu mô hình chưa từng thấy. Trượt cửa sổ, lặp lại.
+tiếp (dữ liệu mô hình chưa từng thấy). Trượt cửa sổ, lặp lại.
 
 Cột "Ngoài mẫu" là ước lượng trung thực duy nhất. Khoảng cách giữa trong mẫu và
 ngoài mẫu chính là **cái giá của việc chọn tham số bằng hậu nghiệm**.
@@ -545,7 +543,7 @@ tảng sẽ **từ chối kết luận** thay vì đưa ra nhận định từ m
 ### Monte Carlo
 
 Lấy chính các lệnh của chiến lược, xáo lại thứ tự hàng nghìn lần. Cái thay đổi
-là may rủi, cái giữ nguyên là lợi thế — nên dải kết quả cho biết con số thật
+là may rủi, cái giữ nguyên là lợi thế: nên dải kết quả cho biết con số thật
 nằm ở đâu trong vùng hợp lý, thay vì một điểm duy nhất dễ gây tự tin nhầm.
 
 Báo cả **xác suất lỗ** và **xác suất mất trên 90% vốn**.
@@ -561,17 +559,17 @@ xếp bảng, có cả dòng mua-và-giữ để đối chiếu.
 
 Hai nút **CSV** và **PNG** ở góc panel *Kết quả*:
 
-- **CSV** — danh sách lệnh (giờ Việt Nam, giá vào/ra, lãi lỗ, lý do thoát). Sau
+- **CSV**: danh sách lệnh (giờ Việt Nam, giá vào/ra, lãi lỗ, lý do thoát). Sau
   khi so sánh, file gộp mọi chiến lược kèm cột phân biệt. Có BOM UTF-8 nên Excel
   mở tiếng Việt không lỗi font.
-- **PNG** — ảnh biểu đồ đúng như đang hiển thị.
+- **PNG**: ảnh biểu đồ đúng như đang hiển thị.
 
 ---
 
 ## Kiểm định thống kê
 
 Tab *Chiến lược → Kiểm định* có hai nút riêng cho phần này. Chúng phân biệt
-**cấu trúc thật** với **ngẫu nhiên trông giống cấu trúc** — chuỗi giá ngẫu nhiên
+**cấu trúc thật** với **ngẫu nhiên trông giống cấu trúc**: chuỗi giá ngẫu nhiên
 vẫn tạo ra xu hướng, mẫu hình và chiến lược trông có lãi.
 
 Mỗi kiểm định trả về cùng một cấu trúc và hiện đủ trong nút **(i)** cạnh nó:
@@ -586,7 +584,7 @@ kèm giả định là một con số không đọc được.
    **Benjamini–Hochberg**, và cả hai cột p đều hiện. Trên BTC 1h thực tế, cột
    này đã lật kết luận: Ljung–Box p thô 0.041 (có ý nghĩa) → p hiệu chỉnh
    0.075 (không).
-2. **Nói rõ đang chạy phiên bản nào.** Tỷ số phương sai có hai thống kê z —
+2. **Nói rõ đang chạy phiên bản nào.** Tỷ số phương sai có hai thống kê z:
    một giả định phương sai đồng nhất, một bền với phương sai thay đổi. Trên
    BTC 1h ở kỳ hạn q = 4, z đồng nhất là −2.35 (bác bỏ bước ngẫu nhiên) còn z
    bền là −1.32 (không bác bỏ). **Cả hai đều được báo cáo**, và kết luận đọc
@@ -604,9 +602,9 @@ kèm giả định là một con số không đọc được.
 |---|---|---|
 | Phân phối | Jarque–Bera, D'Agostino K² | Lợi suất có theo phân phối chuẩn không? |
 | | Độ lệch, độ nhọn **kèm sai số chuẩn** | Lệch khỏi chuẩn có đáng kể, hay chỉ là nhiễu mẫu? |
-| Rủi ro đuôi | VaR / CVaR 95% và 99%, kèm KTC bootstrap | Ngày tệ nhất mất bao nhiêu — và **có bao nhiêu quan sát** đỡ con số đó? |
+| Rủi ro đuôi | VaR / CVaR 95% và 99%, kèm KTC bootstrap | Ngày tệ nhất mất bao nhiêu, và **có bao nhiêu quan sát** đỡ con số đó? |
 | Tính dừng | ADF **và** KPSS | Chuỗi có dừng không, và hai kiểm định có đồng thuận không? |
-| Cấu trúc | Ljung–Box | Lợi suất có tự tương quan — tức có hướng để khai thác? |
+| Cấu trúc | Ljung–Box | Lợi suất có tự tương quan: tức có hướng để khai thác? |
 | | Hurst R/S **hiệu chỉnh Anis–Lloyd**, p-value hoán vị | Có bộ nhớ dài không? |
 | | Tỷ số phương sai Lo–MacKinlay + **Chow–Denning** | Xu hướng, hồi quy trung bình, hay bước ngẫu nhiên? |
 | Biến động | **Engle ARCH-LM** | Biến động có gom cụm không? |
@@ -616,7 +614,7 @@ Hai điểm kỹ thuật đáng nói, vì bản triển khai phổ biến hay l�
 - **Hurst.** Công thức `sqrt(std(diff))` lan truyền trên blog cho H ≈ 0.6 trên
   một chuỗi hoàn toàn ngẫu nhiên, và người đọc kết luận "có xu hướng" từ nhiễu.
   Ở đây dùng R/S trên đoạn không chồng lấn, trừ kỳ vọng Anis–Lloyd của chuỗi
-  độc lập, và lấy p-value bằng **hoán vị chính chuỗi đó** — giữ nguyên phân
+  độc lập, và lấy p-value bằng **hoán vị chính chuỗi đó**: giữ nguyên phân
   phối biên, chỉ phá trật tự thời gian.
 - **Biến động gom cụm.** Ljung–Box trên `|lợi suất|` là một xấp xỉ không có
   phân phối tới hạn chuẩn. Kiểm định đúng là **Engle ARCH-LM**, và đó là cái
@@ -632,21 +630,21 @@ thuộc vào giả định chứ không phải vào dữ liệu.
 |---|---|---|
 | t một mẫu, một phía | Độc lập **và** xấp xỉ chuẩn | Mạnh nhất khi giả định đúng |
 | Wilcoxon dấu-hạng | Đối xứng, không cần chuẩn | Khi phân phối lệch |
-| **Hoán vị dấu** | Gần như không giả định gì | Đáng tin nhất — đọc cái này trước |
+| **Hoán vị dấu** | Gần như không giả định gì | Đáng tin nhất: đọc cái này trước |
 | Bootstrap BCa | Không giả định phân phối | Khoảng tin cậy cho lợi suất trung bình |
 
 Kèm theo:
 
 - **Lực kiểm định.** p = 0.30 trên 25 lệnh không nói "chiến lược vô dụng"; nó
   nói "25 lệnh không đủ để biết". Panel tính lực thật và số lệnh cần cho 80%.
-- **PSR** (Bailey & López de Prado) — xác suất Sharpe thật > 0, có tính độ
+- **PSR** (Bailey & López de Prado): xác suất Sharpe thật > 0, có tính độ
   lệch và độ nhọn, nên **không** giả định phân phối chuẩn.
-- **DSR — Sharpe khử phồng.** Đây là phần quan trọng nhất với một nền tảng có
+- **DSR: Sharpe khử phồng.** Đây là phần quan trọng nhất với một nền tảng có
   tính năng quét tham số. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực
   đại của 2 000 biến ngẫu nhiên. Số tổ hợp của lần quét gần nhất được truyền
   thẳng vào, nên một Sharpe có PSR 94% có thể rơi xuống DSR 3% sau khi khử
-  phồng — và con số thứ hai mới là con số đúng.
-- **MinTRL** — cần bao nhiêu nến để Sharpe hiện tại đạt mức tin cậy 95%.
+  phồng, và con số thứ hai mới là con số đúng.
+- **MinTRL**: cần bao nhiêu nến để Sharpe hiện tại đạt mức tin cậy 95%.
 
 > **Bayes đã được gỡ bỏ.** Hậu nghiệm Beta–Nhị thức trên tỷ lệ thắng không còn
 > trong nền tảng.
@@ -671,7 +669,7 @@ Ba con số đáng chú ý, vì chúng nói ra những thứ bảng tóm tắt g
 
 - **Tách mua/bán.** Rất nhiều chiến lược "hai chiều" chỉ kiếm tiền ở một
   chiều. Trên BTC 1h, `example_ema_cross` lãi +915 ở chiều mua và lỗ −837 ở
-  chiều bán — bảng gộp chỉ hiện +78.
+  chiều bán, bảng gộp chỉ hiện +78.
 - **Lệnh lớn nhất chiếm bao nhiêu tổng lãi.** Nếu một lệnh là 57% lợi nhuận
   thì hệ số lợi nhuận đang mô tả một lần may, không mô tả chiến lược. Panel
   cảnh báo khi con số này vượt 40%.
@@ -685,14 +683,14 @@ mà lợi nhuận trộn lẫn: mô hình đoán đúng hướng bao nhiêu lầ
 ăn được bao nhiêu.
 
 - Độ chính xác, và **đường cơ sở** (luôn đoán lớp phổ biến hơn). So với 50% là
-  sai — thị trường hiếm khi cân bằng 50/50.
+  sai: thị trường hiếm khi cân bằng 50/50.
 - Kiểm định nhị thức một phía cho chênh lệch so với đường cơ sở.
 - Precision / recall / F1 cho từng chiều, MCC, ma trận nhầm lẫn.
 - Nếu chiến lược gán `df["ml_probability"]` trong `signals()` thì có thêm
   ROC-AUC, điểm Brier, log-loss và bảng hiệu chuẩn.
 
 Trên BTC 1h, `example_ema_cross` đạt độ chính xác 48.5% so với đường cơ sở
-50.4% — tức là nó **không** dự đoán được hướng. Lợi nhuận (khi có) đến từ độ
+50.4%, tức là nó **không** dự đoán được hướng. Lợi nhuận (khi có) đến từ độ
 lớn của những lần đúng, không từ tần suất đúng. Đó là một sự thật mà con số
 lợi nhuận một mình không bao giờ nói ra.
 
@@ -727,7 +725,7 @@ tiền nhưng **63.1% rủi ro**.
 | Dự phóng | Bootstrap khối cho kỳ 1–12 tháng, kèm đường cong xác suất sụt giảm |
 
 Hiệp phương sai dùng **co rút Ledoit–Wolf** về mục tiêu tương quan hằng số, có
-số hạng `rho`. Bỏ `rho` — cách rút gọn phổ biến — làm cường độ co rút bão hoà ở
+số hạng `rho`. Bỏ `rho` (cách rút gọn phổ biến) làm cường độ co rút bão hoà ở
 1.0 trên lợi suất ngày Việt Nam: mọi tương quan sụp về trung bình và ma trận
 mất đúng cái cấu trúc panel này tồn tại để tìm. Cường độ co rút được hiện ra để
 bạn biết bao nhiêu phần kết quả đến từ dữ liệu.
@@ -740,14 +738,13 @@ bạn biết bao nhiêu phần kết quả đến từ dữ liệu.
 - **Dự phóng tự tính.** Bản gốc mượn một lần chạy Monte-Carlo VN-Index của mô
   hình RARF-FHE rồi ánh xạ qua beta và căn bậc hai thời gian. Nền tảng này
   không có lần chạy đó, và mượn số của một mô hình không kiểm chứng được thì
-  tệ hơn là tự mô phỏng — nên ở đây là **bootstrap khối tĩnh** (Politis–Romano)
+  tệ hơn là tự mô phỏng, nên ở đây là **bootstrap khối tĩnh** (Politis–Romano)
   trên chính chuỗi lợi suất của danh mục.
 
   Lấy theo khối chứ không lấy từng ngày độc lập là có chủ ý: kiểm định ARCH gần
   như luôn bác bỏ giả thuyết biến động cố định, và lấy mẫu độc lập sẽ phá vỡ
   hiện tượng gom cụm, **đánh giá thấp có hệ thống** xác suất của những đợt sụt
-  sâu. Giới hạn thật của nó — mô phỏng không bao giờ sinh ra cú sốc lớn hơn cú
-  sốc lớn nhất đã từng có trong cửa sổ — được ghi ngay trên tab đó.
+  sâu. Giới hạn thật của nó: mô phỏng không bao giờ sinh ra cú sốc lớn hơn cú sốc lớn nhất đã từng có trong cửa sổ, được ghi ngay trên tab đó.
 
 ---
 
@@ -756,14 +753,14 @@ bạn biết bao nhiêu phần kết quả đến từ dữ liệu.
 Tuỳ chọn, và **cấu hình được ngay trên web**: panel *Paper* → khung *Thông báo
 Telegram*. Nhập token và chat id rồi bấm **Lưu**.
 
-1. Nhắn cho **@BotFather**, gõ `/newbot` — nó trả về token dạng `123456789:AA…`
+1. Nhắn cho **@BotFather**, gõ `/newbot`: nó trả về token dạng `123456789:AA…`
 2. Nhắn một câu bất kỳ cho chính bot vừa tạo
 3. Mở `https://api.telegram.org/bot<TOKEN>/getUpdates`, lấy `message.chat.id`
 4. Dán cả hai vào form rồi bấm **Lưu**, sau đó bấm **Gửi tin thử**
 
 Token được ghi vào `.env` trên máy bạn (file này đã nằm trong `.gitignore` nên
 không bao giờ lên git) và có hiệu lực ngay, không cần khởi động lại. Trang web
-chỉ hiện lại token đã che — phần bí mật sau dấu hai chấm không bao giờ được gửi
+chỉ hiện lại token đã che: phần bí mật sau dấu hai chấm không bao giờ được gửi
 về trình duyệt.
 
 Vẫn có thể đặt thẳng trong `.env` như trước:
@@ -773,7 +770,7 @@ TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 ```
 
-Nút **Lưu** kiểm tra token qua `getMe` **trước khi** ghi xuống — lưu một token
+Nút **Lưu** kiểm tra token qua `getMe` **trước khi** ghi xuống: lưu một token
 hỏng rồi báo lỗi sau sẽ để lại file chứa thứ không dùng được, và sự kiện paper
 trading kế tiếp lặng lẽ thất bại. Token hợp lệ vẫn chưa chứng minh chat id
 đúng; chỉ **Gửi tin thử** làm được việc đó.
@@ -782,7 +779,7 @@ Sau đó mỗi lần phiên paper trading vào hoặc đóng lệnh sẽ có tin
 thì nền tảng **không gửi gì cả**, và Telegram hỏng cũng không làm phiên dừng.
 
 > Không hỗ trợ WhatsApp: nó đòi tài khoản Business, xét duyệt mẫu tin nhắn và
-> một nhà cung cấp trung gian — quá nặng cho một công cụ chạy trên máy cá nhân.
+> một nhà cung cấp trung gian: quá nặng cho một công cụ chạy trên máy cá nhân.
 
 ---
 
@@ -793,7 +790,7 @@ thì nền tảng **không gửi gì cả**, và Telegram hỏng cũng không l�
 - **Đánh dấu sao:** bấm ☆ cạnh mã, chỉ báo hoặc chiến lược. Mục đã đánh dấu
   nổi lên nhóm riêng ở đầu danh sách.
 - **Nút (i):** một popover dùng chung cho toàn bộ nền tảng. Nó gắn được vào
-  bất cứ thứ gì — chỉ báo, chiến lược, từng ô cài đặt chi phí, từng chỉ số
+  bất cứ thứ gì: chỉ báo, chiến lược, từng ô cài đặt chi phí, từng chỉ số
   backtest, từng dòng trong bảng kiểm định thống kê. Với một chỉ số, nó nói đo
   cái gì, đọc thế nào, và **hỏng ở đâu**; với một kiểm định, nó nói H₀, H₁,
   thống kê, cả hai cột p, và giả định. Nút luôn hiện chứ không đợi rê chuột,
@@ -865,7 +862,7 @@ Cả ba giai đoạn đã xong.
 
 ### Dữ liệu hiện có
 
-Toàn bộ 6 khung đã đủ từ 2017 tới nay — **6,12 triệu nến**, không có dòng trùng.
+Toàn bộ 6 khung đã đủ từ 2017 tới nay: **6,12 triệu nến**, không có dòng trùng.
 
 | Khung | Nến |
 |---|---|

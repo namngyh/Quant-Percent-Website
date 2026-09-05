@@ -1,7 +1,7 @@
 /* Application wiring.
 
    The rail opens exactly one panel at a time, and clicking the open one closes
-   it — three columns of controls competing for attention was the thing that
+   it: three columns of controls competing for attention was the thing that
    made this hard to read. */
 
 (() => {
@@ -117,7 +117,7 @@
       });
 
       // The symbol and the timeframe are already selected two controls to the
-      // left, and the price now has a readout of its own — so the status line
+      // left, and the price now has a readout of its own, so the status line
       // is left for the one thing neither of those shows.
       const last = data.candles[data.candles.length - 1];
       setStatusLive(() =>
@@ -183,7 +183,7 @@
    * Compared against the previous *rendered* price rather than the candle's
    * open: within one forming candle the open never changes, so colouring
    * against it would freeze the ticker green or red for a whole bar instead of
-   * flickering with each trade. An unchanged price keeps the previous colour —
+   * flickering with each trade. An unchanged price keeps the previous colour:
    * a tick that repeats the last price is not a reversal. */
   function showPrice(value) {
     if (!Number.isFinite(value)) return;
@@ -289,13 +289,13 @@
 
       if (withMinutes.length) {
         groups.push({
-          label: `Việt Nam · HOSE — có nến phút (${withMinutes.length})`,
+          label: `Việt Nam · HOSE (có nến phút: ${withMinutes.length})`,
           options: withMinutes.map((s) => ({ id: s.id, text: label(s) })),
         });
       }
       if (dailyOnly.length) {
         groups.push({
-          label: `Việt Nam · HOSE — chỉ nến ngày (${dailyOnly.length})`,
+          label: `Việt Nam · HOSE (chỉ nến ngày: ${dailyOnly.length})`,
           options: dailyOnly.map((s) => ({ id: s.id, text: label(s) })),
         });
       }
@@ -340,7 +340,7 @@
 
     el.backfill.disabled = vn;
     el.backfill.title = vn
-      ? 'Dữ liệu VN đến từ database của team và chỉ đọc — không cần backfill.'
+      ? 'Dữ liệu VN đến từ database của team và chỉ đọc, không cần backfill.'
       : 'Kéo nến mới nhất từ Binance';
 
     // Live works for both markets, by different means: Binance pushes, the
@@ -356,7 +356,7 @@
   //
   // The local crypto store only advances while this app is running, so after
   // the laptop has been shut a day it is a day behind. Closing that gap is
-  // mechanical — the backfill already resumes from the newest stored bar — so
+  // mechanical (the backfill already resumes from the newest stored bar) so
   // it happens on load rather than waiting for someone to notice the hole.
   // The Vietnam database is read live and is never behind.
 
@@ -369,7 +369,7 @@
 
     if (data.bars_behind > MAX_AUTO_CATCHUP_BARS) {
       setStatus(
-        `${state.symbol} ${state.timeframe} — thiếu ${data.bars_behind.toLocaleString('vi-VN')} nến, ` +
+        `${state.symbol} ${state.timeframe}: thiếu ${data.bars_behind.toLocaleString('vi-VN')} nến, ` +
           'bấm "Cập nhật dữ liệu"',
         'busy',
       );
@@ -469,7 +469,7 @@
         ['<code>df</code>', 'DataFrame có <code>open, high, low, close, volume</code>, index là thời gian UTC'],
         ['Trả về', 'dict <code>{key: Series}</code>, hoặc một Series / DataFrame'],
       ],
-      code: `"""Chỉ báo mẫu — copy file này, đổi tên rồi sửa logic."""
+      code: `"""Chỉ báo mẫu: copy file này, đổi tên rồi sửa logic."""
 
 INDICATOR = {
     "name": "Kênh giá của tôi",
@@ -507,13 +507,13 @@ def calculate(df, params):
         '<code>signals(df, params)</code> trả về Series gồm <code>1</code> (long), ' +
         '<code>-1</code> (short) hoặc <code>0</code> (đứng ngoài) cho mỗi nến.',
       notes: [
-        ['<code>side</code>', '<code>"long"</code>, <code>"short"</code> hoặc <code>"both"</code> — tín hiệu ngược chiều sẽ bị bỏ'],
+        ['<code>side</code>', '<code>"long"</code>, <code>"short"</code> hoặc <code>"both"</code>: tín hiệu ngược chiều sẽ bị bỏ'],
         ['Trả về', '<code>pd.Series</code> cùng độ dài với <code>df</code>, giá trị 1 / -1 / 0'],
         ['Nhân quả', 'Giá trị tại nến <em>i</em> chỉ được dùng dữ liệu tới lúc nến <em>i</em> đóng'],
         ['Khớp lệnh', 'Engine khớp ở <strong>giá mở nến kế tiếp</strong>, nên bạn không thể vô tình dùng giá chưa xảy ra'],
         ['Khởi động', 'Đặt 0 cho khoảng đầu khi chỉ báo chưa đủ dữ liệu'],
       ],
-      code: `"""Chiến lược mẫu — copy file này, đổi tên rồi sửa logic."""
+      code: `"""Chiến lược mẫu: copy file này, đổi tên rồi sửa logic."""
 
 import pandas as pd
 
@@ -561,7 +561,7 @@ def signals(df, params):
       tpl.notes.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') +
       '</tbody></table>' +
       '<p class="hint">Nếu file sai định dạng, nền tảng từ chối kèm lý do và ' +
-      '<strong>không ghi vào đĩa</strong> — thư mục của bạn không bao giờ lẫn file hỏng.</p>';
+      '<strong>không ghi vào đĩa</strong>: thư mục của bạn không bao giờ lẫn file hỏng.</p>';
 
     el.formatDialog.hidden = false;
   }
@@ -596,7 +596,7 @@ def signals(df, params):
         await navigator.clipboard.writeText(currentTemplate.code);
         toast('Đã sao chép mã mẫu');
       } catch {
-        toast('Trình duyệt chặn sao chép — dùng nút Tải file mẫu.', true);
+        toast('Trình duyệt chặn sao chép, hãy dùng nút Tải file mẫu.', true);
       }
     });
   }
@@ -624,7 +624,7 @@ def signals(df, params):
   //
   // Every entry carries its own explanation from the backend: a curated
   // Vietnamese one where we wrote it, the library docstring otherwise, and for
-  // a plugin the file's own docstring — which is the only place the author
+  // a plugin the file's own docstring (which is the only place the author
   // could have put it.
 
   function explain(spec) {
@@ -661,7 +661,7 @@ def signals(df, params):
         spec.params.map((prm) => {
           const range = prm.min !== null && prm.max !== null
             ? ` (${prm.min}–${prm.max})` : '';
-          return `<tr><td>${esc(prm.name)}</td><td>${esc(prm.label)} — mặc định
+          return `<tr><td>${esc(prm.name)}</td><td>${esc(prm.label)} (mặc định
             <strong>${esc(prm.default)}</strong>${range}</td></tr>`;
         }).join('') +
         '</tbody></table></div>';
@@ -729,11 +729,11 @@ def signals(df, params):
     Explain.define('notify.telegram', {
       title: 'Thông báo Telegram',
       what: 'Mỗi khi một phiên paper trading vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
-      how: '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên — nó trả về một token dạng 123456789:AA…\n'
+      how: '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên: nó trả về một token dạng 123456789:AA…\n'
         + '2. Nhắn một câu bất kỳ cho chính bot vừa tạo.\n'
         + '3. Mở https://api.telegram.org/bot<TOKEN>/getUpdates và lấy giá trị message.chat.id.\n'
         + '4. Dán cả hai vào đây rồi bấm Lưu.',
-      watch: 'Nút Lưu chỉ kiểm tra được token có hợp lệ hay không. Chat id sai vẫn qua được bước đó mà không tin nào tới nơi — nên sau khi lưu hãy bấm "Gửi tin thử" một lần.',
+      watch: 'Nút Lưu chỉ kiểm tra được token có hợp lệ hay không. Chat id sai vẫn qua được bước đó mà không tin nào tới nơi, nên sau khi lưu hãy bấm "Gửi tin thử" một lần.',
       source: 'Token được ghi vào .env trên máy này. WhatsApp không có ở đây vì nó đòi tài khoản Business, xét duyệt mẫu tin và một nhà cung cấp trung gian.',
     });
 
@@ -784,7 +784,7 @@ def signals(df, params):
     testButton.addEventListener('click', () =>
       withButton(testButton, 'Đang gửi…', async () => {
         await API.notifyTest();
-        toast('Đã gửi tin thử — kiểm tra Telegram');
+        toast('Đã gửi tin thử: kiểm tra Telegram');
       }));
 
     clearButton.addEventListener('click', () =>
@@ -797,7 +797,7 @@ def signals(df, params):
   /* The language switch.
    *
    * Static markup is rewritten by `I18n.apply`. Anything a module rendered
-   * into innerHTML is not — the dictionary lookup already happened — so each
+   * into innerHTML is not (the dictionary lookup already happened) so each
    * panel redraws itself. Panels with nothing on screen redraw to the same
    * empty state, which costs nothing and keeps this list honest: every panel
    * is here, so a new one is not silently left in the old language.
@@ -834,7 +834,7 @@ def signals(df, params):
   // ---------- Navigation ----------
 
   /** Open a panel. `toggle` is for the rail, where clicking the open one closes
-      it; everything else — a sub-tab, a finished backtest — only ever opens. */
+      it; everything else (a sub-tab, a finished backtest) only ever opens. */
   function openPanel(name, { toggle = false } = {}) {
     const host = el.panelHost;
     const current = document.querySelector('.rail-btn.active')?.dataset.panel;

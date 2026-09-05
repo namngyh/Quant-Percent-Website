@@ -1,7 +1,7 @@
 /* Paper trading panel: the sessions running forward on live data.
 
    A session keeps trading with the browser closed, so this panel is a view of
-   server state rather than the thing that owns it — everything here reads from
+   server state rather than the thing that owns it: everything here reads from
    /api/paper and pushes actions back. */
 
 const Paper = (() => {

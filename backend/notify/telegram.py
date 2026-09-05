@@ -1,6 +1,6 @@
 """Gửi thông báo qua Telegram.
 
-Dùng Bot API, chỉ cần một token và một chat id — không cần thư viện nào ngoài
+Dùng Bot API, chỉ cần một token và một chat id, không cần thư viện nào ngoài
 `httpx` đã có sẵn. WhatsApp thì khác: nó đòi tài khoản Business, xét duyệt mẫu
 tin nhắn và một nhà cung cấp trung gian, nên Telegram là lựa chọn thực tế hơn
 nhiều cho một công cụ chạy trên máy cá nhân.
@@ -65,7 +65,7 @@ def mask(token: str | None) -> str | None:
 
     A bot token looks like ``123456789:AAH...``. The numeric half is the bot's
     id and is not a secret; the half after the colon is. So the id is shown in
-    full — it is what lets you tell two bots apart — and the secret half is
+    full — it is what lets you tell two bots apart, and the secret half is
     reduced to its last four characters.
     """
     if not token:

@@ -4,7 +4,7 @@
  * plugin file formats, a modal for indicator help, and a scattering of `title`
  * attributes that never appeared on touch and could not hold a paragraph. A
  * metric on the results panel had no way to explain itself at all, which is
- * exactly backwards — the numbers that need explaining most are the ones a
+ * exactly backwards: the numbers that need explaining most are the ones a
  * reader has never seen before.
  *
  * So: one control, one popover, one registry.
@@ -112,8 +112,8 @@ const Explain = (() => {
   /* p-values below 1e-4 are printed in exponential form rather than as
      "0.0000", which reads as an exact zero and is never true.
      A p-value that arrives as exactly 0 has underflowed double precision
-     rather than actually being zero — no test can rule a hypothesis out
-     completely — so it is shown as a bound. Printing "0.0e+0" would be a
+     rather than actually being zero, no test can rule a hypothesis out
+     completely, so it is shown as a bound. Printing "0.0e+0" would be a
      claim the arithmetic cannot support. */
   const pFormat = (p) => {
     if (typeof p !== 'number' || !Number.isFinite(p)) return '—';
@@ -154,7 +154,7 @@ const Explain = (() => {
     }
 
     html += section(entry.null ? L('Kết luận', 'Conclusion') : L('Đọc thế nào', 'How to read it'), entry.how);
-    html += section(L('Giả định — đọc kỹ phần này', 'Assumptions — read this part'),
+    html += section(L('Giả định: đọc kỹ phần này', 'Assumptions: read this part'),
                     entry.assumptions, 'assume');
     html += section(L('Cần lưu ý', 'Watch out'), entry.watch, 'watch');
 
@@ -260,7 +260,7 @@ const Explain = (() => {
   //
   // Written once, used by the results panel, the AmiBroker report, the
   // portfolio panel and the statistics panel. Where a metric has a well-known
-  // failure mode, `watch` says what it is — a metric explained without its
+  // failure mode, `watch` says what it is: a metric explained without its
   // failure mode is worse than one left unexplained, because it invites
   // confidence.
   //
@@ -292,8 +292,8 @@ const Explain = (() => {
               'How far notional value is multiplied above the margin posted.'),
       how: L('Ký quỹ × đòn bẩy = giá trị vị thế. Lãi và lỗ đều nhân lên bấy nhiêu lần.',
              'Margin × leverage = position value. Gains and losses are both multiplied by the same factor.'),
-      watch: L('Vị thế bị thanh lý trong nến khi lỗ chạm mức ký quỹ đã đặt — kiểm tra theo giá thấp nhất (lệnh mua) hoặc cao nhất (lệnh bán) của nến, nên một cái râu nến cũng đủ.',
-               'A position is liquidated intrabar when the loss reaches the posted margin — checked against the bar’s low for a long or its high for a short, so a wick is enough.'),
+      watch: L('Vị thế bị thanh lý trong nến khi lỗ chạm mức ký quỹ đã đặt, kiểm tra theo giá thấp nhất (lệnh mua) hoặc cao nhất (lệnh bán) của nến, nên một cái râu nến cũng đủ.',
+               'A position is liquidated intrabar when the loss reaches the posted margin, checked against the bar’s low for a long or its high for a short, so a wick is enough.'),
     },
     'exec.fee': {
       title: L('Phí giao dịch', 'Trading fee'),
@@ -330,7 +330,7 @@ const Explain = (() => {
              'This is the right benchmark. A strategy that returns 40% over a stretch where holding returned 120% has lost, however good 40% looks.'),
     },
     'm.cagr': {
-      title: L('CAGR — tăng trưởng kép hằng năm', 'CAGR — compound annual growth'),
+      title: L('CAGR: tăng trưởng kép hằng năm', 'CAGR: compound annual growth'),
       what: L('Tốc độ tăng trưởng đều tương đương, quy về một năm.',
               'The equivalent steady growth rate, expressed per year.'),
       formula: L('(vốn cuối / vốn đầu)^(1/số năm) − 1',
@@ -398,8 +398,8 @@ const Explain = (() => {
       title: L('Thời gian nắm giữ', 'Exposure'),
       what: L('Phần trăm số nến có vị thế mở.',
               'The percentage of bars with a position open.'),
-      how: L('Phơi nhiễm thấp mà lợi nhuận tương đương mua-và-giữ nghĩa là vốn rảnh phần lớn thời gian — có thể dùng cho việc khác.',
-             'Low exposure with buy-and-hold returns means the capital is idle most of the time — free to work elsewhere.'),
+      how: L('Phơi nhiễm thấp mà lợi nhuận tương đương mua-và-giữ nghĩa là vốn rảnh phần lớn thời gian, có thể dùng cho việc khác.',
+             'Low exposure with buy-and-hold returns means the capital is idle most of the time, free to work elsewhere.'),
       watch: L('Phơi nhiễm rất thấp (dưới 5%) thường đi kèm rất ít lệnh, và mọi thống kê trên đó đều thiếu tin cậy.',
                'Very low exposure (under 5%) usually comes with very few trades, and every statistic on them is unreliable.'),
     },
@@ -407,12 +407,12 @@ const Explain = (() => {
       title: L('Chỉ số Ulcer', 'Ulcer index'),
       what: L('Căn bậc hai trung bình bình phương của mức sụt giảm, đo qua toàn bộ đường vốn.',
               'The root mean square of drawdown, measured across the whole equity curve.'),
-      how: L('Khác sụt giảm tối đa ở chỗ nó phạt cả độ sâu lẫn độ dài. Hai chiến lược cùng sụt 30% nhưng một cái hồi trong một tháng, một cái hồi trong hai năm — Ulcer phân biệt được, sụt giảm tối đa thì không.',
-             'Unlike max drawdown it penalises both depth and duration. Two strategies both fall 30%, one recovering in a month and one in two years — Ulcer can tell them apart, max drawdown cannot.'),
+      how: L('Khác sụt giảm tối đa ở chỗ nó phạt cả độ sâu lẫn độ dài. Hai chiến lược cùng sụt 30% nhưng một cái hồi trong một tháng, một cái hồi trong hai năm, Ulcer phân biệt được, sụt giảm tối đa thì không.',
+             'Unlike max drawdown it penalises both depth and duration. Two strategies both fall 30%, one recovering in a month and one in two years, Ulcer can tell them apart, max drawdown cannot.'),
       formula: L('√( trung bình( sụt giảm² ) )', '√( mean( drawdown² ) )'),
     },
     'm.upi': {
-      title: L('UPI — chỉ số hiệu quả Ulcer', 'UPI — Ulcer performance index'),
+      title: L('UPI: chỉ số hiệu quả Ulcer', 'UPI: Ulcer performance index'),
       what: L('CAGR chia chỉ số Ulcer.', 'CAGR divided by the Ulcer index.'),
       how: L('Cùng ý tưởng với Sharpe nhưng mẫu số là nỗi đau thực tế của việc nắm giữ, không phải độ lệch chuẩn.',
              'The same idea as Sharpe, but the denominator is the actual pain of holding rather than a standard deviation.'),
@@ -444,18 +444,18 @@ const Explain = (() => {
               'The most consecutive winners, and the most consecutive losers.'),
       how: L('Chuỗi thua dài nhất là thứ cần biết trước khi chạy thật: đây là số lệnh liên tiếp bạn phải chịu đựng mà không mất niềm tin vào hệ thống.',
              'The losing streak is what to know before going live: it is how many losses in a row you must sit through without losing faith in the system.'),
-      watch: L('Chuỗi thua tương lai gần như chắc chắn dài hơn chuỗi dài nhất trong backtest — đơn giản vì tương lai có nhiều lệnh hơn.',
-               'The future losing streak is almost certainly longer than the backtest’s worst — simply because the future holds more trades.'),
+      watch: L('Chuỗi thua tương lai gần như chắc chắn dài hơn chuỗi dài nhất trong backtest, đơn giản vì tương lai có nhiều lệnh hơn.',
+               'The future losing streak is almost certainly longer than the backtest’s worst, simply because the future holds more trades.'),
     },
     'm.mae': {
-      title: L('MAE — mức lỗ tạm thời sâu nhất', 'MAE — maximum adverse excursion'),
+      title: L('MAE: mức lỗ tạm thời sâu nhất', 'MAE: maximum adverse excursion'),
       what: L('Với mỗi lệnh, mức lỗ sâu nhất từng chạm trước khi lệnh đóng.',
               'For each trade, the deepest unrealised loss reached before it closed.'),
       how: L('MAE của các lệnh *thắng* cho biết dừng lỗ nên đặt ở đâu: đặt chặt hơn MAE của lệnh thắng nghĩa là cắt mất chính những lệnh sẽ có lãi.',
              'The MAE of the winners is where a stop can go: tighter than that, and you cut the very trades that would have paid.'),
     },
     'm.mfe': {
-      title: L('MFE — mức lãi tạm thời cao nhất', 'MFE — maximum favourable excursion'),
+      title: L('MFE: mức lãi tạm thời cao nhất', 'MFE: maximum favourable excursion'),
       what: L('Với mỗi lệnh, mức lãi cao nhất từng chạm trước khi lệnh đóng.',
               'For each trade, the highest unrealised profit reached before it closed.'),
       how: L('MFE của các lệnh *thua* cho biết đã bỏ lỡ bao nhiêu: nếu lệnh thua thường xanh 3% trước khi đỏ, một mức chốt lãi có thể cứu chúng.',
@@ -495,8 +495,8 @@ const Explain = (() => {
       title: 'Recall',
       what: L('Trong các nến thật sự tăng, mô hình bắt được bao nhiêu phần trăm.',
               'Of the bars that actually rose, what share the model caught.'),
-      how: L('Recall thấp nghĩa là bỏ lỡ cơ hội — ít tốn kém hơn precision thấp, vì bỏ lỡ không mất phí.',
-             'Low recall means missed opportunity — cheaper than low precision, because a miss costs no fees.'),
+      how: L('Recall thấp nghĩa là bỏ lỡ cơ hội, ít tốn kém hơn precision thấp, vì bỏ lỡ không mất phí.',
+             'Low recall means missed opportunity, cheaper than low precision, because a miss costs no fees.'),
     },
     'ml.f1': {
       title: 'F1',
@@ -534,8 +534,8 @@ const Explain = (() => {
       title: 'Log-loss',
       what: L('Phạt theo logarit cho xác suất dự báo sai.',
               'A logarithmic penalty on wrong probability forecasts.'),
-      how: L('Phạt rất nặng những dự báo tự tin mà sai — đúng thứ cần phạt khi tín hiệu điều khiển cỡ vị thế.',
-             'It punishes confident wrong calls hard — exactly what should be punished when a signal drives position size.'),
+      how: L('Phạt rất nặng những dự báo tự tin mà sai, đúng thứ cần phạt khi tín hiệu điều khiển cỡ vị thế.',
+             'It punishes confident wrong calls hard, exactly what should be punished when a signal drives position size.'),
     },
     'ml.confusion': {
       title: L('Ma trận nhầm lẫn', 'Confusion matrix'),

@@ -3,8 +3,7 @@
     .venv\\Scripts\\python.exe scripts/check_market_db.py
     .venv\\Scripts\\python.exe scripts/check_market_db.py --symbol VN30F1M --limit 20
 
-Database chỉ nghe trong VPN của team (Tailscale), không mở ra Internet — đó là
-chủ ý. Nên script dùng timeout ngắn và, khi lỗi giống mất mạng, nói thẳng là
+Database chỉ nghe trong VPN của team (Tailscale), không mở ra Internet: đó là chủ ý. Nên script dùng timeout ngắn và, khi lỗi giống mất mạng, nói thẳng là
 hãy kiểm tra VPN thay vì để bạn đoán.
 """
 
@@ -126,7 +125,7 @@ def main() -> int:
                 print(f"\n  có cột is_final: {has_is_final}  (tài liệu nói: không)")
 
                 # Nến cuối cùng có thể đang hình thành. Bỏ mọi nến thuộc phút
-                # hiện tại — an toàn hơn là bỏ đúng một dòng, vì nếu thị trường
+                # hiện tại, an toàn hơn là bỏ đúng một dòng, vì nếu thị trường
                 # đang nghỉ thì dòng cuối đã đóng và không nên vứt đi.
                 cur.execute(
                     """

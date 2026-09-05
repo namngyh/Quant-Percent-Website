@@ -66,7 +66,7 @@ const Validation = (() => {
     const thin = s.total_folds < 3;
     if (thin) {
       const need = result.settings.train_bars + result.settings.test_bars * 3;
-      html += `<div class="callout warn"><strong>Chỉ ${s.total_folds} vòng — chưa kết luận được.</strong>
+      html += `<div class="callout warn"><strong>Chỉ ${s.total_folds} vòng (chưa kết luận được).</strong>
         Cần ít nhất 3–5 vòng thì trung bình mới có nghĩa. Tăng số nến lên
         khoảng ${need.toLocaleString('vi-VN')}, hoặc giảm cửa sổ huấn luyện/kiểm tra.</div>`;
     }
@@ -114,7 +114,7 @@ const Validation = (() => {
     }
     html += '</tbody></table>';
     html += `<p class="table-note">Mỗi vòng tối ưu trên ${result.settings.train_bars} nến rồi
-      áp nguyên tham số đó lên ${result.settings.test_bars} nến kế tiếp — chưa từng thấy trước đó.
+      áp nguyên tham số đó lên ${result.settings.test_bars} nến kế tiếp (chưa từng thấy trước đó).
       Chỉ cột "Ngoài mẫu" là ước lượng trung thực.</p>`;
 
     elements.output.innerHTML = html;
@@ -174,7 +174,7 @@ const Validation = (() => {
     html += '</tbody></table>';
     html += `<p class="table-note">Lấy lại chính các lệnh của chiến lược, xáo thứ tự
       ${r.simulations.toLocaleString('vi-VN')} lần. Cái thay đổi là may rủi, cái giữ nguyên là
-      lợi thế của chiến lược — nên dải này cho biết kết quả thật nằm ở đâu trong vùng hợp lý.</p>`;
+      lợi thế của chiến lược, nên dải này cho biết kết quả thật nằm ở đâu trong vùng hợp lý.</p>`;
 
     elements.output.innerHTML = html;
   }
@@ -235,7 +235,7 @@ const Validation = (() => {
       <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
     html += '</tbody></table>';
     html += `<p class="table-note">Cùng ${result.bars.toLocaleString('vi-VN')} nến,
-      cùng phí và trượt giá, cùng khoảng thời gian — nếu khác nhau thì bảng này đo
+      cùng phí và trượt giá, cùng khoảng thời gian, nếu khác nhau thì bảng này đo
       cách cài đặt chứ không đo chiến lược.</p>`;
 
     elements.output.innerHTML = html;
@@ -248,7 +248,7 @@ const Validation = (() => {
   // statistic, raw p, FDR-adjusted p, conclusion and assumptions. So the panel
   // renders one table for all of them rather than a bespoke row per test, and
   // each row carries an (i) that opens the full annotation. The table shows
-  // both p columns side by side on purpose — the gap between them is the whole
+  // both p columns side by side on purpose: the gap between them is the whole
   // point of running a family of tests at once.
 
   const P_FMT = (p) => (Explain ? Explain.pFormat(p) : String(p));
@@ -366,7 +366,7 @@ const Validation = (() => {
           ],
           how: m.kurtosis_significant
             ? 'Lệch khỏi 0 quá 1,96 sai số chuẩn, nên đây là độ nhọn thật chứ không phải nhiễu lấy mẫu.'
-            : 'Chưa lệch khỏi 0 quá 1,96 sai số chuẩn — với cỡ mẫu này, không kết luận được là đuôi dày hơn chuẩn.',
+            : 'Chưa lệch khỏi 0 quá 1,96 sai số chuẩn: với cỡ mẫu này, không kết luận được là đuôi dày hơn chuẩn.',
           watch: 'Độ nhọn cao nghĩa là các cú sốc lớn xảy ra thường xuyên hơn nhiều so với giả định chuẩn. Mọi ước lượng rủi ro dựa trên độ lệch chuẩn đều thấp hơn thực tế.',
         }),
         m.kurtosis_significant && m.kurtosis_excess > 1 ? 'neg' : '',
@@ -378,7 +378,7 @@ const Validation = (() => {
           what: 'Đo tính bất đối xứng của phân phối lợi suất. Chuẩn = 0.',
           rows: [['Giá trị', num(m.skew, 3)], ['Sai số chuẩn', num(m.skew_se, 3)], ['z', num(m.skew_z)]],
           how: m.skew < 0
-            ? 'Âm: đuôi trái dày hơn — các phiên giảm cực đoan sâu hơn các phiên tăng cực đoan.'
+            ? 'Âm: đuôi trái dày hơn: các phiên giảm cực đoan sâu hơn các phiên tăng cực đoan.'
             : 'Dương: đuôi phải dày hơn.',
           assumptions: 'Sai số chuẩn tính theo công thức Cramér dưới giả thuyết phân phối chuẩn. Một độ lệch nhỏ hơn 1,96 lần sai số chuẩn không phân biệt được với 0.',
         }),
@@ -392,15 +392,15 @@ const Validation = (() => {
         `${tail.tail_n_95} quan sát đuôi`);
       html += cardX('CVaR 99%', `${num(tail.cvar_99_pct)}%`,
         Explain.inline({
-          title: 'CVaR 99% — và vì sao phải cẩn thận',
+          title: 'CVaR 99%: và vì sao phải cẩn thận',
           what: 'Mức lỗ trung bình trong 1% số nến tệ nhất.',
           rows: [['Giá trị', `${num(tail.cvar_99_pct)}%`], ['Số quan sát đuôi', tail.tail_n_99]],
           watch: tail.tail_reliable_99
             ? 'Đủ quan sát để ước lượng tạm ổn định.'
-            : `Chỉ ${tail.tail_n_99} quan sát đỡ con số này. Nó hiện ra với hai chữ số thập phân như mọi con số khác, nhưng nó không đáng tin như vậy — hãy coi là chỉ dấu.`,
+            : `Chỉ ${tail.tail_n_99} quan sát đỡ con số này. Nó hiện ra với hai chữ số thập phân như mọi con số khác, nhưng nó không đáng tin như vậy, hãy coi là chỉ dấu.`,
         }),
         tail.tail_reliable_99 ? 'neg' : '',
-        `${tail.tail_n_99} quan sát${tail.tail_reliable_99 ? '' : ' — quá ít'}`);
+        `${tail.tail_n_99} quan sát${tail.tail_reliable_99 ? '' : ' (quá ít)'}`);
     }
 
     if (r.hurst?.statistic !== undefined && r.hurst.statistic !== null) {
@@ -440,7 +440,7 @@ const Validation = (() => {
           <td>${esc(p.reading)}</td></tr>`).join('') +
         `</tbody></table>
         <p class="table-note">Cột <strong>z bền</strong> là cột để đọc: nó không giả định
-        phương sai cố định theo thời gian, còn cột <strong>z đồng nhất</strong> thì có — và
+        phương sai cố định theo thời gian, còn cột <strong>z đồng nhất</strong> thì có, và
         kiểm định ARCH ở bảng trên hầu như luôn bác bỏ giả định đó. Kết luận chung lấy từ
         thống kê Chow–Denning trên toàn bộ tập kỳ hạn, không phải từ kỳ hạn có p nhỏ nhất.</p>`;
     }
@@ -532,7 +532,7 @@ const Validation = (() => {
     if (sharpe && !sharpe.error) {
       html += cardX('PSR', `${(sharpe.psr * 100).toFixed(1)}%`,
         Explain.inline({
-          title: 'PSR — Sharpe theo xác suất',
+          title: 'PSR: Sharpe theo xác suất',
           what: 'Xác suất Sharpe thật lớn hơn 0, có tính tới độ lệch và độ nhọn của lợi suất.',
           rows: [
             ['Sharpe (năm)', num(sharpe.sharpe_annualised)],
@@ -549,7 +549,7 @@ const Validation = (() => {
 
       html += cardX('DSR (khử phồng)', `${(sharpe.deflated_sharpe_ratio * 100).toFixed(1)}%`,
         Explain.inline({
-          title: 'DSR — Sharpe khử phồng',
+          title: 'DSR: Sharpe khử phồng',
           what: `Như PSR, nhưng so với ngưỡng mà ${sharpe.n_trials} lần thử tham số tự nó đã tạo ra được.`,
           rows: [
             ['Số lần thử', sharpe.n_trials],
@@ -559,7 +559,7 @@ const Validation = (() => {
           how: sharpe.n_trials > 1
             ? sharpe.conclusion
             : 'Chưa chạy tối ưu nên số lần thử tính là 1, và DSR bằng PSR. Sau khi quét tham số, hãy chạy lại kiểm định này để thấy ngưỡng thật.',
-          watch: 'Đây là con số quan trọng nhất khi tham số đến từ một lần quét. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực đại của 2 000 biến ngẫu nhiên — Sharpe của nó cao hơn Sharpe thật kể cả khi không tổ hợp nào có lợi thế.',
+          watch: 'Đây là con số quan trọng nhất khi tham số đến từ một lần quét. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực đại của 2 000 biến ngẫu nhiên, Sharpe của nó cao hơn Sharpe thật kể cả khi không tổ hợp nào có lợi thế.',
           assumptions: sharpe.assumptions,
         }),
         sharpe.dsr_significant ? 'pos' : 'neg',
@@ -568,13 +568,12 @@ const Validation = (() => {
     html += '</div>';
 
     html += testTable([inf.t_test, inf.wilcoxon, inf.sign_permutation],
-      'Kiểm định lợi thế — ba cách hỏi cùng một câu');
+      'Kiểm định lợi thế: ba cách hỏi cùng một câu');
     html += familyNote(r.multiple_testing);
 
     html += `<p class="table-note">Ba kiểm định trên đo cùng một thứ với những giả định khác
       nhau. Nếu chúng cho kết luận khác nhau thì bản thân điều đó là thông tin: kết luận đang
-      phụ thuộc vào giả định chứ không phải vào dữ liệu, và kiểm định hoán vị — vốn gần như
-      không giả định gì — là cái đáng tin nhất.</p>`;
+      phụ thuộc vào giả định chứ không phải vào dữ liệu, và kiểm định hoán vị (vốn gần như không giả định gì) là cái đáng tin nhất.</p>`;
 
     if (sharpe?.min_track_record_length) {
       html += `<p class="table-note">Độ dài lịch sử tối thiểu để Sharpe này đạt mức tin cậy
@@ -656,7 +655,7 @@ const Validation = (() => {
     }
 
     if (!trades?.length) {
-      onToast('Chưa có lệnh nào để xuất — chạy backtest trước.', true);
+      onToast('Chưa có lệnh nào để xuất: hãy chạy backtest trước.', true);
       return;
     }
     download(`lenh-${stamp}.csv`, tradesToCsv(trades, label));
@@ -689,7 +688,7 @@ const Validation = (() => {
    * Only the statistics output is re-rendered here, because it is the only
    * thing this module keeps enough state to rebuild: `lastStats` holds the
    * payload, and the payload carries both languages. Walk-forward and
-   * comparison results are re-rendered by running them again — they are not
+   * comparison results are re-rendered by running them again: they are not
    * cached, and caching them purely to survive a language switch would be
    * paying for the wrong thing. */
   let lastStats = null;

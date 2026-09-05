@@ -125,7 +125,7 @@ const Report = (() => {
     );
   }
 
-  /** Drawdown as a filled ribbon hanging from zero — it is always negative. */
+  /** Drawdown as a filled ribbon hanging from zero: it is always negative. */
   function drawdownChart(report) {
     const series = report.charts.drawdown;
     if (!series.length) return '';
@@ -154,8 +154,8 @@ const Report = (() => {
     const series = report.risk.rolling_sharpe;
     if (!series?.length) {
       return `<p class="empty">${esc(L(
-        'Chưa đủ dữ liệu cho cửa sổ trượt — cần ít nhất hai lần độ dài cửa sổ.',
-        'Not enough data for a rolling window — it needs at least twice the window length.',
+        'Chưa đủ dữ liệu cho cửa sổ trượt: cần ít nhất hai lần độ dài cửa sổ.',
+        'Not enough data for a rolling window: it needs at least twice the window length.',
       ))}</p>`;
     }
 
@@ -207,7 +207,7 @@ const Report = (() => {
   }
 
   /* Cumulative P&L in trade order rather than in time. This is the picture that
-     shows whether profit accumulated steadily or arrived in one step — and one
+     shows whether profit accumulated steadily or arrived in one step, and one
      step is what a single lucky trade looks like. */
   function sequenceChart(report) {
     const series = report.charts.trade_sequence;
@@ -397,15 +397,15 @@ const Report = (() => {
   }
 
   const rarExplain = (o) => Explain.inline({
-    title: L('RAR — lợi suất đã hiệu chỉnh theo phơi nhiễm',
-             'RAR — exposure-adjusted return'),
+    title: L('RAR: lợi suất đã hiệu chỉnh theo phơi nhiễm',
+             'RAR: exposure-adjusted return'),
     what: L('CAR chia cho tỷ lệ thời gian thực sự có vị thế.',
             'CAR divided by the fraction of time actually holding a position.'),
     rows: [['CAR', pct(o.car_pct)],
            [L('Phơi nhiễm', 'Exposure'), upct(o.exposure_pct)],
            ['RAR', pct(o.rar_pct)]],
-    how: L('Vốn đứng ngoài thị trường không chịu rủi ro thị trường. Một hệ thống chỉ nắm giữ 20% thời gian mà đạt cùng lợi nhuận với mua-và-giữ đang tạo ra lợi suất gấp năm lần trên phần vốn thực sự chịu rủi ro — và phần còn lại rảnh để làm việc khác.',
-            'Capital out of the market carries no market risk. A system that holds for 20% of the time and matches buy-and-hold is earning five times the return on the capital actually at risk — and the rest is free to work elsewhere.'),
+    how: L('Vốn đứng ngoài thị trường không chịu rủi ro thị trường. Một hệ thống chỉ nắm giữ 20% thời gian mà đạt cùng lợi nhuận với mua-và-giữ đang tạo ra lợi suất gấp năm lần trên phần vốn thực sự chịu rủi ro, và phần còn lại rảnh để làm việc khác.',
+            'Capital out of the market carries no market risk. A system that holds for 20% of the time and matches buy-and-hold is earning five times the return on the capital actually at risk, and the rest is free to work elsewhere.'),
     watch: L('Phơi nhiễm rất thấp thường đi kèm rất ít lệnh, và khi đó mọi thống kê đều mỏng. Xem số lệnh trước khi đọc con số này.',
              'Very low exposure usually means very few trades, and every statistic is thin at that point. Check the trade count before reading this.'),
   });
@@ -417,8 +417,8 @@ const Report = (() => {
     rows: [['Beta', ratio(b.beta)],
            [L('Tương quan', 'Correlation'), ratio(b.correlation)],
            [L('Alpha (năm)', 'Alpha (annual)'), pct(b.alpha_annual_pct)]],
-    how: L('Beta gần 1 nghĩa là chiến lược gần như chỉ đang nắm giữ, và lợi nhuận của nó là lợi nhuận của thị trường. Beta gần 0 nghĩa là nó kiếm tiền từ nơi khác — đó mới là thứ đáng trả phí.',
-            'A beta near 1 means the strategy is essentially just holding, and its return is the market’s return. A beta near 0 means it earns from somewhere else — which is the part worth paying for.'),
+    how: L('Beta gần 1 nghĩa là chiến lược gần như chỉ đang nắm giữ, và lợi nhuận của nó là lợi nhuận của thị trường. Beta gần 0 nghĩa là nó kiếm tiền từ nơi khác, đó mới là thứ đáng trả phí.',
+            'A beta near 1 means the strategy is essentially just holding, and its return is the market’s return. A beta near 0 means it earns from somewhere else, which is the part worth paying for.'),
     watch: L('Beta ở đây so với CHÍNH tài sản này, không phải so với một chỉ số thị trường.',
              'This beta is against the traded asset itself, not against a market index.'),
   });
@@ -450,8 +450,8 @@ const Report = (() => {
       html += `<div class="callout warn"><strong>${esc(L(
         'Chỉ một chiều có lãi.', 'Only one side makes money.'))}</strong>
         ${esc(L(
-          `Chiều ${goodName} lãi ${money(Math.abs(good.net_profit))}, chiều ${badName} lỗ ${money(Math.abs(bad.net_profit))}. Bỏ hẳn chiều ${badName} có thể cho kết quả tốt hơn — nhưng hãy kiểm chứng bằng walk-forward, vì đây cũng có thể chỉ là đặc điểm của đúng giai đoạn này.`,
-          `The ${goodName} side made ${money(Math.abs(good.net_profit))} and the ${badName} side lost ${money(Math.abs(bad.net_profit))}. Dropping the ${badName} side may do better — but check it with walk-forward, because it may equally be a feature of this particular period.`))}</div>`;
+          `Chiều ${goodName} lãi ${money(Math.abs(good.net_profit))}, chiều ${badName} lỗ ${money(Math.abs(bad.net_profit))}. Bỏ hẳn chiều ${badName} có thể cho kết quả tốt hơn, nhưng hãy kiểm chứng bằng walk-forward, vì đây cũng có thể chỉ là đặc điểm của đúng giai đoạn này.`,
+          `The ${goodName} side made ${money(Math.abs(good.net_profit))} and the ${badName} side lost ${money(Math.abs(bad.net_profit))}. Dropping the ${badName} side may do better, but check it with walk-forward, because it may equally be a feature of this particular period.`))}</div>`;
     }
     if (t2.all.best_trade_share_pct > 40) {
       html += `<div class="callout warn"><strong>${esc(L(
@@ -536,7 +536,7 @@ const Report = (() => {
     what: L('Khoảng bất định quanh con số lãi trung bình mỗi lệnh.',
             'The uncertainty band around the average profit per trade.'),
     how: L('Nếu sai số chuẩn lớn hơn chính giá trị trung bình thì kỳ vọng quan sát được không phân biệt được với 0, dù bảng vẫn in ra một con số dương.',
-            'If the standard error exceeds the mean itself, the observed expectancy is indistinguishable from zero — however positive the printed number looks.'),
+            'If the standard error exceeds the mean itself, the observed expectancy is indistinguishable from zero, however positive the printed number looks.'),
   });
 
   function riskTab(r) {
@@ -627,15 +627,15 @@ const Report = (() => {
 
     if (ep.unrecovered) {
       html += `<div class="callout warn">${esc(L(
-        'Giai đoạn kết thúc khi đường vốn vẫn còn dưới đỉnh — đợt sụt giảm cuối cùng chưa hồi. Nó không có thời gian hồi phục để báo cáo, và độ sâu của nó vẫn còn có thể sâu thêm.',
-        'The period ends with equity still below its peak — the last drawdown never recovered. It has no recovery time to report, and its depth can still get worse.'))}</div>`;
+        'Giai đoạn kết thúc khi đường vốn vẫn còn dưới đỉnh, đợt sụt giảm cuối cùng chưa hồi. Nó không có thời gian hồi phục để báo cáo, và độ sâu của nó vẫn còn có thể sâu thêm.',
+        'The period ends with equity still below its peak, the last drawdown never recovered. It has no recovery time to report, and its depth can still get worse.'))}</div>`;
     }
     if (k?.note) {
       html += `<p class="table-note">${esc(L('Hệ số K: ', 'K-ratio: '))}${esc(tp(k.note) || k.note)}</p>`;
     }
     html += `<p class="table-note">${esc(L(
-      'Sụt giảm trong quá khứ là cận dưới, không phải cận trên. Một giai đoạn dài hơn gần như luôn chứa một đợt sâu hơn đợt tệ nhất ở đây — hãy lấy con số này làm mức tối thiểu phải chịu được, không phải mức tối đa sẽ gặp.',
-      'Past drawdown is a floor, not a ceiling. A longer period almost always contains something deeper than the worst here — read this as the minimum you must be able to sit through, not the maximum you will meet.'))}</p>`;
+      'Sụt giảm trong quá khứ là cận dưới, không phải cận trên. Một giai đoạn dài hơn gần như luôn chứa một đợt sâu hơn đợt tệ nhất ở đây, hãy lấy con số này làm mức tối thiểu phải chịu được, không phải mức tối đa sẽ gặp.',
+      'Past drawdown is a floor, not a ceiling. A longer period almost always contains something deeper than the worst here: read this as the minimum you must be able to sit through, not the maximum you will meet.'))}</p>`;
     return html;
   }
 
@@ -646,8 +646,8 @@ const Report = (() => {
     rows: [[L('Số đợt', 'Episodes'), ep.count ?? '—'],
            [L('Trung vị', 'Median'), upct(ep.median_depth_pct)],
            [L('Trung bình', 'Mean'), upct(ep.average_depth_pct)]],
-    how: L('Sụt giảm tối đa là MỘT quan sát — thường là quan sát cực đoan nhất trong toàn bộ lịch sử. Trung vị nói cho bạn biết một đợt sụt bình thường sâu bao nhiêu, tức là thứ bạn sẽ gặp hầu hết các lần.',
-            'Max drawdown is a single observation, usually the most extreme in the whole record. The median tells you how deep a normal drawdown is — which is what you will meet most of the time.'),
+    how: L('Sụt giảm tối đa là MỘT quan sát, thường là quan sát cực đoan nhất trong toàn bộ lịch sử. Trung vị nói cho bạn biết một đợt sụt bình thường sâu bao nhiêu, tức là thứ bạn sẽ gặp hầu hết các lần.',
+            'Max drawdown is a single observation, usually the most extreme in the whole record. The median tells you how deep a normal drawdown is, which is what you will meet most of the time.'),
   });
 
   const sterlingExplain = () => Explain.inline({
@@ -689,8 +689,8 @@ const Report = (() => {
     title: L('Tỷ lệ đuôi', 'Tail ratio'),
     what: L('Phân vị 95 chia độ lớn phân vị 5 của lợi suất theo nến.',
             'The 95th percentile divided by the magnitude of the 5th percentile of bar returns.'),
-    how: L('Dưới 1 nghĩa là những nến tệ nhất tệ hơn những nến tốt nhất tốt — một hình dạng phân phối mà lợi nhuận trung bình dương vẫn có thể che giấu.',
-            'Below 1 means the worst bars are worse than the best bars are good — a shape that a positive average return can still hide.'),
+    how: L('Dưới 1 nghĩa là những nến tệ nhất tệ hơn những nến tốt nhất tốt, một hình dạng phân phối mà lợi nhuận trung bình dương vẫn có thể che giấu.',
+            'Below 1 means the worst bars are worse than the best bars are good, a shape that a positive average return can still hide.'),
   });
 
   const stabilityExplain = () => Explain.inline({
@@ -699,8 +699,8 @@ const Report = (() => {
             'The R² of a linear regression of cumulative return against time.'),
     how: L('1.0 là một đường thẳng hoàn hảo. 0.3 nghĩa là phần lớn chuyển động của đường vốn không phải xu hướng, mà là dao động quanh nó.',
             '1.0 is a perfectly straight line. 0.3 means most of the equity curve’s movement is not trend but noise around it.'),
-    watch: L('Độ ổn định cao không có nghĩa là lãi — một đường thẳng đi xuống cũng cho R² gần 1.',
-             'High stability does not mean profitable — a straight line going down also scores near 1.'),
+    watch: L('Độ ổn định cao không có nghĩa là lãi, một đường thẳng đi xuống cũng cho R² gần 1.',
+             'High stability does not mean profitable: a straight line going down also scores near 1.'),
   });
 
   function periodTab(r) {
@@ -770,8 +770,8 @@ const Report = (() => {
       L('lợi suất đường vốn mỗi nến (%)', 'equity return per bar (%)'),
       L('Phân phối lợi suất theo nến', 'Distribution of bar returns'));
     html += `<p class="table-note">${esc(L(
-      `Độ lệch ${nf(r.risk.ratios?.skew, 2)} và độ nhọn ${nf(r.risk.ratios?.kurtosis, 1)} — phân phối chuẩn có cả hai bằng 0. Đuôi càng dày thì Sharpe càng đánh giá thấp rủi ro, vì Sharpe chỉ nhìn hai mô-men đầu.`,
-      `Skew ${nf(r.risk.ratios?.skew, 2)} and kurtosis ${nf(r.risk.ratios?.kurtosis, 1)} — a normal distribution has both at zero. The fatter the tails, the more Sharpe understates the risk, because Sharpe only looks at the first two moments.`))}</p>`;
+      `Độ lệch ${nf(r.risk.ratios?.skew, 2)} và độ nhọn ${nf(r.risk.ratios?.kurtosis, 1)} (phân phối chuẩn có cả hai bằng 0). Đuôi càng dày thì Sharpe càng đánh giá thấp rủi ro, vì Sharpe chỉ nhìn hai mô-men đầu.`,
+      `Skew ${nf(r.risk.ratios?.skew, 2)} and kurtosis ${nf(r.risk.ratios?.kurtosis, 1)} (a normal distribution has both at zero). The fatter the tails, the more Sharpe understates the risk, because Sharpe only looks at the first two moments.`))}</p>`;
 
     if (!e.count) return html;
 
@@ -930,7 +930,7 @@ const Report = (() => {
     title: L("Cohen's kappa", "Cohen's kappa"),
     what: L('Mức đồng thuận giữa dự đoán và thực tế, sau khi trừ đi phần đồng thuận do may.',
             'Agreement between prediction and outcome after removing the agreement expected by chance.'),
-    how: L('0 nghĩa là không hơn gì đoán mò. Với hai lớp lệch nhau, đây là con số trung thực hơn độ chính xác thô — vốn có thể cao chỉ vì đoán mãi một phía.',
+    how: L('0 nghĩa là không hơn gì đoán mò. Với hai lớp lệch nhau, đây là con số trung thực hơn độ chính xác thô, vốn có thể cao chỉ vì đoán mãi một phía.',
             'Zero means no better than chance. With imbalanced classes this is more honest than raw accuracy, which can be high purely from always guessing one side.'),
   });
 
@@ -943,8 +943,8 @@ const Report = (() => {
            [L('Số nến', 'Bars'), m.n_scored]],
     how: L('Khác độ chính xác ở chỗ nó tính cả độ lớn: đoán đúng một cú tăng 3% được tính nặng hơn đoán đúng một cú 0.05%. Trong quản lý quỹ định lượng, IC quanh 0.03 đã là tín hiệu dùng được, và 0.10 là rất mạnh.',
             'Unlike accuracy it weights magnitude: calling a 3% move counts for more than calling a 0.05% one. In quantitative fund management an IC around 0.03 is already usable and 0.10 is very strong.'),
-    watch: L('Hạng Spearman nên một lệnh đúng cực lớn không kéo được cả con số lên, nhưng IC vẫn giả định các nến độc lập — vị thế giữ qua nhiều nến thì không.',
-             'Spearman ranks, so one enormous correct call cannot drag the figure up on its own — but IC still assumes independent bars, and a position held across many bars is not.'),
+    watch: L('Hạng Spearman nên một lệnh đúng cực lớn không kéo được cả con số lên, nhưng IC vẫn giả định các nến độc lập, vị thế giữ qua nhiều nến thì không.',
+             'Spearman ranks, so one enormous correct call cannot drag the figure up on its own, but IC still assumes independent bars, and a position held across many bars is not.'),
   });
 
   const TABS = [

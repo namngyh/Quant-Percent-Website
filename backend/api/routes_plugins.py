@@ -92,7 +92,7 @@ def _classify(source: str) -> str:
 
     if has_indicator and has_strategy:
         raise HTTPException(
-            422, "File khai báo cả INDICATOR và STRATEGY — hãy tách thành hai file."
+            422, "File khai báo cả INDICATOR và STRATEGY, hãy tách thành hai file."
         )
     if has_indicator:
         return "indicator"

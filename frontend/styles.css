@@ -1,4 +1,4 @@
-/* Quant Percent — Material-flavoured research terminal
+/* Quant Percent: Material-flavoured research terminal
  *
  * The palette, type and shape language follow Google's: Blue 600 as the single
  * accent, the Grey 50/300/700/900 ramp, 8px cards with 20px pill buttons, and
@@ -81,7 +81,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Every figure that updates in place — prices, metrics, table cells — uses
+/* Every figure that updates in place (prices, metrics, table cells) uses
    tabular numerals, so a digit changing does not shift the ones beside it. */
 .metric-value, .data-table, .price-ticker, .status, .xp-table, .badge {
   font-variant-numeric: tabular-nums;
@@ -764,7 +764,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 /* ==================== Top bar fitting ====================
  *
  * The symbol picker sizes itself to its widest option, and the Vietnamese
- * names pushed it to 387px — enough to shove the buttons on the right off a
+ * names pushed it to 387px: enough to shove the buttons on the right off a
  * 1280px screen. Everything in the bar now has a ceiling and is allowed to
  * shrink, so the bar fits the window instead of the window having to fit it. */
 
@@ -887,8 +887,8 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 /* ==================== Splash ====================
  *
  * The mark draws itself: the two squares settle in, then the diagonal is
- * stroked from corner to corner. It runs once on load and gets out of the way
- * — the point is to cover the moment before the chart has data, not to be
+ * stroked from corner to corner. It runs once on load and gets out of the way:
+ * the point is to cover the moment before the chart has data, not to be
  * looked at. */
 
 .splash {
@@ -1113,9 +1113,9 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 /* ==================== Explanation popover ====================
  *
  * One floating panel shared by every (i) button. Fixed positioning against the
- * viewport, so it is never clipped by a scrolling panel — which is what a
+ * viewport, so it is never clipped by a scrolling panel (which is what a
  * plain absolutely-positioned tooltip would be, given every panel here
- * scrolls. `Explain.place()` flips and clamps it. */
+ * scrolls). `Explain.place()` flips and clamps it. */
 
 .explain-pop {
   position: fixed;
@@ -1209,7 +1209,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 .stat-table td:first-child .info-btn { margin-left: 4px; vertical-align: -3px; }
 .stat-table th:not(:first-child), .stat-table td:not(:first-child) { white-space: nowrap; }
 
-/* A settings row whose control needs the full width — a token does not fit in
+/* A settings row whose control needs the full width: a token does not fit in
    the narrow value column that numeric parameters use. */
 .param-row.stack { display: block; }
 .param-row.stack > span { display: block; margin-bottom: 4px; }
@@ -1356,20 +1356,24 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 .pf-quick-chip {
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.2, 0, 0, 1);
+  transition: all 0.15s ease;
 }
 .pf-quick-chip:hover {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-dim);
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-sm);
+}
+.pf-quick-chip:active {
+  background: var(--surface-3);
+  transform: translateY(0);
 }
 
 .pf-rows { display: grid; gap: 8px; margin-bottom: 10px; }

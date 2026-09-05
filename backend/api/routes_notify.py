@@ -42,7 +42,7 @@ class TelegramSettings(BaseModel):
         # clear message instead of a Telegram 404.
         if ":" not in value:
             raise ValueError(
-                "Token phải có dạng 123456789:AA... — có vẻ bạn đang dán nhầm chat id."
+                "Token phải có dạng 123456789:AA... (có vẻ bạn đang dán nhầm chat id)."
             )
         return value
 

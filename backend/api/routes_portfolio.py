@@ -1,8 +1,8 @@
-"""Quant Portfolio — đo một danh mục cổ phiếu Việt Nam đã nhập.
+"""Quant Portfolio: đo một danh mục cổ phiếu Việt Nam đã nhập.
 
 POST chứ không GET, kể cả khi không có gì được ghi xuống: danh mục là dữ liệu
 vị thế của người dùng. Để nó ngoài URL là để nó ngoài log truy cập, lịch sử
-trình duyệt và header referrer. Không có gì được lưu — yêu cầu được phân tích
+trình duyệt và header referrer. Không có gì được lưu: yêu cầu được phân tích
 rồi bỏ đi.
 """
 

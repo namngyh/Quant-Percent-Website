@@ -11,7 +11,7 @@ const API = (() => {
     try {
       payload = await response.json();
     } catch {
-      // Non-JSON body (a proxy error page, say) — fall through to the status.
+      // Non-JSON body (a proxy error page, say): fall through to the status.
     }
 
     if (!response.ok) {

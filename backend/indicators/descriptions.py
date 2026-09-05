@@ -3,12 +3,12 @@
 Docstring của pandas-ta viết bằng tiếng Anh và phần lớn chỉ nêu công thức, nên
 người dùng nhìn vào một cái tên như `cksp` hay `qqe` vẫn không biết nó đo gì.
 Bảng dưới đây mô tả các chỉ báo hay dùng theo hướng *dùng để làm gì*, và những
-cái không có trong bảng thì rơi về docstring gốc — vẫn hơn là không có gì.
+cái không có trong bảng thì rơi về docstring gốc: vẫn hơn là không có gì.
 
 Mỗi mục gồm:
-    what  — nó đo cái gì, một câu
-    how   — đọc nó thế nào
-    watch — điều dễ hiểu sai hoặc cần cẩn thận (có thể bỏ trống)
+    what  : nó đo cái gì, một câu
+    how   : đọc nó thế nào
+    watch : điều dễ hiểu sai hoặc cần cẩn thận (có thể bỏ trống)
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ DESCRIPTIONS: dict[str, dict[str, str]] = {
     "sma": {
         "what": "Trung bình cộng giá đóng cửa của N nến gần nhất.",
         "how": "Giá trên đường là xu hướng tăng, dưới là giảm. Đường càng dài càng chậm.",
-        "watch": "Luôn trễ so với giá — đó là bản chất, không phải lỗi.",
+        "watch": "Luôn trễ so với giá: đó là bản chất, không phải lỗi.",
     },
     "ema": {
         "what": "Trung bình trượt có trọng số giảm dần, nến gần đây quan trọng hơn.",
@@ -50,7 +50,7 @@ DESCRIPTIONS: dict[str, dict[str, str]] = {
     "supertrend": {
         "what": "Đường bám xu hướng, lật phía trên/dưới giá dựa trên ATR.",
         "how": "Đường dưới giá = xu hướng tăng, trên giá = giảm.",
-        "watch": "Trả về hai đường long/short **luân phiên** — mỗi lúc chỉ một đường có giá trị, đó là thiết kế chứ không phải thiếu dữ liệu.",
+        "watch": "Trả về hai đường long/short **luân phiên**: mỗi lúc chỉ một đường có giá trị, đó là thiết kế chứ không phải thiếu dữ liệu.",
     },
     "psar": {
         "what": "Parabolic SAR: các chấm dừng lỗ trượt dần theo xu hướng.",
@@ -80,14 +80,14 @@ DESCRIPTIONS: dict[str, dict[str, str]] = {
     "adx": {
         "what": "Đo **độ mạnh** của xu hướng, không đo chiều.",
         "how": "Trên 25 thường coi là có xu hướng rõ; dưới 20 là đi ngang.",
-        "watch": "ADX cao không nói lên tăng hay giảm — phải nhìn thêm DMP/DMN.",
+        "watch": "ADX cao không nói lên tăng hay giảm: phải nhìn thêm DMP/DMN.",
     },
     "cci": {
         "what": "Độ lệch của giá so với trung bình, chuẩn hoá theo độ lệch trung bình.",
         "how": "Ngoài khoảng ±100 được coi là lệch mạnh.",
     },
     "willr": {
-        "what": "Williams %R — giống Stochastic nhưng thang từ -100 đến 0.",
+        "what": "Williams %R: giống Stochastic nhưng thang từ -100 đến 0.",
         "how": "Trên -20 là quá mua, dưới -80 là quá bán.",
     },
     "mfi": {
@@ -103,7 +103,7 @@ DESCRIPTIONS: dict[str, dict[str, str]] = {
     "atr": {
         "what": "Biên độ dao động trung bình thật của N nến, tính theo đơn vị giá.",
         "how": "Dùng để đặt dừng lỗ theo biến động thay vì theo % cố định.",
-        "watch": "Là số tuyệt đối nên không so được giữa các mã có mức giá khác nhau — dùng NATR nếu cần so sánh.",
+        "watch": "Là số tuyệt đối nên không so được giữa các mã có mức giá khác nhau: dùng NATR nếu cần so sánh.",
     },
     "natr": {
         "what": "ATR chuẩn hoá theo phần trăm giá.",
@@ -124,29 +124,29 @@ DESCRIPTIONS: dict[str, dict[str, str]] = {
         "how": "Phân kỳ với giá là điểm đáng chú ý.",
     },
     "cmf": {
-        "what": "Chaikin Money Flow — dòng tiền vào ra trong N nến.",
+        "what": "Chaikin Money Flow: dòng tiền vào ra trong N nến.",
         "how": "Dương là dòng tiền vào, âm là ra.",
     },
 
     # ---------- Thống kê ----------
     "stdev": {
-        "what": "Độ lệch chuẩn của giá trong N nến — thước đo biến động thô.",
+        "what": "Độ lệch chuẩn của giá trong N nến: thước đo biến động thô.",
         "how": "Là thành phần tạo nên dải Bollinger.",
     },
     "zscore": {
         "what": "Giá lệch bao nhiêu độ lệch chuẩn so với trung bình trượt.",
-        "how": "Vượt ±2 là hiếm nếu phân phối chuẩn — nhưng giá tài chính đuôi dày hơn chuẩn nhiều.",
+        "how": "Vượt ±2 là hiếm nếu phân phối chuẩn, nhưng giá tài chính đuôi dày hơn chuẩn nhiều.",
     },
     "linreg": {
         "what": "Giá trị cuối của đường hồi quy tuyến tính trên N nến.",
         "how": "Là một dạng trung bình trượt mượt, ít trễ hơn SMA.",
     },
     "dpo": {
-        "what": "Detrended Price Oscillator — bỏ xu hướng để lộ chu kỳ.",
+        "what": "Detrended Price Oscillator: bỏ xu hướng để lộ chu kỳ.",
         "watch": "Là chỉ báo **căn giữa**, dịch lại nửa chu kỳ, nên thiếu vài nến cuối theo đúng định nghĩa.",
     },
     "hwc": {
-        "what": "Kênh Holt-Winters — làm mượt ba tầng (mức, xu hướng, gia tốc).",
+        "what": "Kênh Holt-Winters: làm mượt ba tầng (mức, xu hướng, gia tốc).",
         "watch": "Ba tham số na/nb/nc là **hệ số làm mượt, phải nhỏ hơn 1**. Đặt lớn hơn sẽ khiến mô hình phân kỳ.",
     },
 }

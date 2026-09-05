@@ -8,7 +8,7 @@
 const ChartManager = (() => {
   /* Lightweight Charts renders its axis in UTC and v4 has no timezone option,
      so every timestamp is shifted by the display offset on the way in. Vietnam
-     is UTC+7 all year — no daylight saving — so a fixed offset is exact, and a
+     is UTC+7 all year: no daylight saving: so a fixed offset is exact, and a
      timezone library would buy nothing.
 
      Everything stored, compared and sent by the backend stays UTC; this offset
@@ -65,8 +65,8 @@ const ChartManager = (() => {
   }
 
   /* Sizing is done here rather than with the library's `autoSize`.
-     That option collapses the chart when its container is briefly 0 wide — a
-     hidden panel, a minimised window — and does not always recover when the
+     That option collapses the chart when its container is briefly 0 wide: a
+     hidden panel, a minimised window: and does not always recover when the
      space comes back, leaving a chart stuck at a few pixels. Measuring the
      container ourselves and applying the size is deterministic. */
   const sizers = new Map();
@@ -95,8 +95,8 @@ const ChartManager = (() => {
   /* Re-measure every chart on demand.
 
      ResizeObserver is the primary mechanism but it is delivered on the
-     rendering lifecycle, so a page that is not painting — a background tab, a
-     hidden pane — never receives it and the chart stays at whatever size it
+     rendering lifecycle, so a page that is not painting: a background tab, a
+     hidden pane: never receives it and the chart stays at whatever size it
      last saw. Calling this after anything that changes the layout covers that
      without waiting for a frame. */
   function refreshSize() {
@@ -158,7 +158,7 @@ const ChartManager = (() => {
 
   /** Convert {times, values[key]} into the points the chart wants.
 
-     A missing value becomes a *whitespace* point — `{time}` with no value —
+     A missing value becomes a *whitespace* point: `{time}` with no value:
      rather than being dropped. The library reserves the slot and breaks the
      line there, which looks the same, but the series keeps one entry per
      candle.
@@ -167,7 +167,7 @@ const ChartManager = (() => {
      logical (index) range. Dropping the warm-up values left an indicator with
      1 445 points against 2 000 candles, so index 500 in the pane was a
      different bar from index 500 on the price chart and the panes drifted out
-     of line — each ending short of the newest candle by a different amount. */
+     of line: each ending short of the newest candle by a different amount. */
   function toPoints(times, values) {
     const points = [];
     for (let i = 0; i < times.length; i += 1) {
@@ -289,8 +289,8 @@ const ChartManager = (() => {
      `openPosition` marks a position a paper session is still holding: it has
      an entry but no exit yet, and leaving it off would make a running session
      look like it had never traded. */
-  /* Markers are kept even while hidden. Hiding is a view setting — you toggle
-     them off to read the price action underneath, then back on — so throwing
+  /* Markers are kept even while hidden. Hiding is a view setting: you toggle
+     them off to read the price action underneath, then back on: so throwing
      the data away and asking the caller to re-run a backtest would be the
      wrong shape entirely. `clearTradeMarkers` is the one that forgets. */
   let storedMarkers = [];
@@ -365,7 +365,7 @@ const ChartManager = (() => {
 
 
   /* Live updates. Lightweight Charts replaces the last bar when update() is
-     called with its timestamp, and appends when the timestamp is newer — so
+     called with its timestamp, and appends when the timestamp is newer: so
      the same call handles both a forming candle and the birth of a new one. */
   function updateCandle(candle) {
     if (!candleSeries) return;
@@ -441,7 +441,7 @@ const EquityChart = (() => {
       priceLineVisible: false,
     });
 
-    // Own the sizing here too — the results panel is hidden most of the time,
+    // Own the sizing here too: the results panel is hidden most of the time,
     // which is exactly the case that leaves autoSize stuck at zero.
     const fit = () => {
       const { width, height } = container.getBoundingClientRect();

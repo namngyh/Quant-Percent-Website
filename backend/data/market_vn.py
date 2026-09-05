@@ -123,7 +123,7 @@ def _friendly(exc: Exception) -> str:
     if "permission denied" in text:
         return (
             "Bị từ chối quyền trên database thị trường VN. "
-            "Tài khoản chỉ đọc được schema `api` — hãy hỏi người quản trị."
+            "Tài khoản chỉ đọc được schema `api`, hãy liên hệ người quản trị."
         )
     return f"Lỗi database thị trường VN: {exc}"
 
@@ -194,7 +194,7 @@ def daily_closes(symbols: list[str], lookback: int) -> dict[str, dict]:
     panel asks for up to fifty names plus the index, and fifty round trips over
     a VPN is the difference between a page that answers and a page that hangs.
 
-    The window is per symbol — ``row_number`` partitions by symbol — so a name
+    The window is per symbol (``row_number`` partitions by symbol) so a name
     whose feed lags a few sessions still gets its own most recent `lookback`
     rows rather than being truncated by whatever the busiest symbol has.
 

@@ -215,7 +215,7 @@ const Strategy = (() => {
       const coverage = (samples / info.combinations) * 100;
       box.className = 'sweep-size';
       box.innerHTML =
-        `Không gian <span class="big">${total}</span> tổ hợp — ${axes}<br>` +
+        `Không gian <span class="big">${total}</span> tổ hợp: ${axes}<br>` +
         `Lấy <span class="big">${samples.toLocaleString('vi-VN')}</span> mẫu ` +
         `(${coverage < 0.01 ? '&lt;0,01' : coverage.toFixed(2)}%) ≈ ${fmtDuration(seconds)}`;
       return;
@@ -223,7 +223,7 @@ const Strategy = (() => {
 
     box.className = `sweep-size${info.exceeds_limit ? ' over' : ''}`;
     box.innerHTML =
-      `<span class="big">${total}</span> tổ hợp — ${axes}<br>` +
+      `<span class="big">${total}</span> tổ hợp: ${axes}<br>` +
       (info.exceeds_limit
         ? `Vượt giới hạn ${info.max_combinations.toLocaleString('vi-VN')}, ước tính ` +
           `${fmtDuration(info.estimated_seconds)}. Nới bước nhảy hoặc chuyển sang <strong>Ngẫu nhiên</strong>.`
@@ -287,7 +287,7 @@ const Strategy = (() => {
 
     if (m.ruined) {
       html += `<div class="callout bad"><strong>Cháy tài khoản.</strong>
-        Vốn về 0 sau ${m.liquidations} lần bị thanh lý — hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.</div>`;
+        Vốn về 0 sau ${m.liquidations} lần bị thanh lý: hãy hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.</div>`;
     } else if (m.liquidations > 0) {
       html += `<div class="callout warn"><strong>${m.liquidations} lần bị thanh lý.</strong>
         Vị thế bị đóng cưỡng bức khi lỗ chạm mức ký quỹ.</div>`;
@@ -299,7 +299,7 @@ const Strategy = (() => {
     }
 
     if (m.num_trades < 10 && m.num_trades > 0) {
-      html += `<div class="callout warn">Chỉ ${m.num_trades} lệnh — quá ít để kết luận gì.
+      html += `<div class="callout warn">Chỉ ${m.num_trades} lệnh (quá ít để kết luận).
         Kéo dài dữ liệu hoặc nới tham số.</div>`;
     }
 
