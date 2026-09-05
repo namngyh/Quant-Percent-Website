@@ -36,3 +36,15 @@ services:
       # ào, thấy ngay. Còn nếu dùng biến mà quên điền, nó sẽ lặng lẽ gắn vào
       # 127.0.0.1 và DataPro mất kết nối mà không ai hiểu vì sao.
       - "10.10.0.1:5432:5432"
+
+      # Mở PostgreSQL cho thành viên trong team kết nối qua Tailscale.
+      #
+      # Cùng nguyên tắc với dòng trên: gắn vào đúng IP của card Tailscale
+      # (qp-vps), không phải 0.0.0.0. Tài khoản đi đường này là qp_remote —
+      # chỉ SELECT, chỉ schema api, tự ngắt truy vấn quá 60 giây.
+      #
+      # Dòng này BẮT BUỘC phải nằm trong Git. Lần đầu nó được thêm tay trực
+      # tiếp trên máy chủ, và `git pull` của lần deploy kế tiếp đã xoá sạch —
+      # cả team mất kết nối, mà triệu chứng chỉ là "timeout" nên rất dễ đi
+      # tìm nhầm sang lỗi Tailscale phía máy người dùng.
+      - "100.84.96.26:5432:5432"
