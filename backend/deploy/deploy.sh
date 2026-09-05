@@ -69,6 +69,23 @@ git reset --hard origin/main
 # tức là xoá luôn deploy/.env.production, và cả stack sẽ không khởi động lại
 # được vì mất hết mật khẩu database.
 
+# `git reset --hard` vừa ghi đè chính file đang chạy. Bash đọc script theo
+# offset byte chứ không nạp hết vào bộ nhớ, nên từ đây trở đi nó đọc tiếp một
+# file đã khác — hoặc chạy nhầm dòng, hoặc chạy đúng nhưng là LOGIC CŨ.
+#
+# Đó là lý do bước nạp catalogue thêm vào hôm nay không chạy ở lần deploy đầu
+# tiên: bản mới đã nằm trên đĩa nhưng bản đang thực thi vẫn là bản trước đó.
+# Mọi sửa đổi deploy.sh vì thế đều trễ đúng một lần deploy, và tệ hơn là
+# script có thể chạy sai giữa chừng mà không báo gì.
+#
+# Nạp lại chính mình một lần, từ bản vừa kéo về. Biến QP_DEPLOY_RELOADED chặn
+# vòng lặp vô hạn.
+if [ "${QP_DEPLOY_RELOADED:-}" != "1" ]; then
+  echo "    Nạp lại deploy.sh từ bản vừa kéo về..."
+  export QP_DEPLOY_RELOADED=1
+  exec bash "$DEPLOY_DIR/deploy.sh" "$@"
+fi
+
 echo "==> 3/7 Build lại image và khởi động"
 cd "$DEPLOY_DIR"
 "${COMPOSE[@]}" up -d --build
