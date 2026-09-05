@@ -367,7 +367,7 @@
       "currentOutput": "Kết quả mới nhất",
       "forecastChart": "Biểu đồ dự báo",
       "historicalForecasts": "Lịch sử dự báo",
-      "historicalDescription": "So sánh dự báo tại từng thời điểm với giá trị thực tế sau đó.",
+      "historicalDescription": "Mỗi dự báo chỉ được đối chiếu sau khi hết thời hạn của nó và kết quả thực tế đã có. Bảng này trống cho tới khi những dự báo đầu tiên đến hạn.",
       "forecastAt": "Thời điểm dự báo",
       "predicted": "Dự báo",
       "actual": "Thực tế",
@@ -386,7 +386,8 @@
       "validatedPerformance": "Kết quả đã được kiểm tra",
       "validatedPerformanceNote": "Các lần kiểm tra độc lập của cùng một hệ thống. Mỗi kết quả đều ghi rõ loại dữ liệu và giai đoạn đánh giá.",
       "disclosureNote": "Để bảo vệ tài sản nghiên cứu, Quant Percent không công khai dữ liệu chi tiết, trọng số, tham số hoặc quy tắc giao dịch của mô hình.",
-      "notFound": "Không tìm thấy mô hình."
+      "notFound": "Không tìm thấy mô hình.",
+      "currentOutputCaveat": "Đây là kết quả mô hình tính cho các thời hạn phía trước, chưa phải kết quả đã xảy ra. Các dự báo này chưa đến hạn nên chưa được đối chiếu với thực tế."
     }
   },
   "performance": {

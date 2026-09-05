@@ -613,8 +613,8 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
       },
     },
     provenance: {
-      vi: "Toàn bộ số liệu trên trang này đến từ một lần chạy đầy đủ trên dữ liệu đến ngày 06/08/2026: bản đồ liên kết, bảng xếp hạng và điểm căng thẳng. Số liệu được trích trực tiếp từ tệp kết quả, không nhập lại bằng tay.",
-      en: "Every figure on this page comes from a single full run on data through 6 Aug 2026: the relationship map, the ranking table and the stress score. All figures are read directly from the result files, not re-entered by hand.",
+      vi: "Toàn bộ số liệu trên trang này — bản đồ liên kết, bảng xếp hạng và điểm căng thẳng — đến từ một lần chạy đầy đủ trên dữ liệu đến ngày 06/08/2026, trích trực tiếp từ tệp kết quả chứ không nhập lại bằng tay. Đây là ảnh chụp của lần chạy nghiên cứu đó, không phải trạng thái thị trường hôm nay: mô hình được chạy lại theo từng đợt nghiên cứu, và trang chỉ đổi khi có đợt mới được công bố. Ngày ghi ở trên là mốc dữ liệu thực sự đang hiển thị.",
+      en: "Every figure on this page — the relationship map, the ranking table and the stress score — comes from a single full run on data through 6 Aug 2026, read directly from the result files rather than re-entered by hand. It is a snapshot of that research run, not the state of the market today: the model is re-run in research cycles, and this page changes only when a new cycle is published. The date above is the data actually on display.",
     },
   },
   msdp: {

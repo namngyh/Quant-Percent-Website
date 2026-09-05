@@ -97,6 +97,13 @@ export function CurrentOutput({
                 </div>
               ))}
             </div>
+            {/* Without this line the panel reads as a settled result. These
+                are estimates for periods that have not elapsed, and none of
+                them has yet been compared with what the market did — the
+                history table below is empty for exactly that reason. */}
+            <p className="mt-4 max-w-3xl border-l-2 border-lightgray pl-4 text-sm leading-relaxed text-dim">
+              {t("currentOutputCaveat")}
+            </p>
             <DataFreshnessLabel
               freshness={first}
               modelVersion={first.model_version}

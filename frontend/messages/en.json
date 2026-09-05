@@ -367,7 +367,7 @@
       "currentOutput": "Latest result",
       "forecastChart": "Forecast chart",
       "historicalForecasts": "Historical forecasts",
-      "historicalDescription": "Comparing forecasts made at each point in time with the values realized afterwards.",
+      "historicalDescription": "A forecast is only compared once its period has elapsed and the actual outcome is known. This table stays empty until the first forecasts mature.",
       "forecastAt": "Forecast made",
       "predicted": "Predicted",
       "actual": "Actual",
@@ -386,7 +386,8 @@
       "validatedPerformance": "Tested results",
       "validatedPerformanceNote": "Independent tests of the same system, each labeled with its data period and test type.",
       "disclosureNote": "Quant Percent does not disclose specific input data, feature sets, weights, parameters or trading logic.",
-      "notFound": "Model not found."
+      "notFound": "Model not found.",
+      "currentOutputCaveat": "These are model estimates for the periods ahead, not outcomes that have happened. None of them has reached its horizon yet, so none has been checked against the actual result."
     }
   },
   "performance": {
