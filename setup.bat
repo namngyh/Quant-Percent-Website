@@ -1,17 +1,17 @@
 @echo off
 chcp 65001 >nul
-REM ---- QP-TRACKING: setup môi trường & thư viện ----
-REM Tự động tạo virtual environment (.venv) và cài đặt dependencies.
+REM ---- QP-TRACKING: setup moi truong va thu vien ----
+REM Tu dong tao virtual environment .venv va cai dat dependencies.
 
 cd /d "%~dp0"
 
 echo.
 echo   ========================================
-echo       QP-TRACKING - Cài đặt môi trường
+echo       QP-TRACKING - Cai dat moi truong
 echo   ========================================
 echo.
 
-REM Kiểm tra Python trong PATH hoặc Python Launcher (py)
+REM Kiem tra Python trong PATH hoac Python Launcher
 set PYTHON_CMD=
 where python >nul 2>&1
 if not errorlevel 1 (
@@ -26,7 +26,7 @@ if not errorlevel 1 (
 if "%PYTHON_CMD%"=="" (
     echo   [!] KHONG TIM THAY PYTHON TREN HE THONG!
     echo.
-    echo       1. Vao https://www.python.org/downloads/ tai ban moi nhat ^(3.10+^).
+    echo       1. Vao https://www.python.org/downloads/ tai ban moi nhat.
     echo       2. Khi cai dat, NHO TICH VAO: "Add Python to PATH".
     echo       3. Cai xong, mo lai file setup.bat nay.
     echo.
@@ -34,7 +34,7 @@ if "%PYTHON_CMD%"=="" (
     exit /b 1
 )
 
-REM Tự động tạo file .env từ .env.example nếu chưa có
+REM Tu dong tao file .env tu .env.example neu chua co
 if not exist ".env" (
     if exist ".env.example" (
         copy ".env.example" ".env" >nul
@@ -42,9 +42,9 @@ if not exist ".env" (
     )
 )
 
-REM Tạo virtual environment nếu chưa có
+REM Tao virtual environment neu chua co
 if not exist ".venv\Scripts\python.exe" (
-    echo   [*] Dang khoi tao moi truong ao (.venv)...
+    echo   [*] Dang khoi tao moi truong ao .venv...
     %PYTHON_CMD% -m venv .venv
     if errorlevel 1 (
         echo   [!] Khong tao duoc .venv. Kiem tra quyen ghi thu muc.
@@ -53,7 +53,7 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
-echo   [*] Dang cap nhat pip va cai dat thu vien (co the mat vai phut lan dau)...
+echo   [*] Dang cap nhat pip va cai dat thu vien...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip -q
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 
