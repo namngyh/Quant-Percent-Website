@@ -35,7 +35,7 @@ const Live = (() => {
 
     socket.addEventListener('open', () => {
       reconnectDelay = RECONNECT_BASE_MS;
-      handlers.onStatus({ state: 'connecting' });
+      report({ state: 'connecting' });
       if (desired) send({ action: 'subscribe', ...desired });
     });
 
@@ -51,7 +51,7 @@ const Live = (() => {
 
     socket.addEventListener('close', () => {
       socket = null;
-      handlers.onStatus({ state: 'offline' });
+      report({ state: 'offline' });
       scheduleReconnect();
     });
 
@@ -59,6 +59,21 @@ const Live = (() => {
       // 'close' always follows, and that is where reconnection is handled.
       if (socket) socket.close();
     });
+  }
+
+  /* Report a status change, and only a change.
+   *
+   * A candle arriving is itself proof the stream is up, and that is worth
+   * acting on: the server announces "connected" once, so a lost or missed
+   * announcement would otherwise leave the label reading "connecting" over a
+   * chart that is visibly updating. Filtering to changes keeps that from
+   * firing a status update on every tick. */
+  let reported = null;
+
+  function report(status) {
+    if (status.state === reported) return;
+    reported = status.state;
+    handlers.onStatus(status);
   }
 
   function route(message) {
@@ -72,12 +87,15 @@ const Live = (() => {
         ) {
           return;
         }
+        // Data is arriving, so the stream is live whatever the last status
+        // message said, or failed to say.
+        report({ state: 'live' });
         handlers.onCandle(message);
         if (message.closed) handlers.onCandleClose(message);
         break;
 
       case 'stream_status':
-        handlers.onStatus({ state: message.connected ? 'live' : 'offline', ...message });
+        report({ state: message.connected ? 'live' : 'offline', ...message });
         break;
 
       case 'plugins_changed':
@@ -95,6 +113,9 @@ const Live = (() => {
         break;
 
       case 'error':
+        // Errors carry their own text, so they are reported every time
+        // rather than filtered as a repeat of the same state.
+        reported = 'error';
         handlers.onStatus({ state: 'error', message: message.message });
         break;
 
@@ -140,7 +161,7 @@ const Live = (() => {
       open();
     } else {
       close();
-      handlers.onStatus({ state: 'off' });
+      report({ state: 'off' });
     }
   }
 

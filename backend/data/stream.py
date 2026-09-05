@@ -128,6 +128,17 @@ class StreamManager:
         self._broadcast = broadcast
         self._watchers: dict[Series, set[object]] = {}
         self._tasks: dict[Series, asyncio.Task] = {}
+        # The last status broadcast for each series.
+        #
+        # "connected" is announced once, when the upstream comes up. A client
+        # that subscribes to a stream already running therefore never hears it
+        # and sits on "connecting" forever while candles arrive perfectly well
+        # — which happens with a second tab, with a paper session holding the
+        # same series open, and on reload when the new socket subscribes before
+        # the old one has finished disconnecting. Keeping the state lets
+        # `status_for` answer the question instead of the client having to have
+        # been listening at the right moment.
+        self._status: dict[Series, dict] = {}
         self._lock = asyncio.Lock()
         # Server-side consumers of the same candles — paper trading, for one.
         # They are not browser clients and must keep receiving even when no
@@ -136,6 +147,15 @@ class StreamManager:
 
     def add_listener(self, listener: Broadcast) -> None:
         self._listeners.append(listener)
+
+    async def _announce(self, series: Series, message: dict) -> None:
+        """Broadcast a stream status and remember it."""
+        self._status[series] = message
+        await self._broadcast(message)
+
+    def status_for(self, symbol: str, timeframe: str) -> dict | None:
+        """The last known status of a series, or None if it has yet to report."""
+        return self._status.get(Series(symbol.upper(), timeframe))
 
     async def _emit(self, candle: dict) -> None:
         for listener in self._listeners:
@@ -179,6 +199,7 @@ class StreamManager:
                 continue
 
             self._watchers.pop(series, None)
+            self._status.pop(series, None)
             task = self._tasks.pop(series, None)
             if task:
                 log.info("closing live stream for %s %s", series.symbol, series.timeframe)
@@ -226,7 +247,8 @@ class StreamManager:
                 )
 
                 if not announced:
-                    await self._broadcast(
+                    await self._announce(
+                        series,
                         {
                             "type": "stream_status",
                             "symbol": series.symbol,
@@ -269,7 +291,8 @@ class StreamManager:
             except Exception as exc:
                 log.warning("VN poll for %s failed: %s", series.symbol, exc)
                 if announced:
-                    await self._broadcast(
+                    await self._announce(
+                        series,
                         {
                             "type": "stream_status",
                             "symbol": series.symbol,
@@ -293,7 +316,8 @@ class StreamManager:
                 async with websockets.connect(url, ping_interval=20, ping_timeout=20) as ws:
                     log.info("live stream connected: %s", series.stream_name)
                     delay = RECONNECT_BASE_DELAY  # a good connection resets the backoff
-                    await self._broadcast(
+                    await self._announce(
+                        series,
                         {
                             "type": "stream_status",
                             "symbol": series.symbol,
@@ -323,7 +347,8 @@ class StreamManager:
             except Exception as exc:
                 log.warning("live stream %s dropped (%s); retrying in %.0fs",
                             series.stream_name, exc, delay)
-                await self._broadcast(
+                await self._announce(
+                    series,
                     {
                         "type": "stream_status",
                         "symbol": series.symbol,

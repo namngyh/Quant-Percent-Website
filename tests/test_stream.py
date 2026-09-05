@@ -155,6 +155,70 @@ def _():
     asyncio.run(run())
 
 
+@check("a late subscriber can still learn the stream is connected")
+def _():
+    # The "connected" announcement is broadcast once, when the upstream comes
+    # up. A client that subscribes to a stream already running never hears it,
+    # so it sat on "connecting" while candles arrived perfectly well: a second
+    # tab, a paper session holding the same series, or a reload whose new
+    # socket subscribes before the old one has finished disconnecting.
+    #
+    # The state is remembered, so the answer no longer depends on having been
+    # listening at the right moment.
+    async def run():
+        m = StubManager()
+        await m.subscribe("clientA", "BTCUSDT", "1m")
+        await asyncio.sleep(0)
+
+        # Nothing has reported yet, so there is nothing to replay.
+        assert m.status_for("BTCUSDT", "1m") is None, m.status_for("BTCUSDT", "1m")
+
+        # The upstream comes up and announces itself.
+        await m._announce(
+            Series("BTCUSDT", "1m"),
+            {"type": "stream_status", "symbol": "BTCUSDT",
+             "timeframe": "1m", "connected": True},
+        )
+
+        snapshot = m.status_for("BTCUSDT", "1m")
+        assert snapshot and snapshot["connected"] is True, snapshot
+        # Case-insensitively, since a client may send a lowercase symbol.
+        assert m.status_for("btcusdt", "1m") == snapshot
+
+        # A series nobody ever opened has no status to offer.
+        assert m.status_for("ETHUSDT", "1m") is None
+
+        await m.close()
+
+    asyncio.run(run())
+
+
+@check("a torn-down stream leaves no stale status behind")
+def _():
+    # Otherwise the next subscriber would be told "connected" about an upstream
+    # that has already been closed.
+    async def run():
+        m = StubManager()
+        await m.subscribe("clientA", "BTCUSDT", "1m")
+        await asyncio.sleep(0)
+        await m._announce(
+            Series("BTCUSDT", "1m"),
+            {"type": "stream_status", "symbol": "BTCUSDT",
+             "timeframe": "1m", "connected": True},
+        )
+        assert m.status_for("BTCUSDT", "1m") is not None
+
+        # The last viewer leaves, so the upstream closes.
+        await m.unsubscribe("clientA")
+        await asyncio.sleep(0)
+
+        assert not m.running, m.running
+        assert m.status_for("BTCUSDT", "1m") is None, m.status_for("BTCUSDT", "1m")
+        await m.close()
+
+    asyncio.run(run())
+
+
 @check("closing the manager tears down every upstream")
 def _():
     async def run():

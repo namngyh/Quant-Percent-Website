@@ -146,6 +146,17 @@ async def live(ws: WebSocket) -> None:
                     )
                 except ValueError as exc:
                     await ws.send_json({"type": "error", "message": str(exc)})
+                else:
+                    # Tell this client where the stream already stands. The
+                    # "connected" announcement fires once, when the upstream
+                    # comes up, so a client joining a stream that is already
+                    # running would otherwise never hear it.
+                    snapshot = hub.streams.status_for(
+                        symbol,
+                        message.get("timeframe") or settings.chart.default_timeframe,
+                    )
+                    if snapshot:
+                        await ws.send_json(snapshot)
 
             elif action == "unsubscribe":
                 await hub.streams.unsubscribe(ws)
