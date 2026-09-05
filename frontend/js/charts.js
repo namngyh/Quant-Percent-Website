@@ -136,6 +136,11 @@ const ChartManager = (() => {
     return mainChart;
   }
 
+  /* The newest bar the price chart holds, in chart time.
+
+     Indicator series are extended to reach it; see `reserveSlot`. */
+  let lastBarTime = null;
+
   function setCandles(candles, volumes, { timeVisible }) {
     for (const chart of allCharts()) {
       chart.applyOptions({ timeScale: { ...THEME.timeScale, timeVisible, secondsVisible: false } });
@@ -153,6 +158,7 @@ const ChartManager = (() => {
         color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
       })),
     );
+    lastBarTime = candles.length ? toChart(candles[candles.length - 1].time) : null;
     mainChart.timeScale().fitContent();
   }
 
@@ -190,11 +196,13 @@ const ChartManager = (() => {
         lastValueVisible: false,
         crosshairMarkerVisible: true,
       });
-      series.setData(toPoints(result.times, result.values[output.key] || []));
-      seriesList.push(series);
+      const points = toPoints(result.times, result.values[output.key] || []);
+      series.setData(points);
+      seriesList.push({ series, points });
     }
 
     overlays.set(instanceId, seriesList);
+    for (const entry of seriesList) reserveSlot(entry, lastBarTime);
   }
 
   /* Draw one indicator, splitting its outputs by the pane the backend assigned.
@@ -220,7 +228,7 @@ const ChartManager = (() => {
   function removeOverlay(instanceId) {
     const seriesList = overlays.get(instanceId);
     if (!seriesList) return;
-    for (const series of seriesList) mainChart.removeSeries(series);
+    for (const { series } of seriesList) mainChart.removeSeries(series);
     overlays.delete(instanceId);
   }
 
@@ -243,6 +251,7 @@ const ChartManager = (() => {
     });
     trackSize(chart, element);
 
+    const seriesList = [];
     for (const output of result.outputs) {
       const isHistogram = output.plot_type === 'histogram';
       const series = isHistogram
@@ -253,10 +262,15 @@ const ChartManager = (() => {
             priceLineVisible: false,
             lastValueVisible: true,
           });
-      series.setData(toPoints(result.times, result.values[output.key] || []));
+      const points = toPoints(result.times, result.values[output.key] || []);
+      series.setData(points);
+      seriesList.push({ series, points });
     }
 
-    panes.set(instanceId, { chart, element });
+    panes.set(instanceId, { chart, element, series: seriesList });
+    // A recompute reads closed candles only, so a fresh pane is already a bar
+    // or more behind the price chart the moment it is drawn.
+    for (const entry of seriesList) reserveSlot(entry, lastBarTime);
 
     // Adopt the main chart's current zoom, then join the sync group.
     const range = mainChart.timeScale().getVisibleLogicalRange();
@@ -364,23 +378,69 @@ const ChartManager = (() => {
   let onMarkersChanged = () => {};
 
 
+  /* Hold an indicator series level with the price chart, out to `time`.
+
+     Missing bars are added as whitespace: nothing is drawn, because an
+     indicator has no reading for a bar that is still forming and inventing one
+     would be worse than a gap.
+
+     It has to go through `setData`, not `update`. In Lightweight Charts 4.2.3
+     a whitespace point passed to `update()` is silently discarded — the series
+     keeps its old extent — while the same point inside a `setData` array does
+     reserve an index slot. That asymmetry is not in the documentation and is
+     the reason the first attempt at this fix changed nothing.
+
+     `setData` is O(n), so this runs only when the newest bar actually advances,
+     not on every tick of a forming candle. The points array is kept alongside
+     each series precisely so that check is a comparison rather than a query. */
+  function reserveSlot(entry, time) {
+    if (time === null || time === undefined) return;
+    const { series, points } = entry;
+    if (points.length && points[points.length - 1].time >= time) return;
+
+    points.push({ time });
+    series.setData(points);
+  }
+
   /* Live updates. Lightweight Charts replaces the last bar when update() is
-     called with its timestamp, and appends when the timestamp is newer: so
-     the same call handles both a forming candle and the birth of a new one. */
+     called with its timestamp and appends when the timestamp is newer, so the
+     same call handles both a forming candle and the birth of a new one.
+
+     Every indicator series is extended alongside the candles. Without that,
+     the price chart grows with each new bar while the panes stay at whatever
+     length the last recompute produced — and because the panes are separate
+     charts kept in step by logical *index*, a price series k bars longer puts
+     each pane's last point k slots to the left. Indicators are only recomputed
+     when a candle closes, and a slow one (an ML plugin refitting over
+     thousands of bars) or a failing one leaves that gap open indefinitely:
+     what looks like a chart that occasionally drifts is really a chart that is
+     always at least one bar out, and sometimes thirty. */
   function updateCandle(candle) {
     if (!candleSeries) return;
+    const time = toChart(candle.time);
+
     candleSeries.update({
-      time: toChart(candle.time),
+      time,
       open: candle.open,
       high: candle.high,
       low: candle.low,
       close: candle.close,
     });
     volumeSeries.update({
-      time: toChart(candle.time),
+      time,
       value: candle.volume,
       color: candle.close >= candle.open ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
     });
+
+    if (lastBarTime === null || time > lastBarTime) {
+      lastBarTime = time;
+      for (const seriesList of overlays.values()) {
+        for (const entry of seriesList) reserveSlot(entry, time);
+      }
+      for (const pane of panes.values()) {
+        for (const entry of pane.series) reserveSlot(entry, time);
+      }
+    }
   }
 
   /** Timestamp (epoch seconds) of the newest candle the chart holds. */
@@ -395,7 +455,50 @@ const ChartManager = (() => {
     return mainChart ? mainChart.takeScreenshot() : null;
   }
 
-  return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll,
+  /* The invariant the sub-panes depend on: every series must span the same
+     bars as the price chart.
+
+     A pane is a separate chart kept in step by logical *index*, and a pane
+     holding fewer bars cannot scroll as far right — the library clamps the
+     range, and every bar on it slides right by the shortfall. Thirty bars
+     short on a one-minute chart puts 12:50's reading underneath the 13:20
+     candle, with nothing in the picture to say so. That has now caused two
+     separate bugs, so it is worth being able to ask directly:
+
+         ChartManager.alignment()      // { aligned: true, ... }
+
+     Measured from the points arrays rather than from the library: whitespace
+     holds an index slot but is not returned by `data()` or `dataByIndex()`, so
+     asking the series would report a correctly aligned pane as empty. */
+  function alignment() {
+    const report = [];
+    const check = (id, kind, entry) => report.push({
+      id, kind, bars: entry.points.length,
+      short: candleCount() - entry.points.length,
+    });
+
+    for (const [id, seriesList] of overlays) {
+      for (const entry of seriesList) check(id, 'overlay', entry);
+    }
+    for (const [id, pane] of panes) {
+      for (const entry of pane.series) check(id, 'pane', entry);
+    }
+
+    return {
+      candles: candleCount(),
+      series: report,
+      aligned: report.every((r) => r.short === 0),
+      offBy: report.filter((r) => r.short !== 0),
+    };
+  }
+
+  /* Bars on the price chart. `data()` omits whitespace, but the candle series
+     never holds any — every candle has values — so this is exact. */
+  function candleCount() {
+    return candleSeries ? candleSeries.data().length : 0;
+  }
+
+  return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll, alignment,
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
            get markerCount() { return markerCount(); },
            get markersVisible() { return markersVisible; },

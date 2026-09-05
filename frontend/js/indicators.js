@@ -145,8 +145,39 @@ const Indicators = (() => {
     renderActive();
   }
 
+  /* Recompute every active indicator, one pass at a time.
+   *
+   * The live stream fires this on every candle close. Without a guard, a pass
+   * that outlives its bar overlaps the next one, and on a 1-minute chart with
+   * an ML plugin refitting scikit-learn over a few thousand bars that means a
+   * growing pile of concurrent requests, each one slower than the last because
+   * they are all competing for the same backend. The panes then sit stale for
+   * as long as the pile takes to drain.
+   *
+   * So: at most one pass in flight. A close that arrives during a pass sets a
+   * flag instead of starting a second, and exactly one more pass runs when the
+   * current one finishes — the newest data, computed once. */
+  let running = null;
+  let queued = false;
+
   async function recomputeAll() {
-    await Promise.all([...active.keys()].map((id) => compute(id)));
+    if (running) {
+      queued = true;
+      return running;
+    }
+
+    running = (async () => {
+      try {
+        do {
+          queued = false;
+          await Promise.all([...active.keys()].map((id) => compute(id)));
+        } while (queued);
+      } finally {
+        running = null;
+      }
+    })();
+
+    return running;
   }
 
   function renderActive() {
