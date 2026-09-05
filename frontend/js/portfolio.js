@@ -151,6 +151,29 @@ const Portfolio = (() => {
       renderRows();
       elements.rows.querySelector('.pf-row:last-child .pf-symbol')?.focus();
     });
+
+    document.querySelectorAll('.pf-quick-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const sym = chip.dataset.sym;
+        if (!sym) return;
+        const code = sym.trim().toUpperCase();
+        const existing = rows.find((r) => r.symbol.trim().toUpperCase() === code);
+        if (existing) {
+          elements.rows.querySelector(`.pf-row[data-row="${existing.id}"] .pf-quantity`)?.focus();
+          return;
+        }
+        let targetRow = rows.find((r) => !r.symbol.trim());
+        if (targetRow) {
+          targetRow.symbol = code;
+          if (!targetRow.quantity) targetRow.quantity = '1000';
+        } else {
+          targetRow = { id: nextId++, symbol: code, quantity: '1000', costBasis: '' };
+          rows.push(targetRow);
+        }
+        renderRows();
+        elements.rows.querySelector(`.pf-row[data-row="${targetRow.id}"] .pf-quantity`)?.focus();
+      });
+    });
   }
 
   function collect() {
@@ -178,7 +201,88 @@ const Portfolio = (() => {
     return holdings;
   }
 
-  // ---------- result window ----------
+  // ---------- result window & visual charts ----------
+
+  const DONUT_PALETTE = [
+    '#18181b', '#2563eb', '#10b981', '#f59e0b', '#8b5cf6',
+    '#ec4899', '#06b6d4', '#6366f1', '#64748b', '#84cc16'
+  ];
+
+  function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+    return {
+      x: centerX + radius * Math.cos(angleInRadians),
+      y: centerY + radius * Math.sin(angleInRadians),
+    };
+  }
+
+  function donutSlicePath(cx, cy, rOuter, rInner, startAngle, endAngle) {
+    const angleDiff = endAngle - startAngle;
+    const effectiveEnd = angleDiff >= 360 ? startAngle + 359.99 : endAngle;
+    const p1 = polarToCartesian(cx, cy, rOuter, startAngle);
+    const p2 = polarToCartesian(cx, cy, rOuter, effectiveEnd);
+    const p3 = polarToCartesian(cx, cy, rInner, effectiveEnd);
+    const p4 = polarToCartesian(cx, cy, rInner, startAngle);
+    const largeArc = angleDiff > 180 ? 1 : 0;
+    return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x.toFixed(2)} ${p4.y.toFixed(2)} Z`;
+  }
+
+  function donutChart(d) {
+    const items = [];
+    if (d.cash > 0 && d.cash_weight_pct > 0.05) {
+      items.push({
+        label: L('Tiền mặt', 'Cash'),
+        symbol: 'CASH',
+        value: d.cash,
+        pct: d.cash_weight_pct,
+        color: '#71717a',
+      });
+    }
+    (d.positions || []).forEach((p, idx) => {
+      items.push({
+        label: p.symbol,
+        symbol: p.symbol,
+        value: p.market_value,
+        pct: p.weight_pct,
+        color: DONUT_PALETTE[idx % DONUT_PALETTE.length],
+      });
+    });
+
+    if (!items.length) return '';
+
+    const cx = 110, cy = 110, rOuter = 85, rInner = 56;
+    let currentAngle = 0;
+    const slicesHtml = items.map((item) => {
+      const sliceAngle = (item.pct / 100) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + sliceAngle;
+      currentAngle = endAngle;
+      const pathD = donutSlicePath(cx, cy, rOuter, rInner, startAngle, endAngle);
+      return `<path class="pf-donut-slice" d="${pathD}" fill="${item.color}"
+        data-sym="${esc(item.label)}" data-val="${dong(item.value)}" data-pct="${item.pct.toFixed(1)}%" />`;
+    }).join('');
+
+    const legendHtml = items.map((item) => `
+      <div class="pf-legend-item" data-sym="${esc(item.label)}" data-val="${dong(item.value)}" data-pct="${item.pct.toFixed(1)}%">
+        <span class="pf-legend-dot" style="background:${item.color}"></span>
+        <span class="pf-legend-sym">${esc(item.label)}</span>
+        <span class="pf-legend-pct">${item.pct.toFixed(1)}%</span>
+      </div>
+    `).join('');
+
+    return `<div class="pf-visual-card">
+      <div class="field-group-title" style="margin-bottom:12px">${esc(L('Phân bổ tài sản trong danh mục', 'Portfolio Asset Allocation'))}</div>
+      <div class="pf-donut-layout">
+        <svg class="pf-donut-svg" viewBox="0 0 220 220" id="pf-donut-svg">
+          ${slicesHtml}
+          <circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="var(--surface)" />
+          <text x="${cx}" y="${cy - 7}" text-anchor="middle" class="pf-donut-center-title" id="pf-donut-center-title">${esc(L('Tổng tài sản', 'Total Assets'))}</text>
+          <text x="${cx}" y="${cy + 14}" text-anchor="middle" class="pf-donut-center-val" id="pf-donut-center-val">${dong(d.total_value)}</text>
+        </svg>
+        <div class="pf-legend-grid">${legendHtml}</div>
+      </div>
+    </div>`;
+  }
 
   /** Two bars side by side: share of money, share of risk. */
   function riskBars(positions) {
@@ -188,23 +292,147 @@ const Portfolio = (() => {
     return `<div class="pf-bars">
       <div class="rp-chart-head">
         <span class="rp-legend"><i style="background:var(--text-faint)"></i>${
-          esc(L('Phần tiền', 'Share of money'))}</span>
+          esc(L('Phần tiền (% Vốn)', 'Share of money'))}</span>
         <span class="rp-legend"><i style="background:var(--accent)"></i>${
-          esc(L('Phần rủi ro', 'Share of risk'))}</span>
+          esc(L('Phần rủi ro (% Đóng góp)', 'Share of risk'))}</span>
       </div>
-      ${positions.map((p) => `
+      ${positions.map((p) => {
+        const gap = p.risk_gap_pct;
+        const gapCls = gap > 5 ? 'alert' : gap < -5 ? 'safe' : 'neutral';
+        const gapText = gap > 0 ? `+${gap.toFixed(1)}%` : `${gap.toFixed(1)}%`;
+        return `
         <div class="pf-bar-row">
-          <span class="pf-bar-label">${esc(p.symbol)}</span>
+          <span class="pf-bar-badge">${esc(p.symbol)}</span>
           <div class="pf-bar-track">
-            <div class="pf-bar weight" style="width:${(p.weight_pct / scale * 100).toFixed(1)}%"></div>
-            <div class="pf-bar risk" style="width:${(p.risk_contribution_pct / scale * 100).toFixed(1)}%"></div>
+            <div class="pf-bar weight" style="width:${(p.weight_pct / scale * 100).toFixed(1)}%" title="${esc(L('Tiền', 'Money'))}: ${p.weight_pct.toFixed(1)}%"></div>
+            <div class="pf-bar risk" style="width:${(p.risk_contribution_pct / scale * 100).toFixed(1)}%" title="${esc(L('Rủi ro', 'Risk'))}: ${p.risk_contribution_pct.toFixed(1)}%"></div>
           </div>
-          <span class="pf-bar-value ${cls(p.risk_gap_pct)}">${pct(p.risk_gap_pct, 1)}</span>
-        </div>`).join('')}
+          <span class="pf-bar-gap ${gapCls}" title="${esc(L('Chênh lệch rủi ro', 'Risk gap'))}">${gapText}</span>
+        </div>`;
+      }).join('')}
       <p class="table-note">${esc(L(
-        'Cột phải là khoảng cách giữa phần rủi ro và phần tiền. Dương nghĩa là vị thế đó gánh nhiều rủi ro hơn mức cỡ của nó gợi ý — vì nó biến động mạnh hơn, hoặc vì nó đi cùng chiều với phần còn lại, hoặc cả hai.',
-        'The right-hand column is the gap between share of risk and share of money. Positive means the position carries more risk than its size suggests — because it is more volatile, because it moves with the rest, or both.'))}</p>
+        'Cột phải là chênh lệch giữa phần rủi ro và phần tiền. Số dương (đỏ) nghĩa là vị thế đó gánh nhiều rủi ro hơn tỷ trọng vốn gợi ý — do biến động mạnh hơn hoặc tương quan cao với rổ còn lại.',
+        'The right column is the gap between share of risk and share of money. Positive means the position carries more risk than its size suggests.'))}</p>
     </div>`;
+  }
+
+  function correlationHeatmap(d) {
+    const c = d.concentration;
+    const symbols = c.symbols || d.positions.map((p) => p.symbol);
+    const matrix = c.correlation_matrix;
+    if (!matrix || matrix.length < 2) return '';
+
+    const headerTh = symbols.map((s) => `<th class="pf-heatmap-th">${esc(s)}</th>`).join('');
+    const rowsHtml = matrix.map((row, i) => {
+      const symA = symbols[i];
+      const cells = row.map((r, j) => {
+        const symB = symbols[j];
+        if (i === j) {
+          return `<td class="pf-heatmap-cell" style="background:var(--surface-3); color:var(--text); border:1px solid var(--border);" title="${esc(symA)}: 1.00">1.00</td>`;
+        }
+        let bg, col;
+        if (r >= 0.7) {
+          bg = `rgba(220, 38, 38, ${0.15 + (r - 0.7) * 1.5})`;
+          col = '#dc2626';
+        } else if (r >= 0.4) {
+          bg = `rgba(217, 119, 6, ${0.12 + (r - 0.4) * 1.0})`;
+          col = '#d97706';
+        } else if (r >= 0) {
+          bg = `rgba(16, 185, 129, ${0.10 + (0.4 - r) * 0.5})`;
+          col = '#059669';
+        } else {
+          bg = 'rgba(16, 185, 129, 0.35)';
+          col = '#047857';
+        }
+        return `<td class="pf-heatmap-cell" style="background:${bg}; color:${col};" title="${esc(L(`Tương quan giữa ${symA} và ${symB}: ${r.toFixed(3)}`, `Correlation ${symA} & ${symB}: ${r.toFixed(3)}`))}">${r.toFixed(2)}</td>`;
+      }).join('');
+      return `<tr><th class="pf-heatmap-th">${esc(symA)}</th>${cells}</tr>`;
+    }).join('');
+
+    return `<div class="pf-heatmap-wrap">
+      <div class="pf-heatmap-head">
+        <span class="pf-heatmap-title">${esc(L('Ma trận nhiệt tương quan giữa các cặp mã (Correlation Heatmap)', 'Pairwise Correlation Heatmap Matrix'))}</span>
+        <div class="pf-heatmap-legend">
+          <span>${esc(L('Phân tán tốt (< 0.4)', 'Well diversified'))}</span>
+          <span class="pf-scale-bar"></span>
+          <span>${esc(L('Tương quan cao (> 0.7)', 'High correlation'))}</span>
+        </div>
+      </div>
+      <table class="pf-heatmap-table">
+        <thead><tr><th></th>${headerTh}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function forwardCharts(f) {
+    let html = '<div class="pf-forward-charts">';
+
+    // 1. Fan chart if fan_steps is available
+    if (f.fan_steps && f.fan_steps.length > 2) {
+      const steps = f.fan_steps;
+      const minVal = Math.min(...steps.map(s => s.p05), -5);
+      const maxVal = Math.max(...steps.map(s => s.p95), 5);
+      const range = (maxVal - minVal) || 1;
+      const W = 600, H = 200, padL = 48, padR = 20, padT = 20, padB = 30;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      const getX = (idx) => padL + (idx / (steps.length - 1)) * plotW;
+      const getY = (val) => padT + plotH - ((val - minVal) / range) * plotH;
+
+      const pts90Top = steps.map((s, i) => `${getX(i).toFixed(1)},${getY(s.p95).toFixed(1)}`).join(' ');
+      const pts90Bot = [...steps].reverse().map((s, i) => `${getX(steps.length - 1 - i).toFixed(1)},${getY(s.p05).toFixed(1)}`).join(' ');
+      const poly90 = `${pts90Top} ${pts90Bot}`;
+
+      const pts50Top = steps.map((s, i) => `${getX(i).toFixed(1)},${getY(s.p75).toFixed(1)}`).join(' ');
+      const pts50Bot = [...steps].reverse().map((s, i) => `${getX(steps.length - 1 - i).toFixed(1)},${getY(s.p25).toFixed(1)}`).join(' ');
+      const poly50 = `${pts50Top} ${pts50Bot}`;
+
+      const medLine = steps.map((s, i) => `${getX(i).toFixed(1)},${getY(s.p50).toFixed(1)}`).join(' ');
+      const zeroY = getY(0);
+
+      html += `<div class="pf-visual-card">
+        <div class="field-group-title" style="margin-bottom:8px">${esc(L('Mô phỏng đường đi danh mục tương lai (Monte Carlo Fan Chart)', 'Monte Carlo Trajectory Fan Chart'))}</div>
+        <svg class="pf-fan-svg" viewBox="0 0 ${W} ${H}">
+          ${zeroY >= padT && zeroY <= padT + plotH ? `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="var(--border)" stroke-dasharray="4,4" stroke-width="1.5" />` : ''}
+          <polygon points="${poly90}" fill="rgba(31, 31, 31, 0.08)" />
+          <polygon points="${poly50}" fill="rgba(31, 31, 31, 0.16)" />
+          <polyline points="${medLine}" fill="none" stroke="var(--accent)" stroke-width="2.5" />
+          <text x="${padL}" y="${padT + 10}" font-size="10" fill="var(--text-faint)" font-family="var(--mono)">+${maxVal.toFixed(1)}%</text>
+          <text x="${padL}" y="${padT + plotH}" font-size="10" fill="var(--text-faint)" font-family="var(--mono)">${minVal.toFixed(1)}%</text>
+          <text x="${padL}" y="${H - 10}" font-size="10" fill="var(--text-dim)">${esc(L('Phiên 1', 'Session 1'))}</text>
+          <text x="${W - padR}" y="${H - 10}" text-anchor="end" font-size="10" fill="var(--text-dim)">${esc(L(`Phiên ${f.horizon_days}`, `Session ${f.horizon_days}`))}</text>
+        </svg>
+        <div class="rp-chart-head" style="margin-top:8px; justify-content:center">
+          <span class="rp-legend"><i style="background:rgba(31, 31, 31, 0.15)"></i>${esc(L('Vùng 90% (P05–P95)', '90% Confidence Interval'))}</span>
+          <span class="rp-legend"><i style="background:rgba(31, 31, 31, 0.32)"></i>${esc(L('Vùng 50% (P25–P75)', 'Interquartile 50%'))}</span>
+          <span class="rp-legend"><i style="background:var(--accent); height:3px"></i>${esc(L('Đường trung vị (P50)', 'Median'))}</span>
+        </div>
+      </div>`;
+    }
+
+    // 2. Drawdown Probability Visual Bars
+    const worst = Math.max(...f.drawdown_probabilities.map((b) => b.probability_pct), 1);
+    html += `<div class="pf-visual-card">
+      <div class="field-group-title" style="margin-bottom:10px">${esc(L('Phân phối xác suất sụt giảm (Drawdown Distribution)', 'Chance of Reaching Drawdown Levels'))}</div>
+      <table class="data-table rp-table"><thead><tr>
+        <th>${esc(L('Mức sụt giảm danh mục', 'Portfolio fall'))}</th>
+        <th>${esc(L('Xác suất chạm', 'Probability'))}</th><th>${esc(L('Thước đo trực quan', 'Visual Probability Bar'))}</th>
+      </tr></thead><tbody>` +
+      f.drawdown_probabilities.map((b) => {
+        const p = b.probability_pct;
+        const color = p > 50 ? 'var(--down)' : p > 20 ? 'var(--warn)' : 'var(--text-dim)';
+        return `<tr>
+          <td><strong>${upct(b.threshold_pct, 0)}</strong></td>
+          <td style="font-family:var(--mono); font-weight:600; color:${color}">${upct(p, 1)}</td>
+          <td style="width:55%"><div class="pf-bar-track slim"><div class="pf-bar"
+            style="width:${(p / worst * 100).toFixed(1)}%; background:${color}"></div></div></td>
+        </tr>`;
+      }).join('') + '</tbody></table></div>';
+
+    html += '</div>';
+    return html;
   }
 
   function overviewTab(d) {
@@ -251,37 +479,48 @@ const Portfolio = (() => {
       L(`trong ${d.observations} phiên`, `over ${d.observations} sessions`));
     html += '</div>';
 
-    html += `<div class="field-group-title">${esc(L(
-      'Phần tiền so với phần rủi ro', 'Share of money against share of risk'))}</div>`;
+    // SVG Asset Allocation Donut Chart
+    html += donutChart(d);
+
+    // Paired Money vs Risk Bar Chart
+    html += `<div class="field-group-title" style="margin-top:18px">${esc(L(
+      'Tỷ trọng tiền so với đóng góp rủi ro', 'Share of money against share of risk'))}</div>`;
     html += riskBars(d.positions);
     return html;
   }
 
   function positionsTab(d) {
-    return `<table class="data-table rp-table"><thead><tr>
-      <th>${esc(L('Mã', 'Symbol'))}</th><th>${esc(L('Giá', 'Price'))}</th>
-      <th>${esc(L('Giá trị', 'Value'))}</th><th>${esc(L('Tiền', 'Money'))}</th>
-      <th>${esc(L('Rủi ro', 'Risk'))} ${Explain.button('p.risk_contribution', {
-        title: L('Giải thích đóng góp rủi ro', 'Explain risk contribution') })}</th>
-      <th>${esc(L('Chênh', 'Gap'))}</th><th>${esc(L('Biến động', 'Volatility'))}</th>
-      <th>Beta</th><th>${esc(L('Lãi/lỗ', 'P&L'))}</th>
+    return `<div class="pf-visual-card">
+      <div class="field-group-title" style="margin-bottom:12px">${esc(L('Chi tiết từng vị thế trong danh mục', 'Holdings Breakdown'))}</div>
+      <table class="data-table rp-table"><thead><tr>
+        <th>${esc(L('Mã', 'Symbol'))}</th><th>${esc(L('Giá đóng cửa', 'Close Price'))}</th>
+        <th>${esc(L('Giá trị', 'Market Value'))}</th><th>${esc(L('Tỷ trọng tiền', 'Money Weight'))}</th>
+        <th>${esc(L('Đóng góp rủi ro', 'Risk Contribution'))} ${Explain.button('p.risk_contribution', {
+          title: L('Giải thích đóng góp rủi ro', 'Explain risk contribution') })}</th>
+        <th>${esc(L('Chênh lệch', 'Risk Gap'))}</th><th>${esc(L('Biến động/năm', 'Volatility'))}</th>
+        <th>Beta</th><th>${esc(L('Lãi/lỗ', 'P&L'))}</th>
       </tr></thead><tbody>` +
-      d.positions.map((p) => `<tr>
-        <td><strong>${esc(p.symbol)}</strong></td>
-        <td>${p.price.toLocaleString(I18n.locale())}</td>
-        <td>${dong(p.market_value)}</td>
-        <td>${upct(p.weight_pct)}</td>
-        <td>${upct(p.risk_contribution_pct)}</td>
-        <td class="${cls(p.risk_gap_pct)}">${pct(p.risk_gap_pct, 1)}</td>
-        <td>${upct(p.volatility_pct)}</td>
-        <td>${p.beta === null ? '—' : nf(p.beta)}</td>
-        <td class="${p.profit === null ? 'muted' : cls(p.profit)}">
-          ${p.profit === null ? '—' : pct(p.profit_pct, 1)}</td>
-      </tr>`).join('') +
+      d.positions.map((p) => {
+        const gap = p.risk_gap_pct;
+        const gapCls = gap > 5 ? 'alert' : gap < -5 ? 'safe' : 'neutral';
+        return `<tr>
+          <td><span class="pf-bar-badge">${esc(p.symbol)}</span></td>
+          <td style="font-family:var(--mono)">${p.price.toLocaleString(I18n.locale())} đ</td>
+          <td style="font-family:var(--mono)">${dong(p.market_value)}</td>
+          <td style="font-family:var(--mono)">${upct(p.weight_pct)}</td>
+          <td style="font-family:var(--mono); font-weight:600">${upct(p.risk_contribution_pct)}</td>
+          <td><span class="pf-bar-gap ${gapCls}">${pct(gap, 1)}</span></td>
+          <td style="font-family:var(--mono)">${upct(p.volatility_pct)}</td>
+          <td style="font-family:var(--mono)">${p.beta === null ? '—' : nf(p.beta)}</td>
+          <td class="${p.profit === null ? 'muted' : cls(p.profit)}" style="font-family:var(--mono)">
+            ${p.profit === null ? '—' : pct(p.profit_pct, 1)}</td>
+        </tr>`;
+      }).join('') +
       `</tbody></table>
       <p class="table-note">${esc(L(
         `Sắp xếp theo phần rủi ro, không theo phần tiền — đó là thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${d.last_session}, quy về đồng (feed niêm yết theo nghìn đồng).`,
-        `Sorted by share of risk rather than share of money — that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>`;
+        `Sorted by share of risk rather than share of money — that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>
+    </div>`;
   }
 
   function diversificationTab(d) {
@@ -307,7 +546,10 @@ const Portfolio = (() => {
       c.max_pair ? c.max_pair.join(' · ') : '');
     html += '</div>';
 
-    html += `<p class="table-note">${esc(L(
+    // Interactive Correlation Heatmap Matrix
+    html += correlationHeatmap(d);
+
+    html += `<p class="table-note" style="margin-top:14px">${esc(L(
       'Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn và trừ cả phần tương quan — mười mã cùng ngành với tương quan 0,7 hành xử như khoảng ba cược, không phải mười.',
       'Effective assets counts money only: ten equal names give 10, ten names where one holds 80% give about 1.5. Effective bets goes further and removes correlation — ten names in one sector correlated at 0.7 behave like about three bets, not ten.'))}</p>
       <p class="table-note">${esc(L('Hiệp phương sai dùng co rút Ledoit–Wolf',
@@ -325,7 +567,6 @@ const Portfolio = (() => {
       return `<div class="callout warn">${esc(tp(f.reason) || f.reason)}</div>`;
     }
 
-    const worst = Math.max(...f.drawdown_probabilities.map((b) => b.probability_pct), 1);
     const paths = f.paths.toLocaleString(I18n.locale());
     let html = `<div class="callout"><strong>${esc(L(
       `Mô phỏng ${f.horizon_days} phiên tới`,
@@ -348,23 +589,39 @@ const Portfolio = (() => {
       L('trong kỳ mô phỏng', 'within the simulated period'));
     html += '</div>';
 
-    html += `<div class="field-group-title">${esc(L(
-      'Xác suất chạm mỗi mức sụt giảm', 'Chance of reaching each drawdown level'))}</div>
-      <table class="data-table rp-table"><thead><tr>
-        <th>${esc(L('Mức giảm của danh mục', 'Portfolio fall'))}</th>
-        <th>${esc(L('Xác suất', 'Probability'))}</th><th></th>
-      </tr></thead><tbody>` +
-      f.drawdown_probabilities.map((b) => `<tr>
-        <td>${upct(b.threshold_pct, 0)}</td>
-        <td>${upct(b.probability_pct, 0)}</td>
-        <td><div class="pf-bar-track slim"><div class="pf-bar risk"
-          style="width:${(b.probability_pct / worst * 100).toFixed(1)}%"></div></div></td>
-      </tr>`).join('') + '</tbody></table>';
+    // Interactive Forward Visual Charts (Fan Chart & Drawdown Distribution)
+    html += forwardCharts(f);
 
-    html += `<div class="callout warn"><strong>${esc(L(
+    html += `<div class="callout warn" style="margin-top:14px"><strong>${esc(L(
       'Giới hạn của mô phỏng này.', 'What this simulation cannot do.'))}</strong>
       ${esc(tp(f.caveat) || f.caveat)}</div>`;
     return html;
+  }
+
+  function attachDonutInteractions() {
+    if (!host) return;
+    const centerTitle = host.querySelector('#pf-donut-center-title');
+    const centerVal = host.querySelector('#pf-donut-center-val');
+    if (!centerTitle || !centerVal || !lastResult) return;
+
+    const defaultTitle = L('Tổng tài sản', 'Total Assets');
+    const defaultVal = dong(lastResult.total_value);
+
+    host.querySelectorAll('.pf-donut-slice, .pf-legend-item').forEach((item) => {
+      item.addEventListener('mouseenter', () => {
+        const sym = item.dataset.sym;
+        const val = item.dataset.val;
+        const pct = item.dataset.pct;
+        if (sym && val) {
+          centerTitle.textContent = sym;
+          centerVal.textContent = `${val} (${pct})`;
+        }
+      });
+      item.addEventListener('mouseleave', () => {
+        centerTitle.textContent = defaultTitle;
+        centerVal.textContent = defaultVal;
+      });
+    });
   }
 
   function metric(label, value, explain, klass = '', sub = '') {
@@ -415,6 +672,9 @@ const Portfolio = (() => {
     const tab = TABS.find(([id]) => id === activeTab) || TABS[0];
     try {
       body.innerHTML = tab[2](lastResult);
+      if (activeTab === 'overview') {
+        attachDonutInteractions();
+      }
     } catch (err) {
       body.innerHTML = `<div class="callout bad">${esc(L(
         'Không dựng được tab: ', 'Could not build this tab: '))}${esc(err.message)}</div>`;

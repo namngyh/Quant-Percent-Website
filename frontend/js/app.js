@@ -1002,11 +1002,10 @@ def signals(df, params):
   // so a slow first load reads as progress rather than a stalled animation.
 
   const splash = document.getElementById('splash');
-  const splashStatus = document.getElementById('splash-status');
   const bootedAt = Date.now();
 
   function splashSay(message) {
-    if (splashStatus) splashStatus.textContent = message;
+    // Logo-only splash screen: ignore loading status texts
   }
 
   function dismissSplash() {
@@ -1166,10 +1165,9 @@ def signals(df, params):
       refreshStars();
       await Paper.refresh();
     } catch (err) {
+      dismissSplash();
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');
-      splashSay(err.message);
-      // Left up on failure: an empty app with no explanation is worse than a
-      // splash that says what went wrong.
+      toast(`Không kết nối được backend: ${err.message}`, 'bad');
       return;
     }
 
@@ -1275,7 +1273,6 @@ def signals(df, params):
         toast('Đã bắt đầu phiên paper trading');
       }));
 
-    splashSay('Đang tải nến…');
     await loadCandles();
     dismissSplash();
   }

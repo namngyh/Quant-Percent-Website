@@ -251,6 +251,20 @@ def forward_risk(
     peak = np.maximum.accumulate(equity, axis=1)
     depth = (equity / peak - 1.0).min(axis=1)
 
+    # Lấy mẫu các mốc thời gian dọc theo kỳ dự phóng để vẽ biểu đồ quạt (fan chart)
+    step_indices = np.linspace(0, horizon_days - 1, num=min(25, horizon_days), dtype=int)
+    fan_steps = []
+    for s in step_indices:
+        step_returns = (equity[:, s] - 1.0) * 100
+        fan_steps.append({
+            "day": int(s + 1),
+            "p05": round(float(np.percentile(step_returns, 5)), 2),
+            "p25": round(float(np.percentile(step_returns, 25)), 2),
+            "p50": round(float(np.percentile(step_returns, 50)), 2),
+            "p75": round(float(np.percentile(step_returns, 75)), 2),
+            "p95": round(float(np.percentile(step_returns, 95)), 2),
+        })
+
     return {
         "available": True,
         "method": bi("bootstrap khối tĩnh (Politis–Romano)",
@@ -276,6 +290,7 @@ def forward_risk(
             for level in DRAWDOWN_THRESHOLDS
         ],
         "median_max_drawdown_pct": float(np.median(depth) * 100),
+        "fan_steps": fan_steps,
         "caveat": bi(
             "Mô phỏng chỉ xáo lại những ngày ĐÃ XẢY RA trong cửa sổ quan sát, "
             "nên nó không bao giờ sinh ra cú sốc lớn hơn cú sốc lớn nhất đã "
@@ -322,8 +337,14 @@ def _concentration(
     else:
         effective_bets = float(count)
 
+    corr_list = []
+    if len(symbols) > 0 and corr.shape == (len(symbols), len(symbols)):
+        corr_list = [[round(float(val), 3) for val in row] for row in corr]
+
     return {
         "positions": count,
+        "symbols": list(symbols),
+        "correlation_matrix": corr_list,
         "largest_weight_pct": float(ordered[0] * 100) if ordered.size else 0.0,
         "top_three_weight_pct": float(ordered[:3].sum() * 100),
         "herfindahl": hhi,

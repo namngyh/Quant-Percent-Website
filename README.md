@@ -47,6 +47,177 @@ cho đúng khung thời gian đang xem.
 
 ---
 
+## Kết nối Database Quant Percent (HOSE & Realtime)
+
+Phần này là **chỉ dẫn chuẩn** để kết nối tới Database thị trường chứng khoán Việt Nam của Quant Percent, áp dụng cho:
+1. **Máy mới hoàn toàn** (chưa cài gì, cần cấp quyền và cấu hình).
+2. **Bất kỳ dự án nào trong tương lai** muốn truy vấn dữ liệu lịch sử hoặc dữ liệu realtime (OHLCV).
+
+---
+
+### Phần 1: Hướng dẫn cho máy mới hoàn toàn (Setup từ A-Z)
+
+Database chứa dữ liệu cổ phiếu và phái sinh Việt Nam (HOSE, VN30, VN30F1M...) đặt trên máy chủ VPS nội bộ của Quant Percent. Vì lý do bảo mật, **database không mở ra Internet công cộng**, mà chỉ lắng nghe qua mạng riêng ảo **Tailscale VPN**.
+
+#### Bước 1: Yêu cầu cấp quyền truy cập
+Liên hệ quản trị viên (Admin Quant Percent) để được:
+- Thêm email/máy của bạn vào mạng riêng ảo Tailscale của Quant Percent (nhận lời mời vào Tailnet).
+- Cung cấp thông tin tài khoản DB:
+  - **Host**: Địa chỉ IP Tailscale của VPS (thường là `100.x.y.z` hoặc `10.10.0.1`).
+  - **Port**: `5432`
+  - **Database**: `market`
+  - **User**: `qp_remote` (tài khoản read-only)
+  - **Password**: Mật khẩu riêng do team cấp
+
+#### Bước 2: Cài đặt và kích hoạt Tailscale VPN
+1. Tải và cài đặt Tailscale: [https://tailscale.com/download](https://tailscale.com/download)
+2. Mở Tailscale, đăng nhập đúng tài khoản email đã được Admin duyệt quyền vào team.
+3. Kiểm tra kết nối trong Command Prompt / PowerShell:
+   ```bash
+   tailscale status
+   ```
+   Hoặc ping thử địa chỉ IP của VPS: `ping 100.x.y.z`.
+> ⚠️ **LƯU Ý QUAN TRỌNG:** Bất cứ khi nào bạn tắt VPN Tailscale, ứng dụng sẽ không thể tới được máy chủ và báo lỗi *Connection timeout* hoặc *Could not translate host name*. Đây là cơ chế bảo mật có chủ đích, không phải lỗi cấu hình. Hãy luôn bật Tailscale trước khi làm việc với dữ liệu VN.
+
+#### Bước 3: Cấu hình mật khẩu và chuỗi kết nối (.env)
+1. Trong thư mục dự án, nếu chưa có file `.env`, copy từ `.env.example`:
+   ```bash
+   copy .env.example .env
+   ```
+   *(Lưu ý: Nếu bạn vừa chạy `setup.bat` hoặc `start.bat`, file `.env` đã được tự động tạo sẵn).*
+2. Mở file `.env` bằng bất kỳ trình soạn thảo nào (VS Code, Notepad...) và điền mật khẩu thật vào biến `MARKET_DSN`:
+   ```env
+   # Định dạng: postgresql://[user]:[password]@[host]:[port]/[database]
+   MARKET_DSN=postgresql://qp_remote:MAT_KHAU_DO_ADMIN_CAP@100.x.y.z:5432/market
+   ```
+   - Thay `MAT_KHAU_DO_ADMIN_CAP` bằng mật khẩu được cấp.
+   - Thay `100.x.y.z` bằng IP Tailscale VPS của team.
+   - *Ghi chú:* File `.env` nằm trong `.gitignore`, không bao giờ bị đưa lên Git, đảm bảo an toàn tuyệt đối cho mật khẩu.
+
+#### Bước 4: Kiểm tra kết nối độc lập
+Dự án có sẵn script kiểm tra kết nối với cơ chế bắt lỗi thông minh. Chạy lệnh:
+```bash
+.venv\Scripts\python.exe scripts/check_market_db.py --symbol VN30F1M --limit 10
+```
+- Nếu thành công, màn hình sẽ hiển thị:
+  - User kết nối (`qp_remote`), database (`market`), phiên bản PostgreSQL / TimescaleDB.
+  - Cấu trúc schema `api.v_history_1m`.
+  - 10 nến 1 phút mới nhất của VN30F1M theo cả **Giờ VN (GMT+7)** và **Giờ UTC**.
+  - Dòng xác nhận: `Kết nối OK.`
+- Bảng giải mã lỗi thường gặp:
+  | Lỗi hiển thị | Nguyên nhân | Cách xử lý |
+  |---|---|---|
+  | `Không tới được máy chủ (timeout / no route)` | Chưa bật Tailscale VPN hoặc sai IP host | Bật Tailscale, kiểm tra lệnh `tailscale status` xem VPS có đang online không. |
+  | `Sai mật khẩu hoặc tên đăng nhập` | Mật khẩu trong `MARKET_DSN` chưa đúng | Kiểm tra lại `.env`, đảm bảo không gõ thừa khoảng trắng hoặc ký tự lạ. |
+  | `Bị từ chối quyền (permission denied)` | Truy vấn ngoài schema `api` | Tài khoản chỉ được cấp quyền SELECT trên schema `api`. Không truy vấn schema khác. |
+
+---
+
+### Phần 2: Tiêu chuẩn kỹ thuật cho MỌI dự án tương lai
+
+Từ nay về sau, nếu bạn hoặc bất kỳ ai trong team tạo một dự án mới (web, bot trading, backtest engine, phân tích định lượng...) cần dữ liệu từ Database Quant Percent, hãy tuân theo các quy chuẩn sau:
+
+#### 1. Kiến trúc dữ liệu & Các bảng trong Database
+Tài khoản chỉ được quyền đọc duy nhất schema `api`. Tuyệt đối không query trực tiếp các bảng raw nội bộ. Các view phục vụ phân tích gồm:
+
+| View / Bảng | Dữ liệu | Độ phân giải | Chú ý quan trọng |
+|---|---|---|---|
+| **`api.v_history_1m`** | Nến OHLCV phút của VN30F1M, VNINDEX và ~35 mã lớn | 1 phút | **Không có tick data.** Không có cột `is_final`. Luôn lọc bỏ nến đang vẽ: `WHERE ts < date_trunc('minute', now())`. |
+| **`api.v_history_1d`** | Nến OHLCV ngày của toàn bộ 389+ mã HOSE | 1 ngày (`trading_date`) | Dùng cho phân tích danh mục, tính biến động, tương quan, backtest khung ngày. |
+| **`api.v_quote`** | Giá snapshot thời gian thực, % thay đổi, KLGD | 1 dòng/mã (389 mã) | Cập nhật liên tục trong phiên giao dịch. Phù hợp để làm bảng giá, radar lọc mã. |
+| **`api.v_data_freshness`** | Thời điểm cập nhật nến cuối cùng của từng mã | Timestamp | Dùng để kiểm tra dữ liệu mã đó có bị trễ hay mất kết nối từ nguồn cấp không. |
+
+#### 2. Ba quy tắc sống còn khi viết code truy vấn
+1. **Quy tắc Múi giờ UTC:** Cột `ts` trong database luôn lưu theo chuẩn UTC. Giờ giao dịch Việt Nam `09:00 - 15:00` tương ứng `02:00 - 08:00 UTC`. Mọi so sánh và lưu trữ nội bộ phải giữ nguyên UTC; chỉ chuyển sang múi giờ `Asia/Ho_Chi_Minh` khi hiển thị cho người dùng.
+2. **Quy tắc lọc nến chưa đóng:** Do `v_history_1m` không có cờ kết thúc nến, câu lệnh query nến 1m **bắt buộc** phải có:
+   ```sql
+   WHERE ts < date_trunc('minute', now())
+   ```
+   Nếu thiếu điều kiện này, bạn sẽ đọc phải nến chưa đóng (giá high/low/close chưa hoàn tất) làm sai lệch thuật toán và sinh look-ahead bias.
+3. **Quy tắc Resampling trên máy chủ (5m, 15m, 1h, 4h):** Database chỉ lưu nến 1m và 1d. Khi cần nến 5 phút, 15 phút, 1 giờ, **không được kéo hàng trăm nghìn dòng 1m qua VPN về local rồi dùng pandas resample**. Hãy để TimescaleDB gộp trên VPS rồi chỉ trả về kết quả:
+   ```sql
+   SELECT
+       to_timestamp(floor(extract(epoch FROM ts) / %s) * %s) AS bucket,
+       (array_agg(open  ORDER BY ts ASC))[1]  AS open,
+       max(high)                              AS high,
+       min(low)                               AS low,
+       (array_agg(close ORDER BY ts DESC))[1] AS close,
+       sum(volume)                            AS volume
+   FROM api.v_history_1m
+   WHERE symbol = %s AND ts < date_trunc('minute', now())
+   GROUP BY bucket
+   ORDER BY bucket DESC
+   LIMIT %s;
+   ```
+   *(Với `%s` đầu tiên là số giây: 5m = 300, 15m = 900, 1h = 3600, 4h = 14400).*
+
+#### 3. Cơ chế lấy dữ liệu Realtime (Adaptive Polling)
+Do PostgreSQL / TimescaleDB không hỗ trợ kênh đẩy WebSocket trực tiếp ra ngoài, các dự án cần lấy nến thời gian thực sẽ áp dụng cơ chế **Adaptive Polling** (thăm dò thông minh theo phiên):
+- **Trong phiên giao dịch (02:00 - 08:00 UTC, thứ 2 đến thứ 6):**
+  - Thực hiện query nến mới nhất mỗi **5 giây** (`POLL_INTERVAL = 5s`).
+  - Vì độ mịn cao nhất là nến 1 phút, chu kỳ 5s đảm bảo người dùng nhìn thấy nến mới ngay lập tức khi vừa được ghi vào DB.
+- **Ngoài phiên giao dịch (nghỉ trưa, ban đêm, cuối tuần):**
+  - Tự động hạ tần suất thăm dò xuống **120 giây** (`IDLE_INTERVAL = 120s`).
+  - Không bắn query liên tục khi thị trường đóng cửa, giúp tiết kiệm CPU của VPS và đường truyền VPN.
+
+#### 4. Template Python chuẩn (Dùng ngay cho dự án mới)
+Bạn có thể copy đoạn code sau sang bất kỳ dự án Python nào để kết nối chuẩn:
+
+```python
+import os
+from datetime import datetime, timezone
+import psycopg
+from psycopg_pool import ConnectionPool
+from dotenv import load_dotenv
+
+load_dotenv()
+MARKET_DSN = os.getenv("MARKET_DSN")
+
+# Tạo pool kết nối tái sử dụng, timeout ngắn 8s để phát hiện VPN chưa bật
+pool = ConnectionPool(
+    conninfo=MARKET_DSN,
+    min_size=1,
+    max_size=5,
+    timeout=10,
+    kwargs={
+        "connect_timeout": 8,            # Báo lỗi nhanh nếu chưa bật Tailscale
+        "options": "-c statement_timeout=30000"  # Không để câu lệnh chạy quá 30s
+    }
+)
+
+def get_latest_candles(symbol: str, limit: int = 100):
+    """Lấy nến 1 phút mới nhất đã đóng."""
+    sql = """
+        SELECT ts, open, high, low, close, volume
+        FROM api.v_history_1m
+        WHERE symbol = %s AND ts < date_trunc('minute', now())
+        ORDER BY ts DESC
+        LIMIT %s
+    """
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (symbol, limit))
+            rows = cur.fetchall()
+            # Đảo lại thứ tự thời gian tăng dần cho thư viện đồ thị
+            return list(reversed(rows))
+
+def get_daily_closes(symbol: str, limit: int = 252):
+    """Lấy giá đóng cửa ngày cho phân tích danh mục / định lượng."""
+    sql = """
+        SELECT trading_date, close
+        FROM api.v_history_1d
+        WHERE symbol = %s
+        ORDER BY trading_date DESC
+        LIMIT %s
+    """
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (symbol, limit))
+            return cur.fetchall()
+```
+
+---
+
 ## Viết chỉ báo riêng
 
 Tạo một file `.py` trong `plugins/indicators/`. Chỉ cần 2 thứ: một dict `INDICATOR`

@@ -140,6 +140,7 @@ const I18n = (() => {
     'pf.about':           { vi: 'Trang này đo cái gì', en: 'What this page measures' },
     'pf.lead':            { vi: 'Nhập vị thế cổ phiếu Việt Nam của bạn. Mọi con số đo từ chính lịch sử giá mà database của team có — không có lợi suất hay tương quan giả định. Không có gì được lưu lại.', en: 'Enter your Vietnamese equity positions. Every number is measured from the price history the team database holds — no assumed returns, no assumed correlations. Nothing is stored.' },
     'pf.add':             { vi: '+ Thêm mã', en: '+ Add a symbol' },
+    'pf.quickAdd':        { vi: 'Thêm nhanh:', en: 'Quick add:' },
     'pf.cash':            { vi: 'Tiền mặt (đồng)', en: 'Cash (VND)' },
     'pf.lookback':        { vi: 'Cửa sổ đo', en: 'Measurement window' },
     'pf.horizon':         { vi: 'Kỳ dự phóng', en: 'Projection horizon' },
