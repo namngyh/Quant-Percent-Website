@@ -426,6 +426,31 @@ def _():
         assert note.get("en"), "a verdict note has no English"
 
 
+@check("verdicts carry a stable code, not just prose")
+def _():
+    # The statistics panel picks its colour from this code. It used to match on
+    # the Vietnamese headline, which broke silently the moment that headline
+    # became a {vi, en} pair — the whole panel threw and rendered nothing. A
+    # code that is independent of wording is what makes that impossible.
+    walk = stats.analyse_series(frame(random_walk(3000, seed=41)))
+    assert walk["verdict"]["code"] in {"structured", "random"}, walk["verdict"]
+    assert walk["verdict"]["code"] == "random", walk["verdict"]
+
+    reverting = stats.analyse_series(frame(ar1(3000, -0.3, seed=42)))
+    assert reverting["verdict"]["code"] == "structured", reverting["verdict"]
+
+    trades = [{"pnl": v} for v in np.random.default_rng(43).normal(5, 200, 20)]
+    strategy = stats.analyse_strategy(trades, 10_000.0)
+    assert strategy["verdict"]["code"] in {
+        "robust", "deflated_away", "underpowered", "no_edge",
+    }, strategy["verdict"]
+
+    # The code must never itself be a translated string, or it is no better
+    # than matching on the headline.
+    assert isinstance(walk["verdict"]["code"], str)
+    assert isinstance(strategy["verdict"]["code"], str)
+
+
 @check("a random walk gets the random-walk verdict")
 def _():
     result = stats.analyse_series(frame(random_walk(4000, seed=17)))

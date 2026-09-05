@@ -1451,6 +1451,7 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
     ]
 
     if found:
+        code = "structured"
         headline = bi("Có cấu trúc phụ thuộc thời gian",
                       "Time dependence is present")
         detail = bi(
@@ -1465,6 +1466,7 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
             "backtest, not for these tests.",
         )
     else:
+        code = "random"
         headline = bi("Không phân biệt được với bước ngẫu nhiên",
                       "Indistinguishable from a random walk")
         detail = bi(
@@ -1499,7 +1501,7 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
     if stationarity_block.get("verdict"):
         notes.append(stationarity_block["verdict"])
 
-    return {"headline": headline, "detail": detail, "notes": notes}
+    return {"code": code, "headline": headline, "detail": detail, "notes": notes}
 
 
 def analyse_strategy(
@@ -1566,15 +1568,19 @@ def _strategy_verdict(result: dict) -> dict:
     dsr_ok = bool(sharpe.get("dsr_significant")) if sharpe else None
 
     if significant and dsr_ok is not False:
+        code = "robust"
         headline = bi("Lợi thế đứng vững qua kiểm định",
                       "The edge survives testing")
     elif significant and dsr_ok is False:
+        code = "deflated_away"
         headline = bi("Có ý nghĩa thống kê, nhưng không sống sót khi khử phồng",
                       "Statistically significant, but not after deflation")
     elif not adequate_power:
+        code = "underpowered"
         headline = bi("Chưa đủ dữ liệu để kết luận",
                       "Not enough data to conclude")
     else:
+        code = "no_edge"
         headline = bi("Không có bằng chứng về lợi thế",
                       "No evidence of an edge")
 
@@ -1597,6 +1603,7 @@ def _strategy_verdict(result: dict) -> dict:
         "this assumption.",
     ))
     return {
+        "code": code,
         "headline": headline,
         "detail": notes[0] if notes else "",
         "notes": notes[1:],

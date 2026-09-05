@@ -257,9 +257,9 @@ const Validation = (() => {
   function testRow(test) {
     if (!test) return '';
     if (test.unavailable) {
-      return `<tr class="muted"><td>${esc(test.name)}</td>
-        <td colspan="3">${esc(test.unavailable)}</td>
-        <td class="muted">không chạy được</td></tr>`;
+      return `<tr class="muted"><td>${esc(tp(test.name))}</td>
+        <td colspan="3">${esc(tp(test.unavailable))}</td>
+        <td class="muted">${esc(L('không chạy được', 'could not run'))}</td></tr>`;
     }
     if (test.p_value === null || test.p_value === undefined) return '';
 
@@ -267,11 +267,15 @@ const Validation = (() => {
     const rejected = test.reject_adjusted ?? test.reject;
     // The conclusion sentence is long by design; the table shows the decision
     // and the (i) shows the sentence.
-    const decision = rejected ? 'Bác bỏ H₀' : 'Không bác bỏ';
-    const info = Explain.inline(Explain.fromTest(test), { title: `Giải thích ${test.name}` });
+    const decision = rejected
+      ? L('Bác bỏ H₀', 'Reject H₀')
+      : L('Không bác bỏ', 'Do not reject');
+    const info = Explain.inline(Explain.fromTest(test), {
+      title: `${L('Giải thích', 'Explain')} ${tp(test.name)}`,
+    });
 
     return `<tr>
-      <td>${esc(test.name)} ${info}</td>
+      <td>${esc(tp(test.name))} ${info}</td>
       <td>${esc(Explain.fmt(test.statistic))}</td>
       <td>${esc(P_FMT(test.p_value))}</td>
       <td class="${rejected ? 'pos' : ''}">${esc(P_FMT(adjusted))}</td>
@@ -285,8 +289,11 @@ const Validation = (() => {
     return `${caption ? `<div class="field-group-title">${esc(caption)}</div>` : ''}
       <table class="data-table stat-table">
         <thead><tr>
-          <th>Kiểm định</th><th>Thống kê</th><th>p thô</th>
-          <th>p hiệu chỉnh</th><th>Quyết định ở α = 0,05</th>
+          <th>${esc(L('Kiểm định', 'Test'))}</th>
+          <th>${esc(L('Thống kê', 'Statistic'))}</th>
+          <th>${esc(L('p thô', 'raw p'))}</th>
+          <th>${esc(L('p hiệu chỉnh', 'adjusted p'))}</th>
+          <th>${esc(L('Quyết định ở α = 0,05', 'Decision at α = 0.05'))}</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
@@ -302,7 +309,7 @@ const Validation = (() => {
       ? ''
       : explain.startsWith('<')
         ? explain
-        : Explain.button(explain, { title: `Giải thích ${label}` });
+        : Explain.button(explain, { title: `${L('Giải thích', 'Explain')} ${label}` });
     return `<div class="metric">
       <div class="metric-label">${esc(label)} ${info}</div>
       <div class="metric-value ${cls}">${value}</div>
@@ -312,20 +319,21 @@ const Validation = (() => {
 
   function verdictCallout(verdict, tone) {
     if (!verdict) return '';
-    let html = `<div class="callout ${tone}"><strong>${esc(verdict.headline)}</strong>
-      ${verdict.detail ? ` ${esc(verdict.detail)}` : ''}</div>`;
+    let html = `<div class="callout ${tone}"><strong>${esc(tp(verdict.headline))}</strong>
+      ${verdict.detail ? ` ${esc(tp(verdict.detail))}` : ''}</div>`;
     for (const note of verdict.notes || []) {
-      html += `<div class="callout">${esc(note)}</div>`;
+      html += `<div class="callout">${esc(tp(note))}</div>`;
     }
     return html;
   }
 
   function familyNote(family) {
     if (!family || !family.n_tests) return '';
-    return `<p class="table-note">${esc(family.note || '')}
+    return `<p class="table-note">${esc(tp(family.note))}
       ${family.n_significant_raw !== undefined
-        ? `Trước hiệu chỉnh: ${family.n_significant_raw}/${family.n_tests} kiểm định có ý nghĩa;
-           sau hiệu chỉnh: ${family.n_significant_adjusted}/${family.n_tests}.`
+        ? esc(L(
+            `Trước hiệu chỉnh: ${family.n_significant_raw}/${family.n_tests} kiểm định có ý nghĩa; sau hiệu chỉnh: ${family.n_significant_adjusted}/${family.n_tests}.`,
+            `Before adjustment: ${family.n_significant_raw} of ${family.n_tests} tests were significant; after: ${family.n_significant_adjusted} of ${family.n_tests}.`))
         : ''}</p>`;
   }
 
@@ -350,7 +358,7 @@ const Validation = (() => {
 
     // The verdict is computed from the ADJUSTED p-values only, so it cannot
     // disagree with the table below it.
-    const structured = r.verdict?.headline?.startsWith('Có cấu trúc');
+    const structured = r.verdict?.code === 'structured';
     let html = verdictCallout(r.verdict, structured ? 'good' : 'warn');
 
     html += '<div class="metrics">';
@@ -406,12 +414,12 @@ const Validation = (() => {
     if (r.hurst?.statistic !== undefined && r.hurst.statistic !== null) {
       html += cardX('Hurst', num(r.hurst.statistic, 3),
         Explain.inline(Explain.fromTest(r.hurst)), '',
-        r.hurst.reading || '');
+        tp(r.hurst.reading));
     }
     if (r.variance_ratio?.per_period) {
       const q2 = r.variance_ratio.per_period[0];
       html += cardX('Tỷ số phương sai (q=2)', num(q2?.variance_ratio, 3),
-        Explain.inline(Explain.fromTest(r.variance_ratio)), '', q2?.reading || '');
+        Explain.inline(Explain.fromTest(r.variance_ratio)), '', tp(q2?.reading));
     }
     html += '</div>';
 
@@ -437,7 +445,7 @@ const Validation = (() => {
           <td>${num(p.variance_ratio, 3)}</td>
           <td class="muted">${num(p.z_homoskedastic)}</td>
           <td class="${Math.abs(p.z_heteroskedastic ?? 0) > 1.96 ? 'pos' : ''}">${num(p.z_heteroskedastic)}</td>
-          <td>${esc(p.reading)}</td></tr>`).join('') +
+          <td>${esc(tp(p.reading))}</td></tr>`).join('') +
         `</tbody></table>
         <p class="table-note">Cột <strong>z bền</strong> là cột để đọc: nó không giả định
         phương sai cố định theo thời gian, còn cột <strong>z đồng nhất</strong> thì có, và
@@ -480,7 +488,7 @@ const Validation = (() => {
       return;
     }
 
-    const good = r.verdict?.headline === 'Lợi thế đứng vững qua kiểm định';
+    const good = r.verdict?.code === 'robust';
     let html = verdictCallout(r.verdict, good ? 'good' : 'warn');
 
     html += '<div class="metrics">';
@@ -507,7 +515,7 @@ const Validation = (() => {
             ['Cận trên', `${num(boot.ci95_high_pct, 3)}%`],
             ['Số lần lấy mẫu lại', boot.n_resamples],
           ],
-          how: boot.note,
+          how: tp(boot.note),
           assumptions: 'BCa hiệu chỉnh cả độ chệch lẫn độ lệch của phân phối bootstrap. Vẫn giả định các lệnh độc lập với nhau.',
         }),
         boot.excludes_zero ? 'pos' : 'neg',
@@ -523,8 +531,8 @@ const Validation = (() => {
             ['Số lệnh hiện có', power.n],
             ['Cần cho lực 80%', power.n_required_for_80pct ?? '—'],
           ],
-          how: power.reading,
-          assumptions: power.assumptions,
+          how: tp(power.reading),
+          assumptions: tp(power.assumptions),
         }),
         power.adequate ? 'pos' : 'neg',
         power.n_required_for_80pct ? `cần ${power.n_required_for_80pct} lệnh cho 80%` : '');
@@ -541,8 +549,8 @@ const Validation = (() => {
             ['Số quan sát', sharpe.n_observations],
             ['MinTRL', sharpe.min_track_record_length ?? '—'],
           ],
-          how: sharpe.conclusion,
-          assumptions: sharpe.assumptions,
+          how: tp(sharpe.conclusion),
+          assumptions: tp(sharpe.assumptions),
         }),
         sharpe.psr_significant ? 'pos' : 'neg',
         `Sharpe ${num(sharpe.sharpe_annualised)}`);
@@ -557,10 +565,10 @@ const Validation = (() => {
             ['DSR', `${(sharpe.deflated_sharpe_ratio * 100).toFixed(1)}%`],
           ],
           how: sharpe.n_trials > 1
-            ? sharpe.conclusion
+            ? tp(sharpe.conclusion)
             : 'Chưa chạy tối ưu nên số lần thử tính là 1, và DSR bằng PSR. Sau khi quét tham số, hãy chạy lại kiểm định này để thấy ngưỡng thật.',
           watch: 'Đây là con số quan trọng nhất khi tham số đến từ một lần quét. Chọn tổ hợp tốt nhất trong 2 000 tổ hợp là chọn cực đại của 2 000 biến ngẫu nhiên, Sharpe của nó cao hơn Sharpe thật kể cả khi không tổ hợp nào có lợi thế.',
-          assumptions: sharpe.assumptions,
+          assumptions: tp(sharpe.assumptions),
         }),
         sharpe.dsr_significant ? 'pos' : 'neg',
         `${sharpe.n_trials} lần thử tham số`);
