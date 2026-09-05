@@ -334,6 +334,7 @@ const Validation = (() => {
     const result = await API.statsSeries({
       symbol: ctx.symbol, timeframe: ctx.timeframe, limit: ctx.limit,
     });
+    lastStats = { kind: 'series', data: result };
     renderSeriesStats(result);
     return result;
   }
@@ -461,6 +462,7 @@ const Validation = (() => {
       // deflated Sharpe ratio has to discount. Typed-in parameters mean 1.
       nTrials: Strategy.lastTrials,
     });
+    lastStats = { kind: 'strategy', data: result };
     renderStrategyStats(result);
     return result;
   }
@@ -682,6 +684,22 @@ const Validation = (() => {
     }, 'image/png');
   }
 
+  /* Redraw the statistics panel in the current language.
+   *
+   * Only the statistics output is re-rendered here, because it is the only
+   * thing this module keeps enough state to rebuild: `lastStats` holds the
+   * payload, and the payload carries both languages. Walk-forward and
+   * comparison results are re-rendered by running them again — they are not
+   * cached, and caching them purely to survive a language switch would be
+   * paying for the wrong thing. */
+  let lastStats = null;
+
+  function rerender() {
+    if (!lastStats) return;
+    if (lastStats.kind === 'series') renderSeriesStats(lastStats.data);
+    else renderStrategyStats(lastStats.data);
+  }
+
   function init(config) {
     elements = config.elements;
     context = config.context;
@@ -694,6 +712,7 @@ const Validation = (() => {
     init, runWalkForward, runMonteCarlo, runCompare,
     runSeriesStats, runStrategyStats,
     exportTrades, exportChart,
+    rerender,
     get last() { return lastResult; },
   };
 })();

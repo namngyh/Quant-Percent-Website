@@ -27,6 +27,10 @@
     runCompare: document.getElementById('run-compare'),
     compareList: document.getElementById('compare-list'),
     openReport: document.getElementById('open-report'),
+    price: document.getElementById('price'),
+    chartTools: document.getElementById('chart-tools'),
+    toggleMarkers: document.getElementById('toggle-markers'),
+    clearMarkers: document.getElementById('clear-markers'),
     exportCsv: document.getElementById('export-csv'),
     exportPng: document.getElementById('export-png'),
     formatDialog: document.getElementById('format-dialog'),
@@ -42,11 +46,39 @@
 
   const state = { symbol: null, timeframe: null, limit: 2000 };
 
+  // Previous rendered price, for the ticker's up/down colour. Declared with the
+  // rest of the module state rather than beside `showPrice`, because
+  // `loadCandles` calls that before the ticker's own section is reached.
+  let lastPrice = null;
+
   const INTRADAY = new Set(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h']);
 
+  /* The status line, remembered as a thunk rather than as text.
+   *
+   * Switching language has to re-render it, and by then the numbers that went
+   * into the sentence are long out of scope. Keeping the closure means the
+   * line rebuilds itself in the new language from the same values, instead of
+   * needing every call site to hand its arguments over for storage. */
+  let lastStatus = null;
+
   function setStatus(message, kind = '') {
+    lastStatus = null;
     el.status.textContent = message;
     el.status.className = `status ${kind}`;
+  }
+
+  /** Set a status that can rebuild itself when the language changes. */
+  function setStatusLive(build, kind = '') {
+    lastStatus = { build, kind };
+    el.status.textContent = build();
+    el.status.className = `status ${kind}`;
+  }
+
+  function refreshStatus() {
+    if (lastStatus) {
+      el.status.textContent = lastStatus.build();
+      el.status.className = `status ${lastStatus.kind}`;
+    }
   }
 
   const setLoading = (on) => { el.loading.hidden = !on; };
@@ -75,7 +107,8 @@
         ChartManager.clearAll();
         ChartManager.clearTradeMarkers();
         ChartManager.setCandles([], [], { timeVisible: false });
-        setStatus(`${state.symbol} ${state.timeframe} — chưa có dữ liệu`, 'error');
+        setStatusLive(() => t('status.noData'), 'error');
+        hidePrice();
         return;
       }
 
@@ -83,11 +116,13 @@
         timeVisible: INTRADAY.has(state.timeframe),
       });
 
+      // The symbol and the timeframe are already selected two controls to the
+      // left, and the price now has a readout of its own — so the status line
+      // is left for the one thing neither of those shows.
       const last = data.candles[data.candles.length - 1];
-      setStatus(
-        `${state.symbol} ${state.timeframe} · ${data.count.toLocaleString('vi-VN')} nến · ` +
-          `${last.close.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
-      );
+      setStatusLive(() =>
+        t('status.bars', { n: data.count.toLocaleString(I18n.locale()) }));
+      showPrice(last.close);
 
       ChartManager.clearTradeMarkers();
       await Indicators.recomputeAll();
@@ -122,16 +157,51 @@
 
   let recomputeTimer = null;
 
+
   // Named `liveState`, not `state`: destructuring it as `state` would shadow
   // the module-level state object and make a later edit here quietly wrong.
+  let lastLiveState = 'offline';
+
   function setLiveState({ state: liveState }) {
+    lastLiveState = liveState;
     const dot = { live: 'live', connecting: 'connecting', offline: 'offline' }[liveState] || '';
     el.liveDot.className = `live-dot ${dot}`;
     el.liveToggle.classList.toggle('on', liveState === 'live' || liveState === 'connecting');
     el.liveLabel.textContent = {
-      live: isVN(state.symbol) ? 'Đang theo dõi' : 'Đang chạy',
-      connecting: 'Đang nối…', offline: 'Mất kết nối', error: 'Lỗi',
-    }[liveState] || 'Realtime';
+      live: t(isVN(state.symbol) ? 'live.watching' : 'live.running'),
+      connecting: t('live.connecting'),
+      offline: t('live.offline'),
+      error: t('live.error'),
+    }[liveState] || t('top.live');
+
+    // A stale price is worse than no price: it looks current.
+    if (liveState !== 'live' && liveState !== 'connecting') hidePrice();
+  }
+
+  /* The live price, and whether the last tick moved up or down.
+   *
+   * Compared against the previous *rendered* price rather than the candle's
+   * open: within one forming candle the open never changes, so colouring
+   * against it would freeze the ticker green or red for a whole bar instead of
+   * flickering with each trade. An unchanged price keeps the previous colour —
+   * a tick that repeats the last price is not a reversal. */
+  function showPrice(value) {
+    if (!Number.isFinite(value)) return;
+    el.price.textContent = value.toLocaleString('en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    });
+    if (lastPrice !== null && value !== lastPrice) {
+      el.price.classList.toggle('up', value > lastPrice);
+      el.price.classList.toggle('down', value < lastPrice);
+    }
+    el.price.hidden = false;
+    lastPrice = value;
+  }
+
+  function hidePrice() {
+    el.price.hidden = true;
+    el.price.classList.remove('up', 'down');
+    lastPrice = null;
   }
 
   function onLiveCandle(candle) {
@@ -140,8 +210,9 @@
       open: candle.open, high: candle.high, low: candle.low,
       close: candle.close, volume: candle.volume,
     });
-    const price = candle.close.toLocaleString('en-US', { maximumFractionDigits: 2 });
-    setStatus(`${state.symbol} ${state.timeframe} · live · ${price}`);
+    showPrice(candle.close);
+    // The status line is for things that need words. The price is not one.
+    setStatus('');
   }
 
   function onLiveCandleClose() {
@@ -349,6 +420,31 @@
       ? { side: session.position, entry_time: session.entry_time }
       : null;
     ChartManager.setTradeMarkers(session.trades || [], open);
+  }
+
+
+  /* The marker controls appear only once something has drawn markers, and go
+     away when nothing has. A permanently visible "hide markers" button on an
+     empty chart is a control for a state that does not exist. */
+  function setupMarkerControls() {
+    ChartManager.onMarkersChanged = (count, visible) => {
+      el.chartTools.hidden = count === 0;
+      el.toggleMarkers.textContent = t('chart.markers', { n: count });
+      el.toggleMarkers.classList.toggle('off', !visible);
+      el.toggleMarkers.title = t(visible ? 'chart.hideMarkers' : 'chart.showMarkers');
+    };
+
+    el.toggleMarkers.addEventListener('click', () => {
+      const visible = ChartManager.toggleMarkers();
+      toast(t(visible ? 'chart.markersShown' : 'chart.markersHidden'));
+    });
+
+    el.clearMarkers.addEventListener('click', () => {
+      ChartManager.clearTradeMarkers();
+      // Otherwise the next paper refresh redraws what was just cleared.
+      markerSource = 'none';
+      toast(t('chart.markersGone'));
+    });
   }
 
 
@@ -698,6 +794,43 @@ def signals(df, params):
       }));
   }
 
+  /* The language switch.
+   *
+   * Static markup is rewritten by `I18n.apply`. Anything a module rendered
+   * into innerHTML is not — the dictionary lookup already happened — so each
+   * panel redraws itself. Panels with nothing on screen redraw to the same
+   * empty state, which costs nothing and keeps this list honest: every panel
+   * is here, so a new one is not silently left in the old language.
+   */
+  function setupLanguage() {
+    const paint = () => {
+      for (const button of document.querySelectorAll('.lang-btn')) {
+        button.classList.toggle('active', button.dataset.lang === I18n.lang);
+        button.setAttribute('aria-pressed', String(button.dataset.lang === I18n.lang));
+      }
+    };
+
+    for (const button of document.querySelectorAll('.lang-btn')) {
+      button.addEventListener('click', () => I18n.set(button.dataset.lang));
+    }
+
+    I18n.onChange(() => {
+      paint();
+      refreshStatus();
+      setLiveState({ state: lastLiveState });
+      Indicators.rerender?.();
+      Strategy.rerender?.();
+      Paper.rerender?.();
+      Validation.rerender?.();
+      Report.rerender?.();
+      Portfolio.rerender?.();
+      ChartManager.refreshSize();
+    });
+
+    paint();
+  }
+
+
   // ---------- Navigation ----------
 
   /** Open a panel. `toggle` is for the rail, where clicking the open one closes
@@ -827,7 +960,7 @@ def signals(df, params):
 
   async function runBackfill() {
     el.backfill.disabled = true;
-    setStatus('Đang tải dữ liệu từ Binance…', 'busy');
+    setStatusLive(() => t('status.loading'), 'busy');
     setLoading(true);
     try {
       const report = await API.backfill({
@@ -889,10 +1022,16 @@ def signals(df, params):
   }
 
   async function start() {
-    // Before anything renders: every panel emits (i) buttons, and they are
-    // inert until the shared popover is listening.
+    // Language first: everything below reads from the dictionary, and a panel
+    // built before the language is known would render in the wrong one and
+    // only correct itself on the next redraw.
+    I18n.init();
+    setupLanguage();
+    // Then the popover: every panel emits (i) buttons, and they are inert
+    // until it is listening.
     Explain.init();
     Report.init({ onToast: toast });
+    setupMarkerControls();
     ChartManager.init(el.chartMain);
     // Dividers change the chart's box, so the charts re-measure on every drag.
     Resizer.init({ onChange: () => ChartManager.refreshSize() });

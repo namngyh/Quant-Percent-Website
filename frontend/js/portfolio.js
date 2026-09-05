@@ -33,13 +33,23 @@ const Portfolio = (() => {
     Number.isFinite(value) ? `${value.toFixed(digits)}%` : '—';
   const cls = (value) => (value > 0 ? 'pos' : value < 0 ? 'neg' : '');
 
+  /* The backend grades risk with a Vietnamese word. Translating at the edge
+     keeps that value a stable key the API can be tested against, rather than
+     making the payload depend on who is looking at it. */
+  const riskState = (state) => ({
+    'thấp': L('thấp', 'low'),
+    'trung bình': L('trung bình', 'moderate'),
+    'đáng chú ý': L('đáng chú ý', 'elevated'),
+    'cao': L('cao', 'high'),
+  }[state] || state);
+
   /** Money in dong, abbreviated — 563.240.000 does not read at a glance. */
   function dong(value) {
     if (!Number.isFinite(value)) return '—';
     const magnitude = Math.abs(value);
-    if (magnitude >= 1e9) return `${(value / 1e9).toFixed(2)} tỷ`;
-    if (magnitude >= 1e6) return `${(value / 1e6).toFixed(1)} tr`;
-    return value.toLocaleString('vi-VN', { maximumFractionDigits: 0 });
+    if (magnitude >= 1e9) return `${(value / 1e9).toFixed(2)}${L(' tỷ', 'bn')}`;
+    if (magnitude >= 1e6) return `${(value / 1e6).toFixed(1)}${L(' tr', 'm')}`;
+    return value.toLocaleString(I18n.locale(), { maximumFractionDigits: 0 });
   }
 
   /* VN keyboards produce "1.000", "1,000" and "1 000" for the same number, and
@@ -63,27 +73,30 @@ const Portfolio = (() => {
       // before that, everything would look unknown.
       const note = !code ? ''
         : hit ? `<span class="pf-name">${esc(hit.name)}</span>`
-          : known.size ? '<span class="pf-warn">không có mã này trên sàn</span>' : '';
+          : known.size
+            ? `<span class="pf-warn">${esc(t('pf.unknown'))}</span>` : '';
 
       return `<div class="pf-row" data-row="${row.id}">
         <div class="pf-row-head">
           <input class="pf-symbol" list="pf-symbols" value="${esc(row.symbol)}"
                  placeholder="FPT" autocomplete="off" spellcheck="false" />
-          <button class="pf-remove" title="Bỏ mã này" aria-label="Bỏ mã này">✕</button>
+          <button class="pf-remove" title="${esc(t('pf.remove'))}"
+                  aria-label="${esc(t('pf.remove'))}">✕</button>
         </div>
         ${note}
         <div class="pf-row-fields">
-          <label><span>Số lượng</span>
+          <label><span>${esc(t('pf.quantity'))}</span>
             <input class="pf-quantity" inputmode="numeric" value="${esc(row.quantity)}"
                    placeholder="1.000" /></label>
-          <label><span>Giá vốn/cổ</span>
+          <label><span>${esc(t('pf.costBasis'))}</span>
             <input class="pf-cost" inputmode="numeric" value="${esc(row.costBasis)}"
-                   placeholder="không bắt buộc" /></label>
+                   placeholder="${esc(t('pf.optional'))}" /></label>
         </div>
       </div>`;
     }).join('');
 
-    elements.count.textContent = `${rows.filter((r) => r.symbol.trim()).length} mã`;
+    elements.count.textContent =
+      t('pf.symbolCount', { n: rows.filter((r) => r.symbol.trim()).length });
   }
 
   function bindRows() {
@@ -100,7 +113,7 @@ const Portfolio = (() => {
         const code = row.symbol.trim().toUpperCase();
         const hit = known.get(code);
         let note = container.querySelector('.pf-name, .pf-warn');
-        const text = !code ? '' : hit ? hit.name : (known.size ? 'không có mã này trên sàn' : '');
+        const text = !code ? '' : hit ? hit.name : (known.size ? t('pf.unknown') : '');
         const klass = hit ? 'pf-name' : 'pf-warn';
         if (!text) {
           note?.remove();
@@ -113,7 +126,7 @@ const Portfolio = (() => {
           note.textContent = text;
         }
         elements.count.textContent =
-          `${rows.filter((r) => r.symbol.trim()).length} mã`;
+          t('pf.symbolCount', { n: rows.filter((r) => r.symbol.trim()).length });
       } else if (event.target.classList.contains('pf-quantity')) {
         row.quantity = event.target.value;
       } else if (event.target.classList.contains('pf-cost')) {
@@ -149,9 +162,9 @@ const Portfolio = (() => {
 
       const quantity = parseNumber(row.quantity);
       if (quantity === null || quantity <= 0) {
-        throw new Error(`${symbol}: thiếu số lượng, hoặc số lượng không hợp lệ.`);
+        throw new Error(t('pf.badQuantity', { sym: symbol }));
       }
-      if (seen.has(symbol)) throw new Error(`${symbol} bị nhập hai lần.`);
+      if (seen.has(symbol)) throw new Error(t('pf.duplicate', { sym: symbol }));
       seen.add(symbol);
 
       const costBasis = parseNumber(row.costBasis);
@@ -161,7 +174,7 @@ const Portfolio = (() => {
         cost_basis: costBasis !== null && costBasis > 0 ? costBasis : null,
       });
     }
-    if (!holdings.length) throw new Error('Chưa nhập mã nào.');
+    if (!holdings.length) throw new Error(t('pf.empty'));
     return holdings;
   }
 
@@ -174,8 +187,10 @@ const Portfolio = (() => {
     );
     return `<div class="pf-bars">
       <div class="rp-chart-head">
-        <span class="rp-legend"><i style="background:var(--text-faint)"></i>Phần tiền</span>
-        <span class="rp-legend"><i style="background:var(--accent)"></i>Phần rủi ro</span>
+        <span class="rp-legend"><i style="background:var(--text-faint)"></i>${
+          esc(L('Phần tiền', 'Share of money'))}</span>
+        <span class="rp-legend"><i style="background:var(--accent)"></i>${
+          esc(L('Phần rủi ro', 'Share of risk'))}</span>
       </div>
       ${positions.map((p) => `
         <div class="pf-bar-row">
@@ -186,62 +201,74 @@ const Portfolio = (() => {
           </div>
           <span class="pf-bar-value ${cls(p.risk_gap_pct)}">${pct(p.risk_gap_pct, 1)}</span>
         </div>`).join('')}
-      <p class="table-note">Cột phải là khoảng cách giữa phần rủi ro và phần tiền.
-      Dương nghĩa là vị thế đó gánh nhiều rủi ro hơn mức cỡ của nó gợi ý — vì nó
-      biến động mạnh hơn, hoặc vì nó đi cùng chiều với phần còn lại, hoặc cả hai.</p>
+      <p class="table-note">${esc(L(
+        'Cột phải là khoảng cách giữa phần rủi ro và phần tiền. Dương nghĩa là vị thế đó gánh nhiều rủi ro hơn mức cỡ của nó gợi ý — vì nó biến động mạnh hơn, hoặc vì nó đi cùng chiều với phần còn lại, hoặc cả hai.',
+        'The right-hand column is the gap between share of risk and share of money. Positive means the position carries more risk than its size suggests — because it is more volatile, because it moves with the rest, or both.'))}</p>
     </div>`;
   }
 
   function overviewTab(d) {
     let html = '';
     for (const note of d.notes || []) {
-      html += `<div class="callout">${esc(note)}</div>`;
+      html += `<div class="callout">${esc(tp(note) || note)}</div>`;
     }
 
     html += '<div class="metrics">';
-    html += metric('Tổng giá trị', dong(d.total_value), '', '',
-      `${dong(d.invested_value)} cổ phiếu · ${upct(d.cash_weight_pct)} tiền mặt`);
-    html += metric('Lãi/lỗ',
-      d.profit === null ? 'không có' : dong(d.profit), '',
+    html += metric(L('Tổng giá trị', 'Total value'), dong(d.total_value), '', '',
+      L(`${dong(d.invested_value)} cổ phiếu · ${upct(d.cash_weight_pct)} tiền mặt`,
+        `${dong(d.invested_value)} in shares · ${upct(d.cash_weight_pct)} cash`));
+    html += metric(L('Lãi/lỗ', 'Profit'),
+      d.profit === null ? t('common.notAvailable') : dong(d.profit), '',
       d.profit === null ? '' : cls(d.profit),
       d.profit === null
-        ? 'cần giá vốn của mọi mã'
+        ? L('cần giá vốn của mọi mã', 'needs a cost basis on every holding')
         : pct(d.profit_pct));
-    html += metric('Mức rủi ro', esc(d.risk_state),
+    html += metric(L('Mức rủi ro', 'Risk level'), esc(riskState(d.risk_state)),
       Explain.inline({
-        title: 'Mức rủi ro',
-        what: 'Xếp hạng dựa trên biến động năm và sụt giảm sâu nhất đã xảy ra.',
-        rows: [['Biến động (năm)', upct(d.volatility_pct)],
-               ['Sụt giảm tối đa', upct(d.max_drawdown_pct)]],
-        how: 'Thấp dưới 15% biến động; trung bình tới 25%; đáng chú ý tới 35%; trên đó là cao.',
-        watch: 'Đo trên cửa sổ quá khứ đã chọn. Một giai đoạn yên bình cho xếp hạng thấp ngay trước khi thị trường đổi chế độ.',
+        title: L('Mức rủi ro', 'Risk level'),
+        what: L('Xếp hạng dựa trên biến động năm và sụt giảm sâu nhất đã xảy ra.',
+                'A grade based on annualised volatility and the deepest drawdown on record.'),
+        rows: [[L('Biến động (năm)', 'Volatility (annual)'), upct(d.volatility_pct)],
+               [L('Sụt giảm tối đa', 'Max drawdown'), upct(d.max_drawdown_pct)]],
+        how: L('Thấp dưới 15% biến động; trung bình tới 25%; đáng chú ý tới 35%; trên đó là cao.',
+                'Low below 15% volatility; moderate to 25%; elevated to 35%; high above that.'),
+        watch: L('Đo trên cửa sổ quá khứ đã chọn. Một giai đoạn yên bình cho xếp hạng thấp ngay trước khi thị trường đổi chế độ.',
+                 'Measured over the chosen past window. A calm stretch grades low right up to the moment the regime changes.'),
       }),
       d.risk_state === 'cao' ? 'neg' : '',
-      `biến động ${upct(d.volatility_pct)}`);
+      L(`biến động ${upct(d.volatility_pct)}`, `${upct(d.volatility_pct)} volatility`));
     html += metric('Beta', d.beta === null ? '—' : nf(d.beta), 'p.beta', '',
-      d.beta === null ? 'không đủ phiên chung'
-        : d.beta > 1 ? `mạnh hơn VN-Index ${upct((d.beta - 1) * 100)}`
-          : `nhẹ hơn VN-Index ${upct((1 - d.beta) * 100)}`);
-    html += metric('VaR 95% (1 phiên)', upct(d.var_95_pct), 'p.var', 'neg',
-      `CVaR ${upct(d.cvar_95_pct)}`);
-    html += metric('Sụt giảm tối đa', upct(d.max_drawdown_pct), 'm.max_dd', 'neg',
-      `trong ${d.observations} phiên`);
+      d.beta === null ? L('không đủ phiên chung', 'not enough shared sessions')
+        : d.beta > 1
+          ? L(`mạnh hơn VN-Index ${upct((d.beta - 1) * 100)}`,
+              `${upct((d.beta - 1) * 100)} more than VN-Index`)
+          : L(`nhẹ hơn VN-Index ${upct((1 - d.beta) * 100)}`,
+              `${upct((1 - d.beta) * 100)} less than VN-Index`));
+    html += metric(L('VaR 95% (1 phiên)', 'VaR 95% (one session)'), upct(d.var_95_pct),
+      'p.var', 'neg', `CVaR ${upct(d.cvar_95_pct)}`);
+    html += metric(L('Sụt giảm tối đa', 'Max drawdown'), upct(d.max_drawdown_pct),
+      'm.max_dd', 'neg',
+      L(`trong ${d.observations} phiên`, `over ${d.observations} sessions`));
     html += '</div>';
 
-    html += '<div class="field-group-title">Phần tiền so với phần rủi ro</div>';
+    html += `<div class="field-group-title">${esc(L(
+      'Phần tiền so với phần rủi ro', 'Share of money against share of risk'))}</div>`;
     html += riskBars(d.positions);
     return html;
   }
 
   function positionsTab(d) {
     return `<table class="data-table rp-table"><thead><tr>
-      <th>Mã</th><th>Giá</th><th>Giá trị</th><th>Tiền</th>
-      <th>Rủi ro ${Explain.button('p.risk_contribution', { title: 'Giải thích đóng góp rủi ro' })}</th>
-      <th>Chênh</th><th>Biến động</th><th>Beta</th><th>Lãi/lỗ</th>
+      <th>${esc(L('Mã', 'Symbol'))}</th><th>${esc(L('Giá', 'Price'))}</th>
+      <th>${esc(L('Giá trị', 'Value'))}</th><th>${esc(L('Tiền', 'Money'))}</th>
+      <th>${esc(L('Rủi ro', 'Risk'))} ${Explain.button('p.risk_contribution', {
+        title: L('Giải thích đóng góp rủi ro', 'Explain risk contribution') })}</th>
+      <th>${esc(L('Chênh', 'Gap'))}</th><th>${esc(L('Biến động', 'Volatility'))}</th>
+      <th>Beta</th><th>${esc(L('Lãi/lỗ', 'P&L'))}</th>
       </tr></thead><tbody>` +
       d.positions.map((p) => `<tr>
         <td><strong>${esc(p.symbol)}</strong></td>
-        <td>${p.price.toLocaleString('vi-VN')}</td>
+        <td>${p.price.toLocaleString(I18n.locale())}</td>
         <td>${dong(p.market_value)}</td>
         <td>${upct(p.weight_pct)}</td>
         <td>${upct(p.risk_contribution_pct)}</td>
@@ -252,71 +279,80 @@ const Portfolio = (() => {
           ${p.profit === null ? '—' : pct(p.profit_pct, 1)}</td>
       </tr>`).join('') +
       `</tbody></table>
-      <p class="table-note">Sắp xếp theo phần rủi ro, không theo phần tiền — đó là
-      thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${esc(d.last_session)},
-      quy về đồng (feed niêm yết theo nghìn đồng).</p>`;
+      <p class="table-note">${esc(L(
+        `Sắp xếp theo phần rủi ro, không theo phần tiền — đó là thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${d.last_session}, quy về đồng (feed niêm yết theo nghìn đồng).`,
+        `Sorted by share of risk rather than share of money — that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>`;
   }
 
   function diversificationTab(d) {
     const c = d.concentration;
     let html = `<div class="callout ${c.effective_bets < c.positions * 0.5 ? 'warn' : ''}">
-      Danh mục có <strong>${c.positions} mã</strong> nhưng chỉ tương đương
-      <strong>${nf(c.effective_bets)} cược độc lập</strong> sau khi trừ đi phần
-      tương quan. Tương quan trung bình giữa các cặp là ${nf(c.average_correlation, 3)}.</div>`;
+      ${esc(L(
+        `Danh mục có ${c.positions} mã nhưng chỉ tương đương ${nf(c.effective_bets)} cược độc lập sau khi trừ đi phần tương quan. Tương quan trung bình giữa các cặp là ${nf(c.average_correlation, 3)}.`,
+        `The portfolio holds ${c.positions} names but amounts to only ${nf(c.effective_bets)} independent bets once correlation is taken out. The average pairwise correlation is ${nf(c.average_correlation, 3)}.`))}</div>`;
 
     html += '<div class="metrics">';
-    html += metric('Số mã', c.positions, '', '', `lớn nhất ${upct(c.largest_weight_pct)}`);
-    html += metric('Số mã hiệu dụng', nf(c.effective_assets), 'p.herfindahl', '',
-      `HHI ${nf(c.herfindahl, 3)}`);
-    html += metric('Số cược độc lập', nf(c.effective_bets), 'p.effective_bets',
-      c.effective_bets < c.positions * 0.5 ? 'neg' : 'pos');
-    html += metric('Tương quan TB', nf(c.average_correlation, 3), 'p.correlation');
-    html += metric('Ba mã lớn nhất', upct(c.top_three_weight_pct), '',
+    html += metric(L('Số mã', 'Positions'), c.positions, '', '',
+      L(`lớn nhất ${upct(c.largest_weight_pct)}`, `largest ${upct(c.largest_weight_pct)}`));
+    html += metric(L('Số mã hiệu dụng', 'Effective assets'), nf(c.effective_assets),
+      'p.herfindahl', '', `HHI ${nf(c.herfindahl, 3)}`);
+    html += metric(L('Số cược độc lập', 'Effective bets'), nf(c.effective_bets),
+      'p.effective_bets', c.effective_bets < c.positions * 0.5 ? 'neg' : 'pos');
+    html += metric(L('Tương quan TB', 'Average correlation'),
+      nf(c.average_correlation, 3), 'p.correlation');
+    html += metric(L('Ba mã lớn nhất', 'Top three'), upct(c.top_three_weight_pct), '',
       c.top_three_weight_pct > 70 ? 'neg' : '');
-    html += metric('Cặp giống nhau nhất',
+    html += metric(L('Cặp giống nhau nhất', 'Closest pair'),
       c.max_pair ? nf(c.max_pair_correlation, 3) : '—', '', '',
       c.max_pair ? c.max_pair.join(' · ') : '');
     html += '</div>';
 
-    html += `<p class="table-note">Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau
-      cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn
-      và trừ cả phần tương quan — mười mã cùng ngành với tương quan 0,7 hành xử như
-      khoảng ba cược, không phải mười.</p>
-      <p class="table-note">Hiệp phương sai dùng co rút Ledoit–Wolf
-      ${Explain.button('p.shrinkage', { title: 'Giải thích co rút' })}, cường độ
-      ${upct(d.shrinkage_intensity * 100)} trên ${d.observations} phiên chung
-      (${esc(d.first_session)} → ${esc(d.last_session)}).</p>`;
+    html += `<p class="table-note">${esc(L(
+      'Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn và trừ cả phần tương quan — mười mã cùng ngành với tương quan 0,7 hành xử như khoảng ba cược, không phải mười.',
+      'Effective assets counts money only: ten equal names give 10, ten names where one holds 80% give about 1.5. Effective bets goes further and removes correlation — ten names in one sector correlated at 0.7 behave like about three bets, not ten.'))}</p>
+      <p class="table-note">${esc(L('Hiệp phương sai dùng co rút Ledoit–Wolf',
+        'Covariance uses Ledoit–Wolf shrinkage'))}
+      ${Explain.button('p.shrinkage', { title: L('Giải thích co rút', 'Explain shrinkage') })},
+      ${esc(L(
+        `cường độ ${upct(d.shrinkage_intensity * 100)} trên ${d.observations} phiên chung (${d.first_session} → ${d.last_session}).`,
+        `intensity ${upct(d.shrinkage_intensity * 100)} over ${d.observations} shared sessions (${d.first_session} → ${d.last_session}).`))}</p>`;
     return html;
   }
 
   function forwardTab(d) {
     const f = d.forward;
     if (!f.available) {
-      return `<div class="callout warn">${esc(f.reason)}</div>`;
+      return `<div class="callout warn">${esc(tp(f.reason) || f.reason)}</div>`;
     }
 
     const worst = Math.max(...f.drawdown_probabilities.map((b) => b.probability_pct), 1);
-    let html = `<div class="callout"><strong>Mô phỏng ${f.horizon_days} phiên tới</strong>
-      bằng ${f.paths.toLocaleString('vi-VN')} đường đi, lấy mẫu theo khối
-      ${nf(f.block_length, 0)} phiên từ chính ${f.observations} phiên lịch sử của
-      danh mục này. Lấy theo khối chứ không lấy từng ngày độc lập, để giữ lại hiện
-      tượng biến động gom cụm — nếu bỏ nó, xác suất của những đợt sụt sâu bị đánh
-      giá thấp một cách có hệ thống.</div>`;
+    const paths = f.paths.toLocaleString(I18n.locale());
+    let html = `<div class="callout"><strong>${esc(L(
+      `Mô phỏng ${f.horizon_days} phiên tới`,
+      `Simulating the next ${f.horizon_days} sessions`))}</strong>
+      ${esc(L(
+        `bằng ${paths} đường đi, lấy mẫu theo khối ${nf(f.block_length, 0)} phiên từ chính ${f.observations} phiên lịch sử của danh mục này. Lấy theo khối chứ không lấy từng ngày độc lập, để giữ lại hiện tượng biến động gom cụm — nếu bỏ nó, xác suất của những đợt sụt sâu bị đánh giá thấp một cách có hệ thống.`,
+        `over ${paths} paths, sampled in blocks of ${nf(f.block_length, 0)} sessions from this portfolio's own ${f.observations} sessions of history. Blocks rather than independent days, to keep volatility clustering — dropping it systematically understates the odds of a deep fall.`))}</div>`;
 
     html += '<div class="metrics">';
-    html += metric('Lợi suất kỳ vọng', pct(f.expected_return_pct), '',
-      cls(f.expected_return_pct), `trung vị ${pct(f.median_return_pct)}`);
-    html += metric('Khoảng 90%',
-      `${nf(f.p05_pct)}% … ${nf(f.p95_pct)}%`, '', '', '5% tệ nhất tới 5% tốt nhất');
-    html += metric('Xác suất lỗ', upct(f.prob_loss_pct, 0), '',
+    html += metric(L('Lợi suất kỳ vọng', 'Expected return'), pct(f.expected_return_pct),
+      '', cls(f.expected_return_pct),
+      L(`trung vị ${pct(f.median_return_pct)}`, `median ${pct(f.median_return_pct)}`));
+    html += metric(L('Khoảng 90%', '90% range'),
+      `${nf(f.p05_pct)}% … ${nf(f.p95_pct)}%`, '', '',
+      L('5% tệ nhất tới 5% tốt nhất', 'worst 5% to best 5%'));
+    html += metric(L('Xác suất lỗ', 'Chance of a loss'), upct(f.prob_loss_pct, 0), '',
       f.prob_loss_pct > 50 ? 'neg' : '');
-    html += metric('Sụt giảm trung vị', upct(f.median_max_drawdown_pct), 'm.max_dd', 'neg',
-      'trong kỳ mô phỏng');
+    html += metric(L('Sụt giảm trung vị', 'Median drawdown'),
+      upct(f.median_max_drawdown_pct), 'm.max_dd', 'neg',
+      L('trong kỳ mô phỏng', 'within the simulated period'));
     html += '</div>';
 
-    html += `<div class="field-group-title">Xác suất chạm mỗi mức sụt giảm</div>
+    html += `<div class="field-group-title">${esc(L(
+      'Xác suất chạm mỗi mức sụt giảm', 'Chance of reaching each drawdown level'))}</div>
       <table class="data-table rp-table"><thead><tr>
-        <th>Mức giảm của danh mục</th><th>Xác suất</th><th></th>
+        <th>${esc(L('Mức giảm của danh mục', 'Portfolio fall'))}</th>
+        <th>${esc(L('Xác suất', 'Probability'))}</th><th></th>
       </tr></thead><tbody>` +
       f.drawdown_probabilities.map((b) => `<tr>
         <td>${upct(b.threshold_pct, 0)}</td>
@@ -325,8 +361,9 @@ const Portfolio = (() => {
           style="width:${(b.probability_pct / worst * 100).toFixed(1)}%"></div></div></td>
       </tr>`).join('') + '</tbody></table>';
 
-    html += `<div class="callout warn"><strong>Giới hạn của mô phỏng này.</strong>
-      ${esc(f.caveat)}</div>`;
+    html += `<div class="callout warn"><strong>${esc(L(
+      'Giới hạn của mô phỏng này.', 'What this simulation cannot do.'))}</strong>
+      ${esc(tp(f.caveat) || f.caveat)}</div>`;
     return html;
   }
 
@@ -342,11 +379,23 @@ const Portfolio = (() => {
   }
 
   const TABS = [
-    ['overview', 'Tổng quan', overviewTab],
-    ['positions', 'Từng mã', positionsTab],
-    ['diversification', 'Đa dạng hoá', diversificationTab],
-    ['forward', 'Dự phóng', forwardTab],
+    ['overview', 'pfr.overview', overviewTab],
+    ['positions', 'pfr.positions', positionsTab],
+    ['diversification', 'pfr.diversification', diversificationTab],
+    ['forward', 'pfr.forward', forwardTab],
   ];
+
+  const tabMarkup = () => TABS.map(([id, key]) =>
+    `<button class="rp-tab" data-tab="${id}" role="tab">${esc(t(key))}</button>`).join('');
+
+  function bindTabs() {
+    for (const button of host.querySelectorAll('.rp-tab')) {
+      button.addEventListener('click', () => {
+        activeTab = button.dataset.tab;
+        paint();
+      });
+    }
+  }
 
   let host = null;
   let activeTab = 'overview';
@@ -367,7 +416,8 @@ const Portfolio = (() => {
     try {
       body.innerHTML = tab[2](lastResult);
     } catch (err) {
-      body.innerHTML = `<div class="callout bad">Không dựng được tab: ${esc(err.message)}</div>`;
+      body.innerHTML = `<div class="callout bad">${esc(L(
+        'Không dựng được tab: ', 'Could not build this tab: '))}${esc(err.message)}</div>`;
       console.error(err);
     }
     for (const button of host.querySelectorAll('.rp-tab')) {
@@ -388,29 +438,25 @@ const Portfolio = (() => {
       <div class="rp-head">
         <div>
           <h2 id="pf-title">Quant Portfolio</h2>
-          <div class="rp-sub">${result.positions.length} mã ·
-            ${dong(result.total_value)} đồng ·
-            ${result.observations} phiên chung
-            (${esc(result.first_session)} → ${esc(result.last_session)})</div>
+          <div class="rp-sub">${esc(t('pf.symbolCount', { n: result.positions.length }))} ·
+            ${dong(result.total_value)} ·
+            ${esc(t('common.sessions', {
+              n: result.observations,
+              from: result.first_session,
+              to: result.last_session,
+            }))}</div>
         </div>
-        <button class="btn btn-quiet btn-sm rp-close" aria-label="Đóng">✕</button>
+        <button class="btn btn-quiet btn-sm rp-close"
+                aria-label="${esc(t('rp.close'))}">✕</button>
       </div>
-      <div class="rp-tabs" role="tablist">
-        ${TABS.map(([id, label]) =>
-          `<button class="rp-tab" data-tab="${id}" role="tab">${label}</button>`).join('')}
-      </div>
+      <div class="rp-tabs" role="tablist">${tabMarkup()}</div>
       <div class="rp-body"></div>
     </div>`;
 
     document.body.appendChild(host);
     host.querySelector('.rp-close').addEventListener('click', close);
     host.addEventListener('click', (event) => { if (event.target === host) close(); });
-    for (const button of host.querySelectorAll('.rp-tab')) {
-      button.addEventListener('click', () => {
-        activeTab = button.dataset.tab;
-        paint();
-      });
-    }
+    bindTabs();
     document.addEventListener('keydown', onKey, true);
     paint();
   }
@@ -425,8 +471,7 @@ const Portfolio = (() => {
       elements.datalist.innerHTML = list
         .map((r) => `<option value="${esc(r.symbol)}">${esc(r.name || '')}</option>`)
         .join('');
-      elements.message.textContent =
-        `${known.size} mã trên sàn, sẵn sàng.`;
+      elements.message.textContent = t('pf.ready', { n: known.size });
     } catch (err) {
       // The VPN being off is by far the likeliest cause, and the message the
       // backend already produces says so — so it is passed straight through.
@@ -487,5 +532,14 @@ const Portfolio = (() => {
     loadSymbols();
   }
 
-  return { init, show, close, get last() { return lastResult; } };
+  /** Redraw the form, and the result window if it is open. */
+  function rerender() {
+    renderRows();
+    if (!host || !lastResult) return;
+    host.querySelector('.rp-tabs').innerHTML = tabMarkup();
+    bindTabs();
+    paint();
+  }
+
+  return { init, show, close, rerender, get last() { return lastResult; } };
 })();

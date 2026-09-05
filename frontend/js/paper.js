@@ -166,5 +166,6 @@ const Paper = (() => {
     elements.refresh.addEventListener('click', refresh);
   }
 
-  return { init, refresh, start, apply, get sessions() { return sessions; } };
+  return { init, refresh, start, apply, rerender: render,
+           get sessions() { return sessions; } };
 })();

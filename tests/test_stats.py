@@ -29,6 +29,13 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from backend.analysis import stats  # noqa: E402
+from backend.i18n import plain  # noqa: E402
+
+
+# Narrative fields are {vi, en} pairs. The checks below assert on the
+# Vietnamese, which is the language the wording was written and reviewed in;
+# "every narrative field carries both languages" is what guards the English.
+vi = plain
 
 
 def random_walk(n: int = 3000, seed: int = 1) -> np.ndarray:
@@ -147,7 +154,7 @@ def _():
     # returns roughly 0.6 here and the panel reported "xu hướng".
     result = stats.hurst(random_walk(4000, seed=7))
     assert result["p_value"] >= 0.05, (result["statistic"], result["p_value"])
-    assert result["reading"].startswith("không phân biệt"), result["reading"]
+    assert vi(result["reading"]).startswith("không phân biệt"), result["reading"]
 
 
 @check("the Anis-Lloyd expectation grows with window size")
@@ -189,7 +196,7 @@ def _():
     assert result["reject"], result["p_value"]
     for period in result["per_period"]:
         assert period["variance_ratio"] < 1.0, period
-        assert period["reading"] == "hồi quy trung bình", period
+        assert vi(period["reading"]) == "hồi quy trung bình", period
 
 
 @check("variance ratio rises above 1 on a trending series")
@@ -262,7 +269,7 @@ def _():
     result = stats.stationarity(100 * np.exp(np.cumsum(returns)), returns)
     assert "verdict" in result, result.keys()
     assert "kpss_return" in result
-    assert result["kpss_return"]["null"].startswith("Chuỗi lợi suất dừng")
+    assert vi(result["kpss_return"]["null"]).startswith("Chuỗi lợi suất dừng")
 
 
 @check("ARCH-LM finds volatility clustering and Ljung-Box does not confuse it for a trend")
@@ -316,7 +323,8 @@ def _():
     power = result["power"]
     assert power["adequate"] is False, power
     assert power["n_required_for_80pct"] > 15, power
-    assert "chưa đủ" in power["reading"] or "KHÔNG chứng minh" in power["reading"], power
+    reading = vi(power["reading"])
+    assert "chưa đủ" in reading or "KHÔNG chứng minh" in reading, power
 
 
 @check("inference refuses to run on fewer than eight trades")
@@ -384,16 +392,52 @@ def _():
             assert test.get(field), f"{test.get('name')} is missing {field}"
 
 
+@check("every narrative field carries both languages")
+def _():
+    # The whole reason for the {vi, en} shape is that a translation cannot go
+    # missing silently — an English reader would just see Vietnamese, which
+    # reads as a rendering bug rather than an untranslated string.
+    result = stats.analyse_series(frame(random_walk(2000, seed=31)))
+    tests = [
+        result["autocorrelation"]["ljung_box"],
+        result["autocorrelation"]["arch_lm"],
+        result["stationarity"]["adf_price"],
+        result["stationarity"]["adf_return"],
+        result["stationarity"]["kpss_return"],
+        result["normality"]["jarque_bera"],
+        result["normality"]["dagostino"],
+        result["variance_ratio"],
+        result["hurst"],
+    ]
+    for test in tests:
+        for field in ("null", "alternative", "conclusion", "assumptions"):
+            value = test[field]
+            assert isinstance(value, dict), f"{test['name']}.{field} is not a pair"
+            assert value.get("vi"), f"{test['name']}.{field} has no Vietnamese"
+            assert value.get("en"), f"{test['name']}.{field} has no English"
+            assert value["vi"] != value["en"], (
+                f"{test['name']}.{field} is identical in both languages"
+            )
+
+    verdict = result["verdict"]
+    for field in ("headline", "detail"):
+        assert verdict[field].get("en"), f"verdict.{field} has no English"
+    for note in verdict["notes"]:
+        assert note.get("en"), "a verdict note has no English"
+
+
 @check("a random walk gets the random-walk verdict")
 def _():
     result = stats.analyse_series(frame(random_walk(4000, seed=17)))
-    assert result["verdict"]["headline"].startswith("Không phân biệt"), result["verdict"]
+    assert vi(result["verdict"]["headline"]).startswith("Không phân biệt"), \
+        result["verdict"]
 
 
 @check("a mean-reverting series gets the structure verdict")
 def _():
     result = stats.analyse_series(frame(ar1(4000, -0.3, seed=18)))
-    assert result["verdict"]["headline"].startswith("Có cấu trúc"), result["verdict"]
+    assert vi(result["verdict"]["headline"]).startswith("Có cấu trúc"), \
+        result["verdict"]
 
 
 @check("strategy analysis no longer produces a Bayesian block")

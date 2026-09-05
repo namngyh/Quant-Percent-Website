@@ -36,6 +36,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
+from backend.i18n import bi
+
 log = logging.getLogger(__name__)
 
 # Dưới ngưỡng này thì kiểm định tiệm cận không còn đáng tin. Jarque–Bera và ADF
@@ -149,11 +151,15 @@ def _apply_fdr(tests: dict, alpha: float = ALPHA) -> dict:
         "alpha": alpha,
         "n_significant_raw": sum(1 for p in raw if p < alpha),
         "n_significant_adjusted": sum(1 for p in adjusted if p < alpha),
-        "note": (
+        "note": bi(
             f"{len(keys)} kiểm định chạy cùng lúc. Nếu tất cả H₀ đều đúng thì "
             f"xác suất có ít nhất một kết quả 'có ý nghĩa' ở α={alpha} là "
             f"{(1 - (1 - alpha) ** len(keys)) * 100:.0f}%. Cột p hiệu chỉnh đã "
-            "tính đến điều đó — hãy đọc cột đó, không phải p thô."
+            "tính đến điều đó — hãy đọc cột đó, không phải p thô.",
+            f"{len(keys)} tests were run together. If every null were true, the "
+            f"chance of at least one 'significant' result at α={alpha} is "
+            f"{(1 - (1 - alpha) ** len(keys)) * 100:.0f}%. The adjusted column "
+            "accounts for that — read that one, not the raw p.",
         ),
     }
 
@@ -211,44 +217,70 @@ def normality(returns: np.ndarray) -> dict:
     jb_stat, jb_p = sps.jarque_bera(r)
     out["jarque_bera"] = _result(
         "Jarque–Bera",
-        null="Lợi suất tuân theo phân phối chuẩn (độ lệch = 0 và độ nhọn thừa = 0).",
-        alternative="Phân phối lệch chuẩn ở mô-men bậc ba hoặc bậc bốn.",
+        null=bi(
+            "Lợi suất tuân theo phân phối chuẩn (độ lệch = 0 và độ nhọn thừa = 0).",
+            "Returns are normally distributed (skew = 0 and excess kurtosis = 0).",
+        ),
+        alternative=bi(
+            "Phân phối lệch chuẩn ở mô-men bậc ba hoặc bậc bốn.",
+            "The distribution departs from normal in its third or fourth moment.",
+        ),
         statistic=float(jb_stat),
         statistic_label="JB",
         df=2,
         p_value=float(jb_p),
-        conclusion=(
+        conclusion=bi(
             "Bác bỏ chuẩn tính. Mọi công thức giả định phân phối chuẩn — kể cả "
             "Sharpe và VaR tham số — đều đánh giá thấp rủi ro đuôi trên chuỗi này."
             if jb_p < ALPHA else
             "Không đủ bằng chứng bác bỏ chuẩn tính. Lưu ý đây không phải bằng "
-            "chứng chuỗi *là* chuẩn; với cỡ mẫu này lực kiểm định có thể còn thấp."
+            "chứng chuỗi *là* chuẩn; với cỡ mẫu này lực kiểm định có thể còn thấp.",
+            "Normality is rejected. Every formula that assumes a normal "
+            "distribution — Sharpe and parametric VaR among them — understates "
+            "tail risk on this series."
+            if jb_p < ALPHA else
+            "Not enough evidence to reject normality. Note this is not evidence "
+            "that the series *is* normal; at this sample size the test may "
+            "simply lack power.",
         ),
-        assumptions=(
+        assumptions=bi(
             "Quan sát độc lập cùng phân phối. Phân phối χ²(2) của thống kê chỉ "
             "đúng tiệm cận và hội tụ chậm; với n < 2000, JB bác bỏ dễ hơn mức "
             "danh nghĩa. Tự tương quan phương sai (biến động gom cụm) cũng làm "
-            "JB bác bỏ ngay cả khi phân phối biên là chuẩn."
+            "JB bác bỏ ngay cả khi phân phối biên là chuẩn.",
+            "Independent, identically distributed observations. The statistic's "
+            "χ²(2) distribution holds only asymptotically and converges slowly; "
+            "below n = 2000, JB rejects more readily than its nominal rate. "
+            "Autocorrelated variance (volatility clustering) also makes JB "
+            "reject even when the marginal distribution is normal.",
         ),
     )
 
     k2_stat, k2_p = sps.normaltest(r)
     out["dagostino"] = _result(
         "D'Agostino K²",
-        null="Lợi suất tuân theo phân phối chuẩn.",
-        alternative="Độ lệch hoặc độ nhọn khác giá trị chuẩn.",
+        null=bi("Lợi suất tuân theo phân phối chuẩn.",
+                "Returns are normally distributed."),
+        alternative=bi("Độ lệch hoặc độ nhọn khác giá trị chuẩn.",
+                       "Skew or kurtosis differs from the normal value."),
         statistic=float(k2_stat),
         statistic_label="K²",
         df=2,
         p_value=float(k2_p),
-        conclusion=(
+        conclusion=bi(
             "Bác bỏ chuẩn tính." if k2_p < ALPHA else
-            "Không đủ bằng chứng bác bỏ chuẩn tính."
+            "Không đủ bằng chứng bác bỏ chuẩn tính.",
+            "Normality is rejected." if k2_p < ALPHA else
+            "Not enough evidence to reject normality.",
         ),
-        assumptions=(
+        assumptions=bi(
             "Quan sát độc lập cùng phân phối, n ≥ 20. Dùng biến đổi chuẩn hoá "
             "của độ lệch và độ nhọn nên chính xác hơn Jarque–Bera ở mẫu vừa, "
-            "nhưng vẫn giả định độc lập."
+            "nhưng vẫn giả định độc lập.",
+            "Independent, identically distributed observations, n ≥ 20. It uses "
+            "normalising transforms of skew and kurtosis, so it is more accurate "
+            "than Jarque–Bera at moderate sample sizes — but it still assumes "
+            "independence.",
         ),
     )
     return out
@@ -289,18 +321,28 @@ def tail_risk(returns: np.ndarray) -> dict:
         out[f"tail_n_{key}"] = int(tail.size)
         out[f"tail_reliable_{key}"] = bool(tail.size >= 30)
 
-    out["note"] = (
+    out["note"] = bi(
         "VaR/CVaR lịch sử: đọc thẳng từ phân vị mẫu, không giả định phân phối. "
         f"CVaR 99% ở đây dựa trên {out['tail_n_99']} quan sát đuôi"
         + ("" if out["tail_reliable_99"]
            else " — quá ít để ổn định; hãy coi là chỉ dấu, không phải ước lượng")
         + ". Khoảng tin cậy 95% lấy bằng bootstrap "
-        f"({N_RESAMPLE} lần lấy mẫu lại có hoàn lại)."
+        f"({N_RESAMPLE} lần lấy mẫu lại có hoàn lại).",
+        "Historical VaR/CVaR: read straight off the sample quantile, assuming "
+        f"no distribution. The 99% CVaR here rests on {out['tail_n_99']} tail "
+        "observations"
+        + ("" if out["tail_reliable_99"]
+           else " — too few to be stable; treat it as an indication, not an estimate")
+        + f". The 95% interval comes from a bootstrap ({N_RESAMPLE} resamples "
+        "with replacement).",
     )
-    out["horizon_warning"] = (
+    out["horizon_warning"] = bi(
         "Các con số này là cho MỘT nến, không phải một ngày hay một năm. Nhân "
         "với căn bậc hai của thời gian chỉ đúng khi lợi suất độc lập — điều mà "
-        "kiểm định biến động gom cụm bên dưới thường bác bỏ."
+        "kiểm định biến động gom cụm bên dưới thường bác bỏ.",
+        "These figures are for ONE bar, not a day or a year. Scaling by the "
+        "square root of time is only valid when returns are independent — which "
+        "the volatility-clustering test below usually rejects.",
     )
     return out
 
@@ -457,32 +499,51 @@ def hurst(returns: np.ndarray) -> dict:
         p_value = (extreme + 1) / (len(null_values) + 1)
 
     if not np.isfinite(p_value) or p_value >= ALPHA:
-        reading = "không phân biệt được với không phụ thuộc thời gian"
+        reading = bi("không phân biệt được với không phụ thuộc thời gian",
+                     "indistinguishable from no time dependence")
     elif h > null_mean:
-        reading = "có quán tính (bộ nhớ dài dương)"
+        reading = bi("có quán tính (bộ nhớ dài dương)",
+                     "persistent (positive long memory)")
     else:
-        reading = "hồi quy trung bình"
+        reading = bi("hồi quy trung bình", "mean reverting")
 
     return _result(
         "Hurst (R/S hiệu chỉnh Anis–Lloyd)",
-        null="Lợi suất không có phụ thuộc theo thời gian (H bằng giá trị kỳ vọng của chuỗi hoán vị).",
-        alternative="Có bộ nhớ dài: H lệch khỏi giá trị đó.",
+        null=bi(
+            "Lợi suất không có phụ thuộc theo thời gian (H bằng giá trị kỳ vọng "
+            "của chuỗi hoán vị).",
+            "Returns carry no time dependence (H equals the value expected from "
+            "a shuffled series).",
+        ),
+        alternative=bi("Có bộ nhớ dài: H lệch khỏi giá trị đó.",
+                       "Long memory is present: H departs from that value."),
         statistic=h,
         statistic_label="H",
         p_value=p_value,
-        conclusion=(
-            f"H = {h:.3f}; chuỗi hoán vị cho trung bình {null_mean:.3f} "
-            f"(độ lệch chuẩn {null_sd:.3f}). Kết luận: {reading}."
-            if np.isfinite(null_mean) else f"H = {h:.3f}."
+        conclusion=bi(
+            (f"H = {h:.3f}; chuỗi hoán vị cho trung bình {null_mean:.3f} "
+             f"(độ lệch chuẩn {null_sd:.3f}). Kết luận: {reading['vi']}."
+             if np.isfinite(null_mean) else f"H = {h:.3f}."),
+            (f"H = {h:.3f}; shuffled series average {null_mean:.3f} "
+             f"(standard deviation {null_sd:.3f}). Reading: {reading['en']}."
+             if np.isfinite(null_mean) else f"H = {h:.3f}."),
         ),
-        assumptions=(
+        assumptions=bi(
             "R/S trên các đoạn không chồng lấn, cửa sổ 16 tới n/4, đã trừ kỳ "
             "vọng Anis–Lloyd của chuỗi độc lập — nếu bỏ bước này, một chuỗi "
             "ngẫu nhiên cũng cho H ≈ 0.6. p-value lấy từ "
             f"{len(null_values)} lần hoán vị chính chuỗi này, nên nó giữ nguyên "
             "phân phối biên (kể cả đuôi dày) và chỉ phá huỷ trật tự thời gian. "
             "R/S nhạy với biến động thay đổi theo thời gian: một chuỗi có biến "
-            "động gom cụm nhưng không có bộ nhớ vẫn có thể cho H > 0.5."
+            "động gom cụm nhưng không có bộ nhớ vẫn có thể cho H > 0.5.",
+            "R/S over non-overlapping windows from 16 to n/4, with the "
+            "Anis–Lloyd expectation for an independent series subtracted — skip "
+            "that step and a purely random series also returns H ≈ 0.6. The "
+            f"p-value comes from {len(null_values)} permutations of this series "
+            "itself, so it preserves the marginal distribution (fat tails "
+            "included) and destroys only the ordering. R/S is sensitive to "
+            "time-varying volatility: a series with clustering but no memory can "
+            "still return H > 0.5.",
         ),
         extra={
             "hurst_uncorrected": h_raw,
@@ -562,10 +623,10 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
             "z_heteroskedastic": float(z2) if np.isfinite(z2) else None,
             "p_heteroskedastic": float(2 * sps.norm.sf(abs(z2))) if np.isfinite(z2) else None,
             "reading": (
-                "—" if not np.isfinite(z2)
-                else "quán tính" if z2 > 1.96
-                else "hồi quy trung bình" if z2 < -1.96
-                else "phù hợp bước ngẫu nhiên"
+                bi("—", "—") if not np.isfinite(z2)
+                else bi("quán tính", "trending") if z2 > 1.96
+                else bi("hồi quy trung bình", "mean reverting") if z2 < -1.96
+                else bi("phù hợp bước ngẫu nhiên", "consistent with a random walk")
             ),
         })
 
@@ -581,25 +642,44 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
 
     return _result(
         "Tỷ số phương sai — Chow–Denning (đa kỳ hạn)",
-        null=f"Chuỗi là bước ngẫu nhiên: VR(q) = 1 đồng thời ở mọi q ∈ {list(periods)}.",
-        alternative="VR khác 1 ở ít nhất một kỳ hạn.",
+        null=bi(
+            f"Chuỗi là bước ngẫu nhiên: VR(q) = 1 đồng thời ở mọi q ∈ {list(periods)}.",
+            f"The series is a random walk: VR(q) = 1 simultaneously for every "
+            f"q ∈ {list(periods)}.",
+        ),
+        alternative=bi("VR khác 1 ở ít nhất một kỳ hạn.",
+                       "VR differs from 1 at at least one horizon."),
         statistic=cd_stat,
         statistic_label="max|z₂|",
         p_value=cd_p,
-        conclusion=(
-            f"max|z₂| = {cd_stat:.2f} vượt ngưỡng {cd_critical:.2f}: bác bỏ bước "
-            "ngẫu nhiên ở mức toàn cục 5%. Xem bảng kỳ hạn để biết lệch theo hướng nào."
-            if cd_p < ALPHA else
-            f"max|z₂| = {cd_stat:.2f} dưới ngưỡng {cd_critical:.2f}: không đủ "
-            "bằng chứng bác bỏ bước ngẫu nhiên ở bất kỳ kỳ hạn nào trong tập này. "
-            "Chỉ báo dựa thuần vào giá quá khứ khó tìm được gì trên chuỗi này."
+        conclusion=bi(
+            (f"max|z₂| = {cd_stat:.2f} vượt ngưỡng {cd_critical:.2f}: bác bỏ bước "
+             "ngẫu nhiên ở mức toàn cục 5%. Xem bảng kỳ hạn để biết lệch theo hướng nào."
+             if cd_p < ALPHA else
+             f"max|z₂| = {cd_stat:.2f} dưới ngưỡng {cd_critical:.2f}: không đủ "
+             "bằng chứng bác bỏ bước ngẫu nhiên ở bất kỳ kỳ hạn nào trong tập này. "
+             "Chỉ báo dựa thuần vào giá quá khứ khó tìm được gì trên chuỗi này."),
+            (f"max|z₂| = {cd_stat:.2f} exceeds the {cd_critical:.2f} threshold: "
+             "the random walk is rejected at a 5% joint level. The horizon table "
+             "shows which way it departs."
+             if cd_p < ALPHA else
+             f"max|z₂| = {cd_stat:.2f} is below the {cd_critical:.2f} threshold: "
+             "not enough evidence to reject a random walk at any horizon in this "
+             "set. An indicator built purely on past price will struggle to find "
+             "anything here."),
         ),
-        assumptions=(
+        assumptions=bi(
             "Ước lượng chồng lấn với hiệu chỉnh mẫu nhỏ của Lo–MacKinlay. z₂ "
             "bền với phương sai thay đổi theo thời gian nhưng vẫn giả định "
             "chênh lệch martingale. Ngưỡng Chow–Denning coi các z là độc lập, "
             "trong khi thực tế các kỳ hạn tương quan dương — nên ngưỡng này hơi "
-            "bảo thủ (khó bác bỏ hơn thực tế một chút)."
+            "bảo thủ (khó bác bỏ hơn thực tế một chút).",
+            "Overlapping estimator with Lo–MacKinlay's small-sample correction. "
+            "z₂ is robust to time-varying variance but still assumes a "
+            "martingale difference. The Chow–Denning threshold treats the z "
+            "statistics as independent, while in practice the horizons are "
+            "positively correlated — so it is slightly conservative, rejecting "
+            "a little less readily than it should.",
         ),
         extra={
             "critical_value": cd_critical,
@@ -627,24 +707,37 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
 
     def _adf(series: np.ndarray, label: str, subject: str) -> dict:
         stat, p_value, used_lag, nobs, crit, _ = adfuller(series, autolag="AIC")
+        subject_en = {"Chuỗi giá": "The price series",
+                      "Chuỗi lợi suất": "The return series"}[subject]
         return _result(
             f"ADF — {label}",
-            null=f"{subject} có nghiệm đơn vị (không dừng).",
-            alternative=f"{subject} dừng quanh một hằng số.",
+            null=bi(f"{subject} có nghiệm đơn vị (không dừng).",
+                    f"{subject_en} has a unit root (is non-stationary)."),
+            alternative=bi(f"{subject} dừng quanh một hằng số.",
+                           f"{subject_en} is stationary around a constant."),
             statistic=float(stat),
             statistic_label="ADF",
             p_value=float(p_value),
-            conclusion=(
-                f"Bác bỏ nghiệm đơn vị: {subject.lower()} dừng."
-                if p_value < ALPHA else
-                "Không bác bỏ được nghiệm đơn vị. Đây KHÔNG phải bằng chứng "
-                f"{subject.lower()} không dừng — ADF nổi tiếng là lực thấp khi "
-                "hệ số tự hồi quy gần 1."
+            conclusion=bi(
+                (f"Bác bỏ nghiệm đơn vị: {subject.lower()} dừng."
+                 if p_value < ALPHA else
+                 "Không bác bỏ được nghiệm đơn vị. Đây KHÔNG phải bằng chứng "
+                 f"{subject.lower()} không dừng — ADF nổi tiếng là lực thấp khi "
+                 "hệ số tự hồi quy gần 1."),
+                (f"The unit root is rejected: {subject_en.lower()} is stationary."
+                 if p_value < ALPHA else
+                 "The unit root is not rejected. This is NOT evidence that "
+                 f"{subject_en.lower()} is non-stationary — ADF is notoriously "
+                 "low-powered when the autoregressive coefficient is near 1."),
             ),
-            assumptions=(
+            assumptions=bi(
                 f"Hồi quy có hằng số, không có xu hướng. Số trễ {used_lag} chọn "
                 f"theo AIC trên {nobs} quan sát. Giá trị tới hạn 5% = "
-                f"{crit['5%']:.3f}. p-value nội suy từ bảng MacKinnon."
+                f"{crit['5%']:.3f}. p-value nội suy từ bảng MacKinnon.",
+                f"Regression with a constant and no trend. {used_lag} lags chosen "
+                f"by AIC over {nobs} observations. The 5% critical value is "
+                f"{crit['5%']:.3f}. The p-value is interpolated from MacKinnon's "
+                "tables.",
             ),
             extra={"used_lag": int(used_lag), "nobs": int(nobs),
                    "critical_5pct": float(crit["5%"])},
@@ -667,21 +760,29 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
         clipped = k_p in (0.01, 0.1)
         out["kpss_return"] = _result(
             "KPSS — lợi suất",
-            null="Chuỗi lợi suất dừng quanh một hằng số.",
-            alternative="Chuỗi lợi suất có thành phần bước ngẫu nhiên.",
+            null=bi("Chuỗi lợi suất dừng quanh một hằng số.",
+                    "The return series is stationary around a constant."),
+            alternative=bi("Chuỗi lợi suất có thành phần bước ngẫu nhiên.",
+                           "The return series contains a random-walk component."),
             statistic=float(k_stat),
             statistic_label="LM",
             p_value=float(k_p),
-            conclusion=(
-                "Bác bỏ tính dừng." if k_p < ALPHA else
-                "Không bác bỏ tính dừng."
+            conclusion=bi(
+                "Bác bỏ tính dừng." if k_p < ALPHA else "Không bác bỏ tính dừng.",
+                "Stationarity is rejected." if k_p < ALPHA else
+                "Stationarity is not rejected.",
             ),
-            assumptions=(
+            assumptions=bi(
                 f"Hồi quy có hằng số, {k_lags} trễ theo quy tắc tự động. "
                 "p-value được cắt trong khoảng [0.01, 0.10] vì bảng tới hạn chỉ "
                 "có tới đó"
                 + (" — giá trị này đã bị cắt, con số thật nằm ngoài khoảng."
-                   if clipped else ".")
+                   if clipped else "."),
+                f"Regression with a constant, {k_lags} lags by the automatic "
+                "rule. The p-value is clipped to [0.01, 0.10] because the "
+                "critical-value table stops there"
+                + (" — this value was clipped, and the true figure lies outside "
+                   "the range." if clipped else "."),
             ),
             extra={"p_value_clipped": bool(clipped), "lags": int(k_lags),
                    "critical_5pct": float(k_crit["5%"])},
@@ -697,19 +798,37 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
         adf_stationary = adf["p_value"] < ALPHA
         kpss_stationary = kp["p_value"] >= ALPHA
         if adf_stationary and kpss_stationary:
-            verdict = ("ADF và KPSS đồng thuận: lợi suất dừng. Đây là điều kiện "
-                       "tiên quyết để mọi thống kê bên dưới có nghĩa.")
+            verdict = bi(
+                "ADF và KPSS đồng thuận: lợi suất dừng. Đây là điều kiện tiên "
+                "quyết để mọi thống kê bên dưới có nghĩa.",
+                "ADF and KPSS agree: returns are stationary. That is the "
+                "precondition for everything below to mean anything.",
+            )
         elif not adf_stationary and not kpss_stationary:
-            verdict = ("ADF và KPSS đồng thuận: lợi suất KHÔNG dừng. Trung bình "
-                       "và phương sai trôi theo thời gian, nên một backtest trên "
-                       "toàn bộ giai đoạn đang trộn nhiều chế độ thị trường.")
+            verdict = bi(
+                "ADF và KPSS đồng thuận: lợi suất KHÔNG dừng. Trung bình và "
+                "phương sai trôi theo thời gian, nên một backtest trên toàn bộ "
+                "giai đoạn đang trộn nhiều chế độ thị trường.",
+                "ADF and KPSS agree: returns are NOT stationary. The mean and "
+                "variance drift over time, so a backtest across the whole period "
+                "is blending several market regimes.",
+            )
         elif adf_stationary and not kpss_stationary:
-            verdict = ("Hai kiểm định mâu thuẫn: ADF nói dừng, KPSS nói không. "
-                       "Dạng điển hình của chuỗi dừng quanh xu hướng hoặc có "
-                       "đứt gãy cấu trúc giữa kỳ.")
+            verdict = bi(
+                "Hai kiểm định mâu thuẫn: ADF nói dừng, KPSS nói không. Dạng "
+                "điển hình của chuỗi dừng quanh xu hướng hoặc có đứt gãy cấu "
+                "trúc giữa kỳ.",
+                "The two tests disagree: ADF says stationary, KPSS says not. "
+                "That is the signature of a trend-stationary series, or one with "
+                "a structural break part-way through.",
+            )
         else:
-            verdict = ("Không kiểm định nào kết luận được — dữ liệu không đủ "
-                       "thông tin. Đừng đọc phần còn lại như một khẳng định.")
+            verdict = bi(
+                "Không kiểm định nào kết luận được — dữ liệu không đủ thông tin. "
+                "Đừng đọc phần còn lại như một khẳng định.",
+                "Neither test concludes — the data does not carry enough "
+                "information. Do not read what follows as an assertion.",
+            )
         out["verdict"] = verdict
 
     return out
@@ -740,25 +859,38 @@ def autocorrelation(returns: np.ndarray) -> dict:
         p_value = float(lb["lb_pvalue"].iloc[0])
         out["ljung_box"] = _result(
             "Ljung–Box trên lợi suất",
-            null=f"Lợi suất không tự tương quan ở mọi trễ 1..{lags}.",
-            alternative="Có tự tương quan ở ít nhất một trễ.",
+            null=bi(f"Lợi suất không tự tương quan ở mọi trễ 1..{lags}.",
+                    f"Returns are uncorrelated at every lag 1..{lags}."),
+            alternative=bi("Có tự tương quan ở ít nhất một trễ.",
+                           "Autocorrelation is present at at least one lag."),
             statistic=stat,
             statistic_label="Q",
             df=lags,
             p_value=p_value,
-            conclusion=(
-                "Bác bỏ: có tự tương quan tuyến tính. Đây là cấu trúc mà chỉ báo "
-                "dựa trên giá quá khứ có thể khai thác — dù độ lớn mới quyết "
-                "định nó có thắng nổi phí giao dịch hay không."
-                if p_value < ALPHA else
-                "Không có bằng chứng tự tương quan tuyến tính. Giá quá khứ, tự "
-                "nó, không dự đoán được hướng của giá tương lai trên chuỗi này."
+            conclusion=bi(
+                ("Bác bỏ: có tự tương quan tuyến tính. Đây là cấu trúc mà chỉ báo "
+                 "dựa trên giá quá khứ có thể khai thác — dù độ lớn mới quyết "
+                 "định nó có thắng nổi phí giao dịch hay không."
+                 if p_value < ALPHA else
+                 "Không có bằng chứng tự tương quan tuyến tính. Giá quá khứ, tự "
+                 "nó, không dự đoán được hướng của giá tương lai trên chuỗi này."),
+                ("Rejected: linear autocorrelation is present. This is structure "
+                 "an indicator built on past price can exploit — though its size "
+                 "is what decides whether it can beat trading costs."
+                 if p_value < ALPHA else
+                 "No evidence of linear autocorrelation. Past price, on its own, "
+                 "does not predict the direction of future price on this series."),
             ),
-            assumptions=(
+            assumptions=bi(
                 f"Q ~ χ²({lags}) dưới H₀. Kiểm định này giả định phương sai đồng "
                 "nhất; với lợi suất tài chính có biến động gom cụm, Ljung–Box "
                 "bác bỏ dễ hơn mức danh nghĩa. Nó cũng chỉ bắt phụ thuộc TUYẾN "
-                "TÍNH — không có tự tương quan không có nghĩa là độc lập."
+                "TÍNH — không có tự tương quan không có nghĩa là độc lập.",
+                f"Q ~ χ²({lags}) under the null. The test assumes homoskedastic "
+                "variance; with the volatility clustering of financial returns, "
+                "Ljung–Box rejects more readily than its nominal rate. It also "
+                "detects LINEAR dependence only — no autocorrelation does not "
+                "mean independence.",
             ),
         )
     except Exception as exc:
@@ -770,26 +902,45 @@ def autocorrelation(returns: np.ndarray) -> dict:
         lm_stat, lm_p, f_stat, f_p = het_arch(r, nlags=arch_lags)
         out["arch_lm"] = _result(
             "Engle ARCH-LM (biến động gom cụm)",
-            null=f"Không có hiệu ứng ARCH tới trễ {arch_lags}: phương sai có điều kiện là hằng số.",
-            alternative="Phương sai có điều kiện phụ thuộc vào các cú sốc quá khứ.",
+            null=bi(
+                f"Không có hiệu ứng ARCH tới trễ {arch_lags}: phương sai có "
+                "điều kiện là hằng số.",
+                f"No ARCH effect up to lag {arch_lags}: conditional variance is "
+                "constant.",
+            ),
+            alternative=bi(
+                "Phương sai có điều kiện phụ thuộc vào các cú sốc quá khứ.",
+                "Conditional variance depends on past shocks.",
+            ),
             statistic=float(lm_stat),
             statistic_label="LM",
             df=arch_lags,
             p_value=float(lm_p),
-            conclusion=(
-                "Bác bỏ: biến động gom cụm. Hệ quả thực tế: rủi ro KHÔNG cố "
-                "định theo thời gian, nên một mức dừng lỗ tính theo phần trăm "
-                "cố định sẽ quá chặt lúc thị trường yên và quá lỏng lúc thị "
-                "trường động. Điều này không giúp dự đoán hướng."
-                if lm_p < ALPHA else
-                "Không có bằng chứng biến động gom cụm — hiếm gặp trên dữ liệu "
-                "thị trường thật; hãy kiểm tra lại độ dài và chất lượng chuỗi."
+            conclusion=bi(
+                ("Bác bỏ: biến động gom cụm. Hệ quả thực tế: rủi ro KHÔNG cố "
+                 "định theo thời gian, nên một mức dừng lỗ tính theo phần trăm "
+                 "cố định sẽ quá chặt lúc thị trường yên và quá lỏng lúc thị "
+                 "trường động. Điều này không giúp dự đoán hướng."
+                 if lm_p < ALPHA else
+                 "Không có bằng chứng biến động gom cụm — hiếm gặp trên dữ liệu "
+                 "thị trường thật; hãy kiểm tra lại độ dài và chất lượng chuỗi."),
+                ("Rejected: volatility clusters. The practical consequence is "
+                 "that risk is NOT constant over time, so a stop set at a fixed "
+                 "percentage is too tight in quiet markets and too loose in "
+                 "active ones. It does not help predict direction."
+                 if lm_p < ALPHA else
+                 "No evidence of volatility clustering — rare on real market "
+                 "data; check the length and quality of the series."),
             ),
-            assumptions=(
+            assumptions=bi(
                 "Hồi quy phụ bình phương phần dư lên chính nó ở các trễ; "
                 f"LM ~ χ²({arch_lags}) dưới H₀. Đây là kiểm định ĐÚNG cho biến "
                 "động gom cụm; chạy Ljung–Box trên |lợi suất| là một xấp xỉ "
-                "không có phân phối tới hạn chuẩn."
+                "không có phân phối tới hạn chuẩn.",
+                "An auxiliary regression of squared residuals on their own lags; "
+                f"LM ~ χ²({arch_lags}) under the null. This is the CORRECT test "
+                "for volatility clustering; running Ljung–Box on |returns| is an "
+                "approximation with no standard critical distribution.",
             ),
             extra={"f_statistic": float(f_stat), "f_p_value": float(f_p)},
         )
@@ -880,23 +1031,34 @@ def inference(trade_returns: np.ndarray) -> dict:
 
     out["t_test"] = _result(
         "Kiểm định t một mẫu, một phía",
-        null="Lợi suất kỳ vọng mỗi lệnh bằng 0.",
-        alternative="Lợi suất kỳ vọng mỗi lệnh lớn hơn 0.",
+        null=bi("Lợi suất kỳ vọng mỗi lệnh bằng 0.",
+                "The expected return per trade is zero."),
+        alternative=bi("Lợi suất kỳ vọng mỗi lệnh lớn hơn 0.",
+                       "The expected return per trade is greater than zero."),
         statistic=float(t_stat),
         statistic_label="t",
         df=n - 1,
         p_value=p_one,
-        conclusion=(
-            "Bác bỏ H₀: lợi thế trung bình khác 0 theo hướng có lợi."
-            if p_one < ALPHA else
-            "Không đủ bằng chứng cho rằng lợi thế khác 0. Kết quả quan sát được "
-            "nằm trong vùng mà may rủi thuần tuý cũng tạo ra được."
+        conclusion=bi(
+            ("Bác bỏ H₀: lợi thế trung bình khác 0 theo hướng có lợi."
+             if p_one < ALPHA else
+             "Không đủ bằng chứng cho rằng lợi thế khác 0. Kết quả quan sát được "
+             "nằm trong vùng mà may rủi thuần tuý cũng tạo ra được."),
+            ("The null is rejected: the average edge differs from zero in the "
+             "favourable direction."
+             if p_one < ALPHA else
+             "Not enough evidence that the edge differs from zero. The observed "
+             "result sits inside the range that pure chance also produces."),
         ),
-        assumptions=(
+        assumptions=bi(
             "Lợi suất từng lệnh độc lập cùng phân phối và xấp xỉ chuẩn. Cả hai "
             "giả định đều đáng ngờ: các lệnh liên tiếp trong cùng một chế độ "
             "thị trường thì tương quan, và phân phối lãi/lỗ luôn lệch. Hãy đọc "
-            "kiểm định hoán vị bên dưới trước."
+            "kiểm định hoán vị bên dưới trước.",
+            "Trade returns are independent, identically distributed and roughly "
+            "normal. Both assumptions are doubtful: consecutive trades in the "
+            "same market regime are correlated, and the distribution of wins and "
+            "losses is always skewed. Read the permutation test below first.",
         ),
         extra={
             "ci95_low_pct": float(ci[0] * 100) if np.isfinite(ci[0]) else None,
@@ -912,22 +1074,33 @@ def inference(trade_returns: np.ndarray) -> dict:
             w_stat, w_p = sps.wilcoxon(non_zero, alternative="greater")
             out["wilcoxon"] = _result(
                 "Wilcoxon dấu-hạng, một phía",
-                null="Phân phối lợi suất từng lệnh đối xứng quanh 0.",
-                alternative="Phân phối dịch về phía dương.",
+                null=bi("Phân phối lợi suất từng lệnh đối xứng quanh 0.",
+                        "The distribution of trade returns is symmetric about zero."),
+                alternative=bi("Phân phối dịch về phía dương.",
+                               "The distribution is shifted to the positive side."),
                 statistic=float(w_stat),
                 statistic_label="W",
                 p_value=float(w_p),
-                conclusion=(
-                    "Bác bỏ H₀ mà không cần giả định chuẩn."
-                    if w_p < ALPHA else
-                    "Không đủ bằng chứng, ngay cả khi bỏ giả định chuẩn."
+                conclusion=bi(
+                    ("Bác bỏ H₀ mà không cần giả định chuẩn."
+                     if w_p < ALPHA else
+                     "Không đủ bằng chứng, ngay cả khi bỏ giả định chuẩn."),
+                    ("The null is rejected without assuming normality."
+                     if w_p < ALPHA else
+                     "Not enough evidence, even with the normality assumption "
+                     "dropped."),
                 ),
-                assumptions=(
+                assumptions=bi(
                     "Cần đối xứng và độc lập, không cần chuẩn. Các lệnh hoà vốn "
                     f"đúng bằng 0 bị loại ({int(r.size - non_zero.size)} lệnh). "
                     "Kiểm định chạy trên hạng nên một lệnh lãi rất lớn không "
                     "được tính thêm trọng số — tuỳ chiến lược mà điều đó là ưu "
-                    "hay nhược."
+                    "hay nhược.",
+                    "Requires symmetry and independence, but not normality. "
+                    f"Exactly break-even trades are dropped "
+                    f"({int(r.size - non_zero.size)} of them). The test works on "
+                    "ranks, so one very large winner carries no extra weight — "
+                    "which is an advantage or a drawback depending on the strategy.",
                 ),
             )
     except Exception as exc:
@@ -940,23 +1113,40 @@ def inference(trade_returns: np.ndarray) -> dict:
     perm_p = float((np.sum(null_means >= observed_mean) + 1) / (N_RESAMPLE + 1))
     out["sign_permutation"] = _result(
         "Hoán vị dấu (phi tham số)",
-        null="Dấu lãi/lỗ của mỗi lệnh có thể đảo ngẫu nhiên mà không đổi phân phối.",
-        alternative="Lợi suất trung bình lớn hơn mức mà việc đảo dấu ngẫu nhiên tạo ra.",
-        statistic=observed_mean * 100,
-        statistic_label="lợi suất TB (%)",
-        p_value=perm_p,
-        conclusion=(
-            "Bác bỏ H₀. Đây là kết luận đáng tin nhất trong ba kiểm định vì nó "
-            "không giả định dạng phân phối nào."
-            if perm_p < ALPHA else
-            "Không đủ bằng chứng. Vì kiểm định này gần như không có giả định, "
-            "kết quả ở đây nên được ưu tiên hơn kiểm định t."
+        null=bi(
+            "Dấu lãi/lỗ của mỗi lệnh có thể đảo ngẫu nhiên mà không đổi phân phối.",
+            "The sign of each trade's result can be flipped at random without "
+            "changing the distribution.",
         ),
-        assumptions=(
+        alternative=bi(
+            "Lợi suất trung bình lớn hơn mức mà việc đảo dấu ngẫu nhiên tạo ra.",
+            "Mean return exceeds what random sign flipping produces.",
+        ),
+        statistic=observed_mean * 100,
+        statistic_label=bi("lợi suất TB (%)", "mean return (%)"),
+        p_value=perm_p,
+        conclusion=bi(
+            ("Bác bỏ H₀. Đây là kết luận đáng tin nhất trong ba kiểm định vì nó "
+             "không giả định dạng phân phối nào."
+             if perm_p < ALPHA else
+             "Không đủ bằng chứng. Vì kiểm định này gần như không có giả định, "
+             "kết quả ở đây nên được ưu tiên hơn kiểm định t."),
+            ("The null is rejected. This is the most trustworthy of the three, "
+             "because it assumes no distributional shape at all."
+             if perm_p < ALPHA else
+             "Not enough evidence. Since this test assumes almost nothing, its "
+             "answer should be preferred over the t-test's."),
+        ),
+        assumptions=bi(
             f"{N_RESAMPLE} lần đảo dấu ngẫu nhiên, giữ nguyên độ lớn mỗi lệnh. "
             "Chỉ cần giả định các dấu hoán đổi được dưới H₀ — tức là độc lập. "
             "Nếu chiến lược có chuỗi thắng/thua kéo dài do tương quan chuỗi, "
-            "giả định này bị vi phạm và p-value vẫn lạc quan quá mức."
+            "giả định này bị vi phạm và p-value vẫn lạc quan quá mức.",
+            f"{N_RESAMPLE} random sign flips, keeping each trade's magnitude. "
+            "The only assumption is that the signs are exchangeable under the "
+            "null — that is, independent. If the strategy produces long winning "
+            "or losing runs through serial correlation, that assumption breaks "
+            "and the p-value is still too optimistic.",
         ),
         extra={"n_permutations": N_RESAMPLE},
     )
@@ -965,16 +1155,20 @@ def inference(trade_returns: np.ndarray) -> dict:
     bca = _bootstrap_ci(r, lambda x: float(np.mean(x)))
     if "error" not in bca:
         out["bootstrap_mean"] = {
-            "name": "Bootstrap BCa cho lợi suất trung bình",
+            "name": bi("Bootstrap BCa cho lợi suất trung bình",
+                       "BCa bootstrap for the mean return"),
             "mean_pct": bca["observed"] * 100,
             "ci95_low_pct": bca["ci_low"] * 100,
             "ci95_high_pct": bca["ci_high"] * 100,
             "excludes_zero": bool(bca["ci_low"] > 0),
             "n_resamples": bca["n_resamples"],
-            "note": (
+            "note": bi(
                 "Khoảng tin cậy hiệu chỉnh chệch và gia tốc, không giả định "
                 "phân phối. Nếu khoảng này chứa 0 thì dữ liệu không loại trừ "
-                "được khả năng chiến lược không có lợi thế nào."
+                "được khả năng chiến lược không có lợi thế nào.",
+                "A bias-corrected and accelerated interval, assuming no "
+                "distribution. If it contains zero, the data cannot rule out "
+                "the strategy having no edge at all.",
             ),
         }
 
@@ -1010,30 +1204,44 @@ def _power_analysis(returns: np.ndarray, effect_size: float) -> dict:
         return {"error": str(exc)}
 
     if power >= 0.80:
-        reading = ("Đủ lực. Nếu lợi thế thật đúng bằng mức quan sát được thì "
-                   "kiểm định này phát hiện ra nó trong ít nhất 80% trường hợp, "
-                   "nên một kết quả không có ý nghĩa là bằng chứng thật sự.")
+        reading = bi(
+            "Đủ lực. Nếu lợi thế thật đúng bằng mức quan sát được thì kiểm định "
+            "này phát hiện ra nó trong ít nhất 80% trường hợp, nên một kết quả "
+            "không có ý nghĩa là bằng chứng thật sự.",
+            "Adequately powered. If the true edge equals the observed one, this "
+            "test finds it at least 80% of the time — so a non-significant "
+            "result here is real evidence.",
+        )
     else:
-        tail = f" Cần khoảng {required_n} lệnh để đạt lực 80%." if required_n else ""
-        reading = (
+        tail_vi = f" Cần khoảng {required_n} lệnh để đạt lực 80%." if required_n else ""
+        tail_en = (f" About {required_n} trades would be needed for 80% power."
+                   if required_n else "")
+        reading = bi(
             f"Thiếu lực ({power * 100:.0f}%). Với cỡ mẫu này, một kết quả không "
             "có ý nghĩa KHÔNG chứng minh được chiến lược vô dụng — nó chỉ nói "
-            "rằng dữ liệu chưa đủ để kết luận." + tail
+            "rằng dữ liệu chưa đủ để kết luận." + tail_vi,
+            f"Underpowered ({power * 100:.0f}%). At this sample size a "
+            "non-significant result does NOT show the strategy is worthless — it "
+            "says the data is not yet enough to tell." + tail_en,
         )
 
     return {
-        "name": "Phân tích lực kiểm định",
+        "name": bi("Phân tích lực kiểm định", "Statistical power analysis"),
         "effect_size_cohens_d": float(effect_size),
         "n": int(n),
         "power": power,
         "adequate": bool(power >= 0.80),
         "n_required_for_80pct": required_n,
         "reading": reading,
-        "assumptions": (
+        "assumptions": bi(
             "Lực tính hậu nghiệm với cỡ ảnh hưởng bằng đúng giá trị quan sát "
             "được. Đây không phải lực thật (vốn cần cỡ ảnh hưởng thật, không "
             "biết được); hãy đọc nó như câu hỏi 'cần bao nhiêu lệnh', chứ không "
-            "phải như bằng chứng bổ sung cho hay chống lại H₀."
+            "phải như bằng chứng bổ sung cho hay chống lại H₀.",
+            "Post-hoc power, using the observed effect size. This is not the true "
+            "power, which needs the true effect size and is unknowable; read it "
+            "as the question 'how many trades would it take', not as extra "
+            "evidence for or against the null.",
         ),
     }
 
@@ -1110,12 +1318,16 @@ def sharpe_tests(
     else:
         min_trl_value = None
 
-    conclusion = (
+    conclusion_vi = (
         f"PSR = {psr * 100:.1f}%: xác suất Sharpe thật lớn hơn 0, sau khi tính "
         "tới đuôi dày và độ lệch của lợi suất."
     )
+    conclusion_en = (
+        f"PSR = {psr * 100:.1f}%: the probability that the true Sharpe exceeds "
+        "zero, once the fat tails and skew of the returns are accounted for."
+    )
     if trials > 1:
-        conclusion += (
+        conclusion_vi += (
             f" Sau khi khử phồng cho {trials} lần thử tham số, DSR = "
             f"{dsr * 100:.1f}%"
             + ("; kết quả vẫn đứng vững." if dsr > 0.95 else
@@ -1123,9 +1335,19 @@ def sharpe_tests(
                "không có lợi thế nào cũng thường tạo ra Sharpe cao thế này khi "
                "được quét từng ấy tổ hợp.")
         )
+        conclusion_en += (
+            f" After deflating for {trials} parameter trials, DSR = "
+            f"{dsr * 100:.1f}%"
+            + ("; the result still stands." if dsr > 0.95 else
+               " — no longer above the 95% threshold. Put another way, a "
+               "strategy with no edge at all routinely produces a Sharpe this "
+               "high when that many combinations are swept.")
+        )
+    conclusion = bi(conclusion_vi, conclusion_en)
 
     return {
-        "name": "Sharpe có kiểm soát đa thử nghiệm",
+        "name": bi("Sharpe có kiểm soát đa thử nghiệm",
+                   "Sharpe with multiple-testing control"),
         "sharpe_per_bar": sr,
         "sharpe_annualised": sr_annual,
         "skew": skew,
@@ -1141,13 +1363,20 @@ def sharpe_tests(
         "min_track_record_length": min_trl_value,
         "sufficient_history": bool(min_trl_value is not None and n >= min_trl_value),
         "conclusion": conclusion,
-        "assumptions": (
+        "assumptions": bi(
             "PSR giả định lợi suất độc lập cùng phân phối nhưng KHÔNG giả định "
             "chuẩn — độ lệch và độ nhọn được đưa thẳng vào sai số chuẩn "
             "(Mertens). Ngưỡng khử phồng dùng kỳ vọng cực đại của "
             f"{trials} phép thử ĐỘC LẬP; các tổ hợp tham số cạnh nhau thì tương "
             "quan cao nên số phép thử hiệu dụng nhỏ hơn, và DSR ở đây là bảo "
-            "thủ. Biến động gom cụm vi phạm giả định độc lập và làm PSR lạc quan."
+            "thủ. Biến động gom cụm vi phạm giả định độc lập và làm PSR lạc quan.",
+            "PSR assumes independent, identically distributed returns but NOT "
+            "normality — skew and kurtosis enter the standard error directly "
+            "(Mertens). The deflation threshold uses the expected maximum of "
+            f"{trials} INDEPENDENT trials; neighbouring parameter combinations "
+            "are highly correlated, so the effective number of trials is smaller "
+            "and the DSR here is conservative. Volatility clustering violates "
+            "the independence assumption and makes PSR optimistic.",
         ),
     }
 
@@ -1211,45 +1440,62 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
             return None
         return bool(test["reject_adjusted"])
 
-    exploitable = [
-        name for name, key in (
-            ("tự tương quan (Ljung–Box)", "ljung_box"),
-            ("tỷ số phương sai (Chow–Denning)", "variance_ratio"),
-            ("bộ nhớ dài (Hurst)", "hurst"),
+    found = [
+        (vi, en) for vi, en, key in (
+            ("tự tương quan (Ljung–Box)", "autocorrelation (Ljung–Box)", "ljung_box"),
+            ("tỷ số phương sai (Chow–Denning)",
+             "the variance ratio (Chow–Denning)", "variance_ratio"),
+            ("bộ nhớ dài (Hurst)", "long memory (Hurst)", "hurst"),
         )
         if rejected(key)
     ]
 
-    if exploitable:
-        headline = "Có cấu trúc phụ thuộc thời gian"
-        detail = (
-            "Bác bỏ tính ngẫu nhiên qua: " + ", ".join(exploitable) +
+    if found:
+        headline = bi("Có cấu trúc phụ thuộc thời gian",
+                      "Time dependence is present")
+        detail = bi(
+            "Bác bỏ tính ngẫu nhiên qua: " + ", ".join(vi for vi, _ in found) +
             " — p đã hiệu chỉnh đa kiểm định. Có cấu trúc để chỉ báo khai thác. "
             "Lưu ý: cấu trúc tồn tại không có nghĩa nó đủ lớn để thắng phí giao "
-            "dịch; đó là câu hỏi của backtest, không phải của kiểm định này."
+            "dịch; đó là câu hỏi của backtest, không phải của kiểm định này.",
+            "Randomness is rejected by: " + ", ".join(en for _, en in found) +
+            " — on multiple-testing adjusted p-values. There is structure for an "
+            "indicator to exploit. Note that structure existing does not mean it "
+            "is large enough to beat trading costs; that is a question for the "
+            "backtest, not for these tests.",
         )
     else:
-        headline = "Không phân biệt được với bước ngẫu nhiên"
-        detail = (
+        headline = bi("Không phân biệt được với bước ngẫu nhiên",
+                      "Indistinguishable from a random walk")
+        detail = bi(
             "Sau hiệu chỉnh đa kiểm định, không kiểm định nào bác bỏ được tính "
             "ngẫu nhiên về hướng. Một chiến lược có lãi trên chuỗi này rất có "
             "thể chỉ đang khớp nhiễu — hãy kiểm chứng bằng walk-forward trước "
-            "khi tin vào nó."
+            "khi tin vào nó.",
+            "After the multiple-testing correction, no test rejects directional "
+            "randomness. A strategy that profits on this series is quite likely "
+            "fitting noise — verify it with walk-forward before believing it.",
         )
 
     notes = []
     if rejected("arch_lm"):
-        notes.append(
+        notes.append(bi(
             "Biến động gom cụm được xác nhận: rủi ro thay đổi theo thời gian. "
             "Điều này KHÔNG dự đoán được hướng, nhưng nó nói rằng dừng lỗ và cỡ "
-            "vị thế nên co giãn theo biến động thay vì cố định."
-        )
+            "vị thế nên co giãn theo biến động thay vì cố định.",
+            "Volatility clustering is confirmed: risk varies over time. This does "
+            "NOT predict direction, but it does say that stops and position sizes "
+            "should scale with volatility rather than stay fixed.",
+        ))
     if rejected("jarque_bera") or rejected("dagostino"):
-        notes.append(
+        notes.append(bi(
             "Lợi suất không tuân theo phân phối chuẩn. Sharpe, VaR tham số và "
             "mọi khoảng tin cậy dựa trên giả định chuẩn đều đánh giá thấp rủi "
-            "ro đuôi trên chuỗi này."
-        )
+            "ro đuôi trên chuỗi này.",
+            "Returns are not normally distributed. Sharpe, parametric VaR and "
+            "every confidence interval built on a normal assumption understate "
+            "tail risk on this series.",
+        ))
     if stationarity_block.get("verdict"):
         notes.append(stationarity_block["verdict"])
 
@@ -1320,13 +1566,17 @@ def _strategy_verdict(result: dict) -> dict:
     dsr_ok = bool(sharpe.get("dsr_significant")) if sharpe else None
 
     if significant and dsr_ok is not False:
-        headline = "Lợi thế đứng vững qua kiểm định"
+        headline = bi("Lợi thế đứng vững qua kiểm định",
+                      "The edge survives testing")
     elif significant and dsr_ok is False:
-        headline = "Có ý nghĩa thống kê, nhưng không sống sót khi khử phồng"
+        headline = bi("Có ý nghĩa thống kê, nhưng không sống sót khi khử phồng",
+                      "Statistically significant, but not after deflation")
     elif not adequate_power:
-        headline = "Chưa đủ dữ liệu để kết luận"
+        headline = bi("Chưa đủ dữ liệu để kết luận",
+                      "Not enough data to conclude")
     else:
-        headline = "Không có bằng chứng về lợi thế"
+        headline = bi("Không có bằng chứng về lợi thế",
+                      "No evidence of an edge")
 
     notes = []
     if permutation.get("conclusion"):
@@ -1335,12 +1585,17 @@ def _strategy_verdict(result: dict) -> dict:
         notes.append(power["reading"])
     if sharpe.get("conclusion"):
         notes.append(sharpe["conclusion"])
-    notes.append(
+    notes.append(bi(
         "Mọi kiểm định ở đây đo lợi suất TỪNG LỆNH và giả định các lệnh độc "
         "lập. Nếu chiến lược vào ra nhiều lần trong cùng một đợt xu hướng thì "
         "giả định đó bị vi phạm và p-value lạc quan hơn thực tế. Walk-forward "
-        "là kiểm chứng bổ sung không dựa vào giả định này."
-    )
+        "là kiểm chứng bổ sung không dựa vào giả định này.",
+        "Every test here measures PER-TRADE returns and assumes the trades are "
+        "independent. If the strategy enters and exits repeatedly within one "
+        "trend, that assumption breaks and the p-values are more optimistic than "
+        "the truth. Walk-forward is the additional check that does not rest on "
+        "this assumption.",
+    ))
     return {
         "headline": headline,
         "detail": notes[0] if notes else "",

@@ -31,7 +31,9 @@ from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
+from scipy import stats as sps
 
+from backend.i18n import bi
 from backend.strategy.engine import BacktestResult
 from backend.strategy.metrics import BARS_PER_YEAR, max_drawdown
 
@@ -167,6 +169,27 @@ def _trade_block(trades: list, initial: float) -> dict:
             float(pnls.max()) / gross_profit * 100.0
             if gross_profit > 0 and pnls.max() > 0 else 0.0
         ),
+        # Kelly: phần vốn tối ưu theo lý thuyết cho tỷ lệ thắng và tỷ lệ
+        # lãi/lỗ này. Gần như luôn quá cao để dùng thật — nó tối đa hoá tăng
+        # trưởng dài hạn mà không quan tâm sụt giảm dọc đường — nhưng nó là
+        # trần: đặt cỡ vị thế trên mức này thì tăng trưởng kỳ vọng GIẢM.
+        "kelly_pct": (
+            (win_rate - (1 - win_rate) / abs(avg_win / avg_loss)) * 100.0
+            if avg_loss != 0 and avg_win != 0 else 0.0
+        ),
+        # Kỳ vọng tính theo R: R là mức lỗ trung bình, nên "0.4R" nghĩa là mỗi
+        # lệnh kiếm được 0.4 lần mức thua điển hình. Cách duy nhất so sánh được
+        # hai chiến lược có cỡ vị thế khác nhau.
+        "expectancy_r": (
+            (win_rate * avg_win + (1 - win_rate) * avg_loss) / abs(avg_loss)
+            if avg_loss != 0 else 0.0
+        ),
+        "profit_std": float(pnls.std(ddof=1)) if pnls.size > 1 else 0.0,
+        # Sai số chuẩn của lãi trung bình mỗi lệnh: khoảng bất định quanh con
+        # số kỳ vọng, thứ mà một giá trị trung bình đơn lẻ giấu đi.
+        "profit_se": (
+            float(pnls.std(ddof=1) / np.sqrt(pnls.size)) if pnls.size > 1 else 0.0
+        ),
         "avg_bars_held": float(bars.mean()),
         "avg_bars_win": float(win_bars.mean()) if win_bars.size else 0.0,
         "avg_bars_loss": float(loss_bars.mean()) if loss_bars.size else 0.0,
@@ -194,11 +217,15 @@ def _streaks(trades: list) -> dict:
         "max_consecutive_wins": best_win,
         "max_consecutive_losses": best_loss,
         "current_streak": current * sign,
-        "note": (
+        "note": bi(
             "Chuỗi thua dài nhất là con số cần biết TRƯỚC khi chạy tiền thật: "
             "đây là số lệnh liên tiếp bạn phải chịu mà không mất niềm tin. "
             "Chuỗi thua trong tương lai gần như chắc chắn dài hơn, đơn giản vì "
-            "tương lai có nhiều lệnh hơn quá khứ."
+            "tương lai có nhiều lệnh hơn quá khứ.",
+            "The longest losing streak is the figure to know BEFORE trading real "
+            "money: it is how many losses in a row you must absorb without "
+            "losing faith. The future streak is almost certainly longer, simply "
+            "because the future holds more trades than the past.",
         ),
     }
 
@@ -239,13 +266,18 @@ def _excursions(trades: list) -> dict:
             }
             for t in trades
         ][:2000],
-        "stop_note": (
+        "stop_note": bi(
             "MAE của các lệnh THẮNG là ngưỡng dừng lỗ không được vượt qua: đặt "
-            "dừng chặt hơn mức đó nghĩa là cắt đúng những lệnh lẽ ra có lãi."
+            "dừng chặt hơn mức đó nghĩa là cắt đúng những lệnh lẽ ra có lãi.",
+            "The MAE of the WINNERS is the line a stop must not cross: set it "
+            "tighter and you cut exactly the trades that would have paid.",
         ),
-        "target_note": (
+        "target_note": bi(
             "MFE của các lệnh THUA cho biết đã bỏ lỡ bao nhiêu: nếu lệnh thua "
-            "thường xanh vài phần trăm trước khi đỏ, một mức chốt lãi cứu được chúng."
+            "thường xanh vài phần trăm trước khi đỏ, một mức chốt lãi cứu được chúng.",
+            "The MFE of the LOSERS shows what was left behind: if losing trades "
+            "are routinely a few percent up before turning, a profit target "
+            "would rescue them.",
         ),
     }
 
@@ -282,7 +314,10 @@ def _k_ratio(equity: np.ndarray) -> dict:
     positive = equity[equity > 0]
     n = positive.size
     if n < 30:
-        return {"value": None, "note": "Cần ít nhất 30 nến có vốn dương."}
+        return {"value": None, "note": bi(
+            "Cần ít nhất 30 nến có vốn dương.",
+            "At least 30 bars with positive equity are needed.",
+        )}
 
     y = np.log(positive)
     x = np.arange(n, dtype="float64")
@@ -298,10 +333,13 @@ def _k_ratio(equity: np.ndarray) -> dict:
     if float(np.std(residuals)) <= 1e-10 * scale:
         return {
             "value": None,
-            "note": (
+            "note": bi(
                 "Đường vốn là một đường thẳng hoàn hảo trên thang log — không "
                 "có độ phân tán để đo tính đều đặn. Thường gặp khi chiến lược "
-                "chưa vào lệnh nào."
+                "chưa vào lệnh nào.",
+                "The equity curve is a perfect straight line on a log scale — "
+                "there is no dispersion to measure consistency against. Usually "
+                "this means the strategy never traded.",
             ),
         }
 
@@ -313,20 +351,240 @@ def _k_ratio(equity: np.ndarray) -> dict:
     ) if dof > 0 and spread > 0 else 0.0
 
     if se_slope <= 0:
-        return {"value": None, "note": "Đường vốn không có biến động để đo."}
+        return {"value": None, "note": bi(
+            "Đường vốn không có biến động để đo.",
+            "The equity curve has no variation to measure.",
+        )}
 
     return {
         "value": float(slope / se_slope / math.sqrt(n)),
         "slope": float(slope),
         "slope_se": se_slope,
-        "note": (
+        "note": bi(
             "Giá trị này phụ thuộc khung thời gian, nên chỉ so sánh giữa các "
-            "lần chạy cùng khung. Nó đo độ đều của tăng trưởng, không đo độ lớn."
+            "lần chạy cùng khung. Nó đo độ đều của tăng trưởng, không đo độ lớn.",
+            "This value depends on the timeframe, so compare it only across runs "
+            "on the same one. It measures how steady growth is, not how large.",
         ),
     }
 
 
-def _risk(result: BacktestResult, overview: dict, timeframe: str) -> dict:
+def _ratios(returns: np.ndarray, periods: float) -> dict:
+    """Các tỷ số đo cùng một thứ theo những cách khác nhau về mẫu số.
+
+    Sharpe chia cho độ lệch chuẩn, tức phạt biến động lên cũng ngang biến động
+    xuống. Bốn tỷ số dưới đây đổi mẫu số vì lý do đó, và trên một chiến lược có
+    phân phối lệch chúng có thể xếp hạng ngược nhau — điều đó tự nó là thông tin.
+    """
+    if returns.size < 10:
+        return {}
+
+    gains = returns[returns > 0]
+    losses = returns[returns < 0]
+
+    # Omega: tổng phần lời chia tổng phần lỗ, ở ngưỡng 0. Dùng TOÀN BỘ phân
+    # phối chứ không chỉ hai mô-men đầu, nên nó không bỏ qua đuôi như Sharpe.
+    total_gain = float(gains.sum()) if gains.size else 0.0
+    total_loss = float(-losses.sum()) if losses.size else 0.0
+    omega = total_gain / total_loss if total_loss > 0 else float("inf")
+
+    # Tail ratio: đuôi phải so với đuôi trái. Dưới 1 nghĩa là những ngày tệ
+    # nhất tệ hơn những ngày tốt nhất tốt.
+    right = float(np.percentile(returns, 95))
+    left = float(np.percentile(returns, 5))
+    tail_ratio = abs(right / left) if left != 0 else float("inf")
+
+    # Độ ổn định: R² của hồi quy log đường vốn theo thời gian. 1.0 là một đường
+    # thẳng hoàn hảo; 0.3 nghĩa là phần lớn chuyển động không phải xu hướng.
+    equity = np.cumsum(returns)
+    x = np.arange(equity.size, dtype="float64")
+    if equity.size > 2 and float(np.var(equity)) > 0:
+        correlation = float(np.corrcoef(x, equity)[0, 1])
+        stability = correlation**2
+    else:
+        stability = 0.0
+
+    return {
+        "omega": omega,
+        "tail_ratio": tail_ratio,
+        "stability": stability,
+        "skew": float(sps.skew(returns, bias=False)) if returns.size > 3 else 0.0,
+        "kurtosis": float(sps.kurtosis(returns, bias=False)) if returns.size > 4 else 0.0,
+        "var_95_pct": float(np.percentile(returns, 5)) * 100.0,
+        "cvar_95_pct": (
+            float(returns[returns <= np.percentile(returns, 5)].mean()) * 100.0
+            if (returns <= np.percentile(returns, 5)).any() else 0.0
+        ),
+        "best_bar_pct": float(returns.max()) * 100.0,
+        "worst_bar_pct": float(returns.min()) * 100.0,
+        "positive_bars_pct": float((returns > 0).mean()) * 100.0,
+        "periods_per_year": periods,
+    }
+
+
+def _gain_to_pain(monthly: list[dict]) -> dict:
+    """Tổng lợi suất chia tổng độ lớn của các tháng lỗ.
+
+    Tính trên lợi suất THÁNG, không phải theo nến. Ngưỡng "trên 1.0 là tốt" của
+    Jack Schwager là một phát biểu về dữ liệu tháng; áp cùng công thức lên 8 000
+    nến giờ cho 0.01, và con số đó không phải điểm kém — nó nằm ở một thang
+    khác, đứng cạnh một ngưỡng không liên quan gì tới nó.
+    """
+    values = np.array([m["return_pct"] for m in monthly], dtype="float64")
+    if values.size < 6:
+        return {
+            "value": None,
+            "months": int(values.size),
+            "note": bi(
+                "Cần ít nhất 6 tháng để con số này có nghĩa.",
+                "At least 6 months are needed for this figure to mean anything.",
+            ),
+        }
+
+    pain = float(-values[values < 0].sum())
+    return {
+        "value": float(values.sum()) / pain if pain > 0 else float("inf"),
+        "months": int(values.size),
+        "note": bi(
+            "Tính trên lợi suất tháng. Trên 1.0 là mức Schwager coi là tốt; "
+            "trên 2.0 là hiếm.",
+            "Computed on monthly returns. Above 1.0 is what Schwager calls good; "
+            "above 2.0 is rare.",
+        ),
+    }
+
+
+def _drawdown_episodes(equity: np.ndarray, times: list[int]) -> dict:
+    """Mọi đợt sụt giảm riêng lẻ, không chỉ đợt sâu nhất.
+
+    Sụt giảm tối đa là một quan sát duy nhất. Nó không nói đợt sụt *điển hình*
+    sâu bao nhiêu, cũng không nói mất bao lâu để hồi — và với người phải ngồi
+    qua chúng, hai câu đó quan trọng hơn kỷ lục.
+    """
+    if equity.size < 3:
+        return {"episodes": [], "count": 0}
+
+    peak = np.maximum.accumulate(equity)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        drawdown = np.where(peak > 0, equity / peak - 1.0, -1.0)
+
+    episodes = []
+    start = None
+    for i, value in enumerate(drawdown):
+        if value < -1e-9 and start is None:
+            start = i
+        elif value >= -1e-9 and start is not None:
+            segment = drawdown[start:i]
+            trough = start + int(np.argmin(segment))
+            episodes.append({
+                "start": int(start),
+                "trough": int(trough),
+                "end": int(i),
+                "depth_pct": float(drawdown[trough]) * 100.0,
+                "length_bars": int(i - start),
+                "recovery_bars": int(i - trough),
+                "recovered": True,
+            })
+            start = None
+
+    # Đợt đang diễn ra lúc dữ liệu kết thúc: chưa hồi, và phải nói rõ như vậy
+    # thay vì lặng lẽ bỏ đi — nó thường là đợt người đọc đang ở trong.
+    if start is not None:
+        segment = drawdown[start:]
+        trough = start + int(np.argmin(segment))
+        episodes.append({
+            "start": int(start),
+            "trough": int(trough),
+            "end": int(equity.size - 1),
+            "depth_pct": float(drawdown[trough]) * 100.0,
+            "length_bars": int(equity.size - start),
+            "recovery_bars": None,
+            "recovered": False,
+        })
+
+    if not episodes:
+        return {"episodes": [], "count": 0}
+
+    depths = np.array([e["depth_pct"] for e in episodes])
+    sum_squared = float((depths**2).sum())
+    recovered = [e for e in episodes if e["recovered"]]
+    worst = sorted(episodes, key=lambda e: e["depth_pct"])[:5]
+
+    return {
+        "count": len(episodes),
+        "average_depth_pct": float(depths.mean()),
+        "sum_squared_depths": sum_squared,
+        "median_depth_pct": float(np.median(depths)),
+        "average_length_bars": float(np.mean([e["length_bars"] for e in episodes])),
+        "average_recovery_bars": (
+            float(np.mean([e["recovery_bars"] for e in recovered])) if recovered else None
+        ),
+        "longest_recovery_bars": (
+            max(e["recovery_bars"] for e in recovered) if recovered else None
+        ),
+        "unrecovered": any(not e["recovered"] for e in episodes),
+        "worst": [
+            {
+                "depth_pct": e["depth_pct"],
+                "length_bars": e["length_bars"],
+                "recovery_bars": e["recovery_bars"],
+                "start_time": times[e["start"]] if e["start"] < len(times) else None,
+                "trough_time": times[e["trough"]] if e["trough"] < len(times) else None,
+                "recovered": e["recovered"],
+            }
+            for e in worst
+        ],
+    }
+
+
+def _rolling_sharpe(
+    returns: np.ndarray, times: list[int], periods: float, window: int | None = None
+) -> list[dict]:
+    """Sharpe trên cửa sổ trượt — cách thấy một lợi thế đã tắt từ khi nào.
+
+    Một Sharpe 1.2 cho toàn giai đoạn có thể là 2.5 trong hai năm đầu và −0.3
+    trong hai năm sau. Con số tổng hợp không phân biệt được hai trường hợp đó
+    với một chiến lược đều đặn, còn đường này thì có.
+    """
+    n = returns.size
+    if window is None:
+        # Khoảng một năm giao dịch, nhưng không quá một phần tư dữ liệu — cửa
+        # sổ dài hơn thế chỉ cho vài điểm và không còn là "trượt" nữa.
+        window = int(min(max(periods, 60), n // 4))
+    if n < window * 2 or window < 30:
+        return []
+
+    # Trung bình và phương sai trượt bằng tổng tích luỹ: O(n) thay vì O(n·w).
+    cumulative = np.concatenate([[0.0], np.cumsum(returns)])
+    cumulative_sq = np.concatenate([[0.0], np.cumsum(returns**2)])
+    total = cumulative[window:] - cumulative[:-window]
+    total_sq = cumulative_sq[window:] - cumulative_sq[:-window]
+
+    mean = total / window
+    variance = np.maximum(total_sq / window - mean**2, 0.0) * window / max(window - 1, 1)
+    std = np.sqrt(variance)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sharpe = np.where(std > 0, mean / std * math.sqrt(periods), np.nan)
+
+    stamps = times[window:]
+    points = [
+        {"t": stamps[i], "v": round(float(sharpe[i]), 3)}
+        for i in range(min(sharpe.size, len(stamps)))
+        if math.isfinite(sharpe[i])
+    ]
+    if len(points) <= MAX_CHART_POINTS:
+        return points
+    step = len(points) / MAX_CHART_POINTS
+    return [points[int(i * step)] for i in range(MAX_CHART_POINTS)]
+
+
+def _risk(
+    result: BacktestResult,
+    overview: dict,
+    timeframe: str,
+    monthly_returns: list[dict],
+) -> dict:
     equity = result.equity
     drawdown_pct, peak_idx, trough_idx = max_drawdown(equity)
     ulcer, drawdown_series = _ulcer_index(equity)
@@ -366,8 +624,27 @@ def _risk(result: BacktestResult, overview: dict, timeframe: str) -> dict:
     # Sụt giảm sâu nhất trong phạm vi một lệnh, lấy từ MAE.
     worst_trade_dd = min((t.mae_pct for t in result.trades), default=0.0)
 
+    # Sterling và Burke: cùng ý tưởng với CAR/MDD nhưng mẫu số dùng nhiều đợt
+    # sụt giảm thay vì đúng một đợt, nên chúng không bị một tai nạn đơn lẻ chi
+    # phối. Burke lấy căn bậc hai tổng bình phương, nên nó phạt các đợt sâu
+    # mạnh hơn Sterling.
+    episodes = _drawdown_episodes(equity, result.times)
+    average_depth = episodes.get("average_depth_pct") or 0.0
+    sterling = car / -average_depth if average_depth < 0 else 0.0
+    # Burke's denominator is every drawdown on record. Taking it from the five
+    # kept for the table would make the ratio depend on how many rows the UI
+    # happens to show.
+    sum_squares = episodes.get("sum_squared_depths", 0.0)
+    burke = car / math.sqrt(sum_squares) if sum_squares > 0 else 0.0
+
     return {
         "max_drawdown_pct": drawdown_pct,
+        "episodes": episodes,
+        "sterling": sterling,
+        "burke": burke,
+        "ratios": _ratios(returns, periods),
+        "gain_to_pain": _gain_to_pain(monthly_returns),
+        "rolling_sharpe": _rolling_sharpe(returns, result.times[1:], periods),
         "max_drawdown_value": float(
             equity[peak_idx] - equity[trough_idx]
         ) if equity.size else 0.0,
@@ -487,7 +764,8 @@ def ml_evaluation(
     close = df["close"].to_numpy(dtype="float64")
     n = min(len(close), position.size)
     if n < 30:
-        return {"error": "Cần ít nhất 30 nến."}
+        return {"error": bi("Cần ít nhất 30 nến.",
+                            "At least 30 bars are needed.")}
 
     # Lợi suất của nến kế tiếp, gióng với vị thế đang giữ ở nến hiện tại.
     future = np.sign(np.diff(close[:n]))
@@ -496,9 +774,11 @@ def ml_evaluation(
     active = (held != 0) & (future != 0)
     if active.sum() < 20:
         return {
-            "error": (
+            "error": bi(
                 f"Chỉ {int(active.sum())} nến vừa có vị thế vừa có nến sau biến "
-                "động — quá ít để chấm điểm phân loại."
+                "động — quá ít để chấm điểm phân loại.",
+                f"Only {int(active.sum())} bars both hold a position and are "
+                "followed by a bar that moved — too few to score a classifier.",
             )
         }
 
@@ -545,7 +825,36 @@ def ml_evaluation(
 
     p_value = float(sps.binomtest(correct, total, baseline, alternative="greater").pvalue)
 
+    # Hệ số thông tin: tương quan hạng Spearman giữa vị thế đang giữ và lợi
+    # suất nến kế tiếp. Khác độ chính xác ở chỗ nó tính cả ĐỘ LỚN — đoán đúng
+    # một cú tăng 3% được tính nặng hơn đoán đúng một cú tăng 0.05%, mà độ
+    # chính xác thì coi hai cái như nhau. Trong quản lý quỹ định lượng, IC 0.03
+    # đã là một tín hiệu dùng được.
+    future_returns = np.diff(close[:n])[active]
+    if y_pred.size > 10 and np.std(future_returns) > 0:
+        ic, ic_p = sps.spearmanr(y_pred, future_returns)
+        information_coefficient = float(ic) if np.isfinite(ic) else 0.0
+        ic_p_value = float(ic_p) if np.isfinite(ic_p) else 1.0
+    else:
+        information_coefficient = 0.0
+        ic_p_value = 1.0
+
+    # Cohen's kappa: độ chính xác sau khi trừ đi phần đúng do may. Với hai lớp
+    # lệch nhau, đây là con số trung thực hơn độ chính xác thô.
+    observed = accuracy
+    predicted_up = float((y_pred > 0).mean())
+    expected = predicted_up * up_share + (1 - predicted_up) * (1 - up_share)
+    kappa = (observed - expected) / (1 - expected) if expected < 1 else 0.0
+
+    # Balanced accuracy: trung bình của recall hai lớp, nên một mô hình luôn
+    # đoán lớp phổ biến chỉ đạt 0.5 dù độ chính xác thô có cao đến đâu.
+    balanced = (recall_long + recall_short) / 2.0
+
     result = {
+        "information_coefficient": information_coefficient,
+        "ic_p_value": ic_p_value,
+        "cohens_kappa": kappa,
+        "balanced_accuracy": balanced,
         "n_scored": total,
         "n_bars": int(n),
         "coverage_pct": total / (n - 1) * 100.0,
@@ -567,26 +876,41 @@ def ml_evaluation(
             "true_down_pred_down": tn,
             "true_up_pred_down": fn,
         },
-        "note": (
+        "note": bi(
             f"Đường cơ sở {baseline * 100:.1f}% là độ chính xác của quy tắc ngây "
             "thơ nhất: luôn đoán lớp phổ biến hơn. Mọi so sánh phải so với con "
-            "số đó, không phải với 50%."
+            "số đó, không phải với 50%.",
+            f"The {baseline * 100:.1f}% baseline is the accuracy of the most "
+            "naive rule: always predict the more common class. Every comparison "
+            "must be against that figure, not against 50%.",
         ),
-        "conclusion": (
-            (f"Độ chính xác {accuracy * 100:.1f}% vượt đường cơ sở "
-             f"{baseline * 100:.1f}% với p = {p_value:.4f}: chênh lệch này khó "
-             "giải thích bằng may rủi.")
-            if p_value < 0.05 else
-            (f"Độ chính xác {accuracy * 100:.1f}% so với đường cơ sở "
-             f"{baseline * 100:.1f}%, p = {p_value:.3f}: chưa phân biệt được "
-             "với đoán mò. Lợi nhuận (nếu có) đang đến từ độ lớn của các lần "
-             "đúng, không phải từ tần suất đúng.")
+        "conclusion": bi(
+            ((f"Độ chính xác {accuracy * 100:.1f}% vượt đường cơ sở "
+              f"{baseline * 100:.1f}% với p = {p_value:.4f}: chênh lệch này khó "
+              "giải thích bằng may rủi.")
+             if p_value < 0.05 else
+             (f"Độ chính xác {accuracy * 100:.1f}% so với đường cơ sở "
+              f"{baseline * 100:.1f}%, p = {p_value:.3f}: chưa phân biệt được "
+              "với đoán mò. Lợi nhuận (nếu có) đang đến từ độ lớn của các lần "
+              "đúng, không phải từ tần suất đúng.")),
+            ((f"Accuracy of {accuracy * 100:.1f}% beats the "
+              f"{baseline * 100:.1f}% baseline at p = {p_value:.4f}: that gap is "
+              "hard to explain by chance.")
+             if p_value < 0.05 else
+             (f"Accuracy of {accuracy * 100:.1f}% against a "
+              f"{baseline * 100:.1f}% baseline, p = {p_value:.3f}: not "
+              "distinguishable from guessing. Any profit is coming from the size "
+              "of the correct calls, not from how often they are correct.")),
         ),
-        "assumptions": (
+        "assumptions": bi(
             "Kiểm định nhị thức giả định các nến độc lập. Vị thế giữ qua nhiều "
             "nến liên tiếp thì không độc lập, nên p-value ở đây lạc quan hơn "
             "thực tế. Nó dùng để loại bỏ những chênh lệch rõ ràng là nhiễu, "
-            "không dùng để khẳng định một lợi thế nhỏ."
+            "không dùng để khẳng định một lợi thế nhỏ.",
+            "The binomial test assumes independent bars. A position held across "
+            "consecutive bars is not independent, so this p-value is more "
+            "optimistic than the truth. Use it to rule out gaps that are "
+            "obviously noise, not to assert a small edge.",
         ),
     }
 
@@ -616,10 +940,13 @@ def ml_evaluation(
                     # Hiệu chuẩn: chia xác suất thành mười rổ và so xác suất
                     # trung bình của rổ với tần suất thực tế trong rổ đó.
                     "calibration": _calibration(prob, labels),
-                    "note": (
+                    "note": bi(
                         "Điểm Brier và log-loss đo mức hiệu chuẩn: một mô hình "
                         "nói '70%' nên đúng khoảng 70% số lần đó. AUC đo khả "
-                        "năng xếp hạng và không quan tâm tới ngưỡng đang dùng."
+                        "năng xếp hạng và không quan tâm tới ngưỡng đang dùng.",
+                        "Brier score and log-loss measure calibration: a model "
+                        "that says '70%' should be right about 70% of the time. "
+                        "AUC measures ranking and ignores the threshold in use.",
                     ),
                 }
 
@@ -654,7 +981,8 @@ def build_report(
 ) -> dict:
     """Toàn bộ báo cáo, sẵn sàng cho cửa sổ kết quả."""
     if result.equity.size == 0:
-        return {"error": "Backtest không tạo ra dữ liệu nào."}
+        return {"error": bi("Backtest không tạo ra dữ liệu nào.",
+                            "The backtest produced no data.")}
 
     overview = _overview(result, df, timeframe)
     initial = result.config.initial_capital
@@ -663,6 +991,7 @@ def build_report(
     shorts = [t for t in result.trades if t.side == "short"]
 
     _, drawdown_series = _ulcer_index(result.equity)
+    periodic = _periodic(result)
     trade_returns = np.array(
         [t.return_pct for t in result.trades], dtype="float64"
     )
@@ -672,8 +1001,52 @@ def build_report(
     close = df["close"].to_numpy(dtype="float64")
     buy_hold_curve = close / close[0] * initial
 
+    # Lợi suất theo nến của cả hai đường, để đo tương quan và beta của chiến
+    # lược với chính thị trường nó giao dịch.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        strategy_returns = np.diff(result.equity) / np.where(
+            result.equity[:-1] > 0, result.equity[:-1], np.nan
+        )
+    hold_returns = np.diff(buy_hold_curve[: result.equity.size]) / np.where(
+        buy_hold_curve[: result.equity.size - 1] > 0,
+        buy_hold_curve[: result.equity.size - 1], np.nan,
+    )
+    both = np.isfinite(strategy_returns) & np.isfinite(hold_returns)
+    if both.sum() > 30 and float(np.var(hold_returns[both])) > 0:
+        beta_vs_hold = float(
+            np.cov(strategy_returns[both], hold_returns[both], ddof=1)[0, 1]
+            / np.var(hold_returns[both], ddof=1)
+        )
+        correlation_vs_hold = float(
+            np.corrcoef(strategy_returns[both], hold_returns[both])[0, 1]
+        )
+        # Alpha: phần lợi suất còn lại sau khi trừ đi phần giải thích được bằng
+        # việc chỉ đơn giản nắm thị trường. Quy về năm.
+        periods = BARS_PER_YEAR.get(timeframe, 365.0)
+        alpha = float(
+            (strategy_returns[both].mean() - beta_vs_hold * hold_returns[both].mean())
+            * periods * 100.0
+        )
+    else:
+        beta_vs_hold = correlation_vs_hold = alpha = None
+
     return {
         "overview": overview,
+        "benchmark": {
+            "beta": beta_vs_hold,
+            "correlation": correlation_vs_hold,
+            "alpha_annual_pct": alpha,
+            "note": bi(
+                "Beta và alpha đo so với chính tài sản này khi mua-và-giữ, "
+                "không phải so với một chỉ số thị trường. Beta gần 1 nghĩa là "
+                "chiến lược gần như chỉ đang nắm giữ; beta gần 0 nghĩa là lợi "
+                "nhuận của nó đến từ nơi khác.",
+                "Beta and alpha are measured against buy-and-hold on this asset "
+                "itself, not against a market index. A beta near 1 means the "
+                "strategy is essentially just holding; a beta near 0 means its "
+                "return comes from somewhere else.",
+            ),
+        },
         "trades": {
             "all": _trade_block(result.trades, initial),
             "long": _trade_block(longs, initial),
@@ -681,15 +1054,25 @@ def build_report(
         },
         "streaks": _streaks(result.trades),
         "excursions": _excursions(result.trades),
-        "risk": _risk(result, overview, timeframe),
-        "periodic": _periodic(result),
+        "risk": _risk(result, overview, timeframe, periodic["monthly"]),
+        "periodic": periodic,
         "ml": ml_evaluation(df, result.position, probability),
         "charts": {
             "equity": _downsample(result.equity, result.times),
             "buy_hold": _downsample(buy_hold_curve[: len(result.times)], result.times),
             "drawdown": _downsample(drawdown_series, result.times),
             "trade_returns": _histogram(trade_returns),
-            "monthly": _periodic(result)["monthly"],
+            "bar_returns": _histogram(
+                strategy_returns[np.isfinite(strategy_returns)] * 100.0, bins=40
+            ),
+            # Lãi lỗ cộng dồn theo thứ tự lệnh, để thấy lợi nhuận đến từ đâu
+            # trong chuỗi — dồn vào một đoạn hay rải đều.
+            "trade_sequence": [
+                {"i": i + 1, "v": round(float(v), 2)}
+                for i, v in enumerate(np.cumsum([t.pnl for t in result.trades]))
+            ][:2000],
+            "monthly": periodic["monthly"],
+            "annual": periodic["annual"],
         },
         "config": result.config.as_dict(),
     }

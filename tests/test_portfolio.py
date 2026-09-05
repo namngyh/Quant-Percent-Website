@@ -26,7 +26,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 
 from backend.notify import telegram  # noqa: E402
+from backend.i18n import plain  # noqa: E402
 from backend.portfolio import analytics  # noqa: E402
+
+# Narrative fields ship as {vi, en} pairs; assert on the Vietnamese, which is
+# the language they were written and reviewed in.
+vi = plain
 
 CHECKS = []
 
@@ -327,7 +332,7 @@ def _():
     returns = np.random.default_rng(22).standard_normal(1000) * 0.01
     forward = analytics.forward_risk(returns, 63, paths=500)
     assert forward["block_length"] == 10.0, forward["block_length"]
-    assert forward["method"].startswith("bootstrap khối"), forward["method"]
+    assert vi(forward["method"]).startswith("bootstrap khối"), forward["method"]
     assert forward["caveat"], forward
 
 
@@ -386,7 +391,21 @@ def _():
     assert result["unpriced"] == ["DDD"], result["unpriced"]
     assert {p["symbol"] for p in result["positions"]} == {"AAA", "BBB"}
     # And it has to be said out loud, not just left in a field.
-    assert any("DDD" in note for note in result["notes"]), result["notes"]
+    assert any("DDD" in vi(note) for note in result["notes"]), result["notes"]
+
+
+@check("every portfolio note carries both languages")
+def _():
+    result = analytics.analyse(
+        holdings(("AAA", 1000, None), ("CCC", 1000, None)),
+        0.0, 252, 63, make_loader(correlated()),
+    )
+    for note in result["notes"]:
+        assert isinstance(note, dict), f"note is not a pair: {note}"
+        assert note.get("vi") and note.get("en"), note
+        assert note["vi"] != note["en"], note
+    forward = result["forward"]
+    assert forward["caveat"].get("en"), forward["caveat"]
 
 
 @check("an empty portfolio is refused with a reason")
@@ -440,7 +459,7 @@ def _():
         holdings(("AAA", 1000, None), ("CCC", 1000, None)),
         0.0, 252, 63, make_loader(correlated()),
     )
-    assert any("ngành" in note for note in result["notes"]), result["notes"]
+    assert any("ngành" in vi(note) for note in result["notes"]), result["notes"]
     assert "sector_weights" not in result["concentration"], result["concentration"]
 
 

@@ -243,5 +243,11 @@ const Indicators = (() => {
     elements.clearAll.addEventListener('click', clearAll);
   }
 
-  return { init, setCatalog, recomputeAll, clearAll, active };
+  /** Redraw from current state — used when the language changes. */
+  function rerender() {
+    renderCatalog();
+    renderActive();
+  }
+
+  return { init, setCatalog, recomputeAll, clearAll, active, rerender };
 })();

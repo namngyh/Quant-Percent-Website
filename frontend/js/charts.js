@@ -289,6 +289,18 @@ const ChartManager = (() => {
      `openPosition` marks a position a paper session is still holding: it has
      an entry but no exit yet, and leaving it off would make a running session
      look like it had never traded. */
+  /* Markers are kept even while hidden. Hiding is a view setting — you toggle
+     them off to read the price action underneath, then back on — so throwing
+     the data away and asking the caller to re-run a backtest would be the
+     wrong shape entirely. `clearTradeMarkers` is the one that forgets. */
+  let storedMarkers = [];
+  let markersVisible = true;
+
+  function applyMarkers() {
+    if (!candleSeries) return;
+    candleSeries.setMarkers(markersVisible ? storedMarkers : []);
+  }
+
   function setTradeMarkers(trades, openPosition = null) {
     const markers = [];
 
@@ -323,12 +335,33 @@ const ChartManager = (() => {
 
     // Markers must be sorted by time or the library drops them silently.
     markers.sort((a, b) => a.time - b.time);
-    candleSeries.setMarkers(markers);
+    storedMarkers = markers;
+    applyMarkers();
+    onMarkersChanged(markerCount(), markersVisible);
   }
 
   function clearTradeMarkers() {
-    if (candleSeries) candleSeries.setMarkers([]);
+    storedMarkers = [];
+    applyMarkers();
+    onMarkersChanged(0, markersVisible);
   }
+
+  /** Show or hide without discarding. Returns the new visibility. */
+  function setMarkersVisible(visible) {
+    markersVisible = Boolean(visible);
+    applyMarkers();
+    onMarkersChanged(markerCount(), markersVisible);
+    return markersVisible;
+  }
+
+  const toggleMarkers = () => setMarkersVisible(!markersVisible);
+
+  /* Entries only. Every trade contributes an entry and an exit marker, and
+     "37 markers" for 18 trades and one open position reads as a bug. */
+  const markerCount = () =>
+    storedMarkers.filter((m) => m.shape !== 'circle').length;
+
+  let onMarkersChanged = () => {};
 
 
   /* Live updates. Lightweight Charts replaces the last bar when update() is
@@ -363,7 +396,11 @@ const ChartManager = (() => {
   }
 
   return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll,
-           setTradeMarkers, clearTradeMarkers, updateCandle, lastCandleTime,
+           setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
+           get markerCount() { return markerCount(); },
+           get markersVisible() { return markersVisible; },
+           set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
+           updateCandle, lastCandleTime,
            screenshot, refreshSize, timezoneLabel: TZ_LABEL, toChartTime: toChart };
 })();
 

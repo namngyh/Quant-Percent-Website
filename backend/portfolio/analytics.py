@@ -43,6 +43,8 @@ from datetime import date
 
 import numpy as np
 
+from backend.i18n import bi
+
 TRADING_DAYS = 252
 BENCHMARK = "VNINDEX"
 
@@ -222,7 +224,10 @@ def forward_risk(
     r = portfolio_returns[np.isfinite(portfolio_returns)]
     n = r.size
     if n < MIN_OBSERVATIONS:
-        return {"available": False, "reason": f"Cần ít nhất {MIN_OBSERVATIONS} phiên."}
+        return {"available": False, "reason": bi(
+            f"Cần ít nhất {MIN_OBSERVATIONS} phiên.",
+            f"At least {MIN_OBSERVATIONS} sessions are needed.",
+        )}
 
     block_length = max(5.0, round(n ** (1 / 3)))
     restart = 1.0 / block_length
@@ -248,7 +253,8 @@ def forward_risk(
 
     return {
         "available": True,
-        "method": "bootstrap khối tĩnh (Politis–Romano)",
+        "method": bi("bootstrap khối tĩnh (Politis–Romano)",
+                     "stationary block bootstrap (Politis–Romano)"),
         "horizon_days": int(horizon_days),
         "paths": int(paths),
         "observations": int(n),
@@ -270,11 +276,15 @@ def forward_risk(
             for level in DRAWDOWN_THRESHOLDS
         ],
         "median_max_drawdown_pct": float(np.median(depth) * 100),
-        "caveat": (
+        "caveat": bi(
             "Mô phỏng chỉ xáo lại những ngày ĐÃ XẢY RA trong cửa sổ quan sát, "
             "nên nó không bao giờ sinh ra cú sốc lớn hơn cú sốc lớn nhất đã "
             "từng có. Nếu cửa sổ này không chứa một đợt sụp thị trường thì các "
-            "xác suất bên trên là cận dưới, không phải ước lượng đầy đủ."
+            "xác suất bên trên là cận dưới, không phải ước lượng đầy đủ.",
+            "The simulation only reshuffles days that ACTUALLY HAPPENED in the "
+            "observed window, so it can never produce a shock larger than the "
+            "largest one on record. If this window contains no market crash, the "
+            "probabilities above are a floor rather than a full estimate.",
         ),
     }
 
@@ -497,32 +507,49 @@ def _notes(positions: list[dict], unpriced: list[str], shrinkage: float) -> list
     if positions:
         standout = max(positions, key=lambda p: p["risk_gap_pct"])
         if standout["risk_gap_pct"] > 5:
-            notes.append(
+            notes.append(bi(
                 f"{standout['symbol']} chiếm {standout['weight_pct']:.1f}% tiền "
                 f"nhưng {standout['risk_contribution_pct']:.1f}% rủi ro — cao hơn "
                 f"{standout['risk_gap_pct']:.1f} điểm phần trăm so với cỡ vị thế. "
                 "Nguyên nhân là nó vừa biến động mạnh hơn vừa đi cùng chiều với "
-                "phần còn lại của danh mục."
-            )
+                "phần còn lại của danh mục.",
+                f"{standout['symbol']} is {standout['weight_pct']:.1f}% of the "
+                f"money but {standout['risk_contribution_pct']:.1f}% of the risk "
+                f"— {standout['risk_gap_pct']:.1f} percentage points above what "
+                "its size suggests. It is both more volatile than the rest and "
+                "moving in the same direction as it.",
+            ))
 
     if unpriced:
-        notes.append(
-            "Không phân tích được: " + ", ".join(unpriced) +
+        listed = ", ".join(unpriced)
+        notes.append(bi(
+            "Không phân tích được: " + listed +
             f" — chưa đủ {MIN_OBSERVATIONS} phiên lịch sử. Các mã này bị loại "
             "khỏi mọi con số bên trên, nên danh mục được đo không phải là danh "
-            "mục bạn đã nhập."
-        )
+            "mục bạn đã nhập.",
+            "Could not be analysed: " + listed +
+            f" — fewer than {MIN_OBSERVATIONS} sessions of history. These are "
+            "excluded from every figure above, so the portfolio measured is not "
+            "the portfolio you entered.",
+        ))
 
     if shrinkage > 0.5:
-        notes.append(
+        notes.append(bi(
             f"Cường độ co rút {shrinkage * 100:.0f}%: với số phiên hiện có, hơn "
             "một nửa ma trận hiệp phương sai đến từ mục tiêu tương quan hằng số "
-            "chứ không từ dữ liệu. Tăng số phiên quan sát để giảm con số này."
-        )
+            "chứ không từ dữ liệu. Tăng số phiên quan sát để giảm con số này.",
+            f"Shrinkage intensity {shrinkage * 100:.0f}%: at this number of "
+            "sessions, more than half the covariance matrix comes from the "
+            "constant-correlation target rather than from the data. A longer "
+            "window brings it down.",
+        ))
 
-    notes.append(
+    notes.append(bi(
         "Không có dữ liệu ngành: tài khoản đọc của nền tảng chỉ thấy schema "
         "`api`, còn bảng ngành nằm ở schema `web`. Vì vậy phần tỷ trọng theo "
-        "ngành bị bỏ hẳn thay vì đoán ngành từ mã cổ phiếu."
-    )
+        "ngành bị bỏ hẳn thay vì đoán ngành từ mã cổ phiếu.",
+        "No sector data: the platform's read-only account can see only the "
+        "`api` schema, and the sector table lives in `web`. Sector weights are "
+        "therefore dropped entirely rather than guessed from ticker symbols.",
+    ))
     return notes

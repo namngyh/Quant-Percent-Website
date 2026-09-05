@@ -4,6 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quant Percent</title>
+  <!-- Roboto and Roboto Mono are the faces this design is drawn for. Loaded
+       from Google Fonts with `display=swap` and a full system fallback stack in
+       styles.css, so a start with no internet renders immediately in the system
+       UI font rather than waiting on a request that will not arrive. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 </head>
@@ -31,10 +38,10 @@
     </div>
 
     <div class="topbar-controls">
-      <button id="star-symbol" class="star star-lg" title="Đánh dấu mã này">☆</button>
-      <select id="symbol" aria-label="Symbol"></select>
-      <div id="timeframes" class="tf-group" role="group" aria-label="Khung thời gian"></div>
-      <select id="limit" aria-label="Số nến" title="Số nến hiển thị">
+      <button id="star-symbol" class="star star-lg" data-i18n-title="top.starSymbol">☆</button>
+      <select id="symbol" data-i18n-aria="top.symbol"></select>
+      <div id="timeframes" class="tf-group" role="group" data-i18n-aria="top.timeframes"></div>
+      <select id="limit" data-i18n-aria="top.bars" data-i18n-title="top.bars">
         <option value="500">500</option>
         <option value="1000">1 000</option>
         <option value="2000" selected>2 000</option>
@@ -45,38 +52,43 @@
     </div>
 
     <div class="topbar-right">
+      <span id="price" class="price-ticker" hidden></span>
       <span id="status" class="status" title=""></span>
-      <span class="tz-badge" title="Mọi giờ trên biểu đồ là giờ Việt Nam">GMT+7</span>
-      <button id="live-toggle" class="btn btn-quiet live-toggle" title="Bật/tắt nến realtime">
+      <span class="tz-badge" data-i18n-title="top.tz">GMT+7</span>
+      <button id="live-toggle" class="btn btn-quiet live-toggle" data-i18n-title="top.liveToggle">
         <span id="live-dot" class="live-dot"></span>
-        <span id="live-label">Realtime</span>
+        <span id="live-label" data-i18n="top.live">Realtime</span>
       </button>
-      <button id="backfill" class="btn btn-primary">Cập nhật dữ liệu</button>
+      <button id="backfill" class="btn btn-primary" data-i18n="top.backfill">Cập nhật dữ liệu</button>
+      <div class="lang-switch" role="group" data-i18n-aria="top.lang">
+        <button class="lang-btn" data-lang="vi" type="button">VI</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+      </div>
     </div>
   </header>
 
   <main class="layout">
     <!-- ============ Rail: exactly one panel open at a time ============ -->
-    <nav class="rail" role="tablist" aria-label="Bảng điều khiển">
-      <button class="rail-btn active" data-panel="indicators" role="tab" title="Chỉ báo">
+    <nav class="rail" role="tablist" data-i18n-aria="rail.panels">
+      <button class="rail-btn active" data-panel="indicators" role="tab" data-i18n-title="rail.indicators">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 4 3-4 6 6"/><path d="M3 21h18"/></svg>
-        <span>Chỉ báo</span>
+        <span data-i18n="rail.indicators">Chỉ báo</span>
       </button>
-      <button class="rail-btn" data-panel="strategy" role="tab" title="Chiến lược">
+      <button class="rail-btn" data-panel="strategy" role="tab" data-i18n-title="rail.strategy">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>
-        <span>Chiến lược</span>
+        <span data-i18n="rail.strategy">Chiến lược</span>
       </button>
-      <button class="rail-btn" data-panel="results" role="tab" title="Kết quả">
+      <button class="rail-btn" data-panel="results" role="tab" data-i18n-title="rail.results">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg>
-        <span>Kết quả</span>
+        <span data-i18n="rail.results">Kết quả</span>
       </button>
-      <button class="rail-btn" data-panel="portfolio" role="tab" title="Danh mục">
+      <button class="rail-btn" data-panel="portfolio" role="tab" data-i18n-title="rail.portfolio">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/></svg>
-        <span>Danh mục</span>
+        <span data-i18n="rail.portfolio">Danh mục</span>
       </button>
-      <button class="rail-btn" data-panel="paper" role="tab" title="Paper trading">
+      <button class="rail-btn" data-panel="paper" role="tab" data-i18n-title="rail.paper">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
-        <span>Paper</span>
+        <span data-i18n="rail.paper">Paper</span>
       </button>
     </nav>
 
@@ -86,25 +98,25 @@
       <!-- ---------- Indicators ---------- -->
       <section class="panel active" data-panel="indicators">
         <div class="panel-head">
-          <h2>Chỉ báo</h2>
+          <h2 data-i18n="ind.title">Chỉ báo</h2>
           <div class="panel-head-actions">
             <span id="catalog-count" class="badge">—</span>
-            <button class="info-btn" data-format-help="indicator" title="Xem định dạng file .py">i</button>
-            <button class="btn btn-quiet btn-sm" data-import="indicator">Nhập .py</button>
+            <button class="info-btn" data-format-help="indicator" data-i18n-title="ind.format">i</button>
+            <button class="btn btn-quiet btn-sm" data-import="indicator" data-i18n="ind.import">Nhập .py</button>
           </div>
         </div>
         <div class="panel-body">
-          <input id="search" type="search" placeholder="Tìm chỉ báo (ema, rsi, macd…)" autocomplete="off" />
+          <input id="search" type="search" data-i18n-placeholder="ind.search" autocomplete="off" />
           <div id="plugin-errors" class="load-errors" hidden></div>
           <div id="catalog" class="catalog"></div>
         </div>
         <div class="panel-foot">
           <div class="panel-foot-head">
-            <span>Đang bật</span>
-            <button id="clear-all" class="btn btn-quiet btn-sm">Xóa hết</button>
+            <span data-i18n="ind.active">Đang bật</span>
+            <button id="clear-all" class="btn btn-quiet btn-sm" data-i18n="ind.clearAll">Xóa hết</button>
           </div>
           <div id="active" class="active-list">
-            <p class="empty">Chưa có chỉ báo nào.</p>
+            <p class="empty" data-i18n="ind.none">Chưa có chỉ báo nào.</p>
           </div>
         </div>
       </section>
@@ -112,79 +124,79 @@
       <!-- ---------- Strategy ---------- -->
       <section class="panel" data-panel="strategy">
         <div class="panel-head">
-          <h2>Chiến lược</h2>
+          <h2 data-i18n="st.title">Chiến lược</h2>
           <div class="panel-head-actions">
             <span id="strategy-count" class="badge">—</span>
-            <button class="info-btn" data-format-help="strategy" title="Xem định dạng file .py">i</button>
-            <button class="btn btn-quiet btn-sm" data-import="strategy">Nhập .py</button>
+            <button class="info-btn" data-format-help="strategy" data-i18n-title="ind.format">i</button>
+            <button class="btn btn-quiet btn-sm" data-import="strategy" data-i18n="ind.import">Nhập .py</button>
           </div>
         </div>
 
         <div class="panel-body">
           <div id="strategy-errors" class="load-errors" hidden></div>
           <div class="row-with-star">
-            <button id="star-strategy" class="star" title="Đánh dấu chiến lược này">☆</button>
+            <button id="star-strategy" class="star" data-i18n-title="st.star">☆</button>
             <select id="strategy-select"></select>
-            <button id="info-strategy" class="info-btn" title="Giải thích chiến lược">i</button>
+            <button id="info-strategy" class="info-btn" data-i18n-title="st.explain">i</button>
           </div>
           <p id="strategy-desc" class="hint"></p>
 
           <div class="subtabs" role="tablist">
-            <button class="subtab active" data-subtab="run" role="tab">Chạy</button>
-            <button class="subtab" data-subtab="opt" role="tab">Tối ưu</button>
-            <button class="subtab" data-subtab="check" role="tab">Kiểm định</button>
+            <button class="subtab active" data-subtab="run" role="tab" data-i18n="st.tabRun">Chạy</button>
+            <button class="subtab" data-subtab="opt" role="tab" data-i18n="st.tabOpt">Tối ưu</button>
+            <button class="subtab" data-subtab="check" role="tab" data-i18n="st.tabCheck">Kiểm định</button>
           </div>
 
           <div class="subpanel active" data-subpanel="run">
             <div class="field-group">
-              <div class="field-group-title">Tham số</div>
+              <div class="field-group-title" data-i18n="st.params">Tham số</div>
               <div id="strategy-params" class="params"></div>
             </div>
 
             <div class="field-group">
-              <div class="field-group-title">Chi phí &amp; vốn</div>
+              <div class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</div>
               <div class="params">
-                <label class="param-row"><span>Vốn ban đầu <button type="button" class="info-btn" data-explain="exec.capital" aria-label="Giải thích Vốn ban đầu" title="Giải thích Vốn ban đầu">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <button type="button" class="info-btn" data-explain="exec.capital" aria-label="Giải thích Vốn ban đầu" title="Giải thích Vốn ban đầu">i</button></span>
                   <input id="exec-capital" type="number" value="10000" min="100" step="100" /></label>
-                <label class="param-row"><span>% vốn/lệnh <button type="button" class="info-btn" data-explain="exec.size" aria-label="Giải thích % vốn mỗi lệnh" title="Giải thích % vốn mỗi lệnh">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.size">% vốn/lệnh</span> <button type="button" class="info-btn" data-explain="exec.size" aria-label="Giải thích % vốn mỗi lệnh" title="Giải thích % vốn mỗi lệnh">i</button></span>
                   <input id="exec-size" type="number" value="100" min="1" max="100" step="1" /></label>
-                <label class="param-row"><span>Đòn bẩy <button type="button" class="info-btn" data-explain="exec.leverage" aria-label="Giải thích Đòn bẩy" title="Giải thích Đòn bẩy">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.leverage">Đòn bẩy</span> <button type="button" class="info-btn" data-explain="exec.leverage" aria-label="Giải thích Đòn bẩy" title="Giải thích Đòn bẩy">i</button></span>
                   <input id="exec-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
-                <label class="param-row"><span>Phí (%) <button type="button" class="info-btn" data-explain="exec.fee" aria-label="Giải thích Phí giao dịch" title="Giải thích Phí giao dịch">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.fee">Phí (%)</span> <button type="button" class="info-btn" data-explain="exec.fee" aria-label="Giải thích Phí giao dịch" title="Giải thích Phí giao dịch">i</button></span>
                   <input id="exec-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
-                <label class="param-row"><span>Trượt giá (%) <button type="button" class="info-btn" data-explain="exec.slippage" aria-label="Giải thích Trượt giá" title="Giải thích Trượt giá">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.slippage">Trượt giá (%)</span> <button type="button" class="info-btn" data-explain="exec.slippage" aria-label="Giải thích Trượt giá" title="Giải thích Trượt giá">i</button></span>
                   <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
               </div>
             </div>
 
-            <button id="run-backtest" class="btn btn-primary btn-block">Chạy backtest</button>
-            <button id="start-paper" class="btn btn-block">Chạy paper trading</button>
+            <button id="run-backtest" class="btn btn-primary btn-block" data-i18n="st.runBacktest">Chạy backtest</button>
+            <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy paper trading</button>
           </div>
 
           <div class="subpanel" data-subpanel="opt">
-            <p class="hint">Tích tham số cần quét và đặt dải giá trị.</p>
+            <p class="hint" data-i18n="st.sweepHint">Tích tham số cần quét và đặt dải giá trị.</p>
             <div id="sweep-ranges" class="sweep-list"></div>
 
             <div class="field-group">
-              <label class="param-row"><span>Cách quét</span>
+              <label class="param-row"><span data-i18n="st.sweepMode">Cách quét</span>
                 <select id="opt-mode">
-                  <option value="grid">Quét cạn</option>
-                  <option value="random">Ngẫu nhiên</option>
+                  <option value="grid" data-i18n="st.sweepGrid">Quét cạn</option>
+                  <option value="random" data-i18n="st.sweepRandom">Ngẫu nhiên</option>
                 </select></label>
-              <label class="param-row" id="opt-samples-row" hidden><span>Số mẫu</span>
+              <label class="param-row" id="opt-samples-row" hidden><span data-i18n="st.samples">Số mẫu</span>
                 <input id="opt-samples" type="number" value="500" min="10" max="5000" step="50" /></label>
-              <label class="param-row"><span>Xếp hạng theo</span>
+              <label class="param-row"><span data-i18n="st.rankBy">Xếp hạng theo</span>
                 <select id="opt-metric"></select></label>
             </div>
 
             <div id="sweep-size" class="sweep-size"></div>
-            <button id="run-optimize" class="btn btn-primary btn-block">Chạy tối ưu</button>
+            <button id="run-optimize" class="btn btn-primary btn-block" data-i18n="st.runOptimize">Chạy tối ưu</button>
           </div>
 
           <!-- Validation -->
           <div class="subpanel" data-subpanel="check">
             <div class="field-group">
-              <div class="field-group-title">Walk-forward</div>
+              <div class="field-group-title" data-i18n="wf.title">Walk-forward</div>
               <p class="hint">
                 Tối ưu trên một cửa sổ rồi áp <em>nguyên tham số đó</em> lên cửa sổ
                 kế tiếp — dữ liệu chưa từng thấy. Chỉ kết quả ngoài mẫu mới đáng tin.
@@ -194,39 +206,39 @@
                 Cần nhiều nến: với cửa sổ mặc định, hãy đặt <strong>Candles</strong>
                 từ 5&nbsp;000 trở lên để có đủ 3–5 vòng.
               </p>
-              <label class="param-row"><span>Cửa sổ huấn luyện</span>
+              <label class="param-row"><span data-i18n="wf.train">Cửa sổ huấn luyện</span>
                 <input id="wf-train" type="number" value="1000" min="50" step="50" /></label>
-              <label class="param-row"><span>Cửa sổ kiểm tra</span>
+              <label class="param-row"><span data-i18n="wf.test">Cửa sổ kiểm tra</span>
                 <input id="wf-test" type="number" value="250" min="50" step="50" /></label>
-              <button id="run-walkforward" class="btn btn-primary btn-block">Chạy walk-forward</button>
+              <button id="run-walkforward" class="btn btn-primary btn-block" data-i18n="wf.run">Chạy walk-forward</button>
             </div>
 
             <div class="field-group">
-              <div class="field-group-title">Monte Carlo</div>
+              <div class="field-group-title" data-i18n="mc.title">Monte Carlo</div>
               <p class="hint">
                 Xáo lại thứ tự các lệnh nhiều lần để biết kết quả thật nằm ở đâu
                 trong vùng hợp lý, thay vì tin vào một con số duy nhất.
               </p>
-              <label class="param-row"><span>Số mô phỏng</span>
+              <label class="param-row"><span data-i18n="mc.sims">Số mô phỏng</span>
                 <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
-              <button id="run-montecarlo" class="btn btn-block">Chạy Monte Carlo</button>
+              <button id="run-montecarlo" class="btn btn-block" data-i18n="mc.run">Chạy Monte Carlo</button>
             </div>
 
             <div class="field-group">
-              <div class="field-group-title">Kiểm định thống kê</div>
+              <div class="field-group-title" data-i18n="stat.title">Kiểm định thống kê</div>
               <p class="hint">
                 Dữ liệu có gì để khai thác không, và lợi thế quan sát được có
                 khác 0 một cách có ý nghĩa không.
               </p>
-              <button id="run-stats-series" class="btn btn-block">Phân tích chuỗi giá</button>
-              <button id="run-stats-strategy" class="btn btn-block">Kiểm định chiến lược</button>
+              <button id="run-stats-series" class="btn btn-block" data-i18n="stat.series">Phân tích chuỗi giá</button>
+              <button id="run-stats-strategy" class="btn btn-block" data-i18n="stat.strategy">Kiểm định chiến lược</button>
             </div>
 
             <div class="field-group">
-              <div class="field-group-title">So sánh chiến lược</div>
-              <p class="hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
+              <div class="field-group-title" data-i18n="cmp.title">So sánh chiến lược</div>
+              <p class="hint" data-i18n="cmp.hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
               <div id="compare-list" class="compare-list"></div>
-              <button id="run-compare" class="btn btn-block">So sánh</button>
+              <button id="run-compare" class="btn btn-block" data-i18n="cmp.run">So sánh</button>
             </div>
           </div>
 
@@ -236,44 +248,44 @@
       <!-- ---------- Results ---------- -->
       <section class="panel" data-panel="results">
         <div class="panel-head">
-          <h2>Kết quả</h2>
+          <h2 data-i18n="res.title">Kết quả</h2>
           <div class="subtabs compact" role="tablist">
-            <button class="subtab active" data-restab="summary" role="tab">Tổng quan</button>
-            <button class="subtab" data-restab="trades" role="tab">Lệnh</button>
-            <button class="subtab" data-restab="optimize" role="tab">Tối ưu</button>
-            <button class="subtab" data-restab="validation" role="tab">Kiểm định</button>
-            <button class="subtab" data-restab="stats" role="tab">Thống kê</button>
+            <button class="subtab active" data-restab="summary" role="tab" data-i18n="res.summary">Tổng quan</button>
+            <button class="subtab" data-restab="trades" role="tab" data-i18n="res.trades">Lệnh</button>
+            <button class="subtab" data-restab="optimize" role="tab" data-i18n="res.optimize">Tối ưu</button>
+            <button class="subtab" data-restab="validation" role="tab" data-i18n="res.validation">Kiểm định</button>
+            <button class="subtab" data-restab="stats" role="tab" data-i18n="res.stats">Thống kê</button>
           </div>
           <div class="panel-head-actions">
-            <button id="open-report" class="btn btn-sm" title="Mở báo cáo backtest đầy đủ">Báo cáo</button>
-            <button id="export-csv" class="btn btn-quiet btn-sm" title="Tải danh sách lệnh ra CSV">CSV</button>
-            <button id="export-png" class="btn btn-quiet btn-sm" title="Tải biểu đồ ra ảnh PNG">PNG</button>
+            <button id="open-report" class="btn btn-sm" data-i18n-title="res.reportTitle" data-i18n="res.report">Báo cáo</button>
+            <button id="export-csv" class="btn btn-quiet btn-sm" data-i18n-title="res.csv">CSV</button>
+            <button id="export-png" class="btn btn-quiet btn-sm" data-i18n-title="res.png">PNG</button>
           </div>
         </div>
         <div class="panel-body">
           <div class="subpanel active" data-respanel="summary">
             <div id="metrics" class="metrics-host">
-              <p class="empty">Chạy một backtest để xem kết quả.</p>
+              <p class="empty" data-i18n="res.runFirst">Chạy một backtest để xem kết quả.</p>
             </div>
             <div class="equity-wrap">
-              <div class="equity-label">Đường vốn</div>
+              <div class="equity-label" data-i18n="res.equity">Đường vốn</div>
               <div id="equity-chart" class="equity-chart"></div>
             </div>
           </div>
           <div class="subpanel" data-respanel="trades">
-            <div id="trades" class="scroll-area"><p class="empty">Chưa có lệnh nào.</p></div>
+            <div id="trades" class="scroll-area"><p class="empty" data-i18n="res.noTrades">Chưa có lệnh nào.</p></div>
           </div>
           <div class="subpanel" data-respanel="optimize">
-            <div id="optimize-results" class="scroll-area"><p class="empty">Chưa chạy tối ưu.</p></div>
+            <div id="optimize-results" class="scroll-area"><p class="empty" data-i18n="res.noOpt">Chưa chạy tối ưu.</p></div>
           </div>
           <div class="subpanel" data-respanel="validation">
             <div id="validation-output" class="scroll-area">
-              <p class="empty">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
+              <p class="empty" data-i18n="res.noValidation">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
             </div>
           </div>
           <div class="subpanel" data-respanel="stats">
             <div id="stats-output" class="scroll-area">
-              <p class="empty">Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.</p>
+              <p class="empty" data-i18n="res.noStats">Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.</p>
             </div>
           </div>
         </div>
@@ -282,46 +294,42 @@
       <!-- ---------- Quant Portfolio ---------- -->
       <section class="panel" data-panel="portfolio">
         <div class="panel-head">
-          <h2>Danh mục</h2>
+          <h2 data-i18n="pf.title">Danh mục</h2>
           <div class="panel-head-actions">
             <span id="pf-count" class="badge">—</span>
-            <button class="info-btn" data-explain="pf.about" title="Trang này đo cái gì">i</button>
+            <button class="info-btn" data-explain="pf.about" data-i18n-title="pf.about">i</button>
           </div>
         </div>
         <div class="panel-body">
-          <p class="hint">
-            Nhập vị thế cổ phiếu Việt Nam của bạn. Mọi con số đo từ chính lịch sử
-            giá mà database của team có — không có lợi suất hay tương quan giả định.
-            Không có gì được lưu lại.
-          </p>
+          <p class="hint" data-i18n="pf.lead"></p>
 
           <datalist id="pf-symbols"></datalist>
           <div id="pf-rows" class="pf-rows"></div>
-          <button id="pf-add" class="btn btn-quiet btn-sm btn-block">+ Thêm mã</button>
+          <button id="pf-add" class="btn btn-quiet btn-sm btn-block" data-i18n="pf.add">+ Thêm mã</button>
 
           <div class="field-group">
-            <label class="param-row stack"><span>Tiền mặt (đồng)</span>
+            <label class="param-row stack"><span data-i18n="pf.cash">Tiền mặt (đồng)</span>
               <input id="pf-cash" type="text" inputmode="numeric" placeholder="0" /></label>
-            <label class="param-row"><span>Cửa sổ đo
+            <label class="param-row"><span><span data-i18n="pf.lookback">Cửa sổ đo</span>
               <button type="button" class="info-btn" data-explain="pf.lookback"
                       title="Giải thích cửa sổ đo">i</button></span>
               <select id="pf-lookback">
-                <option value="126">6 tháng</option>
-                <option value="252" selected>1 năm</option>
-                <option value="504">2 năm</option>
+                <option value="126" data-i18n="pf.m6">6 tháng</option>
+                <option value="252" selected data-i18n="pf.y1">1 năm</option>
+                <option value="504" data-i18n="pf.y2">2 năm</option>
               </select></label>
-            <label class="param-row"><span>Kỳ dự phóng
+            <label class="param-row"><span><span data-i18n="pf.horizon">Kỳ dự phóng</span>
               <button type="button" class="info-btn" data-explain="pf.horizon"
                       title="Giải thích kỳ dự phóng">i</button></span>
               <select id="pf-horizon">
-                <option value="21">1 tháng</option>
-                <option value="63" selected>3 tháng</option>
-                <option value="126">6 tháng</option>
-                <option value="252">1 năm</option>
+                <option value="21" data-i18n="pf.m1">1 tháng</option>
+                <option value="63" selected data-i18n="pf.m3">3 tháng</option>
+                <option value="126" data-i18n="pf.m6">6 tháng</option>
+                <option value="252" data-i18n="pf.y1">1 năm</option>
               </select></label>
           </div>
 
-          <button id="pf-run" class="btn btn-primary btn-block">Phân tích danh mục</button>
+          <button id="pf-run" class="btn btn-primary btn-block" data-i18n="pf.run">Phân tích danh mục</button>
           <p id="pf-message" class="hint"></p>
         </div>
       </section>
@@ -329,43 +337,34 @@
       <!-- ---------- Paper trading ---------- -->
       <section class="panel" data-panel="paper">
         <div class="panel-head">
-          <h2>Paper trading</h2>
-          <button id="refresh-paper" class="btn btn-quiet btn-sm">Làm mới</button>
+          <h2 data-i18n="paper.title">Paper trading</h2>
+          <button id="refresh-paper" class="btn btn-quiet btn-sm" data-i18n="paper.refresh">Làm mới</button>
         </div>
         <div class="panel-body">
-          <p class="hint">
-            Chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo. Dùng
-            đúng luật khớp lệnh của backtest: tín hiệu ở nến đóng, khớp ở giá mở
-            nến kế tiếp. Phiên vẫn chạy khi bạn đóng trình duyệt.
-          </p>
+          <p class="hint" data-i18n="paper.lead"></p>
           <div id="paper-sessions" class="paper-list"></div>
 
           <div class="field-group" style="margin-top:14px">
             <div class="field-group-title">
-              Thông báo Telegram
+              <span data-i18n="tg.title">Thông báo Telegram</span>
               <button type="button" class="info-btn" data-explain="notify.telegram"
-                      aria-label="Cách lấy token và chat id"
-                      title="Cách lấy token và chat id">i</button>
+                      data-i18n-aria="tg.help" data-i18n-title="tg.help">i</button>
             </div>
-            <p class="hint" id="notify-status">Đang kiểm tra…</p>
+            <p class="hint" id="notify-status" data-i18n="tg.checking">Đang kiểm tra…</p>
 
-            <label class="param-row stack"><span>Bot token</span>
+            <label class="param-row stack"><span data-i18n="tg.token">Bot token</span>
               <input id="notify-token" type="password" autocomplete="off"
                      spellcheck="false" placeholder="123456789:AA…" /></label>
-            <label class="param-row stack"><span>Chat id</span>
+            <label class="param-row stack"><span data-i18n="tg.chat">Chat id</span>
               <input id="notify-chat" type="text" autocomplete="off"
                      spellcheck="false" inputmode="numeric" placeholder="987654321" /></label>
 
             <div class="btn-row">
-              <button id="notify-save" class="btn btn-primary">Lưu</button>
-              <button id="notify-test" class="btn">Gửi tin thử</button>
-              <button id="notify-clear" class="btn btn-quiet" title="Xoá token khỏi máy">Xoá</button>
+              <button id="notify-save" class="btn btn-primary" data-i18n="tg.save">Lưu</button>
+              <button id="notify-test" class="btn" data-i18n="tg.test">Gửi tin thử</button>
+              <button id="notify-clear" class="btn btn-quiet" data-i18n-title="tg.clearTitle" data-i18n="tg.clear">Xoá</button>
             </div>
-            <p class="hint tiny">
-              Token được ghi vào file <code>.env</code> trên máy bạn — file này đã nằm trong
-              <code>.gitignore</code> nên không bao giờ lên git. Trang này chỉ hiển thị lại
-              token đã che.
-            </p>
+            <p class="hint tiny" data-i18n="tg.privacy"></p>
           </div>
         </div>
       </section>
@@ -373,14 +372,21 @@
 
     <div id="resize-panel" class="resize-handle resize-x"
          role="separator" aria-orientation="vertical"
-         title="Kéo để đổi bề rộng · nhấn đúp để về mặc định"></div>
+         data-i18n-title="resize.panel"></div>
 
     <!-- ============ Charts ============ -->
     <section class="charts">
-      <div id="chart-main" class="chart-pane chart-main"></div>
+      <div id="chart-main" class="chart-pane chart-main">
+        <div class="chart-tools" id="chart-tools" hidden>
+          <button id="toggle-markers" class="chip" type="button"></button>
+          <button id="clear-markers" class="chip chip-icon" type="button"
+                  data-i18n-title="chart.clearMarkers"
+                  data-i18n-aria="chart.clearMarkers">✕</button>
+        </div>
+      </div>
       <div id="resize-panes" class="resize-handle resize-y"
            role="separator" aria-orientation="horizontal"
-           title="Kéo để đổi chiều cao khung chỉ báo · nhấn đúp để về mặc định"></div>
+           data-i18n-title="resize.panes"></div>
       <div id="panes"></div>
       <div id="loading" class="loading" hidden><div class="spinner"></div></div>
     </section>
@@ -406,6 +412,7 @@
   <input type="file" id="import-file" accept=".py,text/x-python" hidden />
 
   <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/i18n.js"></script>
   <script src="/static/js/explain.js"></script>
   <script src="/static/js/favourites.js"></script>
   <script src="/static/js/resize.js"></script>

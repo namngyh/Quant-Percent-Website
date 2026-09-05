@@ -523,5 +523,6 @@ const Strategy = (() => {
     get lastResult() { return lastBacktest; },
     // How many parameter combinations were tried to reach the current values.
     get lastTrials() { return lastTrials; },
+    rerender: renderParams,
   };
 })();
