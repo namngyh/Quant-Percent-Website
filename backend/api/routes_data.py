@@ -117,7 +117,7 @@ def candles(
             "count": 0,
             "candles": [],
             "volumes": [],
-            "message": "No data stored for this series yet — run a backfill.",
+            "message": "No data stored for this series yet: run a backfill.",
         }
 
     times = (df["open_time"] // 1000).astype("int64").tolist()

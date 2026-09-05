@@ -7,7 +7,7 @@ thác hay không.
 
 Mọi kiểm định trong file này trả về **cùng một cấu trúc** (xem ``_result``):
 tên, giả thuyết H₀ và H₁ viết bằng lời, thống kê kiểm định, bậc tự do, p-value,
-mức ý nghĩa, kết luận, và — phần quan trọng nhất — **giả định** mà kiểm định
+mức ý nghĩa, kết luận, và, phần quan trọng nhất, **giả định** mà kiểm định
 đó đứng trên. Một p-value không kèm giả định là một con số không đọc được.
 
 Bốn điểm về tính chặt chẽ, vì đây là chỗ phân tích tài chính hay sai:
@@ -109,7 +109,7 @@ def benjamini_hochberg(p_values: list[float], alpha: float = ALPHA) -> list[floa
 
     Bonferroni kiểm soát xác suất có *bất kỳ* dương tính giả nào, và với 12
     kiểm định thì nó khắt khe tới mức không kiểm định nào qua nổi. BH kiểm soát
-    *tỷ lệ* dương tính giả trong số các kết quả được tuyên bố — đúng thứ cần
+    *tỷ lệ* dương tính giả trong số các kết quả được tuyên bố: đúng thứ cần
     kiểm soát khi ta đang sàng lọc chứ không phải khẳng định một giả thuyết duy
     nhất.
 
@@ -155,11 +155,11 @@ def _apply_fdr(tests: dict, alpha: float = ALPHA) -> dict:
             f"{len(keys)} kiểm định chạy cùng lúc. Nếu tất cả H₀ đều đúng thì "
             f"xác suất có ít nhất một kết quả 'có ý nghĩa' ở α={alpha} là "
             f"{(1 - (1 - alpha) ** len(keys)) * 100:.0f}%. Cột p hiệu chỉnh đã "
-            "tính đến điều đó — hãy đọc cột đó, không phải p thô.",
+            "tính đến điều đó: hãy đọc cột đó, không phải p thô.",
             f"{len(keys)} tests were run together. If every null were true, the "
             f"chance of at least one 'significant' result at α={alpha} is "
             f"{(1 - (1 - alpha) ** len(keys)) * 100:.0f}%. The adjusted column "
-            "accounts for that — read that one, not the raw p.",
+            "accounts for that: read that one, not the raw p.",
         ),
     }
 
@@ -230,13 +230,13 @@ def normality(returns: np.ndarray) -> dict:
         df=2,
         p_value=float(jb_p),
         conclusion=bi(
-            "Bác bỏ chuẩn tính. Mọi công thức giả định phân phối chuẩn — kể cả "
-            "Sharpe và VaR tham số — đều đánh giá thấp rủi ro đuôi trên chuỗi này."
+            "Bác bỏ chuẩn tính. Mọi công thức giả định phân phối chuẩn, kể cả "
+            "Sharpe và VaR tham số, đều đánh giá thấp rủi ro đuôi trên chuỗi này."
             if jb_p < ALPHA else
             "Không đủ bằng chứng bác bỏ chuẩn tính. Lưu ý đây không phải bằng "
             "chứng chuỗi *là* chuẩn; với cỡ mẫu này lực kiểm định có thể còn thấp.",
             "Normality is rejected. Every formula that assumes a normal "
-            "distribution — Sharpe and parametric VaR among them — understates "
+            "distribution, Sharpe and parametric VaR among them, understates "
             "tail risk on this series."
             if jb_p < ALPHA else
             "Not enough evidence to reject normality. Note this is not evidence "
@@ -279,7 +279,7 @@ def normality(returns: np.ndarray) -> dict:
             "nhưng vẫn giả định độc lập.",
             "Independent, identically distributed observations, n ≥ 20. It uses "
             "normalising transforms of skew and kurtosis, so it is more accurate "
-            "than Jarque–Bera at moderate sample sizes — but it still assumes "
+            "than Jarque–Bera at moderate sample sizes, but it still assumes "
             "independence.",
         ),
     )
@@ -325,23 +325,23 @@ def tail_risk(returns: np.ndarray) -> dict:
         "VaR/CVaR lịch sử: đọc thẳng từ phân vị mẫu, không giả định phân phối. "
         f"CVaR 99% ở đây dựa trên {out['tail_n_99']} quan sát đuôi"
         + ("" if out["tail_reliable_99"]
-           else " — quá ít để ổn định; hãy coi là chỉ dấu, không phải ước lượng")
+           else ": quá ít để ổn định; hãy coi là chỉ dấu, không phải ước lượng")
         + ". Khoảng tin cậy 95% lấy bằng bootstrap "
         f"({N_RESAMPLE} lần lấy mẫu lại có hoàn lại).",
         "Historical VaR/CVaR: read straight off the sample quantile, assuming "
         f"no distribution. The 99% CVaR here rests on {out['tail_n_99']} tail "
         "observations"
         + ("" if out["tail_reliable_99"]
-           else " — too few to be stable; treat it as an indication, not an estimate")
+           else ": too few to be stable; treat it as an indication, not an estimate")
         + f". The 95% interval comes from a bootstrap ({N_RESAMPLE} resamples "
         "with replacement).",
     )
     out["horizon_warning"] = bi(
         "Các con số này là cho MỘT nến, không phải một ngày hay một năm. Nhân "
-        "với căn bậc hai của thời gian chỉ đúng khi lợi suất độc lập — điều mà "
+        "với căn bậc hai của thời gian chỉ đúng khi lợi suất độc lập, điều mà "
         "kiểm định biến động gom cụm bên dưới thường bác bỏ.",
         "These figures are for ONE bar, not a day or a year. Scaling by the "
-        "square root of time is only valid when returns are independent — which "
+        "square root of time is only valid when returns are independent, which "
         "the volatility-clustering test below usually rejects.",
     )
     return out
@@ -471,11 +471,15 @@ def hurst(returns: np.ndarray) -> dict:
 
     windows = _hurst_windows(r.size)
     if windows.size == 0:
-        return _unavailable("Hurst (R/S hiệu chỉnh)", "Chuỗi quá ngắn cho R/S.")
+        return _unavailable(
+            bi("Hurst (R/S hiệu chỉnh)", "Hurst (corrected R/S)"),
+            bi("Chuỗi quá ngắn cho R/S.", "The series is too short for R/S."))
 
     h, h_raw, se, points = _hurst_from_returns(r, windows)
     if not np.isfinite(h):
-        return _unavailable("Hurst (R/S hiệu chỉnh)", "Không hồi quy được R/S.")
+        return _unavailable(
+            bi("Hurst (R/S hiệu chỉnh)", "Hurst (corrected R/S)"),
+            bi("Không hồi quy được R/S.", "The R/S regression did not fit."))
 
     # Phân phối H dưới H₀ "không có phụ thuộc thời gian".
     null_values = []
@@ -508,7 +512,8 @@ def hurst(returns: np.ndarray) -> dict:
         reading = bi("hồi quy trung bình", "mean reverting")
 
     return _result(
-        "Hurst (R/S hiệu chỉnh Anis–Lloyd)",
+        bi("Hurst (R/S hiệu chỉnh Anis–Lloyd)",
+           "Hurst (Anis–Lloyd corrected R/S)"),
         null=bi(
             "Lợi suất không có phụ thuộc theo thời gian (H bằng giá trị kỳ vọng "
             "của chuỗi hoán vị).",
@@ -530,14 +535,14 @@ def hurst(returns: np.ndarray) -> dict:
         ),
         assumptions=bi(
             "R/S trên các đoạn không chồng lấn, cửa sổ 16 tới n/4, đã trừ kỳ "
-            "vọng Anis–Lloyd của chuỗi độc lập — nếu bỏ bước này, một chuỗi "
+            "vọng Anis–Lloyd của chuỗi độc lập, nếu bỏ bước này, một chuỗi "
             "ngẫu nhiên cũng cho H ≈ 0.6. p-value lấy từ "
             f"{len(null_values)} lần hoán vị chính chuỗi này, nên nó giữ nguyên "
             "phân phối biên (kể cả đuôi dày) và chỉ phá huỷ trật tự thời gian. "
             "R/S nhạy với biến động thay đổi theo thời gian: một chuỗi có biến "
             "động gom cụm nhưng không có bộ nhớ vẫn có thể cho H > 0.5.",
             "R/S over non-overlapping windows from 16 to n/4, with the "
-            "Anis–Lloyd expectation for an independent series subtracted — skip "
+            "Anis–Lloyd expectation for an independent series subtracted; skip "
             "that step and a purely random series also returns H ≈ 0.6. The "
             f"p-value comes from {len(null_values)} permutations of this series "
             "itself, so it preserves the marginal distribution (fat tails "
@@ -587,7 +592,9 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
     centred = r - mu
     var_1 = float(np.sum(centred**2) / (n - 1))
     if var_1 <= 0:
-        return _unavailable("Tỷ số phương sai (Lo–MacKinlay)", "Phương sai bằng 0.")
+        return _unavailable(
+            bi("Tỷ số phương sai (Lo–MacKinlay)", "Variance ratio (Lo–MacKinlay)"),
+            bi("Phương sai bằng 0.", "The variance is zero."))
 
     # Mẫu số của δ̂ⱼ trong sai số chuẩn bền với phương sai thay đổi.
     denominator = float(np.sum(centred**2)) ** 2
@@ -631,7 +638,9 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
         })
 
     if not z2_values:
-        return _unavailable("Tỷ số phương sai (Lo–MacKinlay)", "Không tính được thống kê z.")
+        return _unavailable(
+            bi("Tỷ số phương sai (Lo–MacKinlay)", "Variance ratio (Lo–MacKinlay)"),
+            bi("Không tính được thống kê z.", "The z statistic could not be computed."))
 
     # Chow–Denning: max|z2| so với modulus cực đại studentised, bậc tự do ∞.
     m_tests = len(z2_values)
@@ -641,7 +650,8 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
     cd_critical = float(sps.norm.ppf((1.0 + (1.0 - ALPHA) ** (1.0 / m_tests)) / 2.0))
 
     return _result(
-        "Tỷ số phương sai — Chow–Denning (đa kỳ hạn)",
+        bi("Tỷ số phương sai: Chow–Denning (đa kỳ hạn)",
+           "Variance ratio: Chow–Denning (multi-horizon)"),
         null=bi(
             f"Chuỗi là bước ngẫu nhiên: VR(q) = 1 đồng thời ở mọi q ∈ {list(periods)}.",
             f"The series is a random walk: VR(q) = 1 simultaneously for every "
@@ -672,13 +682,13 @@ def variance_ratio(returns: np.ndarray, periods: tuple[int, ...] = (2, 4, 8, 16)
             "Ước lượng chồng lấn với hiệu chỉnh mẫu nhỏ của Lo–MacKinlay. z₂ "
             "bền với phương sai thay đổi theo thời gian nhưng vẫn giả định "
             "chênh lệch martingale. Ngưỡng Chow–Denning coi các z là độc lập, "
-            "trong khi thực tế các kỳ hạn tương quan dương — nên ngưỡng này hơi "
+            "trong khi thực tế các kỳ hạn tương quan dương, nên ngưỡng này hơi "
             "bảo thủ (khó bác bỏ hơn thực tế một chút).",
             "Overlapping estimator with Lo–MacKinlay's small-sample correction. "
             "z₂ is robust to time-varying variance but still assumes a "
             "martingale difference. The Chow–Denning threshold treats the z "
             "statistics as independent, while in practice the horizons are "
-            "positively correlated — so it is slightly conservative, rejecting "
+            "positively correlated, so it is slightly conservative, rejecting "
             "a little less readily than it should.",
         ),
         extra={
@@ -693,7 +703,7 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
     """ADF và KPSS, đọc cùng nhau.
 
     Hai kiểm định đảo ngược giả thuyết của nhau, nên bốn tổ hợp kết quả cho bốn
-    kết luận khác nhau — và một trong bốn là "dữ liệu không đủ để nói gì", điều
+    kết luận khác nhau, và một trong bốn là "dữ liệu không đủ để nói gì", điều
     mà chạy riêng ADF sẽ giấu mất.
     """
     from statsmodels.tsa.stattools import adfuller, kpss
@@ -706,11 +716,12 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
         return {"error": f"Cần ít nhất {MIN_SAMPLES} quan sát."}
 
     def _adf(series: np.ndarray, label: str, subject: str) -> dict:
+        label_en = {"giá": "price", "lợi suất": "returns"}[label]
         stat, p_value, used_lag, nobs, crit, _ = adfuller(series, autolag="AIC")
         subject_en = {"Chuỗi giá": "The price series",
                       "Chuỗi lợi suất": "The return series"}[subject]
         return _result(
-            f"ADF — {label}",
+            bi(f"ADF: {label}", f"ADF: {label_en}"),
             null=bi(f"{subject} có nghiệm đơn vị (không dừng).",
                     f"{subject_en} has a unit root (is non-stationary)."),
             alternative=bi(f"{subject} dừng quanh một hằng số.",
@@ -722,12 +733,12 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
                 (f"Bác bỏ nghiệm đơn vị: {subject.lower()} dừng."
                  if p_value < ALPHA else
                  "Không bác bỏ được nghiệm đơn vị. Đây KHÔNG phải bằng chứng "
-                 f"{subject.lower()} không dừng — ADF nổi tiếng là lực thấp khi "
+                 f"{subject.lower()} không dừng: ADF nổi tiếng là lực thấp khi "
                  "hệ số tự hồi quy gần 1."),
                 (f"The unit root is rejected: {subject_en.lower()} is stationary."
                  if p_value < ALPHA else
                  "The unit root is not rejected. This is NOT evidence that "
-                 f"{subject_en.lower()} is non-stationary — ADF is notoriously "
+                 f"{subject_en.lower()} is non-stationary: ADF is notoriously "
                  "low-powered when the autoregressive coefficient is near 1."),
             ),
             assumptions=bi(
@@ -759,7 +770,7 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
             k_stat, k_p, k_lags, k_crit = kpss(r, regression="c", nlags="auto")
         clipped = k_p in (0.01, 0.1)
         out["kpss_return"] = _result(
-            "KPSS — lợi suất",
+            bi("KPSS: lợi suất", "KPSS: returns"),
             null=bi("Chuỗi lợi suất dừng quanh một hằng số.",
                     "The return series is stationary around a constant."),
             alternative=bi("Chuỗi lợi suất có thành phần bước ngẫu nhiên.",
@@ -776,12 +787,12 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
                 f"Hồi quy có hằng số, {k_lags} trễ theo quy tắc tự động. "
                 "p-value được cắt trong khoảng [0.01, 0.10] vì bảng tới hạn chỉ "
                 "có tới đó"
-                + (" — giá trị này đã bị cắt, con số thật nằm ngoài khoảng."
+                + (": giá trị này đã bị cắt, con số thật nằm ngoài khoảng."
                    if clipped else "."),
                 f"Regression with a constant, {k_lags} lags by the automatic "
                 "rule. The p-value is clipped to [0.01, 0.10] because the "
                 "critical-value table stops there"
-                + (" — this value was clipped, and the true figure lies outside "
+                + (": this value was clipped, and the true figure lies outside "
                    "the range." if clipped else "."),
             ),
             extra={"p_value_clipped": bool(clipped), "lags": int(k_lags),
@@ -824,9 +835,9 @@ def stationarity(prices: np.ndarray, returns: np.ndarray) -> dict:
             )
         else:
             verdict = bi(
-                "Không kiểm định nào kết luận được — dữ liệu không đủ thông tin. "
+                "Không kiểm định nào kết luận được: dữ liệu không đủ thông tin. "
                 "Đừng đọc phần còn lại như một khẳng định.",
-                "Neither test concludes — the data does not carry enough "
+                "Neither test concludes: the data does not carry enough "
                 "information. Do not read what follows as an assertion.",
             )
         out["verdict"] = verdict
@@ -858,7 +869,7 @@ def autocorrelation(returns: np.ndarray) -> dict:
         stat = float(lb["lb_stat"].iloc[0])
         p_value = float(lb["lb_pvalue"].iloc[0])
         out["ljung_box"] = _result(
-            "Ljung–Box trên lợi suất",
+            bi("Ljung–Box trên lợi suất", "Ljung–Box on returns"),
             null=bi(f"Lợi suất không tự tương quan ở mọi trễ 1..{lags}.",
                     f"Returns are uncorrelated at every lag 1..{lags}."),
             alternative=bi("Có tự tương quan ở ít nhất một trễ.",
@@ -869,13 +880,13 @@ def autocorrelation(returns: np.ndarray) -> dict:
             p_value=p_value,
             conclusion=bi(
                 ("Bác bỏ: có tự tương quan tuyến tính. Đây là cấu trúc mà chỉ báo "
-                 "dựa trên giá quá khứ có thể khai thác — dù độ lớn mới quyết "
+                 "dựa trên giá quá khứ có thể khai thác, dù độ lớn mới quyết "
                  "định nó có thắng nổi phí giao dịch hay không."
                  if p_value < ALPHA else
                  "Không có bằng chứng tự tương quan tuyến tính. Giá quá khứ, tự "
                  "nó, không dự đoán được hướng của giá tương lai trên chuỗi này."),
                 ("Rejected: linear autocorrelation is present. This is structure "
-                 "an indicator built on past price can exploit — though its size "
+                 "an indicator built on past price can exploit, though its size "
                  "is what decides whether it can beat trading costs."
                  if p_value < ALPHA else
                  "No evidence of linear autocorrelation. Past price, on its own, "
@@ -885,23 +896,25 @@ def autocorrelation(returns: np.ndarray) -> dict:
                 f"Q ~ χ²({lags}) dưới H₀. Kiểm định này giả định phương sai đồng "
                 "nhất; với lợi suất tài chính có biến động gom cụm, Ljung–Box "
                 "bác bỏ dễ hơn mức danh nghĩa. Nó cũng chỉ bắt phụ thuộc TUYẾN "
-                "TÍNH — không có tự tương quan không có nghĩa là độc lập.",
+                "TÍNH: không có tự tương quan không có nghĩa là độc lập.",
                 f"Q ~ χ²({lags}) under the null. The test assumes homoskedastic "
                 "variance; with the volatility clustering of financial returns, "
                 "Ljung–Box rejects more readily than its nominal rate. It also "
-                "detects LINEAR dependence only — no autocorrelation does not "
+                "detects LINEAR dependence only: no autocorrelation does not "
                 "mean independence.",
             ),
         )
     except Exception as exc:
         log.warning("Ljung-Box failed: %s", exc)
-        out["ljung_box"] = _unavailable("Ljung–Box trên lợi suất", str(exc))
+        out["ljung_box"] = _unavailable(
+            bi("Ljung–Box trên lợi suất", "Ljung–Box on returns"), str(exc))
 
     try:
         arch_lags = int(min(12, max(4, r.size // 50)))
         lm_stat, lm_p, f_stat, f_p = het_arch(r, nlags=arch_lags)
         out["arch_lm"] = _result(
-            "Engle ARCH-LM (biến động gom cụm)",
+            bi("Engle ARCH-LM (biến động gom cụm)",
+               "Engle ARCH-LM (volatility clustering)"),
             null=bi(
                 f"Không có hiệu ứng ARCH tới trễ {arch_lags}: phương sai có "
                 "điều kiện là hằng số.",
@@ -922,14 +935,14 @@ def autocorrelation(returns: np.ndarray) -> dict:
                  "cố định sẽ quá chặt lúc thị trường yên và quá lỏng lúc thị "
                  "trường động. Điều này không giúp dự đoán hướng."
                  if lm_p < ALPHA else
-                 "Không có bằng chứng biến động gom cụm — hiếm gặp trên dữ liệu "
+                 "Không có bằng chứng biến động gom cụm: hiếm gặp trên dữ liệu "
                  "thị trường thật; hãy kiểm tra lại độ dài và chất lượng chuỗi."),
                 ("Rejected: volatility clusters. The practical consequence is "
                  "that risk is NOT constant over time, so a stop set at a fixed "
                  "percentage is too tight in quiet markets and too loose in "
                  "active ones. It does not help predict direction."
                  if lm_p < ALPHA else
-                 "No evidence of volatility clustering — rare on real market "
+                 "No evidence of volatility clustering: rare on real market "
                  "data; check the length and quality of the series."),
             ),
             assumptions=bi(
@@ -954,7 +967,7 @@ def autocorrelation(returns: np.ndarray) -> dict:
 # --------------------------------------------------------------- suy diễn
 
 def _bootstrap_ci(sample: np.ndarray, statistic, alpha: float = 0.05) -> dict:
-    """Khoảng tin cậy BCa — hiệu chỉnh chệch và gia tốc.
+    """Khoảng tin cậy BCa: hiệu chỉnh chệch và gia tốc.
 
     Bootstrap phân vị thường bị chệch khi phân phối thống kê lệch, và lợi suất
     từng lệnh thì luôn lệch (nhiều lệnh nhỏ, vài lệnh lớn). BCa hiệu chỉnh cả
@@ -1006,9 +1019,9 @@ def inference(trade_returns: np.ndarray) -> dict:
 
     Ba cách hỏi cùng một câu, vì mỗi cách hỏng ở một chỗ khác nhau:
 
-    * **t một mẫu** — mạnh nhất nếu lợi suất xấp xỉ chuẩn, sai nhiều nếu không.
-    * **Wilcoxon dấu-hạng** — chỉ cần phân phối đối xứng, không cần chuẩn.
-    * **Hoán vị dấu** — không cần giả định gì ngoài việc dấu của các lệnh có
+    * **t một mẫu**: mạnh nhất nếu lợi suất xấp xỉ chuẩn, sai nhiều nếu không.
+    * **Wilcoxon dấu-hạng**: chỉ cần phân phối đối xứng, không cần chuẩn.
+    * **Hoán vị dấu**: không cần giả định gì ngoài việc dấu của các lệnh có
       thể hoán đổi dưới H₀. Đây là kiểm định đáng tin nhất ở đây.
 
     Nếu ba cái cho kết luận khác nhau thì đó chính là thông tin: nghĩa là kết
@@ -1030,7 +1043,7 @@ def inference(trade_returns: np.ndarray) -> dict:
     cohen_d = float(r.mean() / sd) if sd > 0 else 0.0
 
     out["t_test"] = _result(
-        "Kiểm định t một mẫu, một phía",
+        bi("Kiểm định t một mẫu, một phía", "One-sample t-test, one-sided"),
         null=bi("Lợi suất kỳ vọng mỗi lệnh bằng 0.",
                 "The expected return per trade is zero."),
         alternative=bi("Lợi suất kỳ vọng mỗi lệnh lớn hơn 0.",
@@ -1073,7 +1086,8 @@ def inference(trade_returns: np.ndarray) -> dict:
         if non_zero.size >= 6:
             w_stat, w_p = sps.wilcoxon(non_zero, alternative="greater")
             out["wilcoxon"] = _result(
-                "Wilcoxon dấu-hạng, một phía",
+                bi("Wilcoxon dấu-hạng, một phía",
+                   "Wilcoxon signed-rank, one-sided"),
                 null=bi("Phân phối lợi suất từng lệnh đối xứng quanh 0.",
                         "The distribution of trade returns is symmetric about zero."),
                 alternative=bi("Phân phối dịch về phía dương.",
@@ -1094,12 +1108,12 @@ def inference(trade_returns: np.ndarray) -> dict:
                     "Cần đối xứng và độc lập, không cần chuẩn. Các lệnh hoà vốn "
                     f"đúng bằng 0 bị loại ({int(r.size - non_zero.size)} lệnh). "
                     "Kiểm định chạy trên hạng nên một lệnh lãi rất lớn không "
-                    "được tính thêm trọng số — tuỳ chiến lược mà điều đó là ưu "
+                    "được tính thêm trọng số: tuỳ chiến lược mà điều đó là ưu "
                     "hay nhược.",
                     "Requires symmetry and independence, but not normality. "
                     f"Exactly break-even trades are dropped "
                     f"({int(r.size - non_zero.size)} of them). The test works on "
-                    "ranks, so one very large winner carries no extra weight — "
+                    "ranks, so one very large winner carries no extra weight: "
                     "which is an advantage or a drawback depending on the strategy.",
                 ),
             )
@@ -1112,7 +1126,7 @@ def inference(trade_returns: np.ndarray) -> dict:
     observed_mean = float(r.mean())
     perm_p = float((np.sum(null_means >= observed_mean) + 1) / (N_RESAMPLE + 1))
     out["sign_permutation"] = _result(
-        "Hoán vị dấu (phi tham số)",
+        bi("Hoán vị dấu (phi tham số)", "Sign permutation (non-parametric)"),
         null=bi(
             "Dấu lãi/lỗ của mỗi lệnh có thể đảo ngẫu nhiên mà không đổi phân phối.",
             "The sign of each trade's result can be flipped at random without "
@@ -1139,12 +1153,12 @@ def inference(trade_returns: np.ndarray) -> dict:
         ),
         assumptions=bi(
             f"{N_RESAMPLE} lần đảo dấu ngẫu nhiên, giữ nguyên độ lớn mỗi lệnh. "
-            "Chỉ cần giả định các dấu hoán đổi được dưới H₀ — tức là độc lập. "
+            "Chỉ cần giả định các dấu hoán đổi được dưới H₀: tức là độc lập. "
             "Nếu chiến lược có chuỗi thắng/thua kéo dài do tương quan chuỗi, "
             "giả định này bị vi phạm và p-value vẫn lạc quan quá mức.",
             f"{N_RESAMPLE} random sign flips, keeping each trade's magnitude. "
             "The only assumption is that the signs are exchangeable under the "
-            "null — that is, independent. If the strategy produces long winning "
+            "null, that is, independent. If the strategy produces long winning "
             "or losing runs through serial correlation, that assumption breaks "
             "and the p-value is still too optimistic.",
         ),
@@ -1209,7 +1223,7 @@ def _power_analysis(returns: np.ndarray, effect_size: float) -> dict:
             "này phát hiện ra nó trong ít nhất 80% trường hợp, nên một kết quả "
             "không có ý nghĩa là bằng chứng thật sự.",
             "Adequately powered. If the true edge equals the observed one, this "
-            "test finds it at least 80% of the time — so a non-significant "
+            "test finds it at least 80% of the time, so a non-significant "
             "result here is real evidence.",
         )
     else:
@@ -1218,10 +1232,10 @@ def _power_analysis(returns: np.ndarray, effect_size: float) -> dict:
                    if required_n else "")
         reading = bi(
             f"Thiếu lực ({power * 100:.0f}%). Với cỡ mẫu này, một kết quả không "
-            "có ý nghĩa KHÔNG chứng minh được chiến lược vô dụng — nó chỉ nói "
+            "có ý nghĩa KHÔNG chứng minh được chiến lược vô dụng; nó chỉ nói "
             "rằng dữ liệu chưa đủ để kết luận." + tail_vi,
             f"Underpowered ({power * 100:.0f}%). At this sample size a "
-            "non-significant result does NOT show the strategy is worthless — it "
+            "non-significant result does NOT show the strategy is worthless; it "
             "says the data is not yet enough to tell." + tail_en,
         )
 
@@ -1260,11 +1274,11 @@ def sharpe_tests(
     cực đại của 5 000 biến ngẫu nhiên; Sharpe cao nhất trong đó cao hơn hẳn
     Sharpe thật, kể cả khi không tổ hợp nào có lợi thế.
 
-    * **PSR** (Bailey & López de Prado 2012) — xác suất Sharpe thật > 0, có
+    * **PSR** (Bailey & López de Prado 2012): xác suất Sharpe thật > 0, có
       tính tới độ lệch và độ nhọn của lợi suất.
-    * **DSR** — PSR nhưng so với ngưỡng kỳ vọng của giá trị lớn nhất trong
+    * **DSR**: PSR nhưng so với ngưỡng kỳ vọng của giá trị lớn nhất trong
       ``n_trials`` phép thử, thay vì so với 0.
-    * **MinTRL** — cần bao nhiêu quan sát để Sharpe quan sát được đạt mức tin
+    * **MinTRL**: cần bao nhiêu quan sát để Sharpe quan sát được đạt mức tin
       cậy 95% là thật sự dương.
     """
     r = _finite(bar_returns)
@@ -1294,7 +1308,7 @@ def sharpe_tests(
 
     # Ngưỡng khử phồng: kỳ vọng của cực đại n_trials biến chuẩn, nhân với độ
     # phân tán của Sharpe giữa các phép thử. Không đo được độ phân tán đó ở đây
-    # nên dùng sai số chuẩn của chính Sharpe này — một xấp xỉ bảo thủ.
+    # nên dùng sai số chuẩn của chính Sharpe này: một xấp xỉ bảo thủ.
     trials = max(int(n_trials), 1)
     if trials > 1:
         euler = 0.5772156649015329
@@ -1331,7 +1345,7 @@ def sharpe_tests(
             f" Sau khi khử phồng cho {trials} lần thử tham số, DSR = "
             f"{dsr * 100:.1f}%"
             + ("; kết quả vẫn đứng vững." if dsr > 0.95 else
-               " — không còn vượt ngưỡng 95%. Nói cách khác, một chiến lược "
+               ": không còn vượt ngưỡng 95%. Nói cách khác, một chiến lược "
                "không có lợi thế nào cũng thường tạo ra Sharpe cao thế này khi "
                "được quét từng ấy tổ hợp.")
         )
@@ -1339,7 +1353,7 @@ def sharpe_tests(
             f" After deflating for {trials} parameter trials, DSR = "
             f"{dsr * 100:.1f}%"
             + ("; the result still stands." if dsr > 0.95 else
-               " — no longer above the 95% threshold. Put another way, a "
+               ": no longer above the 95% threshold. Put another way, a "
                "strategy with no edge at all routinely produces a Sharpe this "
                "high when that many combinations are swept.")
         )
@@ -1365,13 +1379,13 @@ def sharpe_tests(
         "conclusion": conclusion,
         "assumptions": bi(
             "PSR giả định lợi suất độc lập cùng phân phối nhưng KHÔNG giả định "
-            "chuẩn — độ lệch và độ nhọn được đưa thẳng vào sai số chuẩn "
+            "chuẩn: độ lệch và độ nhọn được đưa thẳng vào sai số chuẩn "
             "(Mertens). Ngưỡng khử phồng dùng kỳ vọng cực đại của "
             f"{trials} phép thử ĐỘC LẬP; các tổ hợp tham số cạnh nhau thì tương "
             "quan cao nên số phép thử hiệu dụng nhỏ hơn, và DSR ở đây là bảo "
             "thủ. Biến động gom cụm vi phạm giả định độc lập và làm PSR lạc quan.",
             "PSR assumes independent, identically distributed returns but NOT "
-            "normality — skew and kurtosis enter the standard error directly "
+            "normality: skew and kurtosis enter the standard error directly "
             "(Mertens). The deflation threshold uses the expected maximum of "
             f"{trials} INDEPENDENT trials; neighbouring parameter combinations "
             "are highly correlated, so the effective number of trials is smaller "
@@ -1456,11 +1470,11 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
                       "Time dependence is present")
         detail = bi(
             "Bác bỏ tính ngẫu nhiên qua: " + ", ".join(vi for vi, _ in found) +
-            " — p đã hiệu chỉnh đa kiểm định. Có cấu trúc để chỉ báo khai thác. "
+            " (p đã hiệu chỉnh đa kiểm định). Có cấu trúc để chỉ báo khai thác. "
             "Lưu ý: cấu trúc tồn tại không có nghĩa nó đủ lớn để thắng phí giao "
             "dịch; đó là câu hỏi của backtest, không phải của kiểm định này.",
             "Randomness is rejected by: " + ", ".join(en for _, en in found) +
-            " — on multiple-testing adjusted p-values. There is structure for an "
+            " (on multiple-testing adjusted p-values). There is structure for an "
             "indicator to exploit. Note that structure existing does not mean it "
             "is large enough to beat trading costs; that is a question for the "
             "backtest, not for these tests.",
@@ -1472,11 +1486,11 @@ def _series_verdict(tests: dict, stationarity_block: dict) -> dict:
         detail = bi(
             "Sau hiệu chỉnh đa kiểm định, không kiểm định nào bác bỏ được tính "
             "ngẫu nhiên về hướng. Một chiến lược có lãi trên chuỗi này rất có "
-            "thể chỉ đang khớp nhiễu — hãy kiểm chứng bằng walk-forward trước "
+            "thể chỉ đang khớp nhiễu: hãy kiểm chứng bằng walk-forward trước "
             "khi tin vào nó.",
             "After the multiple-testing correction, no test rejects directional "
             "randomness. A strategy that profits on this series is quite likely "
-            "fitting noise — verify it with walk-forward before believing it.",
+            "fitting noise: verify it with walk-forward before believing it.",
         )
 
     notes = []
@@ -1515,8 +1529,8 @@ def analyse_strategy(
     """Kiểm định suy diễn trên kết quả một chiến lược.
 
     ``n_trials`` là số tổ hợp tham số đã thử để chọn ra chiến lược này. Truyền
-    số thật vào — nếu tham số đến từ một lần quét 2 000 tổ hợp thì đó là 2 000,
-    không phải 1 — nếu không thì Sharpe khử phồng sẽ vô nghĩa.
+    số thật vào, nếu tham số đến từ một lần quét 2 000 tổ hợp thì đó là 2 000,
+    không phải 1, nếu không thì Sharpe khử phồng sẽ vô nghĩa.
     """
     if not trades:
         return {"error": "Chiến lược chưa tạo lệnh nào."}

@@ -536,7 +536,7 @@ def _notes(positions: list[dict], unpriced: list[str], shrinkage: float) -> list
                 "phần còn lại của danh mục.",
                 f"{standout['symbol']} is {standout['weight_pct']:.1f}% of the "
                 f"money but {standout['risk_contribution_pct']:.1f}% of the risk "
-                f"— {standout['risk_gap_pct']:.1f} percentage points above what "
+                f", {standout['risk_gap_pct']:.1f} percentage points above what "
                 "its size suggests. It is both more volatile than the rest and "
                 "moving in the same direction as it.",
             ))

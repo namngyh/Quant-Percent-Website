@@ -1,23 +1,23 @@
 """Báo cáo backtest đầy đủ, theo bộ chỉ số của AmiBroker.
 
 Bảng tóm tắt ở panel Kết quả cố tình ngắn: nó trả lời "chạy xong chưa, lãi hay
-lỗ". Module này trả lời câu hỏi tiếp theo — *vì sao* — và nó cần nhiều số hơn
+lỗ". Module này trả lời câu hỏi tiếp theo, *vì sao*, và nó cần nhiều số hơn
 mức nhét vừa một panel bên cạnh biểu đồ, nên nó có cửa sổ riêng.
 
 Bốn nhóm, cộng một nhóm thứ năm cho mô hình học máy:
 
-* **Tổng quan** — lãi ròng, CAR, phơi nhiễm, và lợi suất đã hiệu chỉnh theo
+* **Tổng quan**: lãi ròng, CAR, phơi nhiễm, và lợi suất đã hiệu chỉnh theo
   phơi nhiễm. Con số cuối cùng là con số AmiBroker gọi là RAR và là con số hay
   bị bỏ qua nhất: một hệ thống chỉ nắm giữ 20% thời gian mà đạt cùng lợi nhuận
   với mua-và-giữ đang tạo ra lợi suất cao gấp năm lần trên vốn thực sự chịu rủi ro.
-* **Lệnh** — tách riêng lệnh mua và lệnh bán. Rất nhiều chiến lược "hai chiều"
+* **Lệnh**: tách riêng lệnh mua và lệnh bán. Rất nhiều chiến lược "hai chiều"
   hoá ra chỉ kiếm tiền ở một chiều, và bảng gộp giấu điều đó.
-* **Rủi ro** — sụt giảm, chỉ số Ulcer, CAR/MDD, hệ số K. Sụt giảm tối đa nói độ
+* **Rủi ro**: sụt giảm, chỉ số Ulcer, CAR/MDD, hệ số K. Sụt giảm tối đa nói độ
   sâu; Ulcer nói cả độ sâu lẫn độ dài; hệ số K nói đường vốn có đi lên đều đặn
   hay chỉ nhảy một phát rồi đứng yên.
-* **Theo kỳ** — bảng lợi suất theo tháng và theo năm. Đây là nơi phát hiện một
+* **Theo kỳ**: bảng lợi suất theo tháng và theo năm. Đây là nơi phát hiện một
   chiến lược chỉ hoạt động trong đúng một đợt sóng của quá khứ.
-* **Học máy** — coi tín hiệu như một bộ phân loại hướng nến kế tiếp, rồi chấm
+* **Học máy**: coi tín hiệu như một bộ phân loại hướng nến kế tiếp, rồi chấm
   nó bằng các thước đo phân loại chuẩn. Việc này áp dụng được cho *mọi* chiến
   lược, không riêng chiến lược ML, và nó tách bạch hai câu hỏi mà lợi nhuận
   trộn lẫn: mô hình đoán đúng hướng bao nhiêu lần, và mỗi lần đúng thì ăn được
@@ -119,7 +119,7 @@ def _overview(result: BacktestResult, df: pd.DataFrame, timeframe: str) -> dict:
 # --------------------------------------------------------------------- lệnh
 
 def _trade_block(trades: list, initial: float) -> dict:
-    """Thống kê cho một tập lệnh — dùng chung cho tất cả, mua, và bán."""
+    """Thống kê cho một tập lệnh: dùng chung cho tất cả, mua, và bán."""
     if not trades:
         return {"count": 0}
 
@@ -170,8 +170,8 @@ def _trade_block(trades: list, initial: float) -> dict:
             if gross_profit > 0 and pnls.max() > 0 else 0.0
         ),
         # Kelly: phần vốn tối ưu theo lý thuyết cho tỷ lệ thắng và tỷ lệ
-        # lãi/lỗ này. Gần như luôn quá cao để dùng thật — nó tối đa hoá tăng
-        # trưởng dài hạn mà không quan tâm sụt giảm dọc đường — nhưng nó là
+        # lãi/lỗ này. Gần như luôn quá cao để dùng thật, nó tối đa hoá tăng
+        # trưởng dài hạn mà không quan tâm sụt giảm dọc đường, nhưng nó là
         # trần: đặt cỡ vị thế trên mức này thì tăng trưởng kỳ vọng GIẢM.
         "kelly_pct": (
             (win_rate - (1 - win_rate) / abs(avg_win / avg_loss)) * 100.0
@@ -231,7 +231,7 @@ def _streaks(trades: list) -> dict:
 
 
 def _excursions(trades: list) -> dict:
-    """MFE và MAE — dữ liệu để đặt dừng lỗ và chốt lãi bằng số liệu."""
+    """MFE và MAE: dữ liệu để đặt dừng lỗ và chốt lãi bằng số liệu."""
     if not trades:
         return {"count": 0}
 
@@ -309,7 +309,7 @@ def _k_ratio(equity: np.ndarray) -> dict:
 
     Chuẩn hoá theo √n để con số không tự động lớn lên khi thêm dữ liệu. Vẫn
     phụ thuộc khung thời gian, nên chỉ so sánh được giữa các lần chạy cùng
-    khung — điều này được ghi rõ thay vì để người đọc tự đoán.
+    khung, điều này được ghi rõ thay vì để người đọc tự đoán.
     """
     positive = equity[equity > 0]
     n = positive.size
@@ -325,7 +325,7 @@ def _k_ratio(equity: np.ndarray) -> dict:
     residuals = y - (slope * x + intercept)
 
     # Ngưỡng tương đối, không phải ngưỡng "khác 0". Một đường vốn phẳng hoàn
-    # toàn cho phần dư cỡ 1e-17 — nhiễu dấu phẩy động, không phải biến động —
+    # toàn cho phần dư cỡ 1e-17: nhiễu dấu phẩy động, không phải biến động,
     # và chia cho nó ra một hệ số K trông như một con số thật. Đây đúng là loại
     # lỗi mà một bảng báo cáo không được phép mắc: nó không sai một cách ồn ào,
     # nó chỉ đưa ra một con số bịa với hai chữ số thập phân.
@@ -334,10 +334,10 @@ def _k_ratio(equity: np.ndarray) -> dict:
         return {
             "value": None,
             "note": bi(
-                "Đường vốn là một đường thẳng hoàn hảo trên thang log — không "
+                "Đường vốn là một đường thẳng hoàn hảo trên thang log: không "
                 "có độ phân tán để đo tính đều đặn. Thường gặp khi chiến lược "
                 "chưa vào lệnh nào.",
-                "The equity curve is a perfect straight line on a log scale — "
+                "The equity curve is a perfect straight line on a log scale: "
                 "there is no dispersion to measure consistency against. Usually "
                 "this means the strategy never traded.",
             ),
@@ -374,7 +374,7 @@ def _ratios(returns: np.ndarray, periods: float) -> dict:
 
     Sharpe chia cho độ lệch chuẩn, tức phạt biến động lên cũng ngang biến động
     xuống. Bốn tỷ số dưới đây đổi mẫu số vì lý do đó, và trên một chiến lược có
-    phân phối lệch chúng có thể xếp hạng ngược nhau — điều đó tự nó là thông tin.
+    phân phối lệch chúng có thể xếp hạng ngược nhau, điều đó tự nó là thông tin.
     """
     if returns.size < 10:
         return {}
@@ -427,7 +427,7 @@ def _gain_to_pain(monthly: list[dict]) -> dict:
 
     Tính trên lợi suất THÁNG, không phải theo nến. Ngưỡng "trên 1.0 là tốt" của
     Jack Schwager là một phát biểu về dữ liệu tháng; áp cùng công thức lên 8 000
-    nến giờ cho 0.01, và con số đó không phải điểm kém — nó nằm ở một thang
+    nến giờ cho 0.01, và con số đó không phải điểm kém, nó nằm ở một thang
     khác, đứng cạnh một ngưỡng không liên quan gì tới nó.
     """
     values = np.array([m["return_pct"] for m in monthly], dtype="float64")
@@ -458,7 +458,7 @@ def _drawdown_episodes(equity: np.ndarray, times: list[int]) -> dict:
     """Mọi đợt sụt giảm riêng lẻ, không chỉ đợt sâu nhất.
 
     Sụt giảm tối đa là một quan sát duy nhất. Nó không nói đợt sụt *điển hình*
-    sâu bao nhiêu, cũng không nói mất bao lâu để hồi — và với người phải ngồi
+    sâu bao nhiêu, cũng không nói mất bao lâu để hồi, và với người phải ngồi
     qua chúng, hai câu đó quan trọng hơn kỷ lục.
     """
     if equity.size < 3:
@@ -488,7 +488,7 @@ def _drawdown_episodes(equity: np.ndarray, times: list[int]) -> dict:
             start = None
 
     # Đợt đang diễn ra lúc dữ liệu kết thúc: chưa hồi, và phải nói rõ như vậy
-    # thay vì lặng lẽ bỏ đi — nó thường là đợt người đọc đang ở trong.
+    # thay vì lặng lẽ bỏ đi, nó thường là đợt người đọc đang ở trong.
     if start is not None:
         segment = drawdown[start:]
         trough = start + int(np.argmin(segment))
@@ -540,7 +540,7 @@ def _drawdown_episodes(equity: np.ndarray, times: list[int]) -> dict:
 def _rolling_sharpe(
     returns: np.ndarray, times: list[int], periods: float, window: int | None = None
 ) -> list[dict]:
-    """Sharpe trên cửa sổ trượt — cách thấy một lợi thế đã tắt từ khi nào.
+    """Sharpe trên cửa sổ trượt: cách thấy một lợi thế đã tắt từ khi nào.
 
     Một Sharpe 1.2 cho toàn giai đoạn có thể là 2.5 trong hai năm đầu và −0.3
     trong hai năm sau. Con số tổng hợp không phân biệt được hai trường hợp đó
@@ -548,7 +548,7 @@ def _rolling_sharpe(
     """
     n = returns.size
     if window is None:
-        # Khoảng một năm giao dịch, nhưng không quá một phần tư dữ liệu — cửa
+        # Khoảng một năm giao dịch, nhưng không quá một phần tư dữ liệu: cửa
         # sổ dài hơn thế chỉ cho vài điểm và không còn là "trượt" nữa.
         window = int(min(max(periods, 60), n // 4))
     if n < window * 2 or window < 30:
@@ -750,13 +750,13 @@ def ml_evaluation(
 ) -> dict:
     """Chấm điểm tín hiệu như một bộ phân loại hướng của nến kế tiếp.
 
-    Áp dụng được cho mọi chiến lược, không riêng chiến lược học máy — và đó
+    Áp dụng được cho mọi chiến lược, không riêng chiến lược học máy, và đó
     chính là điểm hữu ích: nó tách hai thứ mà con số lợi nhuận trộn lẫn vào
     nhau. Một hệ thống có thể đoán đúng hướng 48% số lần mà vẫn lãi đậm nếu
     những lần đúng ăn to hơn nhiều những lần sai; ngược lại, đoán đúng 56% mà
     vẫn lỗ là chuyện thường khi phí ăn hết phần chênh.
 
-    Nhãn là dấu của lợi suất nến **kế tiếp**, so với vị thế đang giữ ở nến đó —
+    Nhãn là dấu của lợi suất nến **kế tiếp**, so với vị thế đang giữ ở nến đó:
     tức là đúng thứ mà vị thế đó đặt cược, không lệch pha một nến. Những nến
     đứng ngoài thị trường không được chấm: không có dự đoán thì không có gì để
     đúng hay sai.
@@ -776,9 +776,9 @@ def ml_evaluation(
         return {
             "error": bi(
                 f"Chỉ {int(active.sum())} nến vừa có vị thế vừa có nến sau biến "
-                "động — quá ít để chấm điểm phân loại.",
+                "động: quá ít để chấm điểm phân loại.",
                 f"Only {int(active.sum())} bars both hold a position and are "
-                "followed by a bar that moved — too few to score a classifier.",
+                "followed by a bar that moved: too few to score a classifier.",
             )
         }
 
@@ -826,7 +826,7 @@ def ml_evaluation(
     p_value = float(sps.binomtest(correct, total, baseline, alternative="greater").pvalue)
 
     # Hệ số thông tin: tương quan hạng Spearman giữa vị thế đang giữ và lợi
-    # suất nến kế tiếp. Khác độ chính xác ở chỗ nó tính cả ĐỘ LỚN — đoán đúng
+    # suất nến kế tiếp. Khác độ chính xác ở chỗ nó tính cả ĐỘ LỚN: đoán đúng
     # một cú tăng 3% được tính nặng hơn đoán đúng một cú tăng 0.05%, mà độ
     # chính xác thì coi hai cái như nhau. Trong quản lý quỹ định lượng, IC 0.03
     # đã là một tín hiệu dùng được.
@@ -1066,7 +1066,7 @@ def build_report(
                 strategy_returns[np.isfinite(strategy_returns)] * 100.0, bins=40
             ),
             # Lãi lỗ cộng dồn theo thứ tự lệnh, để thấy lợi nhuận đến từ đâu
-            # trong chuỗi — dồn vào một đoạn hay rải đều.
+            # trong chuỗi: dồn vào một đoạn hay rải đều.
             "trade_sequence": [
                 {"i": i + 1, "v": round(float(v), 2)}
                 for i, v in enumerate(np.cumsum([t.pnl for t in result.trades]))

@@ -410,6 +410,12 @@ def _():
         result["hurst"],
     ]
     for test in tests:
+        # A name that carries a Vietnamese phrase needs a pair too; a name that
+        # is only a proper noun ("Jarque-Bera") reads the same either way.
+        name = test["name"]
+        if isinstance(name, dict):
+            assert name.get("vi") and name.get("en"), name
+
         for field in ("null", "alternative", "conclusion", "assumptions"):
             value = test[field]
             assert isinstance(value, dict), f"{test['name']}.{field} is not a pair"
