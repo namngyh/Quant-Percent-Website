@@ -35,7 +35,7 @@ COMPOSE=(
   -f compose.override.yml
 )
 
-echo "==> 1/6 Kiểm tra file cấu hình bí mật"
+echo "==> 1/7 Kiểm tra file cấu hình bí mật"
 cd "$DEPLOY_DIR"
 if [ ! -f .env.production ]; then
   echo "LỖI: không thấy $DEPLOY_DIR/.env.production" >&2
@@ -56,7 +56,7 @@ for cert in /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem; do
   fi
 done
 
-echo "==> 2/6 Lấy code mới nhất từ GitHub"
+echo "==> 2/7 Lấy code mới nhất từ GitHub"
 cd "$REPO_DIR"
 git fetch --prune origin
 git reset --hard origin/main
@@ -69,7 +69,7 @@ git reset --hard origin/main
 # tức là xoá luôn deploy/.env.production, và cả stack sẽ không khởi động lại
 # được vì mất hết mật khẩu database.
 
-echo "==> 3/6 Build lại image và khởi động"
+echo "==> 3/7 Build lại image và khởi động"
 cd "$DEPLOY_DIR"
 "${COMPOSE[@]}" up -d --build
 # --build  build lại image từ code vừa kéo về. Thiếu cờ này thì container vẫn
@@ -82,7 +82,7 @@ cd "$DEPLOY_DIR"
 # phải chèn dòng dưới vào TRƯỚC lệnh `up`, nếu không API sẽ chạy với schema cũ:
 #   "${COMPOSE[@]}" --profile tools run --rm migrate
 
-echo "==> 4/6 Chờ web trả lời (tối đa 90 giây)"
+echo "==> 4/7 Chờ web trả lời (tối đa 90 giây)"
 DOMAIN="$(awk -F= '/^DOMAIN=/{print $2; exit}' .env.production)"
 if [ -z "$DOMAIN" ]; then
   echo "LỖI: .env.production không có dòng DOMAIN=" >&2
@@ -113,10 +113,27 @@ echo "Trạng thái phụ thuộc:"
 curl -fsS --max-time 5 "https://$DOMAIN/readyz" || echo "(readyz không xanh — xem lại database/redis)"
 echo
 
-echo "==> 5/6 Trạng thái các container"
+# Nội dung trang model (tên, mô tả, số liệu nghiên cứu, báo cáo hiệu suất)
+# nằm trong bảng web.models chứ không nằm trong bản build của frontend. Thiếu
+# bước này thì deploy vẫn xanh, web vẫn chạy, nhưng trang hiển thị nội dung
+# của lần seed trước — đúng kiểu hỏng im lặng đã xảy ra với trang
+# DynamicGraph: mô hình chạy mỗi ngày mà trang đứng ở số liệu cũ cả tháng.
+#
+# Container api đã mount sẵn frontend/config tại /catalogue/config, nên chạy
+# ngay trong đó thay vì cần Python trên máy chủ.
+echo "==> 5/7 Nạp catalogue vào database"
+if ! "${COMPOSE[@]}" exec -T api python -m scripts.seed_catalogue --frontend /catalogue; then
+  echo "LỖI: nạp catalogue thất bại." >&2
+  echo "Web đang chạy nhưng nội dung trang model là của lần nạp trước." >&2
+  echo "Chạy lại tay:" >&2
+  echo "  cd $DEPLOY_DIR && ${COMPOSE[*]} exec -T api python -m scripts.seed_catalogue --frontend /catalogue" >&2
+  exit 1
+fi
+
+echo "==> 6/7 Trạng thái các container"
 "${COMPOSE[@]}" ps
 
-echo "==> 6/6 Dọn image cũ"
+echo "==> 7/7 Dọn image cũ"
 docker image prune -f
 # Mỗi lần --build để lại một image cũ không ai dùng. VPS dung lượng có hạn,
 # vài chục lần deploy là đầy ổ. Lệnh này chỉ xoá image không container nào
