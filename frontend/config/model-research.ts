@@ -485,10 +485,10 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
   },
   "dynamic-graph": {
     slug: "dynamic-graph",
-    // Full publication run on 2026-08-06. The stress classifiers still run
+    // Full publication run on 2026-09-04. The stress classifiers still run
     // as part of that pipeline, but their output is not published: the page
     // presents market structure only.
-    artifactDate: "2026-08-06",
+    artifactDate: "2026-09-04",
     verdict: {
       eyebrow: { vi: "Kết quả chính", en: "Main result" },
       title: {
@@ -503,23 +503,23 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     metrics: [
       {
         label: { vi: "Phạm vi", en: "Coverage" },
-        value: { vi: "29 cổ phiếu", en: "29 stocks" },
+        value: { vi: "28 cổ phiếu", en: "28 stocks" },
         note: {
-          vi: "rổ VN30 sau đảo rổ; TCX chưa đủ lịch sử giá",
-          en: "VN30 after the rebalance; TCX lacks price history",
+          vi: "rổ VN30; BCM và BVH chưa đủ lịch sử giá",
+          en: "VN30 basket; BCM and BVH lack price history",
         },
       },
       {
         label: { vi: "Điểm căng thẳng", en: "Stress score" },
-        value: { vi: "77,04/100", en: "77.04/100" },
+        value: { vi: "82,68/100", en: "82.68/100" },
         note: {
-          vi: "ngày 06/08/2026, trạng thái căng thẳng trên mức bình thường",
-          en: "6 Aug 2026, elevated stress state",
+          vi: "ngày 04/09/2026, trạng thái căng thẳng trên mức bình thường",
+          en: "4 Sep 2026, elevated stress state",
         },
       },
       {
         label: { vi: "So với lịch sử", en: "Compared with history" },
-        value: { vi: "86,22%", en: "86.22%" },
+        value: { vi: "89,39%", en: "89.39%" },
         note: {
           vi: "so với lịch sử có sẵn",
           en: "relative to available history",
@@ -550,12 +550,12 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     },
     findings: {
       vi: [
-        "Ngày 06/08/2026, VIC, VHM và GAS là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
+        "Ngày 04/09/2026, VIC, VHM và LPB là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
         "Trong thử nghiệm phân bổ, cách ưu tiên giảm biến động đạt mức biến động năm 15,63%, thấp hơn mức 19,72% của danh mục chia đều. Tuy nhiên, riêng kỹ thuật Graphical Lasso chưa cho thấy lợi ích rõ ràng: 15,65% so với 15,70% của cách ước lượng thông thường.",
         "Thử nghiệm dùng danh sách VN30 hiện tại cho cả dữ liệu quá khứ, nên có thể bỏ sót các cổ phiếu từng bị loại khỏi VN30. Kết quả chưa thể xem là một chiến lược có thể giao dịch thực tế.",
       ],
       en: [
-        "VIC, VHM and GAS were the three most connected stocks in the network on 6 Aug 2026. Being highly connected does not mean their prices will rise.",
+        "VIC, VHM and LPB were the three most connected stocks in the network on 4 Sep 2026. Being highly connected does not mean their prices will rise.",
         "In the allocation test, the approach focused on reducing fluctuations recorded 15.63% annual volatility, compared with 19.72% for an equally weighted portfolio. The Graphical Lasso technique did not show a clear additional benefit: 15.65% against 15.70% for the ordinary estimator.",
         "The test applies today's VN30 list to past data, so it may omit stocks that previously left the index. The result should not be treated as a ready-to-trade strategy.",
       ],
@@ -572,18 +572,18 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           en: "Each point is one trading session. A high score means stocks are more tightly connected or diversification may be weaker. It is not the probability of a market decline.",
         },
         categories: [
-          "22/07",
-          "23/07",
-          "24/07",
-          "27/07",
-          "28/07",
-          "29/07",
-          "30/07",
-          "31/07",
-          "03/08",
-          "04/08",
-          "05/08",
-          "06/08",
+          "17/08",
+          "18/08",
+          "19/08",
+          "20/08",
+          "21/08",
+          "24/08",
+          "25/08",
+          "26/08",
+          "27/08",
+          "28/08",
+          "03/09",
+          "04/09",
         ],
         valueSuffix: "/100",
         minimum: 70,
@@ -592,8 +592,8 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
           {
             name: { vi: "Điểm căng thẳng", en: "Stress score" },
             data: [
-              86.71, 81.66, 84.68, 83.79, 80.31, 81.9, 84.36, 76.22, 79.0,
-              82.09, 81.52, 77.04,
+              84.79, 82.21, 89.78, 85.61, 81.37, 79.28, 82.18, 76.34,
+              78.69, 77.99, 81.49, 82.68,
             ],
             type: "line",
             color: "#ad7519",
@@ -613,8 +613,8 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
       },
     },
     provenance: {
-      vi: "Toàn bộ số liệu trên trang này — bản đồ liên kết, bảng xếp hạng và điểm căng thẳng — đến từ một lần chạy đầy đủ trên dữ liệu đến ngày 06/08/2026, trích trực tiếp từ tệp kết quả chứ không nhập lại bằng tay. Đây là ảnh chụp của lần chạy nghiên cứu đó, không phải trạng thái thị trường hôm nay: mô hình được chạy lại theo từng đợt nghiên cứu, và trang chỉ đổi khi có đợt mới được công bố. Ngày ghi ở trên là mốc dữ liệu thực sự đang hiển thị.",
-      en: "Every figure on this page — the relationship map, the ranking table and the stress score — comes from a single full run on data through 6 Aug 2026, read directly from the result files rather than re-entered by hand. It is a snapshot of that research run, not the state of the market today: the model is re-run in research cycles, and this page changes only when a new cycle is published. The date above is the data actually on display.",
+      vi: "Toàn bộ số liệu trên trang này — bản đồ liên kết, bảng xếp hạng và điểm căng thẳng — đến từ một lần chạy đầy đủ trên dữ liệu đến ngày 04/09/2026, trích trực tiếp từ tệp kết quả chứ không nhập lại bằng tay. Đây là ảnh chụp của lần chạy nghiên cứu đó, không phải trạng thái thị trường hôm nay: mô hình được chạy lại theo từng đợt nghiên cứu, và trang chỉ đổi khi có đợt mới được công bố. Ngày ghi ở trên là mốc dữ liệu thực sự đang hiển thị.",
+      en: "Every figure on this page — the relationship map, the ranking table and the stress score — comes from a single full run on data through 4 Sep 2026, read directly from the result files rather than re-entered by hand. It is a snapshot of that research run, not the state of the market today: the model is re-run in research cycles, and this page changes only when a new cycle is published. The date above is the data actually on display.",
     },
   },
   msdp: {
