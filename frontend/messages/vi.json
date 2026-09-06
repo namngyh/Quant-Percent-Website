@@ -57,6 +57,22 @@
       "title": "Quên mật khẩu",
       "description": "Khôi phục quyền truy cập tài khoản Quant Percent của bạn."
     },
+    "resetPassword": {
+      "title": "Đặt lại mật khẩu",
+      "description": "Chọn mật khẩu mới cho tài khoản Quant Percent của bạn."
+    },
+    "verifyEmail": {
+      "title": "Xác thực email",
+      "description": "Xác nhận địa chỉ email cho tài khoản Quant Percent của bạn."
+    },
+    "account": {
+      "title": "Tài khoản",
+      "description": "Quản lý thông tin cá nhân và mật khẩu tài khoản Quant Percent của bạn."
+    },
+    "admin": {
+      "title": "Quản trị",
+      "description": "Khu vực quản trị Quant Percent."
+    },
     "portfolio": {
       "title": "Phân tích rủi ro danh mục",
       "description": "Nhập danh mục cổ phiếu để xem giá trị, lãi lỗ, mức biến động, khả năng thua lỗ và cổ phiếu nào đóng góp phần lớn rủi ro."
@@ -768,7 +784,7 @@
   },
   "status": {
     "title": "Trạng thái hệ thống",
-    "description": "Trạng thái vận hành của các dịch vụ dữ liệu và mô hình. Trang này đang phản ánh môi trường dữ liệu minh họa trong giai đoạn phát triển.",
+    "description": "Trạng thái vận hành của các dịch vụ dữ liệu và mô hình.",
     "services": "Dịch vụ",
     "serviceNames": {
       "market_data": "Dữ liệu thị trường",
@@ -783,6 +799,42 @@
     "degraded": "Suy giảm",
     "down": "Gián đoạn",
     "lastChecked": "Kiểm tra lúc"
+  },
+  "admin": {
+    "title": "Quản trị",
+    "description": "Danh sách tài khoản và các yêu cầu đang chờ duyệt.",
+    "gateTitle": "Khu vực quản trị",
+    "gateDescription": "Trang này chỉ dành cho quản trị viên.",
+    "pendingTitle": "Yêu cầu chờ duyệt",
+    "pendingEmpty": "Không có yêu cầu nào đang chờ.",
+    "pendingText": "{name} xin quyền tác giả.",
+    "usersTitle": "Tài khoản",
+    "approve": "Đồng ý",
+    "reject": "Từ chối",
+    "working": "Đang xử lý…",
+    "colEmail": "Email",
+    "colName": "Họ tên",
+    "colRole": "Vai trò",
+    "colVerified": "Xác thực",
+    "colCreated": "Ngày đăng ký",
+    "colLastLogin": "Đăng nhập gần nhất",
+    "colStatus": "Trạng thái",
+    "colActions": "Thao tác",
+    "roleUser": "Người dùng",
+    "roleAuthor": "Tác giả",
+    "roleAdmin": "Quản trị viên",
+    "verifiedYes": "Đã xác thực",
+    "verifiedNo": "Chưa xác thực",
+    "statusActive": "Đang hoạt động",
+    "statusDisabled": "Đã khoá",
+    "makeAuthor": "Cấp quyền tác giả",
+    "removeAuthor": "Thu quyền tác giả",
+    "disable": "Khoá",
+    "enable": "Mở khoá",
+    "self": "Tài khoản của bạn",
+    "lastLoginNote": "Là lần đăng nhập bằng mật khẩu gần nhất, không phải lần truy cập gần nhất.",
+    "error": "Không thực hiện được. Vui lòng thử lại.",
+    "cannotModifySelf": "Bạn không thể tự hạ quyền hoặc tự khoá tài khoản của mình."
   },
   "auth": {
     "nav": {
@@ -811,15 +863,82 @@
     },
     "forgot": {
       "title": "Quên mật khẩu",
-      "description": "Tính năng khôi phục mật khẩu đang ở giai đoạn thử nghiệm và chưa gửi email thật.",
-      "submit": "Kiểm tra tính năng",
+      "description": "Nhập email của tài khoản. Chúng tôi sẽ gửi cho bạn một liên kết để đặt lại mật khẩu.",
+      "submit": "Gửi liên kết đặt lại",
       "submitting": "Đang xử lý…",
-      "sent": "Đây là bản thử nghiệm nên chưa có email khôi phục nào được gửi.",
+      "sent": "Nếu email này có tài khoản, chúng tôi đã gửi liên kết đặt lại mật khẩu. Liên kết có hiệu lực trong 1 giờ.",
       "backToLogin": "Quay lại đăng nhập"
+    },
+    "reset": {
+      "title": "Đặt lại mật khẩu",
+      "description": "Chọn mật khẩu mới cho tài khoản của bạn.",
+      "submit": "Đặt lại mật khẩu",
+      "submitting": "Đang đặt lại…",
+      "success": "Mật khẩu đã được cập nhật. Mọi phiên đăng nhập cũ đã kết thúc, bạn hãy đăng nhập lại bằng mật khẩu mới.",
+      "missingToken": "Liên kết này thiếu mã đặt lại. Hãy mở lại liên kết trong email, hoặc yêu cầu gửi liên kết mới.",
+      "invalidToken": "Liên kết đã hết hạn hoặc đã được dùng. Mỗi liên kết chỉ dùng được một lần và có hiệu lực trong 1 giờ.",
+      "rateLimited": "Bạn đã thử quá nhiều lần. Vui lòng đợi khoảng một giờ rồi thử lại.",
+      "requestNew": "Yêu cầu liên kết mới",
+      "toLogin": "Đăng nhập"
+    },
+    "verify": {
+      "title": "Xác thực email",
+      "description": "Chúng tôi đang xác nhận địa chỉ email của bạn.",
+      "verifying": "Đang xác thực…",
+      "success": "Email của bạn đã được xác thực.",
+      "invalidToken": "Liên kết xác thực đã hết hạn hoặc đã được dùng. Nếu bạn đã xác thực trước đó thì không cần làm gì thêm.",
+      "missingToken": "Liên kết này thiếu mã xác thực. Hãy mở lại liên kết trong email.",
+      "toLogin": "Đăng nhập",
+      "continue": "Xem các mô hình",
+      "gateTitle": "Xác thực email để tiếp tục",
+      "gateText": "Chúng tôi đã gửi liên kết xác thực tới {email}. Mở liên kết đó để xem nội dung dành cho thành viên. Nếu không thấy, hãy kiểm tra cả thư mục spam.",
+      "gateBadge": "Cần xác thực email",
+      "gateCardHint": "Xác thực email để mở khóa mô hình này",
+      "bannerText": "Xác thực email để xem thêm {locked} mô hình và phần kết quả chi tiết.",
+      "bannerAction": "Xác thực email",
+      "resend": "Gửi lại email xác thực",
+      "resendSending": "Đang gửi…",
+      "resendSent": "Đã gửi. Kiểm tra hộp thư của bạn, kể cả thư mục spam. Liên kết có hiệu lực trong 3 ngày.",
+      "resendRateLimited": "Bạn đã yêu cầu quá nhiều lần. Vui lòng đợi khoảng một giờ rồi thử lại.",
+      "resendError": "Không gửi được lúc này. Vui lòng thử lại sau."
+    },
+    "account": {
+      "title": "Tài khoản",
+      "description": "Quản lý thông tin cá nhân và mật khẩu của bạn.",
+      "profileTitle": "Thông tin cá nhân",
+      "profileDescription": "Tên hiển thị trên thanh điều hướng và trong các trao đổi với chúng tôi.",
+      "phoneHint": "Không bắt buộc. Chúng tôi chỉ dùng khi cần liên hệ về chính yêu cầu của bạn.",
+      "save": "Lưu thay đổi",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu thông tin.",
+      "emailLabel": "Email đăng nhập",
+      "emailNote": "Email là danh tính đăng nhập nên chưa đổi được ở đây. Cần đổi thì liên hệ với chúng tôi.",
+      "passwordTitle": "Đổi mật khẩu",
+      "passwordDescription": "Nhập mật khẩu hiện tại để xác nhận đó là bạn.",
+      "currentPassword": "Mật khẩu hiện tại",
+      "newPassword": "Mật khẩu mới",
+      "changePassword": "Đổi mật khẩu",
+      "changing": "Đang đổi…",
+      "passwordChanged": "Đã đổi mật khẩu. Thiết bị này vẫn đăng nhập, còn mọi thiết bị khác đã bị đăng xuất.",
+      "wrongPassword": "Mật khẩu hiện tại không đúng.",
+      "rateLimited": "Bạn đã thử quá nhiều lần. Vui lòng đợi khoảng 15 phút rồi thử lại.",
+      "gateTitle": "Cần đăng nhập",
+      "gateDescription": "Đăng nhập để xem và chỉnh sửa thông tin tài khoản của bạn."
+    },
+    "author": {
+      "title": "Quyền tác giả",
+      "description": "Xin quyền đăng bài nghiên cứu lên Quant Percent. Quản trị viên sẽ xem xét yêu cầu của bạn.",
+      "request": "Xin quyền tác giả",
+      "requesting": "Đang gửi…",
+      "pending": "Yêu cầu của bạn đang chờ quản trị viên xem xét.",
+      "rejected": "Yêu cầu trước đó chưa được chấp thuận. Bạn có thể liên hệ với chúng tôi để trao đổi thêm.",
+      "granted": "Bạn đã có quyền tác giả.",
+      "error": "Không gửi được yêu cầu. Vui lòng thử lại."
     },
     "fields": {
       "name": "Họ tên",
       "email": "Email",
+      "phone": "Số điện thoại",
       "password": "Mật khẩu",
       "confirmPassword": "Xác nhận mật khẩu",
       "consent": "Tôi đồng ý với thông tin pháp lý và chính sách bảo mật của Quant Percent."
@@ -832,7 +951,9 @@
       "passwordTooShort": "Mật khẩu tối thiểu 8 ký tự",
       "confirmRequired": "Vui lòng xác nhận mật khẩu",
       "confirmMismatch": "Mật khẩu xác nhận không khớp",
-      "consentRequired": "Bạn cần đồng ý để tạo tài khoản"
+      "consentRequired": "Bạn cần đồng ý để tạo tài khoản",
+      "passwordTooLong": "Mật khẩu tối đa 200 ký tự",
+      "phoneInvalid": "Số điện thoại không hợp lệ"
     },
     "error": "Không thể xử lý yêu cầu. Vui lòng thử lại."
   },

@@ -6,7 +6,7 @@
 #   - Bằng tay:      ssh vào VPS rồi gõ  bash ~/Quant-Percent-Website/backend/deploy/deploy.sh
 #   - Tự động:       GitHub Actions gọi file này sau khi test đã xanh
 #
-# Mỗi bước đều in ra "==> n/6" nên đọc log là biết nó đang làm gì và chết ở đâu.
+# Mỗi bước đều in ra "==> n/8" nên đọc log là biết nó đang làm gì và chết ở đâu.
 
 set -euo pipefail
 # -e            gặp lỗi là dừng ngay, KHÔNG chạy tiếp các bước sau.
@@ -35,7 +35,7 @@ COMPOSE=(
   -f compose.override.yml
 )
 
-echo "==> 1/6 Kiểm tra file cấu hình bí mật"
+echo "==> 1/8 Kiểm tra file cấu hình bí mật"
 cd "$DEPLOY_DIR"
 if [ ! -f .env.production ]; then
   echo "LỖI: không thấy $DEPLOY_DIR/.env.production" >&2
@@ -56,7 +56,7 @@ for cert in /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem; do
   fi
 done
 
-echo "==> 2/6 Lấy code mới nhất từ GitHub"
+echo "==> 2/8 Lấy code mới nhất từ GitHub"
 cd "$REPO_DIR"
 git fetch --prune origin
 git reset --hard origin/main
@@ -69,20 +69,50 @@ git reset --hard origin/main
 # tức là xoá luôn deploy/.env.production, và cả stack sẽ không khởi động lại
 # được vì mất hết mật khẩu database.
 
-echo "==> 3/6 Build lại image và khởi động"
+echo "==> 3/8 Build image từ code vừa kéo về"
 cd "$DEPLOY_DIR"
-"${COMPOSE[@]}" up -d --build
-# --build  build lại image từ code vừa kéo về. Thiếu cờ này thì container vẫn
-#          chạy code cũ dù git đã cập nhật — lỗi hay gặp nhất khi deploy tay.
-# -d       chạy nền.
+"${COMPOSE[@]}" build
+# Tách hẳn khỏi `up` (trước đây là `up -d --build`) để bước migration ở dưới
+# chạy được bằng ĐÚNG image mới. Nếu build gộp vào `up`, thứ tự sẽ là
+# "khởi động code mới rồi mới nâng schema" — tức là có một quãng code mới chạy
+# trên schema cũ, đúng thứ ta đang muốn tránh.
+#
+# Build ở đây chưa đụng gì tới container đang chạy: web vẫn phục vụ bản cũ
+# suốt lúc build.
+
+echo "==> 4/8 Cập nhật schema database"
+"${COMPOSE[@]}" --profile tools run --rm migrate
+# Đây là bước trước kia chỉ tồn tại dưới dạng một dòng comment nhắc nhở, và
+# nhắc nhở thì có ngày quên. Quên nó thì API mới chạy với schema cũ và vỡ ở
+# mọi truy vấn chạm vào cột chưa tồn tại.
+#
+# `alembic upgrade head` là idempotent: không có migration mới thì nó không
+# làm gì cả, nên chạy mỗi lần deploy là vô hại.
+#
+# Chạy TRƯỚC `up` là có chủ ý, và nó an toàn vì migration trong repo này chỉ
+# thêm cột/bảng chứ không xoá: giữa hai bước, container CŨ vẫn chạy trên
+# schema MỚI, mà thêm cột thì code cũ không hề hấn gì. Nếu sau này có
+# migration xoá hay đổi tên cột thì phải tách làm hai lần deploy — thêm trước,
+# dọn sau — chứ không được để chung.
+#
+# `set -e` ở đầu file lo phần còn lại: migration hỏng là dừng ngay tại đây,
+# `up` không chạy, và web vẫn đang chạy bản cũ nguyên vẹn.
+#
+# Lệnh này kéo theo hai service khác qua `depends_on`, và đó là điều mong muốn:
+#   - timescaledb  phải healthy trước khi có gì để nâng cấp
+#   - db-role-init chạy scripts/create_role.sql, idempotent, chỉ đặt lại mật
+#                  khẩu và quyền cho qp_web
+# Nghĩa là mỗi lần deploy đều chạy lại db-role-init. Vô hại, và nó đòi
+# QP_WEB_PASSWORD — biến mà service `api` vốn đã bắt buộc phải có, nên không
+# phát sinh yêu cầu mới nào.
+
+echo "==> 5/8 Khởi động"
+"${COMPOSE[@]}" up -d
+# -d  chạy nền.
 # Compose chỉ tạo lại container nào thật sự thay đổi, nên TimescaleDB và Redis
 # không bị restart và dữ liệu không bị gián đoạn.
-#
-# GHI NHỚ CHO LẦN SAU: nếu bản deploy nào có thêm bảng mới trong database thì
-# phải chèn dòng dưới vào TRƯỚC lệnh `up`, nếu không API sẽ chạy với schema cũ:
-#   "${COMPOSE[@]}" --profile tools run --rm migrate
 
-echo "==> 4/6 Chờ web trả lời (tối đa 90 giây)"
+echo "==> 6/8 Chờ web trả lời (tối đa 90 giây)"
 DOMAIN="$(awk -F= '/^DOMAIN=/{print $2; exit}' .env.production)"
 if [ -z "$DOMAIN" ]; then
   echo "LỖI: .env.production không có dòng DOMAIN=" >&2
@@ -113,10 +143,10 @@ echo "Trạng thái phụ thuộc:"
 curl -fsS --max-time 5 "https://$DOMAIN/readyz" || echo "(readyz không xanh — xem lại database/redis)"
 echo
 
-echo "==> 5/6 Trạng thái các container"
+echo "==> 7/8 Trạng thái các container"
 "${COMPOSE[@]}" ps
 
-echo "==> 6/6 Dọn image cũ"
+echo "==> 8/8 Dọn image cũ"
 docker image prune -f
 # Mỗi lần --build để lại một image cũ không ai dùng. VPS dung lượng có hạn,
 # vài chục lần deploy là đầy ổ. Lệnh này chỉ xoá image không container nào

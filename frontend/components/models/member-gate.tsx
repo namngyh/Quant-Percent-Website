@@ -5,11 +5,13 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { SkeletonLoader } from "@/components/states/skeleton-loader";
+import { VerifyEmailGate } from "@/components/auth/verify-email-gate";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isVerifiedMember } from "@/lib/auth/verified";
 
 /**
- * Gates members-only model content on the detail page. UI-level only.
- * once the backend exists, this check belongs on the server.
+ * Gates members-only model content on the detail page. Presentation only —
+ * the server already refused the data; this just explains which wall was hit.
  */
 export function MemberGate({
   locked,
@@ -22,7 +24,7 @@ export function MemberGate({
 }) {
   const t = useTranslations("models.locked");
   const tAuth = useTranslations("auth.nav");
-  const { status } = useAuth();
+  const { user, status } = useAuth();
 
   if (!locked) return <>{children}</>;
 
@@ -30,7 +32,11 @@ export function MemberGate({
     return <SkeletonLoader rows={6} className="mt-4" />;
   }
 
-  if (status === "authenticated") return <>{children}</>;
+  if (isVerifiedMember(user)) return <>{children}</>;
+
+  // Signed in, but the address was never confirmed. A sign-in button here
+  // would be a loop: they already are signed in.
+  if (user) return <VerifyEmailGate />;
 
   return (
     <section className="flex flex-col items-center rounded-lg border border-border bg-surface px-6 py-16 text-center shadow-sm">

@@ -29,6 +29,22 @@ function cookieValue(name: string) {
   return item ? decodeURIComponent(item.slice(prefix.length)) : null;
 }
 
+/**
+ * True when this browser still carries the readable half of a session.
+ *
+ * qp_csrf is the only session cookie that is not httpOnly, and the backend sets
+ * and clears it alongside qp_refresh with the same 30-day life
+ * (backend/app/services/auth.py). So its absence means there is no session to
+ * probe, and no reason to spend a request on /auth/me that can only come back
+ * 401 and paint the console red.
+ *
+ * A hint, not an authority — the server still decides. A stale cookie costs one
+ * 401, exactly what happens today.
+ */
+export function hasSessionHint() {
+  return cookieValue(CSRF_COOKIE) !== null;
+}
+
 async function request<T>(
   path: string,
   init: RequestInit,
@@ -52,11 +68,20 @@ async function request<T>(
     credentials: "include",
   });
 
+  // Only /auth/refresh itself is excluded, not the whole /api/v1/auth/ branch.
+  // /auth/me is the one call that decides whether the session is alive on page
+  // load, so excluding it meant a visitor whose 15-minute access cookie had
+  // expired was rendered as logged out while a valid 30-day refresh cookie sat
+  // in the browser unused.
+  //
+  // One retry at most, guarded twice: the retry below passes allowRefresh=false,
+  // and the refresh call itself uses bare fetch rather than request(), so it
+  // cannot recurse.
   if (
     response.status === 401 &&
     allowRefresh &&
     method === "GET" &&
-    !path.startsWith("/api/v1/auth/")
+    path !== "/api/v1/auth/refresh"
   ) {
     const refreshed = await fetch(`${BASE}/api/v1/auth/refresh`, {
       method: "POST",
@@ -88,5 +113,12 @@ export function useApi<T>(path: string | null) {
   return useSWR<T>(path, (p: string) => apiFetch<T>(p), {
     revalidateOnFocus: false,
     refreshInterval: 5 * 60 * 1000,
+    // SWR retries forever by default, with no cap. A 4xx is the server's settled
+    // answer — 404 not_available for the research-only models, 403 members_only,
+    // 401 — and retrying cannot change it, so stop at once. Network faults and
+    // 5xx deserve another go, but twice, not endlessly.
+    errorRetryCount: 2,
+    shouldRetryOnError: (error: unknown) =>
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500),
   });
 }
