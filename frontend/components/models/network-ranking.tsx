@@ -52,7 +52,7 @@ const COPY = {
     showAll: "Xem đủ 30 mã",
     showTop: "Thu gọn còn 10 mã",
     basket:
-      "Rổ VN30 sau kỳ đảo rổ ngày 03/08/2026 (PLX và TPB rời rổ; MCH và TCX vào rổ). Bảng hiện {count} mã: TCX chưa đủ một năm dữ liệu giá nên chưa đưa vào ước lượng mạng lưới được, và sẽ xuất hiện khi tích luỹ đủ lịch sử.",
+      "Bảng hiện {count} trong 30 mã của rổ VN30. Mã vắng mặt là mã chưa đủ một năm dữ liệu giá — thường là mã mới vào rổ — nên chưa thể đưa vào ước lượng mạng lưới, và sẽ xuất hiện khi tích luỹ đủ lịch sử.",
     note: "Số liệu trích từ lần chạy nghiên cứu gần nhất. Cấu trúc mạng lưới được kiểm chứng ổn định giữa các phiên; tầng dự báo căng thẳng của mô hình chưa đạt và không được công bố.",
   },
   en: {
@@ -77,7 +77,7 @@ const COPY = {
     showAll: "Show all 30",
     showTop: "Show top 10",
     basket:
-      "VN30 after the 3 August 2026 rebalance (PLX and TPB out; MCH and TCX in). The table shows {count} names: TCX does not yet have a year of price history, so it cannot enter the network estimate and will appear once it does.",
+      "The table shows {count} of the 30 VN30 constituents. A name is absent when it does not yet have a year of price history — usually a recent addition to the basket — so it cannot enter the network estimate, and it appears once that history accumulates.",
     note: "Figures come from the most recent research run. The network structure is validated as stable between sessions; the model's stress-forecasting layer did not pass and is not published.",
   },
 } as const;
@@ -94,6 +94,16 @@ export function NetworkRanking({
   const uiLocale = useLocale();
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [expanded, setExpanded] = useState(false);
+
+  // Computed from the export rather than hard-coded: a run that does carry
+  // sector labels should show the column again without a code change.
+  const hasSectors = useMemo(
+    () =>
+      nodesSource.some(
+        (n) => n.sector && n.sector.toUpperCase() !== "UNKNOWN",
+      ),
+    [],
+  );
 
   const maxStrength = useMemo(
     () => Math.max(...nodesSource.map((n) => n.strength)),
@@ -128,9 +138,16 @@ export function NetworkRanking({
       </h2>
       <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink">{t.lead}</p>
 
-      {/* A reader who follows the index will count the rows. Say which basket
-          this is and why it is short of thirty, so a deliberate exclusion is
-          not read as a missing row. */}
+      {/* The export carries a sector per node, but the field is only filled
+          when the run has a sector map loaded; without one every row reads
+          "UNKNOWN". A column of thirty identical placeholders tells a reader
+          nothing and makes the table look broken, so it is dropped entirely
+          rather than shown empty. */}
+      {/* A reader who follows the index will count the rows and find fewer
+          than thirty. Say why, in terms of the condition rather than a named
+          rebalance: the previous wording listed the tickers of one particular
+          reshuffle, and went stale the moment the basket changed again --
+          claiming PLX had left while the table below still ranked it sixth. */}
       <p className="mt-3 max-w-3xl rounded-lg border border-border bg-surface px-4 py-3 text-xs leading-relaxed text-dim">
         {t.basket.replace("{count}", String(nodesSource.length))}
       </p>
@@ -165,9 +182,11 @@ export function NetworkRanking({
               <th scope="col" className="px-4 py-3 font-medium text-dim">
                 {t.ticker}
               </th>
-              <th scope="col" className="px-4 py-3 font-medium text-dim">
-                {t.sector}
-              </th>
+              {hasSectors && (
+                <th scope="col" className="px-4 py-3 font-medium text-dim">
+                  {t.sector}
+                </th>
+              )}
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -188,9 +207,11 @@ export function NetworkRanking({
               <tr key={n.id} className="border-b border-border last:border-0">
                 <td className="figure px-4 py-3 text-dim">{n.rank}</td>
                 <td className="figure px-4 py-3 font-semibold">{n.label}</td>
-                <td className="px-4 py-3 text-dim">
-                  {sectorLabel(n.sector, locale)}
-                </td>
+                {hasSectors && (
+                  <td className="px-4 py-3 text-dim">
+                    {sectorLabel(n.sector, locale)}
+                  </td>
+                )}
 
                 {/* Influence carries a bar as well as a number: the ordering
                     is the point, and a bar reads faster than four decimals. */}
