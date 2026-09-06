@@ -88,11 +88,20 @@ fi
 
 echo "==> 3/9 Build image từ code vừa kéo về"
 cd "$DEPLOY_DIR"
-"${COMPOSE[@]}" build
+"${COMPOSE[@]}" --profile tools build
 # Tách hẳn khỏi `up` (trước đây là `up -d --build`) để bước migration ở dưới
 # chạy được bằng ĐÚNG image mới. Nếu build gộp vào `up`, thứ tự sẽ là
 # "khởi động code mới rồi mới nâng schema" — tức là có một quãng code mới chạy
 # trên schema cũ, đúng thứ ta đang muốn tránh.
+#
+# `--profile tools` là BẮT BUỘC, không phải cho gọn. Không có nó, Compose
+# không nhìn thấy service `migrate` — kiểm bằng:
+#     docker compose ... config --services            -> khong co migrate
+#     docker compose ... --profile tools config --services -> co migrate
+# nên image `migrate` không được build lại, và bước 4/9 sẽ chạy alembic của
+# một image cũ. Alembic đó không biết migration mới nào, nên nó báo "đã ở
+# head" và thoát 0 — schema không đổi mà deploy vẫn xanh. Đúng kiểu hỏng im
+# lặng, và nó đã xảy ra thật ở lần deploy đầu tiên.
 #
 # Build ở đây chưa đụng gì tới container đang chạy: web vẫn phục vụ bản cũ
 # suốt lúc build.
