@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { usesApiAuth } from "@/lib/auth/mode";
 
 /** Shared frame for the sign-in / sign-up / password-reset pages. */
 export async function AuthShell({
@@ -30,10 +31,14 @@ export async function AuthShell({
           </div>
         )}
 
-        {/* Honest about the current state: nothing is verified server-side */}
-        <p className="mt-8 border-l-2 border-lightgray pl-4 text-xs leading-relaxed text-dim">
-          {t("mockNotice")}
-        </p>
+        {/* True only of the localStorage stub. With NEXT_PUBLIC_AUTH_MODE=api the
+            backend hashes passwords with Argon2 and issues real session cookies,
+            so showing this in production would be a false claim. */}
+        {!usesApiAuth() && (
+          <p className="mt-8 border-l-2 border-lightgray pl-4 text-xs leading-relaxed text-dim">
+            {t("mockNotice")}
+          </p>
+        )}
       </div>
     </main>
   );

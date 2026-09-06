@@ -57,6 +57,22 @@
       "title": "Forgot password",
       "description": "Recover access to your Quant Percent account."
     },
+    "resetPassword": {
+      "title": "Set a new password",
+      "description": "Choose a new password for your Quant Percent account."
+    },
+    "verifyEmail": {
+      "title": "Verify your email",
+      "description": "Confirm the email address on your Quant Percent account."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Manage the personal details and password on your Quant Percent account."
+    },
+    "admin": {
+      "title": "Administration",
+      "description": "Quant Percent administration area."
+    },
     "portfolio": {
       "title": "Quant Portfolio — portfolio risk analysis",
       "description": "Enter a stock portfolio to see its value, profit, volatility, potential loss and which holding contributes most of the risk."
@@ -768,7 +784,7 @@
   },
   "status": {
     "title": "System Status",
-    "description": "Operational status of data and model services. This page reflects the mock environment during development.",
+    "description": "Operational status of data and model services.",
     "services": "Services",
     "serviceNames": {
       "market_data": "Market data",
@@ -783,6 +799,42 @@
     "degraded": "Degraded",
     "down": "Down",
     "lastChecked": "Last checked"
+  },
+  "admin": {
+    "title": "Administration",
+    "description": "Accounts and the requests waiting for a decision.",
+    "gateTitle": "Administration area",
+    "gateDescription": "This page is for administrators only.",
+    "pendingTitle": "Waiting for a decision",
+    "pendingEmpty": "Nothing is waiting.",
+    "pendingText": "{name} has asked to become an author.",
+    "usersTitle": "Accounts",
+    "approve": "Approve",
+    "reject": "Decline",
+    "working": "Working…",
+    "colEmail": "Email",
+    "colName": "Name",
+    "colRole": "Role",
+    "colVerified": "Verified",
+    "colCreated": "Registered",
+    "colLastLogin": "Last sign-in",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "roleUser": "Member",
+    "roleAuthor": "Author",
+    "roleAdmin": "Administrator",
+    "verifiedYes": "Verified",
+    "verifiedNo": "Not verified",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "makeAuthor": "Grant author",
+    "removeAuthor": "Revoke author",
+    "disable": "Disable",
+    "enable": "Enable",
+    "self": "Your account",
+    "lastLoginNote": "This is the last password sign-in, not the last visit.",
+    "error": "That did not work. Please try again.",
+    "cannotModifySelf": "You cannot demote or disable your own account."
   },
   "auth": {
     "nav": {
@@ -811,15 +863,82 @@
     },
     "forgot": {
       "title": "Forgot password",
-      "description": "Password recovery is a prototype and does not send email yet.",
-      "submit": "Check the Feature",
+      "description": "Enter your account email. We will send you a link to set a new password.",
+      "submit": "Send reset link",
       "submitting": "Processing…",
-      "sent": "This is a prototype, so no recovery email has been sent.",
+      "sent": "If that email has an account, we have sent a password reset link. It is valid for 1 hour.",
       "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Set a new password",
+      "description": "Choose a new password for your account.",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "success": "Your password has been updated. All previous sessions were signed out, so please sign in again with the new password.",
+      "missingToken": "This link is missing its reset code. Open the link from your email again, or request a new one.",
+      "invalidToken": "This link has expired or has already been used. Each link works once and lasts 1 hour.",
+      "rateLimited": "Too many attempts. Please wait about an hour and try again.",
+      "requestNew": "Request a new link",
+      "toLogin": "Sign in"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "description": "We are confirming your email address.",
+      "verifying": "Verifying…",
+      "success": "Your email address has been verified.",
+      "invalidToken": "This verification link has expired or has already been used. If you verified earlier, nothing more is needed.",
+      "missingToken": "This link is missing its verification code. Open the link from your email again.",
+      "toLogin": "Sign in",
+      "continue": "Browse the models",
+      "gateTitle": "Confirm your email to continue",
+      "gateText": "We sent a confirmation link to {email}. Open it to see members-only content. If it has not arrived, check your spam folder.",
+      "gateBadge": "Email not confirmed",
+      "gateCardHint": "Confirm your email to unlock this model",
+      "bannerText": "Confirm your email to see {locked} more models and their detailed results.",
+      "bannerAction": "Confirm email",
+      "resend": "Send a new confirmation link",
+      "resendSending": "Sending…",
+      "resendSent": "Sent. Check your inbox, including the spam folder. The link is valid for 3 days.",
+      "resendRateLimited": "Too many requests. Please wait about an hour and try again.",
+      "resendError": "Could not send it right now. Please try again later."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Manage your personal details and your password.",
+      "profileTitle": "Personal details",
+      "profileDescription": "Your name appears in the navigation bar and in our correspondence with you.",
+      "phoneHint": "Optional. We use it only to reach you about your own enquiry.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Your details have been saved.",
+      "emailLabel": "Sign-in email",
+      "emailNote": "Your email is your sign-in identity, so it cannot be changed here. Contact us if you need it changed.",
+      "passwordTitle": "Change password",
+      "passwordDescription": "Enter your current password to confirm it is you.",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "changePassword": "Change password",
+      "changing": "Changing…",
+      "passwordChanged": "Your password has been changed. This device stays signed in; every other device has been signed out.",
+      "wrongPassword": "That is not your current password.",
+      "rateLimited": "Too many attempts. Please wait about 15 minutes and try again.",
+      "gateTitle": "Sign in required",
+      "gateDescription": "Sign in to view and edit your account details."
+    },
+    "author": {
+      "title": "Author access",
+      "description": "Ask for permission to publish research on Quant Percent. An administrator will review your request.",
+      "request": "Request author access",
+      "requesting": "Sending…",
+      "pending": "Your request is waiting for an administrator.",
+      "rejected": "Your earlier request was not approved. Get in touch if you would like to discuss it.",
+      "granted": "You have author access.",
+      "error": "Could not send the request. Please try again."
     },
     "fields": {
       "name": "Full name",
       "email": "Email",
+      "phone": "Phone number",
       "password": "Password",
       "confirmPassword": "Confirm password",
       "consent": "I agree to Quant Percent's legal terms and privacy policy."
@@ -832,7 +951,9 @@
       "passwordTooShort": "Password must be at least 8 characters",
       "confirmRequired": "Please confirm your password",
       "confirmMismatch": "Passwords do not match",
-      "consentRequired": "You must agree to create an account"
+      "consentRequired": "You must agree to create an account",
+      "passwordTooLong": "Password must be at most 200 characters",
+      "phoneInvalid": "That does not look like a phone number"
     },
     "error": "Could not process your request. Please try again."
   },

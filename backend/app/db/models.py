@@ -47,16 +47,43 @@ def _uuid_pk() -> Mapped[uuid.UUID]:
 
 
 class User(Base):
+    """An account. ``role`` is the switch the admin endpoints gate on; the
+    frontend only reads it to decide which message to show."""
+
     __tablename__ = "users"
-    __table_args__ = {"schema": WEB_SCHEMA}
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'author', 'admin')", name="role_valid"
+        ),
+        CheckConstraint(
+            "status IN ('active', 'disabled')", name="status_valid"
+        ),
+        # NULL means never asked. Approval is read from role = 'author', not
+        # duplicated here, so the two can never disagree.
+        CheckConstraint(
+            "author_request_status IN ('pending', 'rejected')",
+            name="author_request_status_valid",
+        ),
+        {"schema": WEB_SCHEMA},
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Optional, and the same width as contacts.phone so the two agree on what
+    # a phone number is. Nobody needs one to hold an account.
+    phone: Mapped[str | None] = mapped_column(String(40))
     locale: Mapped[str] = mapped_column(String(5), default="vi", nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False
+    )
+    role: Mapped[str] = mapped_column(
+        String(20), default="user", server_default="user", nullable=False
+    )
+    author_request_status: Mapped[str | None] = mapped_column(String(20))
+    author_request_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
     )
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)

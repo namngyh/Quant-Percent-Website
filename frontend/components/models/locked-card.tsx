@@ -3,12 +3,14 @@
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { VerifyEmailGate } from "@/components/auth/verify-email-gate";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isVerifiedMember } from "@/lib/auth/verified";
 
 /**
- * Wraps a server-rendered ModelCard. Members-only models are blurred
- * behind a lock until the visitor signs in; clicking goes to /login and
- * returns to the model afterwards.
+ * Wraps a server-rendered ModelCard. Members-only models stay blurred until
+ * the visitor has both signed in and confirmed their address; the overlay
+ * says which of the two is missing and links to the step that fixes it.
  */
 export function LockedCard({
   locked,
@@ -20,11 +22,16 @@ export function LockedCard({
   children: React.ReactNode;
 }) {
   const t = useTranslations("models.locked");
-  const { status } = useAuth();
+  const { user, status } = useAuth();
 
   // While the stored session is being read, show the card as-is so
-  // signed-in visitors never see a flash of the locked state.
-  if (!locked || status !== "anonymous") return <>{children}</>;
+  // confirmed members never see a flash of the locked state.
+  if (!locked || status === "loading" || isVerifiedMember(user)) {
+    return <>{children}</>;
+  }
+
+  const unverified = user !== null;
+  const href = unverified ? "/account" : `/login?next=/models/${slug}`;
 
   return (
     <div className="relative h-full">
@@ -36,16 +43,22 @@ export function LockedCard({
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/40 p-6 text-center">
-        <span className="flex size-11 items-center justify-center rounded-full border border-border bg-background">
-          <Lock className="size-4" aria-hidden="true" />
-        </span>
-        <p className="text-sm font-medium">{t("badge")}</p>
-        <p className="max-w-[15rem] text-xs text-dim">{t("cardHint")}</p>
+        {unverified ? (
+          <VerifyEmailGate compact />
+        ) : (
+          <>
+            <span className="flex size-11 items-center justify-center rounded-full border border-border bg-background">
+              <Lock className="size-4" aria-hidden="true" />
+            </span>
+            <p className="text-sm font-medium">{t("badge")}</p>
+            <p className="max-w-[15rem] text-xs text-dim">{t("cardHint")}</p>
+          </>
+        )}
       </div>
 
       {/* Whole-card click target */}
       <Link
-        href={`/login?next=/models/${slug}`}
+        href={href}
         className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
       >
         <span className="sr-only">{t("cardHint")}</span>

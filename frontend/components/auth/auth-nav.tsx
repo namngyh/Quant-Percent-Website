@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isAdmin } from "@/lib/auth/verified";
 
 /**
  * Header account controls. Renders nothing until the stored session is
@@ -16,7 +17,9 @@ export function AuthNav({
   onNavigate?: () => void;
 }) {
   const t = useTranslations("auth.nav");
+  const tAdmin = useTranslations("admin");
   const { user, status, signOut } = useAuth();
+  const admin = isAdmin(user);
 
   if (status === "loading") {
     return variant === "desktop" ? <span className="w-28" aria-hidden="true" /> : null;
@@ -27,9 +30,23 @@ export function AuthNav({
       <>
         {user ? (
           <>
-            <p className="border-b border-border py-5 text-sm text-dim">
-              {user.email}
-            </p>
+            <Link
+              href="/account"
+              onClick={onNavigate}
+              className="border-b border-border py-5 text-xl font-medium tracking-normal text-brand"
+              title={user.email}
+            >
+              {user.name}
+            </Link>
+            {admin && (
+              <Link
+                href="/admin"
+                onClick={onNavigate}
+                className="border-b border-border py-5 text-xl font-medium tracking-normal"
+              >
+                {tAdmin("title")}
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -66,12 +83,26 @@ export function AuthNav({
   if (user) {
     return (
       <div className="flex items-center gap-3">
-        <span
-          className="max-w-[11rem] truncate text-[13px] text-dim"
+        {/* The name, not the email: it is what the member chose to be called,
+            and it survives the 11rem truncation far better. text-brand rather
+            than the nav links' text-ink so "you" reads as a different kind of
+            thing from the sections of the site. The email stays reachable in
+            the tooltip. */}
+        {admin && (
+          <Link
+            href="/admin"
+            className="text-[13px] font-medium text-dim transition-colors hover:text-foreground"
+          >
+            {tAdmin("title")}
+          </Link>
+        )}
+        <Link
+          href="/account"
+          className="max-w-[11rem] truncate text-[13px] font-medium text-brand transition-colors hover:text-brand-strong"
           title={user.email}
         >
-          {user.email}
-        </span>
+          {user.name}
+        </Link>
         <button
           type="button"
           onClick={() => void signOut()}
