@@ -49,6 +49,8 @@ from datetime import UTC, datetime, time as dtime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from psycopg.types.json import Json
+
 # Scripts here run under several different virtualenvs, so the shared
 # helper is imported by path rather than as a package.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -297,13 +299,16 @@ def load_rarf(conn, payload: dict, symbol: str = "VNINDEX") -> None:
 # --- DynamicGraph ---------------------------------------------------------
 
 
-def load_dynamic_graph(conn, payload: dict) -> str:
+def load_dynamic_graph(conn, payload: dict, source: Path | None = None) -> str:
     """Record a DynamicGraph run. No forecast row is written.
 
-    The network state is descriptive, not predictive, and it reaches the site
-    as a file (`nodes.json` / `edges.json` copied by `npm run research:sync`),
-    not through `quant`. What belongs here is the fact that the run happened
-    and what it saw, so `/system-status` can tell a fresh network from a
+    The network state is descriptive, not predictive, so no forecast row is
+    written. It now travels through `quant.network_snapshots` rather than as
+    two JSON files copied into the frontend and committed: that route meant
+    the page could only change on a deploy, and it sat on a 6 August snapshot
+    for a month while this ran every session. What also belongs here is the
+    fact that the run happened and what it saw, so `/system-status` can tell
+    a fresh network from a
     three-week-old one.
 
     The stress probabilities in the same artifact are read only to be refused:
@@ -327,6 +332,54 @@ def load_dynamic_graph(conn, payload: dict) -> str:
     )
     if warned:
         note += f"; stress probabilities withheld ({', '.join(warned)})"
+
+    # The graph itself, so the website reads it the same day it is computed.
+    # Nodes and edges go in whole: the page draws every measure the model
+    # exports, and re-listing them here would mean editing this file whenever
+    # the model adds one.
+    universe = payload["universe"]
+    # `nodes.json` and `edges.json` sit beside the payload rather than inside
+    # it; the model writes the three together into artifacts/latest/.
+    directory = source.parent if source else None
+    nodes = _read(directory / "nodes.json") if directory else []
+    edges = _read(directory / "edges.json") if directory else []
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO quant.network_snapshots (
+                as_of_date, index_name, generated_at, model_version,
+                graph_layer, graph_window, node_count, stress_score,
+                stress_label, stress_percentile, nodes, edges, communities)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (as_of_date, index_name) DO UPDATE SET
+                generated_at = EXCLUDED.generated_at,
+                model_version = EXCLUDED.model_version,
+                graph_layer = EXCLUDED.graph_layer,
+                graph_window = EXCLUDED.graph_window,
+                node_count = EXCLUDED.node_count,
+                stress_score = EXCLUDED.stress_score,
+                stress_label = EXCLUDED.stress_label,
+                stress_percentile = EXCLUDED.stress_percentile,
+                nodes = EXCLUDED.nodes,
+                edges = EXCLUDED.edges,
+                communities = EXCLUDED.communities
+            """,
+            (
+                as_of,
+                universe["index"],
+                model["generated_at"],
+                model["version"],
+                model["graph_layer"],
+                model["graph_window"],
+                universe["node_count"],
+                state["stress_score"],
+                state["label"],
+                state.get("historical_percentile"),
+                Json(nodes),
+                Json(edges),
+                Json(payload.get("communities")),
+            ),
+        )
 
     _mark_run(conn, "dynamic-graph", generated_at, healthy=True, note=note[:200])
     return as_of
@@ -405,7 +458,7 @@ def _mark_run(conn, model_id: str, when: datetime, healthy: bool, note: str | No
 MODEL_IDS = ("msdp", "rarf-fhe", "raemf-mc", "dynamic-graph")
 
 
-def _read(path: str) -> dict:
+def _read(path: str | Path) -> dict | list:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
@@ -460,7 +513,11 @@ def main() -> int:
             as_of = load_raemf(conn, _read(args.raemf))
             print(f"raemf-mc  : run recorded, as_of={as_of} (no forecast row)")
         if args.dynamic_graph:
-            as_of = load_dynamic_graph(conn, _read(args.dynamic_graph))
+            as_of = load_dynamic_graph(
+                conn,
+                _read(args.dynamic_graph),
+                Path(args.dynamic_graph),
+            )
             print(f"dyn-graph : run recorded, as_of={as_of} (no forecast row)")
 
         # Failures are marked after the successes so that a model named in
