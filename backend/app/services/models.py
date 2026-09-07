@@ -12,6 +12,7 @@ from app.schemas.models import (
     ModelDetail,
     ModelList,
     ModelSummary,
+    NetworkSnapshot,
 )
 
 
@@ -247,3 +248,29 @@ async def forecast_history(
         coverage=round(covered / len(points), 3) if points else 0.0,
         points=points,
     )
+
+
+async def latest_network(
+    session: AsyncSession, index_name: str = "VN30"
+) -> NetworkSnapshot | None:
+    """The most recent network snapshot the model published.
+
+    Returns None when the model has never written one, so the caller can say
+    "not available yet" instead of rendering an empty graph.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT index_name, as_of_date, generated_at, model_version,
+                       graph_layer, graph_window, node_count, stress_score,
+                       stress_label, stress_percentile, nodes, edges,
+                       communities
+                FROM api.v_network_latest
+                WHERE index_name = :index_name
+                """
+            ),
+            {"index_name": index_name},
+        )
+    ).mappings().first()
+    return NetworkSnapshot(**row) if row else None

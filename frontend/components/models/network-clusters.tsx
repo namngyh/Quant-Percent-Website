@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import type { EChartsCoreOption } from "echarts/core";
-import nodesSource from "@/public/research/dynamic-graph-nodes.json";
+import { DataState } from "@/components/states/data-state";
+import { useNetworkSnapshot } from "@/lib/api/network";
 import { CHART, EChart } from "@/components/charts/echart";
 import { fmtPercent } from "@/lib/format";
 import { sectorLabel } from "@/lib/sectors";
@@ -46,6 +47,8 @@ const COPY = {
 
 export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
   const t = COPY[locale];
+  const { data, error, isLoading, mutate } = useNetworkSnapshot();
+  const nodesSource = useMemo(() => data?.nodes ?? [], [data]);
 
   const scatterOption = useMemo<EChartsCoreOption>(
     () => ({
@@ -116,7 +119,7 @@ export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
     // `locale` is read directly now that sector names are translated for the
     // tooltip, so switching language has to rebuild the option — `t` alone no
     // longer covers everything locale-dependent in here.
-    [t, locale]
+    [t, locale, nodesSource]
   );
 
   const clusters = useMemo(() => {
@@ -127,10 +130,19 @@ export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
     return [...byCluster.entries()]
       .map(([id, members]) => ({ id, members }))
       .sort((a, b) => b.members.length - a.members.length);
-  }, []);
+  }, [nodesSource]);
 
   return (
     <section className="mt-14">
+      {/* One DataState around both panels: they read the same snapshot, so
+          splitting it would show two copies of the same message. */}
+      <DataState
+        loading={isLoading}
+        error={error}
+        onRetry={() => mutate()}
+        empty={Boolean(data) && nodesSource.length === 0}
+        reserve="min-h-[26rem]"
+      >
       <div className="grid gap-8 desk:grid-cols-2">
         <div className="qp-panel p-5">
           <h3 className="text-sm font-medium">{t.scatterTitle}</h3>
@@ -177,6 +189,7 @@ export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
           </ul>
         </div>
       </div>
+      </DataState>
     </section>
   );
 }

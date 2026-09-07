@@ -8,6 +8,7 @@ from app.schemas.models import (
     ForecastRecords,
     ModelDetail,
     ModelList,
+    NetworkSnapshot,
 )
 from app.services import models as service
 
@@ -92,3 +93,26 @@ async def history(
             detail={"error": "not_available"},
         )
     return await service.forecast_history(session, model, symbol)
+
+
+@router.get("/dynamic-graph/network", response_model=NetworkSnapshot)
+async def network(
+    session: SessionDep,
+    user: OptionalUser,
+    index_name: str = Query("VN30"),
+) -> NetworkSnapshot:
+    """The relationship map and per-stock measures for the latest session.
+
+    Kept on the model it belongs to rather than under /market: this is one
+    model's output, and routing it here means the members-only guard is the
+    same one that covers the rest of that model's page.
+    """
+    model = await _load(session, "dynamic-graph")
+    _guard(model, user)
+    snapshot = await service.latest_network(session, index_name)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_available"},
+        )
+    return snapshot

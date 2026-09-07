@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import nodesSource from "@/public/research/dynamic-graph-nodes.json";
+import { DataState } from "@/components/states/data-state";
+import { useNetworkSnapshot, type NetworkNode } from "@/lib/api/network";
 import { InfoTip } from "@/components/info-tip";
 import { fmtPercent, fmtSignedPercent } from "@/lib/format";
 import { sectorLabel } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 
-type Node = (typeof nodesSource)[number];
+type Node = NetworkNode;
 type SortKey =
   | "rank"
   | "strength"
@@ -95,6 +96,9 @@ export function NetworkRanking({
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [expanded, setExpanded] = useState(false);
 
+  const { data, error, isLoading, mutate } = useNetworkSnapshot();
+  const nodesSource = useMemo(() => data?.nodes ?? [], [data]);
+
   // Computed from the export rather than hard-coded: a run that does carry
   // sector labels should show the column again without a code change.
   const hasSectors = useMemo(
@@ -102,12 +106,14 @@ export function NetworkRanking({
       nodesSource.some(
         (n) => n.sector && n.sector.toUpperCase() !== "UNKNOWN",
       ),
-    [],
+    [nodesSource],
   );
 
+  // Guard the empty case: Math.max() with no arguments returns -Infinity, and
+  // every bar width would come out NaN before the data arrives.
   const maxStrength = useMemo(
-    () => Math.max(...nodesSource.map((n) => n.strength)),
-    []
+    () => (nodesSource.length ? Math.max(...nodesSource.map((n) => n.strength)) : 1),
+    [nodesSource],
   );
 
   const rows = useMemo(() => {
@@ -121,7 +127,7 @@ export function NetworkRanking({
       return b[sortKey] - a[sortKey];
     });
     return expanded ? sorted : sorted.slice(0, 10);
-  }, [sortKey, expanded]);
+  }, [sortKey, expanded, nodesSource]);
 
   const columns: { key: SortKey; label: string; tip?: string }[] = [
     { key: "eigenvector_centrality", label: t.influence, tip: t.influenceTip },
@@ -172,7 +178,15 @@ export function NetworkRanking({
         ))}
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-lg border border-border shadow-sm">
+      <DataState
+        className="mt-5"
+        loading={isLoading}
+        error={error}
+        onRetry={() => mutate()}
+        empty={Boolean(data) && nodesSource.length === 0}
+        skeletonRows={10}
+      >
+      <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
         <table className="w-full min-w-[820px] text-[13px]">
           <thead>
             <tr className="border-b border-border bg-surface text-left">
@@ -253,6 +267,7 @@ export function NetworkRanking({
           </tbody>
         </table>
       </div>
+      </DataState>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <button
@@ -265,9 +280,10 @@ export function NetworkRanking({
       </div>
 
       <p className="mt-3 max-w-3xl text-xs leading-relaxed text-dim">
-        {asOf && (
+        {(data?.as_of_date ?? asOf) && (
           <span className="figure">
-            {locale === "vi" ? "Dữ liệu đến" : "Data through"} {asOf} ·{" "}
+            {locale === "vi" ? "Dữ liệu đến" : "Data through"}{" "}
+            {data?.as_of_date ?? asOf} ·{" "}
           </span>
         )}
         {t.note}

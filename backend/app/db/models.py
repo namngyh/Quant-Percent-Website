@@ -670,3 +670,45 @@ class ModelRun(Base):
     )
     healthy: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String(200))
+
+
+class NetworkSnapshot(Base):
+    """DynamicGraph's network state for one session.
+
+    The relationship map and the ranking table used to reach the site as two
+    JSON files copied into `frontend/public/research/` and committed, which
+    meant the page could only change when someone deployed. The model runs
+    every session, so the page sat weeks behind its own model with nothing on
+    screen saying so.
+
+    Nodes and edges are stored as JSONB rather than as their own tables. They
+    are read as one whole graph and never queried by field — the whole payload
+    is about thirty kilobytes for a thirty-stock basket — so splitting them
+    into rows would buy nothing and cost a join per view.
+
+    What is deliberately absent is any stress *probability*. The model's own
+    artifact grades that layer AUROC 0.49 with a negative Brier skill score
+    and says to treat it as uninformative; `stress_score` here is the
+    descriptive state, on a 0-100 scale, not a forecast.
+    """
+
+    __tablename__ = "network_snapshots"
+    __table_args__ = {"schema": QUANT_SCHEMA}
+
+    as_of_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    index_name: Mapped[str] = mapped_column(
+        String(20), primary_key=True, default="VN30"
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    model_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    graph_layer: Mapped[str] = mapped_column(String(40), nullable=False)
+    graph_window: Mapped[int] = mapped_column(Integer, nullable=False)
+    node_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    stress_score: Mapped[float] = mapped_column(Float, nullable=False)
+    stress_label: Mapped[str] = mapped_column(String(30), nullable=False)
+    stress_percentile: Mapped[float | None] = mapped_column(Float)
+    nodes: Mapped[list] = mapped_column(JSONB, nullable=False)
+    edges: Mapped[list] = mapped_column(JSONB, nullable=False)
+    communities: Mapped[list | None] = mapped_column(JSONB)

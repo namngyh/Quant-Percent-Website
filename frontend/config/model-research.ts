@@ -552,13 +552,13 @@ export const MODEL_RESEARCH: Record<string, ModelResearchProfile> = {
     },
     findings: {
       vi: [
-        "Mô hình chạy tự động sau mỗi phiên, nhưng trang này thì không tự đổi theo. Bản đồ liên kết và bảng xếp hạng được công bố theo từng đợt, và ngày ghi ở cuối trang là mốc dữ liệu thực sự đang hiển thị.",
+        "Mô hình chạy tự động sau mỗi phiên giao dịch. Bản đồ liên kết, bảng xếp hạng và điểm căng thẳng được ghi thẳng vào hệ thống nên cập nhật ngay trong ngày; ngày ghi dưới bảng là mốc dữ liệu thực sự đang hiển thị.",
         "Ngày 04/09/2026, VIC, VHM và LPB là ba cổ phiếu có mức liên kết cao nhất trong mạng. Liên kết cao không có nghĩa giá sẽ tăng.",
         "Trong thử nghiệm phân bổ, cách ưu tiên giảm biến động đạt mức biến động năm 15,63%, thấp hơn mức 19,72% của danh mục chia đều. Tuy nhiên, riêng kỹ thuật Graphical Lasso chưa cho thấy lợi ích rõ ràng: 15,65% so với 15,70% của cách ước lượng thông thường.",
         "Thử nghiệm dùng danh sách VN30 hiện tại cho cả dữ liệu quá khứ, nên có thể bỏ sót các cổ phiếu từng bị loại khỏi VN30. Kết quả chưa thể xem là một chiến lược có thể giao dịch thực tế.",
       ],
       en: [
-        "The model runs automatically after each session, but this page does not follow it. The relationship map and the ranking table are published in batches, and the date at the foot of the page is the data actually on display.",
+        "The model runs automatically after each trading session. The relationship map, the ranking table and the stress score are written straight into the system, so the page refreshes the same day; the date under the table is the data actually on display.",
         "VIC, VHM and LPB were the three most connected stocks in the network on 4 Sep 2026. Being highly connected does not mean their prices will rise.",
         "In the allocation test, the approach focused on reducing fluctuations recorded 15.63% annual volatility, compared with 19.72% for an equally weighted portfolio. The Graphical Lasso technique did not show a clear additional benefit: 15.65% against 15.70% for the ordinary estimator.",
         "The test applies today's VN30 list to past data, so it may omit stocks that previously left the index. The result should not be treated as a ready-to-trade strategy.",
