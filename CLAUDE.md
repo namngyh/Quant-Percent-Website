@@ -172,6 +172,67 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-08 (chiều) — Nâng cấp walk-forward và Monte Carlo
+
+Sửa xong cả bốn khiếm khuyết đã ghi bên dưới, cộng một defect thứ năm lộ ra
+trong lúc viết test. **206 test pass** (trước 184); walk-forward và Monte Carlo
+từ chỗ **không có test nào** giờ có 22.
+
+**Đã sửa, có số đo trước/sau:**
+
+| | Trước | Sau |
+|---|---|---|
+| MC: 100 lệnh, mỗi lệnh +1% vốn ban đầu | +170.48% | **+100.09%** (đúng) |
+| MC: xác suất cháy, chuỗi có lệnh −95% | 25.7% (chỉ xét giá trị cuối) | **41.7%** (xét dọc đường) |
+| WF: degradation khi cửa sổ 250→2000 | 4.59 → **7.88** (tăng, artefact) | 4.59 → **0.71** (giảm, đúng) |
+
+Chi tiết cách sửa:
+
+1. **Engine giờ ghi `equity_before`/`equity_after` cho mỗi lệnh.** Đại lượng
+   đúng để lấy mẫu lại chưa hề tồn tại: `pnl/initial` là lợi suất trên gốc cố
+   định, còn `return_pct` bỏ qua phí vào lệnh (bị trừ ngay lúc mở). Đo thử ba
+   cách đều lệch 4–7% so với engine. Với hai trường mới, cộng dồn tái tạo
+   đường vốn **chính xác tới số dấu phẩy động** ở mọi cấu hình cỡ vị thế và
+   đòn bẩy.
+
+2. **Cháy tài khoản xét dọc đường.** Đường chạm 5% rồi hồi về 50% trước đây
+   không bị tính là cháy, dù tài khoản đã bị đóng từ lúc chạm đáy.
+
+3. **Chạy hai bộ lấy mẫu, báo cáo cả hai.** Khối (giữ chuỗi thắng/thua liền
+   nhau) làm chuẩn, độc lập để đối chiếu. Khoảng cách giữa hai cái
+   (`ordering_effect_pct`) chính là phần rủi ro đến từ **trật tự** các lệnh.
+   Mọi xác suất kèm sai số mô phỏng và khoảng tin cậy.
+
+4. **Degradation quy về cùng độ dài cửa sổ.** *Lần thử đầu tôi dùng CAGR và nó
+   còn tệ hơn* — quy năm một cửa sổ 250 giờ là mũ 35, cho ra CAGR ngoài mẫu
+   trên 7 000%. Cách đúng là compound lợi nhuận in-sample về đúng độ dài cửa sổ
+   kiểm tra: cùng đơn vị, đọc được, không ngoại suy.
+
+5. **Defect thứ năm, lộ ra khi viết test:** `walk_forward` gọi `spec.signals()`
+   thẳng, **bỏ qua `resolve_params`**. Quét 1 tham số của chiến lược có 2 tham
+   số → tham số kia thiếu hẳn → `KeyError` → bị `except Exception: continue`
+   nuốt → báo "không vòng nào chạy được" mà không nói vì sao. Giờ đã resolve
+   defaults, và lỗi của từng fold được giữ lại trong `failed_folds`.
+
+**Nâng cấp thêm:**
+
+- **Purge/embargo** (`purge_bars`): bỏ N nến giữa huấn luyện và kiểm tra. Chỉ
+  báo có lookback L vẫn mang thông tin cửa sổ huấn luyện L nến vào cửa sổ kiểm
+  tra; với chiến lược ML thì nhiều hơn.
+- **Chế độ anchored**: cửa sổ huấn luyện bắt đầu từ nến 0 và nở ra, thay vì
+  trượt. Đây là phép thử khó hơn — tham số phải sống qua nhiều chế độ thị
+  trường chứ không chỉ bám theo cái mới nhất. *(Bản đầu của tôi có lỗi tràn
+  dữ liệu, đã sửa và test bốn cấu hình.)*
+- **Độ ổn định tham số**: hệ số biến thiên của tham số được chọn qua các vòng.
+  Tham số nhảy loạn giữa các vòng nghĩa là chiến lược không có điểm tối ưu.
+- **Walk-forward efficiency** (OOS/IS), `degradation_sharpe` (không thứ nguyên).
+
+**Còn lại chưa làm** (theo thứ tự ưu tiên đã thống nhất): frontend cho các
+trường mới; điểm bền vững của optimizer theo lân cận tham số; bảng AmiBroker
+đầy đủ; biểu đồ Monte Carlo; công cụ CVaR; cài đặt Paper Trading; cộng đồng QP.
+
+---
+
 ### 2026-09-08 — Soát lỗi trước đợt nâng cấp
 
 **Tình trạng chung:** 184 test pass. Toàn bộ 33 endpoint trả đúng mã trạng

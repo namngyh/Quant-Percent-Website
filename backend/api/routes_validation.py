@@ -32,6 +32,14 @@ class WalkForwardRequest(BaseModel):
     metric: str = "sharpe"
     train_bars: int = Field(default=1000, ge=50, le=100_000)
     test_bars: int = Field(default=250, ge=50, le=100_000)
+    # Bars dropped between training and test. An indicator with a lookback of L
+    # carries training information L bars into the test window; purging removes
+    # the overlap instead of assuming it is negligible.
+    purge_bars: int = Field(default=0, ge=0, le=10_000)
+    # "rolling" slides a fixed window; "anchored" starts at bar zero and grows,
+    # which is the harder test because the parameters must survive regimes
+    # rather than track the latest one.
+    fold_mode: str = "rolling"
     mode: str = "grid"
     samples: int = Field(default=200, ge=10, le=2000)
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
@@ -74,6 +82,8 @@ def run_walk_forward(request: WalkForwardRequest) -> dict:
             metric=request.metric,
             train_bars=request.train_bars,
             test_bars=request.test_bars,
+            purge_bars=request.purge_bars,
+            fold_mode=request.fold_mode,
             mode=request.mode,
             samples=request.samples,
         )

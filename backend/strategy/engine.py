@@ -75,6 +75,17 @@ class Trade:
     # tests the entry bar's own extreme.
     mfe_pct: float = 0.0
     mae_pct: float = 0.0
+    # Account equity immediately before this trade was opened, and immediately
+    # after it closed.
+    #
+    # These exist so a resampler can work in the same units the engine does.
+    # `return_pct` is measured on the margin committed and excludes the entry
+    # fee, which is charged the moment the position opens — so compounding it
+    # does not reproduce the equity curve (measured 4-7% out). The fractional
+    # change the account actually saw is `equity_after / equity_before - 1`,
+    # and nothing else in the record carries it.
+    equity_before: float = 0.0
+    equity_after: float = 0.0
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -125,6 +136,7 @@ def run_backtest(
     entry_price = 0.0
     margin = 0.0
     entry_index = -1
+    entry_equity = 0.0    # account equity when the position was opened
     best_price = 0.0      # most favourable price seen since entry
     worst_price = 0.0     # least favourable
     trades: list[Trade] = []
@@ -171,6 +183,8 @@ def run_backtest(
 
                 mfe_pct=max(mfe, 0.0),
                 mae_pct=min(mae, 0.0),
+                equity_before=entry_equity,
+                equity_after=equity,
             )
         )
 
@@ -183,7 +197,8 @@ def run_backtest(
 
     def open_position(price: float, index: int, direction: int) -> None:
         nonlocal equity, position, quantity, entry_price, margin, entry_index
-        nonlocal best_price, worst_price
+        nonlocal best_price, worst_price, entry_equity
+        entry_equity = equity          # before the entry fee is taken
         margin = equity * config.size_pct
         notional = margin * config.leverage
         quantity = notional / price * direction
