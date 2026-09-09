@@ -328,6 +328,30 @@
     }
   }
 
+  /* Say so when the running server predates the code on disk.
+
+     Frontend files are read from disk per request and are never stale. Python
+     is imported once, so a backend edit does nothing until the process
+     restarts — and the way that surfaces is genuinely misleading: a new
+     endpoint 404s, the router falls through to a path parameter, and
+     `/api/paper/summary` comes back as "unknown paper session: summary". The
+     message blames a session, and the session is not the problem. */
+  async function warnIfServerStale() {
+    let health;
+    try {
+      health = await API.health();
+    } catch {
+      return;   // the backend is unreachable; that has its own message
+    }
+    if (!health?.stale) return;
+    setStatus(L('Server đang chạy code cũ — hãy khởi động lại',
+                'The server is running older code — restart it'), 'error');
+    toast(L('Server đang chạy code cũ hơn mã nguồn trên đĩa. '
+            + 'Hãy tắt và chạy lại run.py, nếu không các tính năng mới sẽ báo lỗi 404.',
+            'The server is running code older than the source on disk. Stop it and '
+            + 'run run.py again, or new features will fail with 404s.'), 'bad');
+  }
+
   /* ---------- Drawing tools ----------
 
      A vertical strip down the left edge of the chart, which is where every
@@ -1607,6 +1631,7 @@ def signals(df, params):
       refreshStars();
       loadVnSymbols();
       Paper.refresh();
+      warnIfServerStale();
     } catch (err) {
       dismissSplash();
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');

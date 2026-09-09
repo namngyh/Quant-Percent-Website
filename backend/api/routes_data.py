@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -18,6 +20,51 @@ router = APIRouter(prefix="/api", tags=["data"])
 # Guards against two backfills writing the same series at once.
 _backfill_lock = asyncio.Lock()
 
+# When this process started. Compared against the newest source file to answer
+# one specific question: is the running server older than the code on disk?
+_STARTED_AT = time.time()
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+# A save landing in the same second as start-up is the restart itself, not a
+# change made after it.
+_STALE_SLACK_SECONDS = 1.0
+
+
+def _is_stale(newest_source: float, started_at: float) -> bool:
+    """Is the running process older than the code on disk?
+
+    Separated from the filesystem walk so it can be tested with explicit
+    numbers. Asserting against whatever the working tree happens to look like
+    produces a check that passes whatever the answer is.
+    """
+    return newest_source > started_at + _STALE_SLACK_SECONDS
+
+
+def _newest_source_mtime() -> float:
+    """Modification time of the most recently edited backend source file.
+
+    Frontend files are served from disk on every request, so they are never
+    stale. Python is imported once at start-up, so editing it changes nothing
+    until the process restarts — and the failure that produces is bewildering:
+    a new endpoint 404s, and the router falls through to a path parameter, so
+    `/api/paper/summary` came back as "unknown paper session: summary". The
+    interface blamed the session that never existed.
+
+    This has cost real time more than once, so the server reports the fact and
+    the interface can say plainly what happened.
+    """
+    newest = 0.0
+    for path in _BACKEND_DIR.rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        try:
+            newest = max(newest, path.stat().st_mtime)
+        except OSError:
+            # A file removed mid-walk is not worth failing a health check over.
+            continue
+    return newest
+
 
 class BackfillRequest(BaseModel):
     symbols: list[str] | None = None
@@ -29,7 +76,14 @@ class BackfillRequest(BaseModel):
 
 @router.get("/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    newest = _newest_source_mtime()
+    return {
+        "status": "ok",
+        "started_at": _STARTED_AT,
+        "newest_source": newest,
+        # True when the code on disk is newer than the process running it.
+        "stale": _is_stale(newest, _STARTED_AT),
+    }
 
 
 @router.get("/config")

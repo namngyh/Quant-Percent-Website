@@ -170,6 +170,59 @@ def _():
     assert out["profit_factor"] is None, out["profit_factor"]
 
 
+# ================================== the server knows when it is out of date
+
+@check("staleness compares the code on disk against the running process")
+def _():
+    from backend.api.routes_data import _is_stale
+
+    started = 1_000_000.0
+    # Sources written before the process started are not a reason to restart.
+    assert _is_stale(started - 60, started) is False
+    # Nor is a save landing in the same second as start-up: that is the restart.
+    assert _is_stale(started + 0.5, started) is False
+    # An edit clearly after start-up is.
+    assert _is_stale(started + 5, started) is True
+
+
+@check("a source edited after start-up is reported as stale")
+def _():
+    import os
+    from pathlib import Path
+
+    from backend.api import routes_data
+
+    target = Path(routes_data.__file__)
+    original = (target.stat().st_atime, target.stat().st_mtime)
+    try:
+        future = routes_data._STARTED_AT + 10
+        os.utime(target, (future, future))
+        newest = routes_data._newest_source_mtime()
+        # This is the condition that produced "unknown paper session: summary":
+        # a route added on disk that the running process has never imported.
+        assert routes_data._is_stale(newest, routes_data._STARTED_AT), (
+            newest, routes_data._STARTED_AT)
+    finally:
+        os.utime(target, original)
+
+    # And it goes quiet once the clock is restored, so the warning cannot latch
+    # on and cry wolf for the rest of the session.
+    assert not routes_data._is_stale(
+        routes_data._newest_source_mtime(), routes_data._STARTED_AT)
+
+
+@check("__pycache__ is ignored, or every import would look like an edit")
+def _():
+    from pathlib import Path
+
+    from backend.api import routes_data
+
+    caches = [p for p in Path(routes_data.__file__).parent.rglob("*.py")
+              if "__pycache__" in p.parts]
+    # .pyc files live in __pycache__ and are rewritten on import; counting the
+    # directory at all would make the server permanently "stale".
+    assert not caches or all("__pycache__" in p.parts for p in caches)
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:

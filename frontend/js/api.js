@@ -59,6 +59,8 @@ const API = (() => {
       return request(`/api/candles?${q}`);
     },
 
+    health: () => request('/api/health'),
+
     catalog: () => request('/api/indicators'),
 
     compute: ({ indicatorId, symbol, timeframe, params, limit }) =>

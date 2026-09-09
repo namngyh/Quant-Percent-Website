@@ -172,6 +172,57 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-12 (tối) — "unknown paper session: summary" không phải lỗi code
+
+**272 test Python** (trước 269) + toàn bộ render check.
+
+#### Chẩn đoán: server đang chạy code cũ
+
+Ảnh chụp của Nam báo `'unknown paper session: summary'`. Trước khi sửa gì, đo
+cùng một request ở hai chỗ:
+
+| Gọi ở đâu | Kết quả |
+|---|---|
+| Trong tiến trình, `TestClient(app)` | **200** `{"sessions": 0, "note": {...}}` |
+| Server đang chạy ở cổng 8000 | **404** `{"detail":"'unknown paper session: summary'"}` |
+
+Cùng một mã nguồn, hai câu trả lời khác nhau → tiến trình đang chạy **có trước**
+commit thêm endpoint đó. Thứ tự route cũng đã kiểm lại trên
+`routes_paper.router.routes`: `/summary` ở vị trí 1, `/{session_id}` ở vị trí 2,
+nên không có chuyện `/summary` bị nuốt thành một id. **Cách sửa là khởi động lại
+`run.py`** — không có dòng code nào cần đổi.
+
+#### Nhưng kiểu hỏng này đã ăn thời gian nhiều lần, nên giờ nó tự nói ra
+
+File frontend được đọc lại từ đĩa mỗi request nên không bao giờ cũ. Python thì
+import **một lần** lúc khởi động, nên sửa backend xong mà không restart thì
+không có gì thay đổi — và cách nó lộ ra thì đánh lạc hướng hẳn: endpoint mới trả
+404, router rơi xuống nhánh có tham số đường dẫn, nên `/api/paper/summary` quay
+về dưới dạng *"unknown paper session: summary"*. **Câu báo lỗi đổ cho một phiên,
+mà phiên không phải vấn đề.** Nó còn đúng ngữ pháp và trông như một lỗi thật.
+
+`/api/health` giờ trả thêm `started_at`, `newest_source` và `stale`. Frontend hỏi
+lúc khởi động; nếu cũ thì hiện thẳng "Server đang chạy code cũ — hãy khởi động
+lại" thay vì để lần bấm tiếp theo báo một lỗi 404 vô nghĩa.
+
+Đo để chắc nó không phải một cái đèn luôn tắt:
+
+| Tình huống | `stale` |
+|---|---|
+| Tiến trình vừa khởi động | `False` |
+| Đặt mtime một file backend muộn hơn `started_at` 10s | `True` (chênh 10.0s) |
+| Trả mtime về như cũ | `False` |
+
+`__pycache__` bị bỏ qua, nếu không thì mỗi lần import lại ghi `.pyc` và server
+sẽ **vĩnh viễn** tự báo cũ. Ngưỡng có 1 giây trượt: một lần lưu file rơi đúng
+giây khởi động chính là lần restart đó, không phải một thay đổi sau nó.
+
+*Một phép kiểm của tôi vô nghĩa, bắt được khi đọc lại:* check đầu tôi viết
+`newest <= now + 1.0 or newest > now` — hai vế phủ hết trục số, nó **đúng bất kể
+câu trả lời là gì**. Nó "pass" vì không kiểm gì cả. Đã tách ngưỡng ra thành
+`_is_stale(newest_source, started_at)` để kiểm được bằng số cụ thể thay vì bằng
+trạng thái tình cờ của cây thư mục lúc chạy test.
+
 ### 2026-09-12 — Bảng tài khoản Paper, và danh mục chuyển thẳng sang paper
 
 **269 test Python** (trước 258) + toàn bộ render check.
