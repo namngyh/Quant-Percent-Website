@@ -2178,3 +2178,165 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 }
 .pf-quick-chip:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
+
+/* ==================== Chart type picker ====================
+ *
+ * A menu rather than a row of icons: twelve shapes is too many to sit in the
+ * top bar, and eleven of them are not the one you are using. The button shows
+ * the current shape by name, which is also the only label most of these have —
+ * "HLC area" is not something an icon says on its own.
+ */
+.ct-picker { position: relative; flex-shrink: 0; }
+.ct-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 9px;
+}
+.ct-button::after {
+  content: '';
+  border: 4px solid transparent;
+  border-top-color: var(--text-faint);
+  transform: translateY(2px);
+}
+.ct-button .ct-icon { color: var(--text); }
+
+.ct-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 232px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: 1px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.ct-menu[hidden] { display: none; }
+
+.ct-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-item:hover { background: var(--surface-3); }
+.ct-item.active { background: var(--accent); color: #fff; }
+.ct-item.active .ct-icon { border-color: currentColor; }
+
+/* The icons are drawn from borders rather than shipped as twelve SVGs: each is
+   a couple of rules, they inherit the row's colour when a row is selected, and
+   there is no asset to keep in step with the palette. */
+.ct-icon {
+  width: 16px;
+  height: 14px;
+  flex-shrink: 0;
+  position: relative;
+  color: var(--text-dim);
+}
+.ct-item.active .ct-icon { color: #fff; }
+.ct-icon::before, .ct-icon::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+}
+/* Two vertical marks with a wick: candles, bars, hollow, high-low, heikin. */
+.ct-icon-candles::before, .ct-icon-hollow::before,
+.ct-icon-heikin::before, .ct-icon-bars::before, .ct-icon-highlow::before {
+  left: 3px; top: 0; width: 3px; height: 100%;
+}
+.ct-icon-candles::after, .ct-icon-hollow::after,
+.ct-icon-heikin::after, .ct-icon-bars::after, .ct-icon-highlow::after {
+  right: 3px; top: 2px; width: 3px; height: 10px;
+}
+.ct-icon-hollow::before { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+.ct-icon-bars::before, .ct-icon-bars::after,
+.ct-icon-highlow::before, .ct-icon-highlow::after { width: 1.5px; }
+/* A rising diagonal: line, markers, step, area, hlc, baseline. */
+.ct-icon-line::before, .ct-icon-line-markers::before, .ct-icon-step::before,
+.ct-icon-area::before, .ct-icon-hlc::before, .ct-icon-baseline::before {
+  left: 1px; bottom: 3px; width: 14px; height: 1.5px;
+  transform: rotate(-22deg); transform-origin: left center;
+}
+.ct-icon-area::after, .ct-icon-hlc::after {
+  left: 1px; bottom: 1px; width: 14px; height: 5px; opacity: 0.3;
+}
+.ct-icon-line-markers::after {
+  left: 6px; top: 4px; width: 4px; height: 4px; border-radius: 50%;
+}
+.ct-icon-step::before { transform: none; height: 1.5px; }
+.ct-icon-step::after {
+  left: 7px; top: 2px; width: 1.5px; height: 8px;
+}
+.ct-icon-baseline::after {
+  left: 0; top: 50%; width: 16px; height: 1px; opacity: 0.55;
+}
+.ct-icon-columns::before { left: 2px; bottom: 0; width: 4px; height: 8px; }
+.ct-icon-columns::after { right: 2px; bottom: 0; width: 4px; height: 13px; }
+
+
+/* ==================== Drawing tools ====================
+ *
+ * The canvas sits over the chart at the same size. It only takes the pointer
+ * while a drawing tool is active or a shape is under the cursor — see
+ * `setTool` in drawings.js — because a permanently clickable overlay would
+ * swallow every pan and zoom and the chart would appear frozen.
+ */
+.draw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+.draw-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 6;
+  display: grid;
+  gap: 6px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+.draw-group { display: grid; gap: 2px; }
+.draw-group + .draw-group { border-top: 1px solid var(--border-soft); padding-top: 6px; }
+
+.draw-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.draw-btn svg { width: 18px; height: 18px; }
+.draw-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+.draw-btn.active { background: var(--accent); color: #fff; }
+.draw-btn.on { background: var(--accent-soft); color: var(--accent); }
+.draw-btn.danger:hover:not(:disabled) { background: var(--down-soft); color: var(--down); }
+.draw-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* Overview is a quote page: there is nothing there to annotate. */
+body[data-mode="overview"] .draw-bar,
+body[data-mode="overview"] .draw-layer { display: none; }

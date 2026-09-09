@@ -172,6 +172,99 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-10 (khuya) — Mười hai kiểu biểu đồ, và bộ công cụ vẽ
+
+**240 test Python + toàn bộ render check + 25 check kiểu biểu đồ.**
+
+*Bối cảnh môi trường:* giữa phiên, Windows **Smart App Control** chuyển sang
+trạng thái cưỡng chế và chặn các `.pyd` không ký của pandas, psycopg và
+pydantic_core — nhật ký Code Integrity ghi đúng ba file đó, Event 3118. Không
+phải lỗi code: file không đổi từ 4/9 và cùng bộ test đã chạy được một giờ trước
+đó. Nam đã tắt Smart App Control (`VerifiedAndReputablePolicyState` 1 → 0) và
+mọi thứ nạp lại bình thường. Lưu ý cho sau này: **tắt là một chiều**, Windows
+không cho bật lại nếu không cài lại máy.
+
+#### 1. Mười hai kiểu vẽ giá
+
+Lightweight Charts 4.2.3 chỉ có **năm** loại series — candlestick, bar, line,
+area, baseline, histogram — còn menu cần **mười hai**. Bảy kiểu còn lại là năm
+loại đó được cấu hình hoặc **nạp dữ liệu khác đi**, và các phép suy đó không
+hiển nhiên từ API nên đã ghi hẳn vào đầu `frontend/js/chart-types.js`:
+
+| Kiểu | Dựng bằng |
+|---|---|
+| Nến rỗng | candlestick với thân **tăng** trong suốt; thân giảm vẫn đặc — đó mới là quy ước |
+| Đường bậc | line với `lineType: 1` (WithSteps) |
+| Đường có điểm | line với `pointMarkersVisible` |
+| Vùng HLC | **ba** series: area cho close, hai đường mảnh cho high/low — thư viện không có primitive dạng dải |
+| Các cột | histogram trên thang giá, tô màu theo close **hôm trước** (chiều cao đã là giá rồi, hướng phải đến từ chỗ khác) |
+| Đỉnh–Đáy | bar với `openVisible: false` |
+| Heikin Ashi | tính từ OHLC rồi nạp vào candlestick — làm mượt nằm ở **dữ liệu**, không phải ở kiểu vẽ |
+
+Đổi kiểu là vẽ lại, không gọi lại API, và **giữ nguyên phạm vi đang xem**: đổi
+cách vẽ không phải lý do để mất chỗ người dùng đang cuộn tới.
+
+**Một cái bẫy đã xử lý:** `updateCandle` trước đây luôn gửi điểm OHLC. Series
+đường **từ chối** điểm OHLC, nên nếu để nguyên thì biểu đồ sẽ **ngừng cập nhật
+ngay khi ai đó chọn Đường** — im lặng, không lỗi nào ở console. Giờ mỗi kiểu tự
+khai báo cách nhận một nến sống.
+
+**Kiểm chứng chạy trong trình duyệt thật, không phải jsdom.** Lightweight Charts
+vẽ lên canvas và đo layout thật nên jsdom không chạy được nó. `tests/test_chart_types.html`
+dựng **cả mười hai** kiểu trên chính bản thư viện đang ship, nạp dữ liệu, rồi
+đẩy thêm **một nến sống** — vì "lúc tôi viết thì chạy" chỉ chứng minh đúng cái
+kiểu đang hiện trên màn hình.
+
+*Hai lần assertion của tôi sai, ghi lại theo §2.2:*
+
+- "HA ít đổi chiều hơn chuỗi gốc" — **fail**, nhưng vì fixture của tôi sai:
+  chuỗi có drift 0.8 lớn gấp đôi nhiễu 0.4 nên **không nến nào** đóng ngược xu
+  hướng, chẳng có gì để làm mượt. Tôi đang đo cái fixture chứ không đo công
+  thức. Trên chuỗi răng cưa thật: **59 lần đổi chiều → HA còn 1**.
+- "HA không bao giờ làm chuỗi choppy hơn" — cũng **fail**, và lần này *tôi sai
+  chứ không phải fixture*: trên chuỗi có một cú đảo chiều gắt, gốc đổi chiều 1
+  lần, HA đổi 2. Đó là HA chạy **đúng**: open của nó là trung điểm nến HA
+  *trước*, nên nó trễ, và ở cú quay gắt độ trễ sinh ra đúng một nến chuyển
+  tiếp. Làm mượt nhiễu và trễ ở điểm đảo chiều là **cùng một cơ chế nhìn từ hai
+  phía** — một bộ làm mượt không bao giờ thêm lần đổi chiều nào thì không làm
+  mượt gì cả. Đã đổi sang khẳng định đúng: độ trễ tốn **nhiều nhất một** lần.
+
+#### 2. Bộ công cụ vẽ
+
+Lightweight Charts không có công cụ vẽ, nên đây là một canvas phủ lên biểu đồ.
+Điều duy nhất làm nó hoạt động được là **neo mọi hình theo toạ độ biểu đồ** —
+một thời điểm và một mức giá — rồi mới đổi sang pixel lúc vẽ:
+
+```
+timeScale().timeToCoordinate(time)  ->  x
+series.priceToCoordinate(price)     ->  y
+```
+
+Neo theo pixel thì đơn giản hơn nhiều và **sai hoàn toàn**: hình sẽ trượt khỏi
+nến ngay khi ai đó cuộn, phóng to, đổi kích thước cửa sổ hay đổi khung thời
+gian. Neo theo toạ độ biểu đồ thì nó dính chặt vào đúng những cây nến đã vẽ lên
+— và đó chính là toàn bộ lý do người ta vẽ lên biểu đồ thay vì lên ảnh chụp.
+
+Chín công cụ: con trỏ, đường xu hướng, đường ngang, tia, đường dọc, chữ nhật,
+**Fibonacci thoái lui**, chữ, và **thước đo** (in ra cả % lẫn số nến — "cách bao
+xa" trên biểu đồ là hai câu hỏi). Cộng nam châm (bám O/H/L/C của nến), khoá,
+ẩn/hiện, hoàn tác, xoá hết.
+
+**Ba chi tiết dễ hỏng, đều đã xử lý:**
+
+- Lớp canvas **chỉ nhận con trỏ khi đang có công cụ vẽ** hoặc khi con trỏ đang
+  ở trên một hình. Để nó nhận mãi thì nó nuốt mọi thao tác kéo và phóng to của
+  biểu đồ bên dưới — công cụ chạy tốt còn biểu đồ thì như bị đơ.
+- Kéo một hình dịch **mọi** điểm neo cùng một lượng, nên hình giữ nguyên hình
+  dạng: kéo một bộ Fibonacci không được đồng thời co giãn nó.
+- Điểm nào có thời gian đã trôi ra ngoài dải đã nạp thì `timeToCoordinate` trả
+  `null`; vẽ với toạ độ null thì **không vẽ gì và cũng không báo gì**, nên hình
+  đó bị bỏ qua tường minh.
+
+Hình lưu trong `localStorage` theo **mã + khung thời gian**. Đó là ghi chú về
+một chuỗi cụ thể; hiện đường xu hướng vẽ trên BTC 1h lên VIC ngày còn tệ hơn là
+làm mất nó.
+
 ### 2026-09-10 (tối) — Đổi mã vẫn giữ zoom, và ô nhập của Quant Portfolio
 
 #### 1. Khung nhìn đi theo chế độ, không theo lần nạp dữ liệu

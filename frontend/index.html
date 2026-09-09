@@ -59,6 +59,14 @@
       <button id="star-symbol" class="star star-lg" data-i18n-title="top.starSymbol">☆</button>
       <select id="symbol" data-i18n-aria="top.symbol"></select>
       <div id="timeframes" class="tf-group" role="group" data-i18n-aria="top.timeframes"></div>
+      <!-- Chart shape. Beside the timeframes because it is the same kind of
+           choice: how the same data is drawn. -->
+      <div class="ct-picker">
+        <button id="chart-type" class="btn ct-button" type="button"
+                aria-haspopup="menu" aria-expanded="false"
+                data-i18n-title="chart.type"></button>
+        <div id="chart-type-menu" class="ct-menu" role="menu" hidden></div>
+      </div>
     </div>
 
     <div class="topbar-right">
@@ -434,6 +442,10 @@
     <!-- ============ Charts ============ -->
     <section class="charts">
       <div id="chart-main" class="chart-pane chart-main">
+        <!-- Drawing tools, down the left edge of the chart the way every
+             charting package puts them. Hidden in overview: there is nothing
+             to annotate on a quote page. -->
+        <div class="draw-bar" id="draw-bar"></div>
         <div class="chart-tools" id="chart-tools" hidden>
           <button id="toggle-markers" class="chip" type="button"></button>
           <button id="clear-markers" class="chip chip-icon" type="button"
@@ -526,7 +538,9 @@
   <script src="/static/js/favourites.js"></script>
   <script src="/static/js/resize.js"></script>
   <script src="/static/js/api.js"></script>
+  <script src="/static/js/chart-types.js"></script>
   <script src="/static/js/charts.js"></script>
+  <script src="/static/js/drawings.js"></script>
   <script src="/static/js/indicators.js"></script>
   <script src="/static/js/strategy.js"></script>
   <script src="/static/js/paper.js"></script>

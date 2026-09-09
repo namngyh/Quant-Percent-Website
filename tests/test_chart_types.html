@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chart type checks</title>
+<!--
+  Does every chart shape actually build against the real library?
+
+  jsdom cannot run Lightweight Charts — it paints to a canvas and measures a
+  real layout — so these checks run in a browser instead, against the same
+  vendored build the app ships. Headless Chrome plus --dump-dom reads the
+  results out:
+
+    (serve frontend/ and tests/ from one root, then)
+    chrome --headless --dump-dom --virtual-time-budget=8000 \
+           http://127.0.0.1:PORT/tests/test_chart_types.html
+
+  A type that throws on construction, or refuses the data it is handed, is the
+  failure this catches. The library accepts an OHLC point on a candlestick and
+  rejects it on a line series, so "it worked when I wrote it" only ever proves
+  the one type that was on screen at the time.
+-->
+<script src="/static/vendor/lightweight-charts.js"></script>
+<script>
+  // The two globals chart-types.js reads. Loading the whole i18n module would
+  // pull in the dictionary and the DOM it applies to; the shape checks only
+  // need the language function.
+  const I18n = { lang: 'en', locale: () => 'en-US' };
+  const L = (vi, en) => en;
+</script>
+<script src="/static/js/chart-types.js"></script>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 16px; }
+  #stage { width: 600px; height: 300px; }
+  .pass { color: #089981; }
+  .fail { color: #f23645; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<pre id="out"></pre>
+<script>
+(() => {
+  const out = [];
+  let failed = 0;
+
+  const check = (name, ok, detail = '') => {
+    out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -> ${detail}` : ''}`);
+    if (!ok) failed += 1;
+  };
+
+  // A small, deterministic series: rising then falling, so a direction-coloured
+  // type has both colours to produce and Heikin Ashi has a turn to smooth.
+  const candles = [];
+  let price = 100;
+  for (let i = 0; i < 60; i += 1) {
+    const open = price;
+    const drift = i < 30 ? 0.8 : -0.8;
+    const close = open + drift + Math.sin(i) * 0.4;
+    candles.push({
+      time: 1700000000 + i * 3600,
+      open,
+      high: Math.max(open, close) + 0.6,
+      low: Math.min(open, close) - 0.6,
+      close,
+    });
+    price = close;
+  }
+
+  const chart = LightweightCharts.createChart(document.getElementById('stage'), {
+    width: 600, height: 300,
+  });
+
+  // ---------- every type builds and takes the data ----------
+  check('the catalogue holds twelve shapes', ChartTypes.list.length === 12,
+        `got ${ChartTypes.list.length}`);
+
+  for (const type of ChartTypes.list) {
+    let built = null;
+    try {
+      built = ChartTypes.build(chart, type.id);
+      built.apply(candles);
+      // And one live bar, which is the path a chart takes for hours after the
+      // initial draw. A line series throws on an OHLC point, so this is where
+      // a type that only ever got setData would fail.
+      built.update({ ...candles[candles.length - 1], close: price + 1 },
+                   candles, type.id);
+      check(`${type.id} builds, takes data and a live bar`, true);
+    } catch (err) {
+      check(`${type.id} builds, takes data and a live bar`, false, err.message);
+    } finally {
+      for (const s of built?.series || []) {
+        try { chart.removeSeries(s); } catch { /* never added */ }
+      }
+    }
+  }
+
+  // ---------- the multi-series types really are multi-series ----------
+  const hlc = ChartTypes.build(chart, 'hlc_area');
+  check('HLC area is three series, not one', hlc.series.length === 3,
+        `got ${hlc.series.length}`);
+  for (const s of hlc.series) chart.removeSeries(s);
+
+  // ---------- Heikin Ashi arithmetic ----------
+  const ha = ChartTypes.heikinAshi(candles);
+  check('Heikin Ashi returns one bar per input bar', ha.length === candles.length);
+
+  const c0 = candles[0];
+  check('the first HA close is the OHLC average',
+        Math.abs(ha[0].close - (c0.open + c0.high + c0.low + c0.close) / 4) < 1e-9);
+  check('the first HA open seeds from its own bar, not from zero',
+        Math.abs(ha[0].open - (c0.open + c0.close) / 2) < 1e-9);
+  check('each later HA open is the midpoint of the previous HA bar',
+        Math.abs(ha[5].open - (ha[4].open + ha[4].close) / 2) < 1e-9);
+  check('HA high is never below the bar it came from',
+        ha.every((b, i) => b.high >= candles[i].high - 1e-9));
+  check('HA low is never above the bar it came from',
+        ha.every((b, i) => b.low <= candles[i].low + 1e-9));
+  check('HA high always covers its own body',
+        ha.every((b) => b.high >= Math.max(b.open, b.close) - 1e-9));
+  /* Smoothing is the whole reason Heikin Ashi exists, so it is measured on a
+     series that actually needs smoothing.
+
+     The trending fixture above is the wrong instrument for this: its drift
+     (0.8) is twice its noise (0.4), so no raw bar ever closes against the
+     trend and there is nothing to smooth. Asserting against it measured the
+     fixture rather than the maths. A deliberately choppy series — every bar
+     closing opposite the last — is where the property has to hold. */
+  const flips = (bars) => bars.reduce((acc, b, i) => (
+    i && Math.sign(b.close - b.open) !== Math.sign(bars[i - 1].close - bars[i - 1].open)
+      ? acc + 1 : acc), 0);
+
+  const choppy = [];
+  let cp = 100;
+  for (let i = 0; i < 60; i += 1) {
+    const open = cp;
+    const close = open + (i % 2 ? -1.4 : 1.6);   // alternating, with a slight rise
+    choppy.push({
+      time: 1700000000 + i * 3600,
+      open, close,
+      high: Math.max(open, close) + 0.3,
+      low: Math.min(open, close) - 0.3,
+    });
+    cp = close;
+  }
+  const choppyHa = ChartTypes.heikinAshi(choppy);
+  check('Heikin Ashi smooths a choppy series',
+        flips(choppyHa) < flips(choppy),
+        `raw ${flips(choppy)} flips -> HA ${flips(choppyHa)}`);
+  /* My second assertion here was "and never leaves a series choppier than it
+     found it", and it is false — measured, not argued: on the trending fixture
+     the raw series flips once at its single reversal and Heikin Ashi flips
+     twice.
+
+     That is Heikin Ashi behaving correctly, not a defect. Its open is the
+     midpoint of the *previous* HA bar, so it lags; at a sharp turn the lag
+     produces one transitional bar whose body points the other way before the
+     new direction settles. Smoothing noise and lagging a reversal are the same
+     mechanism seen from two sides, and a smoother that never adds a flip
+     anywhere would not smooth anything.
+
+     So the property asserted is the true one: the lag is bounded and brief. */
+  const turnFlips = flips(ha) - flips(candles);
+  check('the smoothing lag at a sharp reversal costs at most one extra flip',
+        turnFlips <= 1,
+        `raw ${flips(candles)} flips -> HA ${flips(ha)}`);
+
+  // ---------- the point shaper matches the series kind ----------
+  const linePoint = ChartTypes.pointFor('line', candles[0], candles);
+  check('a line type is fed a value, never an OHLC point',
+        'value' in linePoint && !('open' in linePoint));
+  const candlePoint = ChartTypes.pointFor('candles', candles[0], candles);
+  check('a candle type keeps its OHLC', 'open' in candlePoint && 'close' in candlePoint);
+  const colPoint = ChartTypes.pointFor('columns', { ...candles[0], close: 1 },
+                                       [{ close: 99 }]);
+  check('a falling column is coloured down', colPoint.color === '#f23645',
+        colPoint.color);
+
+  out.push('');
+  out.push(failed ? `${failed} failed` : 'all chart type checks passed');
+  document.getElementById('out').textContent = out.join('\n');
+})();
+</script>
+</body>
+</html>

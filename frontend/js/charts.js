@@ -170,6 +170,7 @@ const ChartManager = (() => {
     const overview = mode === 'overview';
 
     candleSeries?.applyOptions({ visible: !overview });
+    for (const s of extraSeries) s.applyOptions({ visible: !overview });
     volumeSeries?.applyOptions({ visible: !overview });
     overviewSeries?.applyOptions({ visible: overview });
 
@@ -188,14 +189,7 @@ const ChartManager = (() => {
     mainChart = LightweightCharts.createChart(container, { ...THEME });
     trackSize(mainChart, container);
 
-    candleSeries = mainChart.addCandlestickSeries({
-      upColor: '#12805c',
-      downColor: '#c8372d',
-      borderUpColor: '#12805c',
-      borderDownColor: '#c8372d',
-      wickUpColor: '#12805c',
-      wickDownColor: '#c8372d',
-    });
+    buildPriceSeries(priceType);
 
     volumeSeries = mainChart.addHistogramSeries({
       priceFormat: { type: 'volume' },
@@ -286,6 +280,58 @@ const ChartManager = (() => {
   }
   let historyPending = false;
 
+  /* ---------- Price series shape ----------
+
+     The price is drawn by whichever series the chosen type builds, so
+     `candleSeries` is no longer always a candlestick. Everything that touches
+     it — markers, the last-value line, the live update — goes through it
+     regardless, which is why the name stays: it is the price series, and it
+     happens to be candles by default.
+
+     `extraSeries` holds the ones a multi-series type adds (the HLC band's high
+     and low lines). They are removed together when the type changes; leaving
+     them behind is how a chart ends up with the ghost of a previous type
+     drawn under the current one. */
+  let priceType = 'candles';
+  let extraSeries = [];
+  let applyPriceData = null;
+  let updatePricePoint = null;
+
+  function buildPriceSeries(typeId) {
+    const built = ChartTypes.build(mainChart, typeId);
+    candleSeries = built.series[0];
+    extraSeries = built.series.slice(1);
+    applyPriceData = built.apply;
+    updatePricePoint = built.update;
+    priceType = ChartTypes.has(typeId) ? typeId : 'candles';
+  }
+
+  /** Redraw the price in a different shape, keeping the view where it is. */
+  function setPriceType(typeId) {
+    if (!mainChart || !ChartTypes.has(typeId) || typeId === priceType) return priceType;
+
+    // The visible range survives the swap: changing how the price is drawn is
+    // not a reason to lose where the user had scrolled to.
+    const scale = mainChart.timeScale();
+    const range = scale.getVisibleLogicalRange();
+    const keptMarkers = storedMarkers.slice();
+
+    for (const s of [candleSeries, ...extraSeries]) {
+      try { mainChart.removeSeries(s); } catch { /* already gone */ }
+    }
+    buildPriceSeries(typeId);
+    if (candleData.length) applyPriceData(candleData);
+    if (keptMarkers.length) applyMarkers();
+    // Overview shares this chart, so it must not reappear in the working view.
+    candleSeries.applyOptions({ visible: mode !== 'overview' });
+    for (const s of extraSeries) s.applyOptions({ visible: mode !== 'overview' });
+    // Drawings convert prices through the series, so they must be handed the
+    // new one or every shape would stay anchored to a series that is gone.
+    if (typeof Drawings !== 'undefined') Drawings.setSeries(candleSeries);
+    if (range) scale.setVisibleLogicalRange(range);
+    return priceType;
+  }
+
   function setCandles(candles, volumes, { timeVisible }) {
     for (const chart of allCharts()) {
       chart.applyOptions({ timeScale: { ...THEME.timeScale, timeVisible, secondsVisible: false } });
@@ -294,7 +340,7 @@ const ChartManager = (() => {
       time: toChart(c.time),
       open: c.open, high: c.high, low: c.low, close: c.close,
     }));
-    candleSeries.setData(candleData);
+    applyPriceData(candleData);
     volumeData = volumes.map((v) => ({
       time: toChart(v.time),
       value: v.value,
@@ -604,13 +650,14 @@ const ChartManager = (() => {
     // session never shows a line that stops short of the candles.
     overviewSeries?.update({ time, value: candle.close });
 
-    candleSeries.update({
-      time,
-      open: candle.open,
-      high: candle.high,
-      low: candle.low,
-      close: candle.close,
-    });
+    /* Shaped by the type, not assumed to be a candle. A line series rejects
+       an OHLC point outright, so sending one to every type would make the
+       chart stop updating the moment anyone chose Line. */
+    updatePricePoint(
+      { time, open: candle.open, high: candle.high, low: candle.low, close: candle.close },
+      candleData,
+      priceType,
+    );
     volumeSeries.update({
       time,
       value: candle.volume,
@@ -715,7 +762,7 @@ const ChartManager = (() => {
 
     candleData = [...older, ...candleData];
     volumeData = [...olderVol, ...volumeData];
-    candleSeries.setData(candleData);
+    applyPriceData(candleData);
     volumeSeries.setData(volumeData);
     overviewSeries?.setData(candleData.map((c) => ({ time: c.time, value: c.close })));
 
@@ -729,7 +776,40 @@ const ChartManager = (() => {
     return older.length;
   }
 
+  /* The bar covering a chart time, for the magnet. Nearest rather than exact:
+     `coordinateToTime` returns a time on the scale, which between two bars is
+     not any bar's own timestamp. */
+  function barAt(time) {
+    if (!candleData.length) return null;
+    let best = null;
+    let bestGap = Infinity;
+    for (const bar of candleData) {
+      const gap = Math.abs(bar.time - time);
+      if (gap < bestGap) { bestGap = gap; best = bar; }
+    }
+    return best;
+  }
+
+  /** How many bars lie between two chart times, for the ruler. */
+  function barsBetween(from, to) {
+    if (!candleData.length) return null;
+    const index = (t) => {
+      let best = 0;
+      let bestGap = Infinity;
+      for (let i = 0; i < candleData.length; i += 1) {
+        const gap = Math.abs(candleData[i].time - t);
+        if (gap < bestGap) { bestGap = gap; best = i; }
+      }
+      return best;
+    };
+    return Math.abs(index(to) - index(from));
+  }
+
   return { init, setCandles, setMode, prependCandles, focusRecent, fitAll,
+           setPriceType, barAt, barsBetween,
+           get chart() { return mainChart; },
+           get priceSeries() { return candleSeries; },
+           get priceType() { return priceType; },
            set onNeedHistory(fn) { onNeedHistory = fn || null; },
            get oldestTime() { return candleData.length ? candleData[0].time : null; },
            draw, drawOverlay, drawPane, remove, clearAll, alignment,

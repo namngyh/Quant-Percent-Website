@@ -27,6 +27,9 @@
     runCompare: document.getElementById('run-compare'),
     compareList: document.getElementById('compare-list'),
     openReport: document.getElementById('open-report'),
+    drawBar: document.getElementById('draw-bar'),
+    chartType: document.getElementById('chart-type'),
+    chartTypeMenu: document.getElementById('chart-type-menu'),
     modeToggle: document.getElementById('mode-toggle'),
     layout: document.getElementById('layout'),
     price: document.getElementById('price'),
@@ -144,6 +147,9 @@
       // A different series has its own history; the previous "nothing older"
       // answer says nothing about this one.
       historyExhausted = false;
+      // Shapes are notes about one series. Showing a trend line drawn on BTC
+      // 1h over VIC daily would be worse than not showing it at all.
+      Drawings.load(`${state.symbol}|${state.timeframe}`);
 
       // The symbol and the timeframe are already selected two controls to the
       // left, and the price now has a readout of its own, so the status line
@@ -290,6 +296,190 @@
       historyExhausted = true;
       toast(`Không nạp thêm được lịch sử: ${err.message}`, 'bad');
     }
+  }
+
+  /* ---------- Drawing tools ----------
+
+     A vertical strip down the left edge of the chart, which is where every
+     charting package puts it, so the muscle memory transfers.
+
+     Each glyph is an inline SVG rather than a character: the shapes here are
+     geometric (a line at an angle, a rectangle, a ladder of Fib levels) and no
+     font has them. Twelve <path> strings is less to maintain than an icon
+     font, and they inherit colour from the button. */
+  const DRAW_ICONS = {
+    cursor: '<path d="M4 2l7 16 2-6 6-2z"/>',
+    trend: '<path d="M3 17L17 5"/><circle cx="4" cy="17" r="1.6"/><circle cx="16" cy="5" r="1.6"/>',
+    horizontal: '<path d="M2 10h16"/><circle cx="10" cy="10" r="1.6"/>',
+    ray: '<path d="M4 10h14"/><circle cx="4" cy="10" r="1.6"/>',
+    vertical: '<path d="M10 2v16"/><circle cx="10" cy="10" r="1.6"/>',
+    rect: '<rect x="3" y="5" width="14" height="10" rx="1"/>',
+    fib: '<path d="M3 4h14M3 8h14M3 12h14M3 16h14"/>',
+    text: '<path d="M4 4h12M10 4v13"/>',
+    measure: '<path d="M3 13L17 6"/><path d="M3 13v3M17 6v3"/>',
+  };
+
+  function drawGlyph(id) {
+    return `<svg viewBox="0 0 20 20" aria-hidden="true" fill="none"
+      stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+      stroke-linejoin="round">${DRAW_ICONS[id] || ''}</svg>`;
+  }
+
+  function renderDrawBar() {
+    if (!el.drawBar) return;
+    const tools = Drawings.tools.map((t) => `
+      <button type="button" class="draw-btn${Drawings.tool === t.id ? ' active' : ''}"
+              data-draw-tool="${t.id}" title="${escapeAttr(t.label())}"
+              aria-label="${escapeAttr(t.label())}"
+              aria-pressed="${Drawings.tool === t.id}">${drawGlyph(t.id)}</button>`).join('');
+
+    // The toggles and the two destructive actions are separated from the
+    // tools: picking a tool and wiping every drawing should not be adjacent
+    // buttons that look alike.
+    const toggle = (key, on, glyph) => `
+      <button type="button" class="draw-btn${on ? ' on' : ''}" data-draw-toggle="${key}"
+              title="${escapeAttr(t(`draw.${key}`))}"
+              aria-label="${escapeAttr(t(`draw.${key}`))}"
+              aria-pressed="${on}">${glyph}</button>`;
+
+    el.drawBar.innerHTML = `
+      <div class="draw-group">${tools}</div>
+      <div class="draw-group">
+        ${toggle('magnet', Drawings.magnet,
+          drawGlyph('') .replace('></svg>',
+            '><path d="M6 4v6a4 4 0 008 0V4"/><path d="M4 4h4M12 4h4"/></svg>'))}
+        ${toggle('lock', Drawings.locked,
+          drawGlyph('').replace('></svg>',
+            '><rect x="5" y="9" width="10" height="7" rx="1"/><path d="M7.5 9V7a2.5 2.5 0 015 0v2"/></svg>'))}
+        ${toggle('hide', !Drawings.visible,
+          drawGlyph('').replace('></svg>',
+            '><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/><circle cx="10" cy="10" r="2"/></svg>'))}
+      </div>
+      <div class="draw-group">
+        <button type="button" class="draw-btn" data-draw-action="undo"
+                title="${escapeAttr(t('draw.undo'))}" aria-label="${escapeAttr(t('draw.undo'))}"
+                ${Drawings.count ? '' : 'disabled'}>${
+          drawGlyph('').replace('></svg>', '><path d="M4 9h9a4 4 0 010 8H8"/><path d="M7 5L3 9l4 4"/></svg>')}</button>
+        <button type="button" class="draw-btn danger" data-draw-action="clear"
+                title="${escapeAttr(t('draw.clear'))}" aria-label="${escapeAttr(t('draw.clear'))}"
+                ${Drawings.count ? '' : 'disabled'}>${
+          drawGlyph('').replace('></svg>', '><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10"/></svg>')}</button>
+      </div>`;
+  }
+
+  function setupDrawings() {
+    if (!el.drawBar) return;
+    Drawings.init({
+      chart: ChartManager.chart,
+      series: ChartManager.priceSeries,
+      host: el.chartMain,
+      onChange: renderDrawBar,
+    });
+    renderDrawBar();
+
+    el.drawBar.addEventListener('click', (event) => {
+      const tool = event.target.closest('[data-draw-tool]');
+      if (tool) { Drawings.setTool(tool.dataset.drawTool); return; }
+
+      const toggle = event.target.closest('[data-draw-toggle]');
+      if (toggle) {
+        const key = toggle.dataset.drawToggle;
+        if (key === 'magnet') Drawings.setMagnet(!Drawings.magnet);
+        if (key === 'lock') Drawings.setLocked(!Drawings.locked);
+        if (key === 'hide') Drawings.setVisible(!Drawings.visible);
+        return;
+      }
+
+      const action = event.target.closest('[data-draw-action]');
+      if (!action) return;
+      if (action.dataset.drawAction === 'undo') Drawings.undo();
+      if (action.dataset.drawAction === 'clear') {
+        // Wiping every shape on the series is not undoable, so it asks.
+        if (window.confirm(L('Xoá toàn bộ hình vẽ trên biểu đồ này?',
+                             'Remove every drawing on this chart?'))) Drawings.clear();
+      }
+    });
+
+    I18n.onChange(renderDrawBar);
+  }
+
+  /* ---------- Chart shape ----------
+
+     Twelve ways to draw the same price. The choice is remembered per browser
+     rather than per symbol: it is a reading preference, not a property of the
+     instrument, and having it change under you when you switch symbol would be
+     the opposite of a preference. */
+  const CHART_TYPE_KEY = 'qp.chartType';
+
+  // The labels are ours, not user input, but they go through the same escape
+  // as anything else built into a template: a helper that is only correct for
+  // the strings you happen to pass it is not a helper.
+  const escapeAttr = (v) => String(v ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+  function renderChartTypeMenu() {
+    if (!el.chartTypeMenu) return;
+    const current = ChartManager.priceType;
+    el.chartTypeMenu.innerHTML = ChartTypes.list.map((t) => `
+      <button type="button" role="menuitemradio" class="ct-item${
+        t.id === current ? ' active' : ''}" data-chart-type="${t.id}"
+        aria-checked="${t.id === current}">
+        <span class="ct-icon ct-icon-${t.icon}" aria-hidden="true"></span>
+        <span>${escapeAttr(t.label())}</span>
+      </button>`).join('');
+    /* Icon only, with the name as its tooltip.
+
+       The name was on the button and the top bar had no room for it — at
+       1400px it was already clipped mid-word, which is worse than no label
+       because a half-word looks like a rendering fault. The menu spells every
+       shape out; the button only has to say which one is on. */
+    el.chartType.innerHTML =
+      `<span class="ct-icon ct-icon-${ChartTypes.icon(current)}" aria-hidden="true"></span>`;
+    el.chartType.title = ChartTypes.label(current);
+    el.chartType.setAttribute('aria-label', ChartTypes.label(current));
+  }
+
+  function closeChartTypeMenu() {
+    if (!el.chartTypeMenu || el.chartTypeMenu.hidden) return;
+    el.chartTypeMenu.hidden = true;
+    el.chartType.setAttribute('aria-expanded', 'false');
+  }
+
+  function chooseChartType(id) {
+    ChartManager.setPriceType(id);
+    try { localStorage.setItem(CHART_TYPE_KEY, id); } catch { /* private mode */ }
+    renderChartTypeMenu();
+    closeChartTypeMenu();
+    // Indicator panes are drawn against the price series, and the price series
+    // was just replaced.
+    Indicators.recomputeAll();
+  }
+
+  function setupChartType() {
+    if (!el.chartType) return;
+    let saved = null;
+    try { saved = localStorage.getItem(CHART_TYPE_KEY); } catch { /* ignore */ }
+    if (saved && ChartTypes.has(saved)) ChartManager.setPriceType(saved);
+    renderChartTypeMenu();
+
+    el.chartType.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const opening = el.chartTypeMenu.hidden;
+      el.chartTypeMenu.hidden = !opening;
+      el.chartType.setAttribute('aria-expanded', String(opening));
+    });
+    el.chartTypeMenu.addEventListener('click', (event) => {
+      const item = event.target.closest('[data-chart-type]');
+      if (item) chooseChartType(item.dataset.chartType);
+    });
+    // Clicking anywhere else, or Escape, puts it away.
+    document.addEventListener('click', closeChartTypeMenu);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeChartTypeMenu();
+    });
+    I18n.onChange(renderChartTypeMenu);
   }
 
   /* ---------- View mode ----------
@@ -1392,6 +1582,8 @@ def signals(df, params):
     });
     el.limit.addEventListener('change', () => { state.limit = Number(el.limit.value); loadCandles(); });
     el.backfill.addEventListener('click', runBackfill);
+    setupChartType();
+    setupDrawings();
     el.modeToggle?.addEventListener('click', () => {
       setViewMode(ChartManager.mode === 'overview' ? 'trading' : 'overview');
     });
