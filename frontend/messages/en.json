@@ -172,7 +172,15 @@
     "all": "All",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {page} / {total}"
+    "page": "Page {page} / {total}",
+    "networkState": {
+      "calm": "Calm",
+      "normal": "Normal",
+      "elevated": "Elevated",
+      "high_stress": "High stress",
+      "stressed": "Stressed",
+      "extreme": "Extreme stress"
+    }
   },
   "glossary": {
     "regime": "How the model describes the market now: rising, falling, moving sideways or experiencing unusually large moves.",
@@ -343,7 +351,7 @@
   },
   "models": {
     "title": "Models",
-    "description": "Each model answers a different market question. See what it does, how it was tested, what the results support and where its limits remain.",
+    "description": "Four models run automatically after each trading session. This page brings their results together: where the index could go, how much could be lost, and how the market is behaving.",
     "filters": {
       "market": "Market",
       "category": "Purpose",
@@ -404,7 +412,9 @@
       "disclosureNote": "Quant Percent does not disclose specific input data, feature sets, weights, parameters or trading logic.",
       "notFound": "Model not found.",
       "currentOutputCaveat": "These are model estimates for the periods ahead, not outcomes that have happened. None of them has reached its horizon yet, so none has been checked against the actual result."
-    }
+    },
+    "catalogueTitle": "The full model catalogue",
+    "catalogueLead": "The four models above run daily. The list below also covers models still in development or archived, each with its status."
   },
   "performance": {
     "title": "Test Results",

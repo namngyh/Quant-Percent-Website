@@ -11,6 +11,7 @@ import {
 } from "@/lib/models/catalogue";
 import { Link } from "@/i18n/navigation";
 import { DisclosureBanner } from "@/components/layout/disclosure-banner";
+import { AllInOne } from "@/components/models/all-in-one";
 import { ModelCard } from "@/components/models/model-card";
 import { LockedCard } from "@/components/models/locked-card";
 import { LockedBanner } from "@/components/models/locked-banner";
@@ -107,7 +108,22 @@ export default async function ModelsPage({
         </div>
       </div>
       <div className="container-qp py-12 desk:py-16">
-        <div className="space-y-3">
+        {/* The live picture first. Someone arriving at /models almost always
+            wants to know what the models say today, not to browse a catalogue
+            of twelve entries, six of which are locked placeholders. The
+            catalogue keeps its place underneath for anyone who does. */}
+        <AllInOne
+          names={Object.fromEntries(catalogue.map((m) => [m.slug, m.name]))}
+        />
+
+        <div className="mt-20 border-t border-border pt-14">
+          <h2 className="title-md">{t("catalogueTitle")}</h2>
+          <p className="mt-3 max-w-3xl leading-relaxed text-dim">
+            {t("catalogueLead")}
+          </p>
+        </div>
+
+        <div className="mt-8 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-full shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-dim sm:w-24">
               {t("filters.market")}

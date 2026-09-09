@@ -172,7 +172,15 @@
     "all": "Tất cả",
     "previous": "Trước",
     "next": "Sau",
-    "page": "Trang {page} / {total}"
+    "page": "Trang {page} / {total}",
+    "networkState": {
+      "calm": "Bình thường",
+      "normal": "Bình thường",
+      "elevated": "Cao hơn bình thường",
+      "high_stress": "Căng thẳng cao",
+      "stressed": "Căng thẳng",
+      "extreme": "Căng thẳng rất cao"
+    }
   },
   "glossary": {
     "regime": "Cách mô hình mô tả thị trường tại một thời điểm: tăng, giảm, đi ngang hoặc biến động mạnh.",
@@ -343,7 +351,7 @@
   },
   "models": {
     "title": "Mô hình",
-    "description": "Mỗi mô hình dưới đây giải quyết một câu hỏi khác nhau về thị trường. Bạn có thể xem mô hình dùng để làm gì, đã được kiểm tra ra sao, kết quả cho thấy điều gì và còn hạn chế ở đâu.",
+    "description": "Bốn mô hình chạy tự động sau mỗi phiên giao dịch. Trang này gộp kết quả của chúng lại: chỉ số có thể đi tới đâu, có thể mất bao nhiêu, và thị trường đang vận hành ra sao.",
     "filters": {
       "market": "Thị trường",
       "category": "Mục đích",
@@ -404,7 +412,9 @@
       "disclosureNote": "Để bảo vệ tài sản nghiên cứu, Quant Percent không công khai dữ liệu chi tiết, trọng số, tham số hoặc quy tắc giao dịch của mô hình.",
       "notFound": "Không tìm thấy mô hình.",
       "currentOutputCaveat": "Đây là kết quả mô hình tính cho các thời hạn phía trước, chưa phải kết quả đã xảy ra. Các dự báo này chưa đến hạn nên chưa được đối chiếu với thực tế."
-    }
+    },
+    "catalogueTitle": "Toàn bộ danh mục mô hình",
+    "catalogueLead": "Bốn mô hình phía trên đang chạy hằng ngày. Danh sách dưới đây gồm cả những mô hình đang phát triển hoặc đã lưu trữ, kèm trạng thái của từng cái."
   },
   "performance": {
     "title": "Kết quả thử nghiệm",
