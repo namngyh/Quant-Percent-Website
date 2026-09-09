@@ -24,3 +24,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# jsdom, installed on demand for tests/test_render.js
+node_modules/
+tests/render_payloads.json

@@ -488,7 +488,32 @@ const Report = (() => {
       ${line(L('Số nến giữ TB', 'Average bars held'), (b) => nf(b.avg_bars_held, 1))}
       ${line(L('Nến giữ TB · thắng', 'Bars held · wins'), (b) => nf(b.avg_bars_win, 1))}
       ${line(L('Nến giữ TB · thua', 'Bars held · losses'), (b) => nf(b.avg_bars_loss, 1))}
+      ${line(L('Nến giữ lâu nhất', 'Longest hold'), (b) => nf(b.max_bars_held, 0))}
+      ${line(L('Tổng số nến trong lệnh', 'Total bars in trades'),
+        (b) => nf(b.total_bars_held, 0), barsHeldExplain())}
+      ${line(L('Độ phân tán lợi suất', 'Return dispersion'),
+        (b) => `${nf(b.std_dev_return_pct, 2)}%`, dispersionExplain())}
+      ${line(L('Sụt giảm trong lệnh · tệ nhất', 'Worst intra-trade drawdown'),
+        (b) => upct(b.max_trade_drawdown_pct), tradeDdExplain(), () => 'neg')}
+      ${line(L('Sụt giảm trong lệnh · TB', 'Average intra-trade drawdown'),
+        (b) => upct(b.avg_trade_drawdown_pct), tradeDdExplain(), () => 'neg')}
+      ${line(L('Lời lớn nhất / lỗ lớn nhất', 'Largest win / largest loss'),
+        (b) => (b.risk_reward_ratio === null ? '—' : ratio(b.risk_reward_ratio)))}
     </tbody></table>`;
+
+    // How trades ended. A strategy whose positions mostly close because the
+    // data ran out is not the strategy the metrics above describe.
+    const reasons = t2.all.exit_reasons || {};
+    const REASON = {
+      signal: L('tín hiệu', 'signal'),
+      liquidation: L('thanh lý', 'liquidation'),
+      end_of_data: L('hết dữ liệu', 'end of data'),
+    };
+    if (Object.keys(reasons).length) {
+      html += `<p class="table-note">${esc(L('Lý do đóng lệnh: ', 'Exit reasons: '))}${
+        Object.entries(reasons)
+          .map(([k, v]) => `${REASON[k] || k} ${v}`).join(' · ')}</p>`;
+    }
 
     html += `<div class="metrics" style="margin-top:14px">
       ${card(L('Chuỗi thắng dài nhất', 'Longest win streak'), s.max_consecutive_wins,
@@ -555,6 +580,8 @@ const Report = (() => {
     html += card(L('Chỉ số Ulcer', 'Ulcer index'), nf(risk.ulcer_index), 'm.ulcer', '',
       `UPI ${ratio(risk.ulcer_performance_index)}`);
     html += card('CAR/MDD', ratio(risk.car_mdd), 'm.car_mdd', risk.car_mdd >= 1 ? 'pos' : '');
+    html += card('RAR/MDD', ratio(risk.rar_mdd), rarMddExplain(), risk.rar_mdd >= 1 ? 'pos' : '',
+      L('đã trừ thời gian đứng ngoài', 'time out of the market removed'));
     html += card('Sterling', ratio(risk.sterling), sterlingExplain(), '',
       L('dùng sụt giảm trung bình', 'uses the average drawdown'));
     html += card('Burke', ratio(risk.burke), burkeExplain(), '',
@@ -683,6 +710,46 @@ const Report = (() => {
     how: tp(gp.note) || gp.note,
     watch: L('Tính trên lợi suất THÁNG. Áp cùng công thức lên dữ liệu theo nến cho một con số nhỏ hơn nhiều ở một thang hoàn toàn khác, và so nó với ngưỡng 1.0 là vô nghĩa.',
              'Computed on monthly returns. The same formula on bar data gives a much smaller number on a completely different scale, and comparing that to the 1.0 threshold is meaningless.'),
+  });
+
+  const barsHeldExplain = () => Explain.inline({
+    title: L('Số nến nắm giữ', 'Bars held'),
+    what: L('Vốn bị khoá trong các vị thế tổng cộng bao lâu.',
+            'How long capital was locked inside positions in total.'),
+    how: L('Hai chiến lược cùng kỳ vọng mỗi lệnh nhưng một cái giữ 3 nến còn cái kia giữ 300 nến là hai sản phẩm khác hẳn nhau: cái sau khoá vốn lâu gấp trăm lần cho cùng một đồng lợi nhuận, và chịu rủi ro qua đêm gấp trăm lần.',
+            'Two strategies with the same expectancy per trade but one holding 3 bars and the other 300 are quite different products: the second locks capital a hundred times longer for the same profit, and carries a hundred times the overnight risk.'),
+    watch: L('Không phải thời gian phơi nhiễm của cả danh mục — một vị thế tại một thời điểm nên tổng số nến trong lệnh có thể nhỏ hơn nhiều so với số nến của kỳ kiểm tra. Cột "Phơi nhiễm" ở tab Tổng quan mới là tỷ lệ thời gian ở trong thị trường.',
+             "Not portfolio exposure — one position at a time means total bars in trades can be far below the bars in the test period. The Exposure figure on the Overview tab is the share of time in the market."),
+  });
+
+  const dispersionExplain = () => Explain.inline({
+    title: L('Độ phân tán lợi suất giữa các lệnh', 'Return dispersion across trades'),
+    what: L('Độ lệch chuẩn lợi suất của từng lệnh, tính theo phần trăm ký quỹ.',
+            'The standard deviation of per-trade return, as a percentage of margin committed.'),
+    how: L('AmiBroker gọi cột này là Standard Error. Hai chiến lược cùng kỳ vọng nhưng độ phân tán gấp đôi thì cần khoảng gấp bốn số lệnh mới phân biệt được lợi thế thật với may mắn.',
+            'AmiBroker calls this column Standard Error. Two strategies with the same expectancy but twice the dispersion need roughly four times as many trades before a real edge can be told from luck.'),
+    watch: L('Theo phần trăm chứ không theo tiền, nên so được giữa các mức vốn khác nhau. Bản theo tiền là dòng "Sai số chuẩn của lãi TB" ngay trên.',
+             'Expressed as a percentage rather than money, so it compares across capital levels. The money version is the standard-error row above.'),
+  });
+
+  const tradeDdExplain = () => Explain.inline({
+    title: L('Sụt giảm trong một lệnh', 'Intra-trade drawdown'),
+    what: L('Một lệnh đã đi ngược bao xa trước khi đóng, đo bằng MAE.',
+            'How far a trade went against you before it closed, measured by MAE.'),
+    how: L('Khác hẳn sụt giảm hệ thống: sụt giảm hệ thống nói tài khoản đã xuống bao nhiêu, còn con số này nói một lệnh đơn lẻ đã lỗ tạm bao nhiêu. Đây chính là mức mà một lệnh dừng lỗ sẽ cắt phải — đặt stop chặt hơn con số này nghĩa là cắt cả những lệnh cuối cùng vẫn có lãi.',
+            'Quite different from system drawdown: system drawdown says how far the account fell, this says how far a single trade was underwater. It is exactly what a stop-loss would cut into — setting a stop tighter than this figure means cutting trades that went on to win.'),
+    watch: L('Tính trên giá cao nhất/thấp nhất trong nến, gồm cả nến vào lệnh, vì lệnh khớp ở giá mở nến đó nên phần còn lại của nến thật sự diễn ra khi đã có vị thế.',
+             "Computed on bar highs and lows including the entry bar, because the fill happens at that bar's open and the rest of its range genuinely occurs while the position is held."),
+  });
+
+  const rarMddExplain = () => Explain.inline({
+    title: 'RAR/MDD',
+    what: L('Lợi nhuận đã hiệu chỉnh theo thời gian ở trong thị trường, chia cho sụt giảm tối đa.',
+            'Return adjusted for time in the market, divided by maximum drawdown.'),
+    how: L('Giống CAR/MDD nhưng tử số đã chia cho tỷ lệ phơi nhiễm, nên một chiến lược chỉ vào lệnh 10% thời gian không bị phạt vì 90% còn lại đứng ngoài. Đọc cùng CAR/MDD: chênh lệch lớn giữa hai con số nghĩa là chiến lược đứng ngoài phần lớn thời gian.',
+            'The same as CAR/MDD but with the numerator divided by exposure, so a strategy in the market only 10% of the time is not penalised for the other 90%. Read it alongside CAR/MDD: a large gap between them means the strategy sits out most of the time.'),
+    watch: L('Thời gian đứng ngoài không phải là miễn phí trong thực tế — vốn vẫn bị giữ để sẵn sàng vào lệnh. RAR/MDD giả định phần vốn đó không có chi phí cơ hội.',
+             'Time out of the market is not free in practice — the capital is still reserved to be ready. RAR/MDD assumes that capital has no opportunity cost.'),
   });
 
   const tailExplain = () => Explain.inline({
@@ -947,10 +1014,179 @@ const Report = (() => {
              'Spearman ranks, so one enormous correct call cannot drag the figure up on its own, but IC still assumes independent bars, and a position held across many bars is not.'),
   });
 
+  /* ---------- Risk management ----------
+
+     The Risk tab above describes what happened. This one answers the question
+     that description does not: given all that, how large should the position
+     be? Everything here is derived from the strategy's own observed returns —
+     there is no forecasting model anywhere in it. */
+
+  function riskToolsTab(r) {
+    const rt = r.risk_tools || {};
+    const tail = rt.tail || {};
+    const kel = rt.kelly || {};
+    const bud = rt.budget || {};
+    const lev = rt.leverage || {};
+
+    let html = '';
+
+    if (!tail.available) {
+      html += `<div class="callout warn">${esc(tp(tail.reason) || L(
+        'Không đủ dữ liệu để đo rủi ro đuôi.',
+        'Not enough data to measure tail risk.'))}</div>`;
+    } else {
+      html += `<div class="field-group-title">${esc(L(
+        'Rủi ro đuôi', 'Tail risk'))} ${varCvarExplain(tail)}</div>`;
+      html += `<table class="data-table stat-table"><thead><tr>
+        <th>${esc(L('Mức tin cậy', 'Confidence'))}</th>
+        <th>VaR</th><th>CVaR</th>
+        <th>${esc(L('Khoảng tin cậy 95%', '95% interval'))}</th>
+        <th>${esc(L('Cornish–Fisher', 'Cornish–Fisher'))}</th>
+        <th>${esc(L('Số quan sát đuôi', 'Tail observations'))}</th>
+        </tr></thead><tbody>`;
+      for (const lv of tail.levels) {
+        html += `<tr>
+          <td>${lv.level_pct.toFixed(0)}%</td>
+          <td class="neg">${lv.var_pct.toFixed(2)}%</td>
+          <td class="neg">${lv.cvar_pct.toFixed(2)}%</td>
+          <td class="muted">${lv.ci95_low_pct.toFixed(2)} … ${lv.ci95_high_pct.toFixed(2)}%</td>
+          <td class="${lv.cornish_fisher_gap_pct < -0.01 ? 'neg' : 'muted'}">${
+            lv.var_cornish_fisher_pct.toFixed(2)}%</td>
+          <td class="${lv.thin_tail ? 'neg' : 'muted'}">${lv.tail_observations}${
+            lv.thin_tail ? ' ⚠' : ''}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+
+      const thin = tail.levels.filter((lv) => lv.thin_tail);
+      if (thin.length) {
+        html += `<div class="callout warn">${esc(tp(thin[0].note))}</div>`;
+      }
+      html += `<p class="table-note">${esc(tp(tail.method))}</p>`;
+    }
+
+    html += `<div class="field-group-title">${esc(L(
+      'Cỡ vị thế', 'Position sizing'))}</div>`;
+    html += '<div class="metrics">';
+    if (kel.available) {
+      html += card(L('Kelly', 'Kelly'), `${(kel.kelly_fraction * 100).toFixed(1)}%`,
+        kellySizingExplain(kel), kel.kelly_fraction > 0 ? '' : 'neg',
+        L(`tỷ lệ thắng ${(kel.win_rate * 100).toFixed(0)}%`,
+          `win rate ${(kel.win_rate * 100).toFixed(0)}%`));
+      html += card(L('Nửa Kelly', 'Half Kelly'),
+        `${(kel.half_kelly_fraction * 100).toFixed(1)}%`, kellySizingExplain(kel), 'pos',
+        L('mức thực dụng', 'the practical figure'));
+    }
+    if (bud.available) {
+      html += card(L('Cỡ vị thế đề xuất', 'Suggested size'),
+        `${bud.suggested_size_pct.toFixed(1)}%`, budgetExplain(bud),
+        bud.capped ? 'neg' : 'pos',
+        L(`cho ngân sách ${bud.budget_pct.toFixed(1)}%`,
+          `for a ${bud.budget_pct.toFixed(1)}% budget`));
+    }
+    if (lev.available && lev.max_leverage_worst_bar) {
+      html += card(L('Trần đòn bẩy', 'Leverage ceiling'),
+        `${lev.max_leverage_worst_bar.toFixed(1)}x`, leverageExplain(lev), 'neg',
+        L('theo nến tệ nhất đã gặp', 'from the worst bar seen'));
+    }
+    html += '</div>';
+
+    if (!kel.available && kel.reason) {
+      html += `<div class="callout">${esc(tp(kel.reason))}</div>`;
+    }
+    if (bud.available && bud.capped) {
+      html += `<div class="callout warn">${esc(L(
+        `Ngân sách ${bud.budget_pct.toFixed(1)}% cần cỡ vị thế lớn hơn 100% vốn, nên nó đã bị chặn ở 100%. Nói cách khác, chiến lược này không đủ rủi ro để tiêu hết ngân sách đó ở cỡ vị thế thường.`,
+        `A ${bud.budget_pct.toFixed(1)}% budget would need a position above 100% of equity, so it is capped at 100%. Put another way, this strategy is not risky enough to spend that budget at ordinary sizing.`))}</div>`;
+    }
+
+    if (lev.available) {
+      html += `<div class="field-group-title">${esc(L(
+        'Đòn bẩy theo mức tin cậy', 'Leverage by confidence level'))}</div>`;
+      html += `<table class="data-table stat-table"><thead><tr>
+        <th>${esc(L('Mức tin cậy', 'Confidence'))}</th>
+        <th>${esc(L('Biến động bất lợi', 'Adverse move'))}</th>
+        <th>${esc(L('Đòn bẩy tối đa', 'Max leverage'))}</th>
+        </tr></thead><tbody>`;
+      for (const row2 of lev.levels) {
+        html += `<tr><td>${row2.level_pct.toFixed(0)}%</td>
+          <td class="neg">${row2.adverse_move_pct.toFixed(2)}%</td>
+          <td>${row2.max_leverage === null ? '—' : `${row2.max_leverage.toFixed(1)}x`}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      html += `<div class="callout warn">${esc(tp(lev.watch))}</div>`;
+    }
+
+    return html;
+  }
+
+  const varCvarExplain = (tail) => Explain.inline({
+    title: L('VaR và CVaR', 'VaR and CVaR'),
+    what: L('VaR là ngưỡng lỗ mà chỉ một tỷ lệ nhỏ số nến vượt qua. CVaR là mức lỗ trung bình khi đã vượt qua ngưỡng đó — tức là "khi mọi thứ tệ, tệ đến đâu".',
+            'VaR is the loss threshold that only a small share of bars exceed. CVaR is the average loss once that threshold has been crossed — "when it goes bad, how bad".'),
+    rows: [[L('Số nến', 'Bars'), String(tail.bars)]].concat(
+      tail.levels.map((lv) => [
+        `CVaR ${lv.level_pct.toFixed(0)}%`,
+        `${lv.cvar_pct.toFixed(2)}% ±${lv.standard_error_pct.toFixed(2)} (${
+          lv.tail_observations} ${L('quan sát', 'obs')})`])),
+    how: L('CVaR luôn tệ hơn VaR, vì nó là trung bình của phần đuôi chứ không phải mép đuôi. Đọc CVaR để biết cần bao nhiêu vốn dự phòng; đọc VaR để biết ngưỡng nào bị vượt bao lâu một lần.',
+            'CVaR is always worse than VaR, because it averages the tail rather than marking its edge. Read CVaR to size a buffer; read VaR to know how often a threshold is crossed.'),
+    watch: L('CVaR 99% trên 2 000 nến là trung bình của 20 quan sát — khoảng tin cậy của nó rộng gấp gần ba lần CVaR 90%, dù hai con số in ra trông giống hệt nhau. Cột "số quan sát đuôi" là cột phải đọc trước. Ngoài ra CVaR lịch sử không bao giờ vượt quá cú lỗ tệ nhất đã xảy ra, nên trên một mẫu chưa gặp cú sập nào nó sẽ báo rằng cú sập không tồn tại; cột Cornish–Fisher tồn tại để bù đúng chỗ đó.',
+             'CVaR at 99% on 2 000 bars is the mean of 20 observations — its confidence interval is nearly three times wider than the 90% figure, though the two print identically. The tail-observations column is the one to read first. Historical CVaR also can never exceed the worst loss already seen, so on a sample that has met no crash it reports that crashes do not exist; the Cornish–Fisher column exists to cover exactly that.'),
+    source: 'Cornish & Fisher (1938); Rockafellar & Uryasev (2000).',
+  });
+
+  const kellySizingExplain = (kel) => Explain.inline({
+    title: L('Phân số Kelly', 'Kelly fraction'),
+    what: L('Tỷ lệ vốn đặt vào mỗi lệnh để tối đa hoá tốc độ tăng trưởng dài hạn.',
+            'The share of capital per trade that maximises long-run growth rate.'),
+    rows: [[L('Số lệnh', 'Trades'), String(kel.trades)],
+           [L('Tỷ lệ thắng', 'Win rate'), `${(kel.win_rate * 100).toFixed(1)}%`],
+           [L('Tỷ lệ lãi/lỗ', 'Payoff ratio'), kel.payoff_ratio.toFixed(2)],
+           ['Kelly', `${(kel.kelly_fraction * 100).toFixed(1)}%`],
+           [L('Nửa Kelly', 'Half Kelly'), `${(kel.half_kelly_fraction * 100).toFixed(1)}%`]],
+    formula: 'f* = (p·b − q) / b',
+    how: L('Tính trên lợi suất thật của từng lệnh so với vốn tại lúc mở lệnh, đúng đại lượng engine cộng dồn — không phải lãi lỗ chia cho vốn ban đầu.',
+            "Computed from each trade's real return against the equity at the moment it opened, which is the quantity the engine compounds — not profit divided by starting capital."),
+    watch: L('Kelly đầy đủ giả định lợi suất mỗi lệnh độc lập và phân phối không đổi; cả hai đều sai với chuỗi giao dịch thật. Nó còn được ước lượng trên chính mẫu đã sinh ra chiến lược nên thiên cao. Kelly đầy đủ đi kèm mức sụt giảm gần như không ai chịu nổi — nửa Kelly giữ khoảng 75% tốc độ tăng trưởng với một nửa biến động.',
+             'Full Kelly assumes trade returns are independent and identically distributed; both are false for a real sequence. It is also estimated on the very sample the strategy came from, so it is biased high. Full Kelly comes with drawdowns almost nobody tolerates — half Kelly keeps roughly 75% of the growth rate at half the volatility.'),
+  });
+
+  const budgetExplain = (bud) => Explain.inline({
+    title: L('Cỡ vị thế theo ngân sách rủi ro', 'Position size from a risk budget'),
+    what: L('Chiều ngược của bảng CVaR: thay vì đo rủi ro của cỡ vị thế hiện tại, nó chọn cỡ vị thế cho một mức rủi ro cho trước.',
+            'The inverse of the CVaR table: instead of measuring the risk of the current size, it picks a size for a stated level of risk.'),
+    rows: [[L('Ngân sách', 'Budget'), `${bud.budget_pct.toFixed(2)}%`],
+           [L('Mức tin cậy', 'Confidence'), `${bud.level_pct.toFixed(0)}%`],
+           [L('CVaR đo được', 'Measured CVaR'), `${bud.measured_cvar_pct.toFixed(2)}%`],
+           [L('Hệ số cỡ vị thế', 'Size multiplier'), `${bud.size_multiplier.toFixed(3)}x`],
+           [L('Cỡ vị thế đề xuất', 'Suggested size'), `${bud.suggested_size_pct.toFixed(1)}%`]],
+    how: L('Đọc là: "trong những phiên tệ nhất, tôi chấp nhận mất trung bình ngần này phần trăm vốn". Cỡ vị thế trả về là mức tạo ra đúng con số đó trên lịch sử đã đo.',
+            'Read it as: "in the worst sessions I accept losing this much of capital on average". The size returned is the one that produces exactly that figure over the measured history.'),
+    watch: L('Phép tỷ lệ tuyến tính đúng với ký quỹ và giá trị danh nghĩa nhưng KHÔNG đúng với thanh lý: vị thế lớn hơn làm khoảng cách tới giá thanh lý ngắn lại phi tuyến. Và nó giả định phân phối lợi suất tương lai giống quá khứ.',
+             'The linear scaling is right for margin and notional but NOT for liquidation: a larger position shortens the distance to the liquidation price non-linearly. It also assumes the future return distribution matches the measured past.'),
+  });
+
+  const leverageExplain = (lev) => Explain.inline({
+    title: L('Trần đòn bẩy', 'Leverage ceiling'),
+    what: L('Mức đòn bẩy mà tại đó một nến xấu đủ sức chạm ngưỡng thanh lý.',
+            'The leverage at which one bad bar is enough to reach liquidation.'),
+    rows: [[L('Nến tệ nhất', 'Worst bar'), `${lev.worst_bar_pct.toFixed(2)}%`],
+           [L('Hệ số an toàn', 'Safety factor'), lev.buffer.toFixed(2)]].concat(
+      lev.levels.map((x) => [`${x.level_pct.toFixed(0)}%`,
+        `${x.adverse_move_pct.toFixed(2)}% → ${
+          x.max_leverage === null ? '—' : `${x.max_leverage.toFixed(1)}x`}`])),
+    how: L('Với đòn bẩy L, một biến động bất lợi 1/L ăn hết ký quỹ. Bảng so 1/L với các phân vị đuôi đã quan sát, nên nó nói về những cú sốc đã thật sự xảy ra với chiến lược này.',
+            'At leverage L, an adverse move of 1/L consumes the margin. The table compares 1/L against the observed tail quantiles, so it speaks about shocks that actually happened to this strategy.'),
+    watch: L('Tính trên biến động theo giá đóng cửa. Thanh lý thật xét giá thấp nhất (mua) hoặc cao nhất (bán) TRONG nến, luôn xấu hơn giá đóng cửa — nên đây là trần trên, không phải mức an toàn.',
+             'Computed on close-to-close moves. Real liquidation checks the bar’s low (long) or high (short) INSIDE the bar, which is always worse than the close — so this is an upper bound, not a safe level.'),
+  });
+
   const TABS = [
     ['overview', 'rp.overview', overviewTab],
     ['trades', 'rp.trades', tradesTab],
     ['risk', 'rp.risk', riskTab],
+    ['risktools', 'rp.riskTools', riskToolsTab],
     ['period', 'rp.period', periodTab],
     ['dist', 'rp.dist', distributionTab],
     ['ml', 'rp.ml', mlTab],
@@ -1048,5 +1284,17 @@ const Report = (() => {
     onToast = config?.onToast || (() => {});
   }
 
-  return { init, open, close, rerender };
+  return {
+    init, open, close, rerender,
+    // Exported for tests/test_render.js. Six tabs of several hundred numbers
+    // each, read out of the payload by name: a metric the backend renames or
+    // drops reaches the screen as "undefined" with no error anywhere, which is
+    // exactly the failure this project has already shipped once.
+    get tabs() { return TABS.map(([id, key]) => [id, key]); },
+    renderTab(id, payload) {
+      const entry = TABS.find(([tabId]) => tabId === id);
+      if (!entry) throw new Error(`no such report tab: ${id}`);
+      return entry[2](payload);
+    },
+  };
 })();

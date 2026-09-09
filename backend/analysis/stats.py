@@ -1266,6 +1266,7 @@ def sharpe_tests(
     bar_returns: np.ndarray,
     periods_per_year: float,
     n_trials: int = 1,
+    trial_dispersion: float | None = None,
 ) -> dict:
     """PSR, độ dài lịch sử tối thiểu, và Sharpe khử phồng.
 
@@ -1307,21 +1308,33 @@ def sharpe_tests(
     psr = _psr(0.0)
 
     # Ngưỡng khử phồng: kỳ vọng của cực đại n_trials biến chuẩn, nhân với độ
-    # phân tán của Sharpe giữa các phép thử. Không đo được độ phân tán đó ở đây
-    # nên dùng sai số chuẩn của chính Sharpe này: một xấp xỉ bảo thủ.
+    # phân tán của Sharpe **giữa các phép thử**.
+    #
+    # Độ phân tán đó là đại lượng quan trọng nhất của công thức và cũng là đại
+    # lượng một backtest đơn lẻ không nhìn thấy được: nó cần các phép thử khác.
+    # Khi người gọi đo được (optimizer giữ Sharpe của **mọi** ô lưới, nên độ
+    # lệch chuẩn của cột đó chính là đại lượng Bailey & López de Prado định
+    # nghĩa), truyền vào qua `trial_dispersion`. Khi không có, rơi về sai số
+    # chuẩn của chính Sharpe này — một xấp xỉ, và cần nói rõ là xấp xỉ.
     trials = max(int(n_trials), 1)
+    dispersion_measured = trial_dispersion is not None and trial_dispersion > 0
     if trials > 1:
         euler = 0.5772156649015329
         expected_max = float(
             (1 - euler) * sps.norm.ppf(1 - 1.0 / trials)
             + euler * sps.norm.ppf(1 - 1.0 / (trials * np.e))
         )
-        sr_dispersion = sr_se_factor / float(np.sqrt(max(n - 1, 1)))
+        if dispersion_measured:
+            # Người gọi đưa Sharpe theo năm; công thức chạy trên Sharpe mỗi nến.
+            sr_dispersion = float(trial_dispersion) / float(np.sqrt(periods_per_year))
+        else:
+            sr_dispersion = sr_se_factor / float(np.sqrt(max(n - 1, 1)))
         threshold = expected_max * sr_dispersion
         dsr = _psr(threshold)
     else:
         expected_max = 0.0
         threshold = 0.0
+        sr_dispersion = 0.0
         dsr = psr
 
     # MinTRL: cần bao nhiêu quan sát để PSR đạt 95% so với ngưỡng 0.
@@ -1373,6 +1386,24 @@ def sharpe_tests(
         "expected_max_sharpe_z": expected_max,
         "deflation_threshold_sharpe": threshold,
         "deflated_sharpe_ratio": dsr,
+        "trial_dispersion": sr_dispersion,
+        "trial_dispersion_measured": dispersion_measured,
+        "trial_dispersion_note": bi(
+            "Độ phân tán Sharpe giữa các phép thử được **đo trực tiếp** trên "
+            "toàn bộ lưới tối ưu, đúng đại lượng công thức DSR yêu cầu."
+            if dispersion_measured else
+            "Không đo được độ phân tán Sharpe giữa các phép thử từ một backtest "
+            "đơn lẻ, nên dùng sai số chuẩn của chính Sharpe này thay thế. Đây là "
+            "một **xấp xỉ**; chạy qua tab Tối ưu sẽ cho con số đo thật.",
+            "The cross-trial Sharpe dispersion is **measured directly** over "
+            "the whole optimisation grid, which is the quantity the DSR "
+            "formula asks for."
+            if dispersion_measured else
+            "The cross-trial Sharpe dispersion cannot be measured from a single "
+            "backtest, so the standard error of this one Sharpe stands in for "
+            "it. That is an **approximation**; running through the Optimise tab "
+            "measures it properly.",
+        ),
         "dsr_significant": bool(dsr > 0.95),
         "min_track_record_length": min_trl_value,
         "sufficient_history": bool(min_trl_value is not None and n >= min_trl_value),

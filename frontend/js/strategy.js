@@ -271,9 +271,9 @@ const Strategy = (() => {
     vs_buy_hold_pct: 'So với mua và giữ',
   };
 
-  function metricCard(label, value, cls = '', sub = '') {
+  function metricCard(label, value, cls = '', sub = '', info = '') {
     return `<div class="metric">
-      <div class="metric-label">${esc(label)}</div>
+      <div class="metric-label">${esc(label)}${info}</div>
       <div class="metric-value ${cls}">${value}</div>
       ${sub ? `<div class="metric-sub">${esc(sub)}</div>` : ''}
     </div>`;
@@ -399,6 +399,44 @@ const Strategy = (() => {
     return result;
   }
 
+  const robustnessExplain = (rb) => Explain.inline({
+    title: L('Độ bền theo lân cận tham số', 'Parameter-neighbourhood robustness'),
+    what: L('Tổ hợp thắng đứng trên một vùng tốt, hay đứng một mình trên một đỉnh nhọn.',
+            'Whether the winning combination stands on a good region, or alone on a spike.'),
+    rows: [[L('Kết luận', 'Verdict'), { plateau: L('Cao nguyên', 'Plateau'),
+             ridge: L('Sườn dốc', 'Ridge'), spike: L('Đỉnh nhọn', 'Spike') }[rb.code]],
+           [L('Số lân cận đã chạy', 'Neighbours run'),
+            `${rb.neighbours_found}${rb.neighbours_missing
+              ? ` (${rb.neighbours_missing} ${L('chưa chạy', 'not run')})` : ''}`],
+           [L('Trung vị điểm lân cận', 'Neighbour median score'),
+            rb.neighbour_median_score.toFixed(3)],
+           [L('Bách phân vị trong lưới', 'Percentile within the grid'),
+            rb.neighbour_median_percentile.toFixed(0)],
+           [L('Điểm tổ hợp thắng', 'Winner score'), rb.winner_score.toFixed(3)]],
+    how: L('Lợi thế thật suy giảm từ từ: đổi một tham số đúng một bước thì các ô ngay cạnh cũng phải thuộc nhóm dẫn đầu của lưới. Đỉnh nhọn thì ngược lại — xung quanh chỉ tầm thường, nghĩa là đúng bộ giá trị đó mới thắng, và một bộ giá trị chỉ thắng ở đúng một điểm thì đã khớp vào nhiễu của chính mẫu này.',
+            'A real edge degrades gently: move one parameter by exactly one step and the adjacent cells should still be near the top of the grid. A spike is the opposite — its surroundings are ordinary, which means those exact values are what won, and a set of values that wins at exactly one point has fitted the noise in this sample.'),
+    formula: L('bách phân vị của trung vị điểm lân cận trong phân phối điểm của cả lưới',
+               "the percentile of the neighbours' median within the whole grid's score distribution"),
+    watch: L('Chỉ xét lân cận cách một bước theo đúng một trục, không xét đường chéo. Ở chế độ ngẫu nhiên nhiều ô lân cận có thể chưa chạy — khi đó số lân cận tìm được nhỏ và kết luận yếu đi tương ứng. Bách phân vị lấy điểm giữa của khối đồng điểm; nếu lấy mép trên thì một lưới toàn ô bằng nhau sẽ báo mọi thứ đều ở nhóm dẫn đầu.',
+             'Only neighbours one step away along exactly one axis count; diagonals do not. Under random mode many neighbouring cells may never have been run, in which case the neighbour count is small and the verdict is correspondingly weak. The percentile takes the midpoint of a tied block; taking its upper edge would report every cell of an all-equal grid as top of the distribution.'),
+  });
+
+  const deflatedExplain = (dfl) => Explain.inline({
+    title: L('Sharpe đã khử phồng (DSR)', 'Deflated Sharpe ratio (DSR)'),
+    what: L('Xác suất Sharpe thật của tổ hợp thắng lớn hơn 0, sau khi trừ đi phần cao lên chỉ vì đã thử rất nhiều tổ hợp.',
+            "The probability that the winner's true Sharpe is above zero, after removing the part that is high merely because many combinations were tried."),
+    rows: [[L('Số phép thử', 'Trials'), String(dfl.trials)],
+           ['PSR', `${(dfl.psr * 100).toFixed(1)}%`],
+           ['DSR', `${(dfl.deflated_sharpe_ratio * 100).toFixed(1)}%`],
+           [L('Độ phân tán giữa các phép thử', 'Cross-trial dispersion'),
+            dfl.cross_trial_dispersion.toFixed(3)]],
+    how: L('Chọn ô tốt nhất của một lưới là chọn cực đại của ngần ấy biến ngẫu nhiên. DSR so Sharpe của tổ hợp thắng với kỳ vọng của cực đại đó, nên lưới càng lớn thì Sharpe càng phải cao mới qua được. Dưới 50% nghĩa là quét ngần này tổ hợp trên dữ liệu không có lợi thế nào cũng cho ra đúng con số đó.',
+            'Picking the best cell of a grid picks the maximum of that many random variables. DSR compares the winner against the expected maximum, so a larger grid must produce a higher Sharpe to pass. Below 50% means sweeping this many combinations over data with no edge at all would produce the same number.'),
+    source: 'Bailey & López de Prado (2014), "The Deflated Sharpe Ratio".',
+    watch: L('Đại lượng khó nhất của công thức là độ phân tán Sharpe giữa các phép thử. Panel Thống kê không đo được nó từ một backtest đơn lẻ nên phải xấp xỉ bằng sai số chuẩn; ở đây nó được đo trực tiếp trên toàn bộ lưới. Đó là lý do DSR ở tab này thường thấp hơn — và đúng hơn.',
+             "The hardest quantity in the formula is the cross-trial Sharpe dispersion. The Statistics panel cannot measure it from a single backtest and must approximate it with a standard error; here it is measured directly over the whole grid. That is why the DSR in this tab is usually lower — and more honest."),
+  });
+
   function renderOptimize(result) {
     const s = result.summary;
     // Remembered for the deflated Sharpe ratio: a strategy whose parameters
@@ -409,40 +447,72 @@ const Strategy = (() => {
     const rows = result.results;
 
     if (!rows.length) {
-      elements.optimize.innerHTML = '<p class="empty">Không tổ hợp nào chạy được.</p>';
+      elements.optimize.innerHTML = `<p class="empty">${esc(L(
+        'Không tổ hợp nào chạy được.', 'No combination could run.'))}</p>`;
       return;
     }
 
     let html = '';
 
     if (s.overfit_warning) {
-      html += `<div class="callout warn"><strong>Cẩn thận overfit.</strong>
-        Chỉ ${s.profitable_pct.toFixed(0)}% tổ hợp có lãi, nhưng tổ hợp tốt nhất vượt trung vị
-        ${s.best_z_score.toFixed(1)} độ lệch chuẩn. Dáng này thường là may mắn, không phải lợi thế thật.</div>`;
+      html += `<div class="callout warn"><strong>${esc(L(
+        'Cẩn thận overfit.', 'Watch for overfitting.'))}</strong> ${esc(L(
+        `Chỉ ${s.profitable_pct.toFixed(0)}% tổ hợp có lãi, nhưng tổ hợp tốt nhất vượt trung vị ${s.best_z_score.toFixed(1)} độ lệch chuẩn. Dáng này thường là may mắn, không phải lợi thế thật.`,
+        `Only ${s.profitable_pct.toFixed(0)}% of combinations made money, yet the best one sits ${s.best_z_score.toFixed(1)} standard deviations above the median. That shape is usually luck, not an edge.`))}</div>`;
     }
 
     html += '<div class="metrics">';
     html += metricCard(
-      s.mode === 'random' ? 'Số mẫu đã chạy' : 'Số tổ hợp',
+      s.mode === 'random' ? L('Số mẫu đã chạy', 'Samples run') : L('Số tổ hợp', 'Combinations'),
       String(s.combinations),
       '',
       s.mode === 'random'
         ? `${s.coverage_pct < 0.01 ? '<0,01' : s.coverage_pct.toFixed(2)}% của ${s.space_size.toLocaleString('vi-VN')}`
-        : (s.failed ? `${s.failed} lỗi` : ''),
+        : (s.failed ? L(`${s.failed} lỗi`, `${s.failed} failed`) : ''),
     );
-    html += metricCard('Có lãi', `${s.profitable_pct.toFixed(0)}%`,
+    html += metricCard(L('Có lãi', 'Profitable'), `${s.profitable_pct.toFixed(0)}%`,
       s.profitable_pct >= 50 ? 'pos' : 'neg', `${s.profitable}/${s.completed}`);
-    html += metricCard('Trung vị lợi nhuận', pct(s.median_return_pct),
+    html += metricCard(L('Trung vị lợi nhuận', 'Median return'), pct(s.median_return_pct),
       s.median_return_pct > 0 ? 'pos' : 'neg');
-    html += metricCard('Mua và giữ', pct(s.buy_hold_return_pct),
+    html += metricCard(L('Mua và giữ', 'Buy and hold'), pct(s.buy_hold_return_pct),
       s.buy_hold_return_pct > 0 ? 'pos' : 'neg');
+
+    /* The ranked table cannot tell a genuine optimum from a lucky cell, and it
+       cannot tell whether the winner's Sharpe beats the best of this many coin
+       flips. These two cards are the whole point of running a sweep. */
+    const rb = s.robustness || {};
+    if (rb.available) {
+      html += metricCard(L('Độ bền tham số', 'Parameter robustness'),
+        { plateau: L('Cao nguyên', 'Plateau'), ridge: L('Sườn dốc', 'Ridge'),
+          spike: L('Đỉnh nhọn', 'Spike') }[rb.code],
+        rb.code === 'plateau' ? 'pos' : rb.code === 'spike' ? 'neg' : '',
+        L(`lân cận ở bách phân vị ${rb.neighbour_median_percentile.toFixed(0)}`,
+          `neighbours at percentile ${rb.neighbour_median_percentile.toFixed(0)}`),
+        robustnessExplain(rb));
+    }
+    const dfl = s.deflated || {};
+    if (dfl.available) {
+      html += metricCard(L('Sharpe đã khử phồng', 'Deflated Sharpe'),
+        `${(dfl.deflated_sharpe_ratio * 100).toFixed(1)}%`,
+        dfl.code === 'survives' ? 'pos' : dfl.code === 'deflated_away' ? 'neg' : '',
+        L(`sau ${dfl.trials} phép thử`, `after ${dfl.trials} trials`),
+        deflatedExplain(dfl));
+    }
     html += '</div>';
+
+    for (const block of [rb, dfl]) {
+      if (!block.available || !block.verdict) continue;
+      const tone = (block.code === 'plateau' || block.code === 'survives') ? 'good' : 'warn';
+      html += `<div class="callout ${tone}">${esc(tp(block.verdict))}</div>`;
+    }
 
     const paramNames = Object.keys(rows[0].params);
     html += '<table class="data-table"><thead><tr>';
     for (const n of paramNames) html += `<th>${esc(n)}</th>`;
     html += `<th>${esc(METRIC_LABELS[s.metric] || s.metric)}</th>
-      <th>Lợi nhuận</th><th>MaxDD</th><th>Thắng</th><th>Lệnh</th></tr></thead><tbody>`;
+      <th>${esc(L('Lợi nhuận', 'Return'))}</th><th>MaxDD</th>
+      <th>${esc(L('Thắng', 'Win'))}</th>
+      <th>${esc(L('Lệnh', 'Trades'))}</th></tr></thead><tbody>`;
 
     rows.forEach((r, i) => {
       const m = r.metrics;
@@ -460,8 +530,10 @@ const Strategy = (() => {
     });
     html += '</tbody></table>';
 
-    html += `<p class="table-note">Hàng đầu là tổ hợp tốt nhất theo
-      ${esc(METRIC_LABELS[s.metric] || s.metric)}. Nhấn một hàng để nạp tham số đó vào bảng bên trái.</p>`;
+    const metricLabel = METRIC_LABELS[s.metric] || s.metric;
+    html += `<p class="table-note">${esc(L(
+      `Hàng đầu là tổ hợp tốt nhất theo ${metricLabel}. Nhấn một hàng để nạp tham số đó vào bảng bên trái.`,
+      `The top row is the best combination by ${metricLabel}. Click a row to load those parameters into the panel on the left.`))}</p>`;
 
     elements.optimize.innerHTML = html;
 
@@ -483,14 +555,16 @@ const Strategy = (() => {
   async function startPaper() {
     if (!current) return null;
     const ctx = context();
-    // The same strategy, parameters and cost settings the backtest just used,
-    // so a session is directly comparable with the run that motivated it.
-    return Paper.start({
+    // Costs are chosen in the paper dialog rather than inherited from the
+    // backtest panel: a paper session runs forward on live data for days, and
+    // the fee it trades at should not change because someone was exploring a
+    // backtest. The dialog opens pre-filled and can copy the backtest's values
+    // deliberately, which is the difference that matters.
+    return Paper.openSettings({
       strategyId: current.id,
       symbol: ctx.symbol,
       timeframe: ctx.timeframe,
       params,
-      execution: execution(),
     });
   }
 
@@ -513,6 +587,10 @@ const Strategy = (() => {
 
   return {
     init, load, runBacktest, runOptimize, startPaper,
+    // Exported so tests/test_render.js can drive the optimiser panel without
+    // standing up a server: the panel is where the sweep's two most important
+    // verdicts are shown, and nothing else checks that they render.
+    renderOptimize,
     // Exposed so validation and comparison reuse exactly the parameters and
     // costs the backtest just used, rather than assembling their own.
     execution,

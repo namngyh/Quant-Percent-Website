@@ -208,6 +208,17 @@
                 <input id="wf-train" type="number" value="1000" min="50" step="50" /></label>
               <label class="param-row"><span data-i18n="wf.test">Cửa sổ kiểm tra</span>
                 <input id="wf-test" type="number" value="250" min="50" step="50" /></label>
+              <label class="param-row"><span><span data-i18n="wf.purge">Nến cách ly</span>
+                <button type="button" class="info-btn" data-explain="wf.purge"
+                        data-i18n-title="wf.purge" title="Nến cách ly">i</button></span>
+                <input id="wf-purge" type="number" value="0" min="0" step="10" /></label>
+              <label class="param-row"><span><span data-i18n="wf.foldMode">Kiểu cửa sổ</span>
+                <button type="button" class="info-btn" data-explain="wf.foldMode"
+                        data-i18n-title="wf.foldMode" title="Kiểu cửa sổ">i</button></span>
+                <select id="wf-fold-mode">
+                  <option value="rolling" data-i18n="wf.rolling">Trượt</option>
+                  <option value="anchored" data-i18n="wf.anchored">Neo gốc</option>
+                </select></label>
               <button id="run-walkforward" class="btn btn-primary btn-block" data-i18n="wf.run">Chạy walk-forward</button>
             </div>
 
@@ -422,6 +433,61 @@
 
   <!-- Shared by every "Nhập .py" button -->
   <input type="file" id="import-file" accept=".py,text/x-python" hidden />
+
+  <!-- Paper trading settings.
+
+       These used to be the backtest's cost boxes, reused. That made two
+       different things share one control: lowering the fee to see how a
+       backtest would look also silently set the fee for the next live paper
+       session, and once a session was running there was nowhere to see what
+       it had actually been started with. A session freezes its costs at start
+       (the server keeps its own config object), so the settings shown on a
+       running session are the ones it is really trading. -->
+  <div id="paper-settings" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true">
+      <div class="dialog-head">
+        <h2 data-i18n="ps.title">Cài đặt Paper Trading</h2>
+        <button id="paper-settings-close" class="btn btn-quiet btn-sm" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="hint" data-i18n="ps.hint">
+          Phiên paper sẽ khoá các thông số này lúc bắt đầu. Đổi ở đây không ảnh
+          hưởng tới phiên đang chạy, và cũng không ảnh hưởng tới backtest.
+        </p>
+
+        <label class="param-row"><span><span data-i18n="ps.preset">Sàn</span>
+          <button type="button" class="info-btn" data-explain="ps.preset"
+                  data-i18n-title="ps.preset" title="Sàn">i</button></span>
+          <select id="ps-preset">
+            <option value="binance_futures_taker">Binance Futures — taker</option>
+            <option value="binance_futures_maker">Binance Futures — maker</option>
+            <option value="binance_spot">Binance Spot</option>
+            <option value="hose">HOSE</option>
+            <option value="custom" data-i18n="ps.custom">Tự đặt</option>
+          </select></label>
+
+        <div class="params">
+          <label class="param-row"><span data-i18n="st.capital">Vốn ban đầu</span>
+            <input id="ps-capital" type="number" value="10000" min="100" step="100" /></label>
+          <label class="param-row"><span data-i18n="st.size">% vốn/lệnh</span>
+            <input id="ps-size" type="number" value="100" min="1" max="100" step="1" /></label>
+          <label class="param-row"><span data-i18n="st.leverage">Đòn bẩy</span>
+            <input id="ps-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
+          <label class="param-row"><span data-i18n="st.fee">Phí (%)</span>
+            <input id="ps-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
+          <label class="param-row"><span data-i18n="st.slippage">Trượt giá (%)</span>
+            <input id="ps-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
+        </div>
+
+        <div id="ps-summary" class="callout"></div>
+        <div id="ps-warning" class="callout warn" hidden></div>
+      </div>
+      <div class="dialog-foot">
+        <button id="ps-copy" class="btn" data-i18n="ps.copy">Lấy từ backtest</button>
+        <button id="ps-start" class="btn btn-primary" data-i18n="ps.start">Bắt đầu phiên</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/vendor/lightweight-charts.js"></script>
   <script src="/static/js/i18n.js"></script>

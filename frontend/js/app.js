@@ -1105,6 +1105,24 @@ def signals(df, params):
       elements: {
         list: document.getElementById('paper-sessions'),
         refresh: document.getElementById('refresh-paper'),
+        // The settings dialog: a paper session's costs are its own, not the
+        // backtest panel's, and they are frozen once the session starts.
+        settings: {
+          root: document.getElementById('paper-settings'),
+          close: document.getElementById('paper-settings-close'),
+          preset: document.getElementById('ps-preset'),
+          capital: document.getElementById('ps-capital'),
+          size: document.getElementById('ps-size'),
+          leverage: document.getElementById('ps-leverage'),
+          fee: document.getElementById('ps-fee'),
+          slippage: document.getElementById('ps-slippage'),
+          summary: document.getElementById('ps-summary'),
+          warning: document.getElementById('ps-warning'),
+          start: document.getElementById('ps-start'),
+          copy: document.getElementById('ps-copy'),
+        },
+        // "Lấy từ backtest" copies whatever the backtest panel currently holds.
+        backtestExecution: () => Strategy.execution(),
       },
       onToast: toast,
     });
@@ -1115,6 +1133,8 @@ def signals(df, params):
         metric: document.getElementById('opt-metric'),
         trainBars: document.getElementById('wf-train'),
         testBars: document.getElementById('wf-test'),
+        purgeBars: document.getElementById('wf-purge'),
+        foldMode: document.getElementById('wf-fold-mode'),
         simulations: document.getElementById('mc-sims'),
         output: document.getElementById('validation-output'),
         stats: document.getElementById('stats-output'),

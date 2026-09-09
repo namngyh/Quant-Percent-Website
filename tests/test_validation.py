@@ -398,6 +398,75 @@ def _():
     assert abs(result["summary"]["oos_final_equity"] - equity[-1]) < 0.01
 
 
+# ========================================================== metric and efficiency
+
+@check("an unrecognised metric is refused instead of scoring every combination 0")
+def _():
+    # `metrics.get(metric, 0.0)` used to give every combination the same score,
+    # so the sweep returned the first entry of the grid and the run reported
+    # folds, an equity curve and an efficiency figure without having optimised.
+    # Measured on BTCUSDT 1h, metric="sharpe_ratio" picked one parameter set in
+    # all 15 folds where a valid name picked five.
+    df = candles(2000)
+    try:
+        walk_forward(
+            "example_ema_cross", df, "1h", [ParamRange("fast", 5, 15, 5)],
+            metric="sharpe_ratio", train_bars=700, test_bars=250,
+        )
+    except ValueError as exc:
+        assert "sharpe_ratio" in str(exc), exc
+    else:
+        raise AssertionError("an unknown metric was accepted")
+
+
+@check("a valid metric actually varies the winner across folds")
+def _():
+    df = candles(3000, seed=11)
+    result = walk_forward(
+        "example_ema_cross", df, "1h",
+        [ParamRange("fast", 5, 25, 5), ParamRange("slow", 30, 60, 15)],
+        metric="sharpe", train_bars=900, test_bars=250,
+    )
+    picks = {tuple(sorted(f["params"].items())) for f in result["folds"]}
+    assert len(picks) > 1, f"every fold picked the same parameters: {picks}"
+
+
+@check("efficiency reports a state, not a ratio, when the edge inverts")
+def _():
+    from backend.optimizer.validation import _walk_forward_summary
+
+    def fold(is_pct, oos_pct):
+        return {
+            "in_sample": {"return_normalised_pct": is_pct, "sharpe": 1.0},
+            "out_of_sample": {"return_pct": oos_pct,
+                              "return_normalised_pct": oos_pct, "sharpe": -1.0},
+        }
+
+    # Positive both sides: a share, and readable as one.
+    s = _walk_forward_summary([fold(2.0, 1.0), fold(2.0, 1.0)], [10_000, 10_500], 10_000)
+    assert s["walk_forward_efficiency_code"] == "ratio", s["walk_forward_efficiency_code"]
+    assert abs(s["walk_forward_efficiency"] - 0.5) < 1e-9, s["walk_forward_efficiency"]
+
+    # Out of sample lost money: "-0.5 of the edge survived" is not a sentence.
+    s = _walk_forward_summary([fold(2.0, -1.0), fold(2.0, -1.0)], [10_000, 9_500], 10_000)
+    assert s["walk_forward_efficiency_code"] == "inverted", s["walk_forward_efficiency_code"]
+
+    # In sample made essentially nothing: a ratio of 900 would be an artefact of
+    # the denominator, not a finding. Same failure class as the K-ratio bug.
+    s = _walk_forward_summary([fold(0.001, 0.9), fold(0.001, 0.9)], [10_000, 10_090], 10_000)
+    assert s["walk_forward_efficiency_code"] == "no_is_edge", s["walk_forward_efficiency_code"]
+    assert s["walk_forward_efficiency"] is None, s["walk_forward_efficiency"]
+
+    # The floor is relative, so a genuine ratio survives at any scale. These two
+    # are the same 0.5 a thousand times apart, and both must read as a ratio; an
+    # absolute floor anywhere near 0.01 would call the small one no_is_edge.
+    for scale in (0.001, 1.0, 1000.0):
+        s = _walk_forward_summary(
+            [fold(2.0 * scale, 1.0 * scale)] * 2, [10_000, 10_500], 10_000)
+        assert s["walk_forward_efficiency_code"] == "ratio", (scale, s)
+        assert abs(s["walk_forward_efficiency"] - 0.5) < 1e-9, (scale, s)
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:

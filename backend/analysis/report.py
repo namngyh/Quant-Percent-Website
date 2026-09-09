@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
+from backend.analysis.risk import risk_tools
 from backend.i18n import bi
 from backend.strategy.engine import BacktestResult
 from backend.strategy.metrics import BARS_PER_YEAR, max_drawdown
@@ -162,6 +163,41 @@ def _trade_block(trades: list, initial: float) -> dict:
         "expectancy_pct": float(returns.mean()),
         "largest_win": float(pnls.max()) if pnls.size else 0.0,
         "largest_loss": float(pnls.min()) if pnls.size else 0.0,
+
+        # --- Các ô AmiBroker báo cáo mà bảng này còn thiếu ---
+        #
+        # Tổng và cực đại số nến nắm giữ. Trung bình đã có ở "avg_bars_held";
+        # tổng cho biết vốn bị khoá bao lâu, cực đại cho biết lệnh dai nhất.
+        "total_bars_held": float(bars.sum()) if bars.size else 0.0,
+        "max_bars_held": float(bars.max()) if bars.size else 0.0,
+
+        # Sụt giảm *trong* một lệnh, đo bằng MAE. Sụt giảm hệ thống nói tài
+        # khoản đã xuống bao nhiêu; con số này nói một lệnh đơn lẻ đã đi ngược
+        # bao xa trước khi đóng, tức là cái mà một lệnh dừng lỗ sẽ cắt phải.
+        "max_trade_drawdown_pct": (
+            float(max(t.mae_pct for t in trades)) if trades else 0.0
+        ),
+        "avg_trade_drawdown_pct": (
+            float(np.mean([t.mae_pct for t in trades])) if trades else 0.0
+        ),
+
+        # AmiBroker gọi là Standard Error. Độ phân tán theo tiền đã có ở
+        # "profit_std"; đây là bản theo phần trăm, so được giữa các mức vốn.
+        "std_dev_return_pct": float(returns.std(ddof=1)) if returns.size > 1 else 0.0,
+
+        # Tỷ lệ lời/lỗ theo mức lớn nhất, không phải theo trung bình.
+        "risk_reward_ratio": (
+            float(pnls.max() / abs(pnls.min()))
+            if pnls.size and pnls.min() < 0 else None
+        ),
+
+        # Chi phí giao dịch cộng dồn: phí hai chiều cộng trượt giá hai chiều
+        # trên giá trị danh nghĩa của từng lệnh. Đây là con số chiến lược phải
+        # vượt qua trước khi kiếm được đồng nào.
+        "exit_reasons": {
+            reason: int(sum(1 for t in trades if t.exit_reason == reason))
+            for reason in sorted({t.exit_reason for t in trades})
+        },
         # Lệnh lãi lớn nhất chiếm bao nhiêu phần trăm tổng lãi. Nếu một lệnh
         # duy nhất là 60% lợi nhuận thì hệ số lợi nhuận không mô tả chiến lược,
         # nó mô tả một lần may.
@@ -656,6 +692,12 @@ def _risk(
         # nắm giữ, không phải độ lệch chuẩn của lợi suất.
         "ulcer_performance_index": car / ulcer if ulcer > 0 else 0.0,
         "car_mdd": car / drawdown_pct if drawdown_pct > 0 else 0.0,
+        # AmiBroker in RAR/MaxDD ngay dưới CAR/MaxDD. Khác biệt là RAR đã chia
+        # cho tỷ lệ thời gian thực sự nằm trong thị trường, nên một chiến lược
+        # chỉ vào lệnh 10% thời gian không bị phạt vì 90% còn lại đứng ngoài.
+        "rar_mdd": (
+            overview["rar_pct"] / drawdown_pct if drawdown_pct > 0 else 0.0
+        ),
         "recovery_factor": net_pct / drawdown_pct if drawdown_pct > 0 else 0.0,
         "sharpe": sharpe,
         "sortino": sortino,
@@ -1055,6 +1097,13 @@ def build_report(
         "streaks": _streaks(result.trades),
         "excursions": _excursions(result.trades),
         "risk": _risk(result, overview, timeframe, periodic["monthly"]),
+        # Quản trị rủi ro: CVaR nhiều mức kèm độ tin cậy của chính nó, Kelly,
+        # ngân sách rủi ro -> cỡ vị thế, và trần đòn bẩy. "risk" ở trên là các
+        # chỉ số mô tả; khối này là công cụ để quyết định vào lệnh bao nhiêu.
+        "risk_tools": risk_tools(
+            strategy_returns[np.isfinite(strategy_returns)],
+            [t.as_dict() for t in result.trades],
+        ),
         "periodic": periodic,
         "ml": ml_evaluation(df, result.position, probability),
         "charts": {

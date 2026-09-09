@@ -75,10 +75,16 @@ const API = (() => {
     sweepSize: ({ ranges, bars }) =>
       post('/api/strategies/optimize/size', { ranges, bars }),
 
-    walkForward: ({ strategyId, symbol, timeframe, limit, ranges, metric, trainBars, testBars, execution }) =>
+    walkForward: ({ strategyId, symbol, timeframe, limit, ranges, metric,
+                    trainBars, testBars, purgeBars, foldMode, execution }) =>
       post('/api/validate/walk-forward', {
         strategy_id: strategyId, symbol, timeframe, limit, ranges, metric,
-        train_bars: trainBars, test_bars: testBars, execution,
+        train_bars: trainBars, test_bars: testBars,
+        // Bars dropped between training and test, and whether the training
+        // window slides or grows from bar zero.
+        purge_bars: purgeBars || 0,
+        fold_mode: foldMode || 'rolling',
+        execution,
       }),
 
     monteCarlo: ({ strategyId, symbol, timeframe, limit, params, simulations, execution }) =>

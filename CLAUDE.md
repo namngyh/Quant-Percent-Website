@@ -172,6 +172,265 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-09 — Xong bốn mục còn lại: Optimize, AmiBroker, CVaR, Paper Trading
+
+**231 test Python pass** (trước 209) và **84 check render pass** (trước 20).
+Bốn mục còn lại trong danh sách đều đã xong; chỉ còn Cộng đồng QP mà Nam đã hoãn.
+
+#### Mục 3 — Optimize: hai câu hỏi bảng xếp hạng không trả lời được
+
+Bảng xếp hạng chỉ nói ô nào điểm cao nhất. Nó không phân biệt được **vùng tối
+ưu thật** với **một ô may mắn**, và không nói được Sharpe của ô thắng có hơn
+mức mà chính việc quét ngần ấy tổ hợp tự sinh ra hay không.
+
+**(a) Độ bền theo lân cận tham số.** Với mỗi trục, lấy hai ô cách một bước, so
+trung vị điểm của chúng vào phân phối điểm của cả lưới. Lợi thế thật suy giảm
+từ từ; đỉnh nhọn thì xung quanh chỉ tầm thường.
+
+Đo bằng **bách phân vị**, không phải tỷ số — điểm ở đây thường xuyên âm hoặc
+gần 0, đúng cái bẫy đã gặp ở K-ratio (§2.6) và ở hiệu suất walk-forward.
+
+*Bản đầu của tôi sai, và phép đo bắt được:*
+
+| Lưới dựng tay | Trước (`side="right"`) | Sau (điểm giữa khối trùng) |
+|---|---|---|
+| đồi trơn `0.1 … 1.0 … 0.1` | plateau, bách phân vị **89** | plateau, **78** |
+| đỉnh nhọn `0.1×8 + 1.0` | plateau, bách phân vị **89** | **spike, 44** |
+
+`searchsorted(side="right")` đếm mọi ô **bằng** giá trị đang xét là "nằm dưới"
+nó. Trên một lưới đầy ô đồng điểm, tám ô 0.10 quanh một đỉnh 1.0 bị đẩy lên
+bách phân vị 89, nên **đỉnh nhọn nhất có thể có và một quả đồi trơn cho ra
+cùng một kết luận, cùng một con số.** Lấy điểm giữa của khối trùng thì hai
+trường hợp tách ra ngay.
+
+**(b) Sharpe khử phồng, dùng độ phân tán ĐO ĐƯỢC.** `sharpe_tests` trong
+`stats.py` phải **xấp xỉ** đại lượng quan trọng nhất của công thức DSR — độ
+phân tán Sharpe giữa các phép thử — vì một backtest đơn lẻ không nhìn thấy các
+phép thử khác. Comment cũ trong file nói đúng như vậy: *"một xấp xỉ bảo thủ"*.
+
+Nhưng optimizer thì giữ Sharpe của **mọi** ô lưới, nên độ lệch chuẩn của cột đó
+chính là đại lượng Bailey & López de Prado định nghĩa. `sharpe_tests` giờ nhận
+`trial_dispersion`, và payload nói rõ con số này là **đo** hay **xấp xỉ**.
+
+Đo trên một bước ngẫu nhiên (đúng ra phải không có lợi thế):
+
+| Lưới | Sharpe tốt nhất | PSR | DSR | Kết luận |
+|---|---|---|---|---|
+| 4 tổ hợp | −0.616 | 35.9% | 27.5% | deflated_away |
+| 36 tổ hợp | 0.779 | 67.6% | **30.9%** | deflated_away |
+| 234 tổ hợp | 0.779 | 67.6% | **27.3%** | deflated_away |
+
+Cùng một Sharpe 0.779, nhưng quét 234 tổ hợp thì nó đáng tin **kém hơn** quét
+36 — đúng như phải thế. PSR 67.6% trông có vẻ khả quan; DSR 27–31% nói thẳng
+rằng con số đó là sản phẩm của việc tìm kiếm.
+
+Panel Tối ưu trước đây **chỉ có tiếng Việt cứng**, đã chuyển sang song ngữ luôn
+trong lần sửa này.
+
+#### Mục 5 — Quản trị rủi ro: từ một con số thành một công cụ
+
+Trước: `cvar_95_pct`, một con số, không nói gì về độ tin cậy của chính nó và
+không trả lời được câu hỏi người dùng thật sự hỏi — *"vậy tôi nên vào lệnh bao
+nhiêu?"*. File mới `backend/analysis/risk.py`, tab mới **Quản trị rủi ro**.
+
+**CVaR giờ nói ra nó dựa trên bao nhiêu quan sát.** CVaR 99% trên 2 000 nến là
+trung bình của **20** quan sát, và in ra hai chữ số thập phân y hệt CVaR 90%
+dựa trên 200 — vi phạm §2.6. Đo bằng bootstrap:
+
+| Mức | CVaR | Bề rộng KTC 95% | Số quan sát đuôi |
+|---|---|---|---|
+| 90% | −1.73% | 0.161 đ% | 200 |
+| 95% | −2.06% | 0.226 đ% | 100 |
+| 99% | −2.71% | **0.426 đ%** | **20** |
+
+Con số 99% bất định gấp **2.6 lần** con số 90%, dù hai cái trông giống hệt nhau.
+Đuôi dưới 10 quan sát bị gắn cờ thẳng trên bảng.
+
+**Cornish–Fisher, vì CVaR lịch sử không thể vượt quá cú lỗ tệ nhất đã xảy ra.**
+Trên mẫu chưa gặp cú sập nào, nó báo rằng cú sập không tồn tại. Đo trên một mẫu
+đuôi trái dày:
+
+| Mẫu | VaR99 lịch sử | Cornish–Fisher | Chênh |
+|---|---|---|---|
+| chuẩn | −2.29% | −2.29% | 0.00 đ% |
+| đuôi trái dày | −4.09% | **−7.69%** | **−3.59 đ%** |
+
+Lịch sử báo thiếu gần một nửa. Trên mẫu bình thường hai cột trùng nhau, nên cột
+này không phải lúc nào cũng doạ người đọc.
+
+**Ngân sách rủi ro → cỡ vị thế.** Chiều ngược của bảng CVaR: người dùng phát
+biểu điều họ chịu được, hệ thống trả về `size_pct`. Phép quay vòng **chính xác**
+— xin ngân sách 1%, áp hệ số trả về, đo lại CVaR95 được đúng −1.000%.
+
+Cộng Kelly và nửa Kelly (tính trên `equity_after/equity_before`, đúng đại lượng
+engine cộng dồn), và trần đòn bẩy theo từng mức tin cậy. Mọi con số kèm giới
+hạn: tỷ lệ tuyến tính **không** đúng với thanh lý, và trần đòn bẩy tính theo giá
+đóng cửa trong khi engine thanh lý theo giá thấp/cao nhất **trong** nến, nên đó
+là trần trên chứ không phải mức an toàn.
+
+*Một test của tôi sai, không phải code:* Kelly lấy mẫu 400 lệnh ở p=0.6 có sai
+số chuẩn 0.025 trên p, nên f dao động ±0.10 giữa các seed — test đo bộ sinh số
+ngẫu nhiên nhiều hơn đo công thức. Đã thay bằng phép dựng tất định 60 thắng /
+40 thua, kiểm f* = 0.20 tới 1e-9.
+
+#### Mục 4 — Bảng AmiBroker
+
+Bảng ba cột Tất cả / Mua / Bán vốn đã có. Rà từng ô của báo cáo AmiBroker thì
+thấy phần lớn đã có (Recovery Factor, CAR/MDD, Ulcer, K-ratio, Expectancy,
+Payoff, Standard Error…). Bổ sung phần còn thiếu: **RAR/MDD**, số nến giữ lâu
+nhất, tổng số nến trong lệnh, độ phân tán lợi suất, sụt giảm **trong lệnh**
+(tệ nhất và trung bình, đo bằng MAE), tỷ lệ lời lớn nhất / lỗ lớn nhất, và
+thống kê **lý do đóng lệnh**.
+
+*Bốn ô tôi thêm lúc đầu trùng tên với ô đã có* (`avg_bars_held_win` so với
+`avg_bars_win`, `std_dev_pnl` so với `profit_std`…). Đã bỏ — hai tên cho cùng
+một con số là thứ sẽ trôi lệch nhau ở lần sửa sau.
+
+#### Mục 6 — Paper Trading tách khỏi backtest
+
+Trước, phiên paper mượn luôn ô chi phí của backtest. Một ô phục vụ hai việc:
+hạ phí xuống để xem backtest trông thế nào là **đặt luôn phí cho phiên live kế
+tiếp**, và khi phiên đã chạy thì không có chỗ nào xem nó đang chạy với thông số
+gì.
+
+*Backend vốn đã đúng* — mỗi phiên dựng `BacktestConfig` riêng lúc bắt đầu nên
+phiên đang chạy miễn nhiễm với mọi thay đổi sau đó. Vấn đề thuần tuý ở giao
+diện. Hộp thoại mới:
+
+- **Preset sàn** (ý tưởng lấy từ TradingView): Binance Futures taker/maker,
+  Binance Spot, HOSE. Chọn nơi giao dịch, phí tự điền.
+- **Chi phí khứ hồi**, không phải phí niêm yết. Phí 0.04% hiện ra là **0.120%**
+  mỗi vòng — phí hai chiều cộng trượt giá hai chiều (§3.1) — kèm số tiền cụ
+  thể. Đó là mức chiến lược phải vượt trước khi hoà vốn.
+- **Cảnh báo theo ngữ cảnh**: đặt đòn bẩy trên spot, đòn bẩy ≥10x kèm biến động
+  đủ thanh lý, maker chỉ đúng nếu lệnh thật sự nằm chờ trên sổ (chiến lược ở
+  đây vào lệnh ở giá mở nến kế tiếp nên gần như luôn là taker), HOSE chưa gồm
+  thuế bán 0.1%.
+- **"Lấy từ backtest"** vẫn còn, nhưng giờ là một hành động có chủ ý.
+
+#### Bộ test render mở rộng: 20 → 84 check
+
+`tests/test_render.js` giờ phủ cả panel Tối ưu, **cả 7 tab báo cáo ở hai ngôn
+ngữ**, và hộp cài đặt Paper Trading (mở hộp không được tự chạy phiên; preset
+điền đúng phí; sửa tay chuyển sang "Tự đặt"; nút Bắt đầu gửi đúng giá trị trong
+hộp chứ không phải giá trị của panel backtest).
+
+Nó bắt được ngay một lỗi thật trong lần sửa này: đổi tên `kellyExplain` cho
+hàm mới làm **hai call site trỏ nhầm về hàm cũ khác chữ ký**, syntax vẫn hợp lệ
+và không có lỗi nào ở console.
+
+### 2026-09-08 (tối) — Frontend của tính năng thu phí, và ba defect nữa
+
+Frontend cho walk-forward và Monte Carlo đã xong. Trong lúc kiểm chứng bằng API
+thật thì lộ ra ba vấn đề nữa, hai cái là lỗi thật, một cái là **giả thuyết của
+tôi và nó sai** — ghi lại cả ba theo §2.2.
+
+**Test: 25 pass** trong `tests/test_validation.py` (trước 22), cộng một bộ kiểm
+tra render hoàn toàn mới, `tests/test_render.js`, **20 check pass**.
+
+#### Defect 1 (nặng) — tên chỉ số sai thì walk-forward vẫn "chạy thành công"
+
+`walk_forward` chấm điểm bằng `metrics.get(metric, 0.0)`. Tên nào không có
+trong `RANKABLE_METRICS` thì **mọi tổ hợp tham số đều được 0.0**, sweep trả về
+phần tử đầu tiên của lưới, và cả lượt chạy báo cáo folds, đường vốn, hiệu suất
+walk-forward — mà chưa hề tối ưu gì.
+
+Đo trên BTCUSDT 1h, lưới 6 tổ hợp, 15 fold:
+
+| `metric` | Số bộ tham số thắng khác nhau |
+|---|---|
+| `sharpe_ratio` (tên nghe rất hợp lý, nhưng sai) | **1** |
+| `not_a_metric` | **1** |
+| `sharpe` | **5** |
+| `total_return_pct` | **5** |
+
+Hai dòng đầu giống hệt nhau: `sharpe_ratio` hỏng đúng như một tên bịa. Kiểu hỏng
+này là tệ nhất — nó **trông như một kết quả**. `optimize` xưa nay vẫn từ chối tên
+lạ (`grid.py:167`); nhánh này thì không. Đã sửa: từ chối luôn, và bỏ giá trị mặc
+định `0.0` trong `.get()`.
+
+Giao diện thật không gửi được tên sai (danh sách chọn được đổ từ
+`RANKABLE_METRICS`), nên đường đi tới lỗi này là gọi API trực tiếp. Vẫn phải sửa:
+đây là tính năng thu phí, và im lặng trả về kết quả sai còn tệ hơn báo lỗi.
+
+#### Defect 2 — hiệu suất walk-forward in ra một tỷ số dưới cái nhãn không hợp
+
+Thẻ ghi "phần lợi thế sống sót" rồi in thẳng `oos/is`. Tỷ số đó chỉ đọc được
+như một *phần* khi cả hai vế cùng dương. Hai tình huống khác xảy ra thường xuyên:
+
+- **ngoài mẫu lỗ trong khi trong mẫu lãi** — lợi thế không co lại mà *đảo chiều*;
+  "−1.18 phần lợi thế còn lại" không phải một câu tiếng Việt hay tiếng Anh nào cả.
+  Đo được trên chính dữ liệu thật: WFE = **−1.178**.
+- **trong mẫu gần bằng 0** — mẫu số không đáng chia. 0.001% so với 0.9% sẽ in ra
+  hiệu suất **900** cho một chiến lược không kiếm được gì lúc huấn luyện.
+
+Backend giờ trả thêm `walk_forward_efficiency_code`: `ratio`, `inverted`, hoặc
+`no_is_edge`. Thẻ hiện "Đảo chiều" / một dấu gạch ngang / con số, tuỳ trạng thái.
+Ngưỡng "gần 0" là **tương đối**, không phải tuyệt đối — cùng lớp lỗi với K-ratio
+đã ghi ở §2.6: một tỷ số 0.5 thật phải đọc được ở mọi thang đo, và test kiểm
+đúng điều đó ở ba thang cách nhau 1000 lần.
+
+#### Giả thuyết sai — "WFE đo trên lợi nhuận trong khi sweep tối ưu Sharpe"
+
+Tôi thấy WFE = 8.45 và kết luận nguyên nhân là đo sai đại lượng: sweep tối ưu
+Sharpe còn WFE tính trên lợi nhuận, hai thứ không so được với nhau. **Sai.**
+Con số 8.45 hoàn toàn do Defect 1 sinh ra. Đo lại với tên chỉ số hợp lệ:
+
+| `metric` | WFE trên lợi nhuận | WFE trên Sharpe |
+|---|---|---|
+| `sharpe` | −1.178 | −2.116 |
+| `sortino` | −1.178 | −2.116 |
+| `total_return_pct` | −1.178 | −2.116 |
+| `profit_factor` | −0.793 | −1.784 |
+
+Hai cách đo cùng dấu, cùng cỡ. Không có defect nào ở đây, và tôi **không** đổi
+công thức. Nếu không đo lại thì đã đi viết một bản sửa cho một lỗi không tồn tại.
+
+#### Defect 3 — không có gì kiểm tra rằng bảng biểu thật sự hiện ra
+
+Mọi test trong `tests/` đều kiểm một con số. Không cái nào kiểm con số đó có tới
+được màn hình không — mà đó đúng là chỗ con bug nặng nhất của dự án đã sống:
+panel thống kê gọi `.startsWith()` lên một object `{vi, en}`, request trả 200,
+console im lặng.
+
+`tests/test_render.js` chạy chính module `Validation` dưới jsdom, chỉ giả lập
+mạng, render từng panel **ở cả hai ngôn ngữ**, và fail khi:
+
+- panel ném lỗi, hoặc render rỗng;
+- văn bản chứa `[object Object]`, `undefined`, `NaN`, `null`, `Infinity`;
+- thiếu nội dung mới (thanh so sánh, bảng độ ổn định, cột đã chuẩn hoá, biểu đồ
+  quạt, phần hai bộ lấy mẫu, sai số mô phỏng trên mỗi xác suất, số dòng bảng
+  đúng bằng số fold).
+
+Chạy:
+
+```
+npm install --no-save jsdom
+.venv/Scripts/python.exe tests/render_payloads.py
+NODE_PATH=./node_modules node tests/test_render.js
+```
+
+Fixture sinh từ engine thật trên một bước ngẫu nhiên tổng hợp, nên **không cần
+database và không cần server đang chạy**.
+
+Bộ test này lập tức bắt được hai lỗi trong chính harness của tôi — `I18n.lang`
+là getter chỉ đọc nên gán vào không có tác dụng gì (bằng chứng: vi và en render
+ra **đúng cùng một số ký tự**), và regex nhận diện trạng thái của tôi chỉ viết
+tiếng Anh. Không cái nào là lỗi sản phẩm, nhưng nếu chỉ nhìn "PASS" mà không
+nhìn số ký tự thì tôi đã tin nhầm là đã kiểm tra cả hai ngôn ngữ.
+
+#### Frontend đã nối xong
+
+- `frontend/index.html` — thêm ô **Nến cách ly** và bộ chọn **Trượt / Neo gốc**,
+  mỗi cái một nút (i).
+- `frontend/js/api.js` — gửi `purge_bars` và `fold_mode`.
+- `frontend/js/app.js` — đăng ký hai phần tử mới.
+- `frontend/js/i18n.js` — 4 khoá mới.
+- `frontend/js/explain.js` — một entry giờ có thể là **hàm**, giải ra lúc mở
+  popover. Entry đăng ký lúc khởi động dưới dạng object sẽ **đóng băng** ngôn
+  ngữ đang bật lúc đó, mà người dùng đổi ngôn ngữ sau đó rất lâu.
+- `frontend/styles.css` — `.pf-bar-label`, `.pf-bar-value`, `.rp-svg.mc-fan`.
+
 ### 2026-09-08 (chiều) — Nâng cấp walk-forward và Monte Carlo
 
 Sửa xong cả bốn khiếm khuyết đã ghi bên dưới, cộng một defect thứ năm lộ ra

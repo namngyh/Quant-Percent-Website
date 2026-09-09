@@ -44,7 +44,11 @@ const Explain = (() => {
     for (const [id, entry] of Object.entries(entries)) define(id, entry);
   }
 
-  const get = (id) => registry.get(id);
+  /* An entry may be registered as a function, in which case it is called when
+     the popover opens. Entries registered at start-up as plain objects freeze
+     whatever language was active then, and the language switch comes later. */
+  const resolve = (entry) => (typeof entry === 'function' ? entry() : entry);
+  const get = (id) => resolve(registry.get(id));
 
   /** Markup for an (i) button. `title` is the tooltip for pointer users. */
   function button(id, { title = L('Giải thích', 'Explain'), extraClass = '' } = {}) {
@@ -201,7 +205,7 @@ const Explain = (() => {
   }
 
   function open(target, id) {
-    const entry = registry.get(id);
+    const entry = get(id);
     // A missing entry is a bug in the caller, not something to show the user
     // an empty box about.
     if (!entry) {

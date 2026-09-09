@@ -1317,6 +1317,9 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   border-radius: var(--radius);
 }
 .rp-svg.tall { height: 260px; }
+/* The fan chart draws two nested percentile bands and two markers on one
+   short row, so it needs far less height than an equity curve. */
+.rp-svg.mc-fan { height: 96px; }
 .rp-axis {
   display: flex; justify-content: space-between; gap: 10px;
   font-size: 10.5px; color: var(--text-faint); margin-top: 5px;
@@ -1526,6 +1529,8 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   font-weight: 700;
   color: var(--text);
 }
+.pf-bar-label { color: var(--text-dim); font-size: 12px; }
+.pf-bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 .pf-bar-track { display: grid; gap: 4px; }
 .pf-bar-track.slim { display: block; }
 .pf-bar { height: 10px; border-radius: 4px; min-width: 2px; transition: width 0.3s ease; }

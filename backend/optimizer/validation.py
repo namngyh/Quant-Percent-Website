@@ -29,7 +29,13 @@ import numpy as np
 import pandas as pd
 
 from backend.i18n import bi
-from backend.optimizer.grid import ParamRange, build_grid, build_random, grid_size
+from backend.optimizer.grid import (
+    RANKABLE_METRICS,
+    ParamRange,
+    build_grid,
+    build_random,
+    grid_size,
+)
 from backend.strategy import registry
 from backend.strategy.base import normalize_signals
 from backend.strategy.engine import BacktestConfig, run_backtest
@@ -236,6 +242,18 @@ def walk_forward(
     progress_cb: Callable[[int, int], None] | None = None,
 ) -> dict:
     """Optimise on each training window, score only the window after it."""
+    # `optimize` has always rejected an unknown metric; this did not, and
+    # `metrics.get(metric, 0.0)` then scored every combination zero. Measured on
+    # BTCUSDT 1h with a 6-combination grid, metric="sharpe_ratio" — a name that
+    # reads perfectly plausible — picked the same parameters in all 15 folds,
+    # the first entry of the grid, exactly as metric="not_a_metric" did. A valid
+    # name picked 5 different winners. The run reported folds, an equity curve
+    # and a walk-forward efficiency of 8.45 without once having optimised
+    # anything, which is the worst way for this to fail: it looks like a result.
+    if metric not in RANKABLE_METRICS:
+        raise ValueError(
+            f"không xếp hạng được theo '{metric}'; chọn một trong {RANKABLE_METRICS}"
+        )
     config = config or BacktestConfig()
     folds = build_folds(len(df), train_bars, test_bars, purge_bars, fold_mode)
 
@@ -265,7 +283,7 @@ def walk_forward(
                 signal = _signals_for(strategy_id, train_frame, params)
                 result = run_backtest(train_frame, signal, config)
                 metrics = compute_metrics(result, train_frame, timeframe)
-                score = metrics.get(metric, 0.0)
+                score = metrics.get(metric)
             except Exception as exc:
                 # One bad combination must not abort the fold, but the reason is
                 # kept: a fold where every combination failed used to report
@@ -399,8 +417,30 @@ def _walk_forward_summary(folds: list[dict], equity: list[float], initial: float
 
     # Walk-forward efficiency: how much of the in-sample rate survived. Above
     # ~0.5 is the conventional threshold for a strategy worth trading.
+    #
+    # A bare ratio is only readable as "the share that survived" when both sides
+    # are positive. Two other things happen often enough to need naming:
+    #
+    #   the in-sample rate is at or near zero -> the ratio has no denominator
+    #     worth dividing by, and a rate of 0.001% against 0.9% would print an
+    #     efficiency of 900 for a strategy that made nothing in training;
+    #   the out-of-sample rate is negative    -> the edge did not shrink, it
+    #     inverted, and "-1.18 of the edge survived" is not a sentence.
+    #
+    # So the caller gets a code as well as the number, and the interface says
+    # which of the three it is looking at rather than printing a ratio under a
+    # label the ratio does not fit.
     is_mean = float(ins_rate.mean())
-    efficiency = float(oos_rate.mean() / is_mean) if is_mean > 0 else None
+    oos_mean = float(oos_rate.mean())
+    # Relative floor, not an absolute one: what counts as "near zero" depends on
+    # the scale of the returns being compared, as it did for the K-ratio.
+    floor = 0.01 * max(abs(oos_mean), abs(is_mean), 1e-12)
+    if is_mean <= 0 or is_mean < floor:
+        efficiency, efficiency_code = None, "no_is_edge"
+    elif oos_mean < 0:
+        efficiency, efficiency_code = float(oos_mean / is_mean), "inverted"
+    else:
+        efficiency, efficiency_code = float(oos_mean / is_mean), "ratio"
 
     return {
         "oos_total_return_pct": total,
@@ -417,6 +457,7 @@ def _walk_forward_summary(folds: list[dict], equity: list[float], initial: float
         "degradation_pct": degradation,
         "degradation_sharpe": float(ins_sharpe.mean() - oos_sharpe.mean()),
         "walk_forward_efficiency": efficiency,
+        "walk_forward_efficiency_code": efficiency_code,
         "profitable_folds": int((oos > 0).sum()),
         "total_folds": len(folds),
         "consistency_pct": float((oos > 0).mean() * 100.0),

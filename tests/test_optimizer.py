@@ -247,6 +247,89 @@ def _():
 
 # --------------------------------------------------------------------------
 
+# =============================================== robustness and deflation
+
+def _rows(scores, name="a"):
+    return sorted(
+        ({"params": {name: i + 1}, "metrics": {"sharpe": s}} for i, s in enumerate(scores)),
+        key=lambda r: r["metrics"]["sharpe"], reverse=True,
+    )
+
+
+@check("a lucky spike is told apart from a smooth hill")
+def _():
+    from backend.optimizer.grid import _neighbourhood
+    ranges = [ParamRange("a", 1, 9, 1)]
+    hill = _neighbourhood(_rows([0.1, 0.3, 0.6, 0.9, 1.0, 0.9, 0.6, 0.3, 0.1]), ranges, "sharpe")
+    spike = _neighbourhood(_rows([0.1, 0.1, 0.1, 0.1, 1.0, 0.1, 0.1, 0.1, 0.1]), ranges, "sharpe")
+    assert hill["code"] == "plateau", hill
+    assert spike["code"] == "spike", spike
+    assert hill["neighbour_median_percentile"] > spike["neighbour_median_percentile"], (hill, spike)
+
+
+@check("a tied grid does not report every cell as top of the distribution")
+def _():
+    # `searchsorted(side="right")` counts every equal score as below the value,
+    # so the eight 0.10 cells around a 1.0 spike came back at the 89th
+    # percentile and the sharpest possible spike read as a plateau.
+    from backend.optimizer.grid import _neighbourhood
+    r = _neighbourhood(_rows([0.1] * 8 + [1.0]), [ParamRange("a", 1, 9, 1)], "sharpe")
+    assert r["neighbour_median_percentile"] < 60.0, r["neighbour_median_percentile"]
+
+
+@check("robustness refuses rather than guesses when neighbours were never run")
+def _():
+    from backend.optimizer.grid import _neighbourhood
+    # Random mode can leave a winner with no adjacent cell sampled at all.
+    rows = [{"params": {"a": 1}, "metrics": {"sharpe": 1.0}},
+            {"params": {"a": 5}, "metrics": {"sharpe": 0.5}},
+            {"params": {"a": 9}, "metrics": {"sharpe": 0.1}}]
+    r = _neighbourhood(rows, [ParamRange("a", 1, 9, 1)], "sharpe")
+    assert r["available"] is False, r
+    assert r["reason"]["vi"] and r["reason"]["en"], r
+
+
+@check("deflation uses the dispersion the sweep measured, not an approximation")
+def _():
+    from backend.analysis.stats import sharpe_tests
+    rng = np.random.default_rng(3)
+    returns = rng.standard_normal(2000) * 0.01 + 0.0003
+
+    approx = sharpe_tests(returns, 365.0, n_trials=200)
+    measured = sharpe_tests(returns, 365.0, n_trials=200, trial_dispersion=0.8)
+    assert approx["trial_dispersion_measured"] is False, approx
+    assert measured["trial_dispersion_measured"] is True, measured
+    # A real spread across 200 trials is far wider than one backtest's standard
+    # error, so the honest threshold is higher and the DSR lower.
+    assert measured["deflated_sharpe_ratio"] < approx["deflated_sharpe_ratio"], (
+        measured["deflated_sharpe_ratio"], approx["deflated_sharpe_ratio"])
+    assert measured["trial_dispersion_note"]["vi"] != approx["trial_dispersion_note"]["vi"]
+
+
+@check("deflation bites harder as the grid grows")
+def _():
+    from backend.analysis.stats import sharpe_tests
+    rng = np.random.default_rng(11)
+    returns = rng.standard_normal(3000) * 0.01 + 0.0006
+    dsr = [sharpe_tests(returns, 365.0, n_trials=t, trial_dispersion=0.5)[
+        "deflated_sharpe_ratio"] for t in (2, 50, 1000)]
+    assert dsr[0] > dsr[1] > dsr[2], dsr
+
+
+@check("a real sweep carries both a robustness verdict and a deflated Sharpe")
+def _():
+    df = trending(1500)
+    out = optimize("example_ema_cross", df, "1h",
+                   [ParamRange("fast", 5, 25, 5), ParamRange("slow", 40, 80, 10)],
+                   config=BacktestConfig(initial_capital=10_000), metric="sharpe")
+    s = out["summary"]
+    assert s["robustness"]["available"] is True, s["robustness"]
+    assert s["robustness"]["code"] in ("plateau", "ridge", "spike"), s["robustness"]
+    assert s["deflated"]["available"] is True, s["deflated"]
+    assert 0.0 <= s["deflated"]["deflated_sharpe_ratio"] <= 1.0, s["deflated"]
+    for field in (s["robustness"]["verdict"], s["deflated"]["verdict"]):
+        assert field["vi"] and field["en"] and field["vi"] != field["en"], field
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:
