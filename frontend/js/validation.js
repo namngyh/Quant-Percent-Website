@@ -11,6 +11,9 @@ const Validation = (() => {
   let execution = () => ({});
   let catalog = () => [];
   let onToast = () => {};
+  // The date window the strategy panel is set to, so a validation run covers
+  // the same period as the backtest it is validating.
+  let period = () => ({});
 
   let lastResult = null;   // whatever was produced most recently, for export
 
@@ -53,6 +56,7 @@ const Validation = (() => {
       purgeBars: Number(elements.purgeBars?.value) || 0,
       foldMode: elements.foldMode?.value || 'rolling',
       execution: execution(),
+      period: period(),
     });
     lastResult = { kind: 'walk-forward', data: result };
     renderWalkForward(result);
@@ -291,6 +295,7 @@ const Validation = (() => {
       params,
       simulations: Number(elements.simulations.value) || 1000,
       execution: execution(),
+      period: period(),
     });
     lastResult = { kind: 'monte-carlo', data: result };
     renderMonteCarlo(result);
@@ -492,6 +497,7 @@ const Validation = (() => {
       timeframe: ctx.timeframe,
       limit: ctx.limit,
       execution: execution(),
+      period: period(),
     });
     lastResult = { kind: 'compare', data: result };
     renderCompare(result);
@@ -1014,6 +1020,7 @@ const Validation = (() => {
     elements = config.elements;
     context = config.context;
     execution = config.execution;
+    period = config.period || (() => ({}));
     catalog = config.catalog;
     onToast = config.onToast;
 

@@ -232,6 +232,21 @@ const Strategy = (() => {
 
   // ---------- Execution settings ----------
 
+  /* The date window, as the API wants it: inclusive ISO instants, or nothing.
+
+     The end date is pushed to the last second of the day rather than midnight,
+     because a person choosing "to 30 June" means the whole of 30 June. Sent as
+     midnight it would silently drop that day's bars, and a backtest quietly
+     one day short is the kind of thing nobody notices. */
+  function period() {
+    const start = elements.startDate?.value;
+    const end = elements.endDate?.value;
+    return {
+      start: start ? `${start}T00:00:00+00:00` : null,
+      end: end ? `${end}T23:59:59+00:00` : null,
+    };
+  }
+
   function execution() {
     return {
       initial_capital: Number(elements.capital.value) || 10000,
@@ -254,6 +269,7 @@ const Strategy = (() => {
       limit: ctx.limit,
       params,
       execution: execution(),
+      period: period(),
     });
     lastBacktest = result;
     renderResult(result);
@@ -393,6 +409,7 @@ const Strategy = (() => {
       mode: elements.mode.value,
       samples: Number(elements.samples.value) || 500,
       execution: execution(),
+      period: period(),
     });
 
     renderOptimize(result);
@@ -594,6 +611,10 @@ const Strategy = (() => {
     // Exposed so validation and comparison reuse exactly the parameters and
     // costs the backtest just used, rather than assembling their own.
     execution,
+    // Validation and the statistics panel run over the same window the
+    // backtest does; a walk-forward on a different period than the backtest it
+    // is validating would be answering a different question.
+    period,
     sweepRanges: enabledRanges,
     currentParams: () => ({ ...params }),
     get catalog() { return catalog; },

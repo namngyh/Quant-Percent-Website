@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend.data import market_vn, sources
+from backend.data.binance import to_ms
 from backend.optimizer.grid import (
     DEFAULT_SAMPLES,
     MAX_COMBINATIONS,
@@ -51,6 +52,9 @@ class BacktestRequest(BaseModel):
     timeframe: str | None = None
     params: dict = Field(default_factory=dict)
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
 
 
@@ -63,7 +67,8 @@ def report(request: BacktestRequest) -> dict:
     refreshes on every parameter change. Paying that cost only when the report
     window is actually opened keeps the panel responsive.
     """
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     config = request.execution.to_config()
 
     try:
@@ -104,6 +109,9 @@ class OptimizeRequest(BaseModel):
     ranges: list[SweepRange]
     fixed_params: dict = Field(default_factory=dict)
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     metric: str = "sharpe"
     top_n: int = Field(default=50, ge=1, le=500)
     mode: str = "grid"
@@ -117,18 +125,46 @@ class SizeRequest(BaseModel):
     bars: int = 2000
 
 
-def _load_candles(symbol: str | None, timeframe: str | None, limit: int | None):
+def _load_candles(
+    symbol: str | None,
+    timeframe: str | None,
+    limit: int | None,
+    start: str | None = None,
+    end: str | None = None,
+):
+    """Candles for a run, optionally restricted to a date window.
+
+    `start` and `end` are ISO instants, inclusive. Testing a strategy over a
+    named period is the difference between "it worked on the last 2 000 bars"
+    and "it worked through 2022" — one of those is a claim about a strategy and
+    the other is a claim about whatever the data happened to end on.
+
+    `limit` still applies inside the window and still counts backwards from the
+    newest bar in it, so a window plus a limit means "the last N bars of that
+    period" rather than the first N.
+    """
     symbol = symbol or settings.chart.default_symbol
     timeframe = timeframe or settings.chart.default_timeframe
     limit = min(limit or settings.chart.max_candles, settings.chart.max_candles)
 
     try:
-        df = sources.get_candles(symbol, timeframe, limit=limit)
+        start_ms = to_ms(start) if start else None
+        end_ms = to_ms(end) if end else None
+    except ValueError as exc:
+        raise HTTPException(400, f"Ngày không hợp lệ: {exc}") from exc
+    if start_ms is not None and end_ms is not None and start_ms > end_ms:
+        raise HTTPException(400, "Ngày bắt đầu nằm sau ngày kết thúc.")
+
+    try:
+        df = sources.get_candles(symbol, timeframe, start_ms, end_ms, limit)
     except market_vn.MarketUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
 
     if df.empty:
-        raise HTTPException(404, f"Không có nến cho {symbol} {timeframe}")
+        window = ""
+        if start or end:
+            window = f" trong khoảng {start or '…'} → {end or '…'}"
+        raise HTTPException(404, f"Không có nến cho {symbol} {timeframe}{window}")
     return df, timeframe
 
 
@@ -154,7 +190,8 @@ def catalog() -> dict:
 @router.post("/backtest")
 def backtest(request: BacktestRequest) -> dict:
     """Run one strategy over a stored candle series."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
 
     try:
         return registry.run_strategy(
@@ -170,7 +207,8 @@ def backtest(request: BacktestRequest) -> dict:
 @router.post("/optimize")
 def run_optimize(request: OptimizeRequest) -> dict:
     """Sweep parameter ranges and rank the outcomes."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
 
     if not request.ranges:
         raise HTTPException(400, "choose at least one parameter to sweep")

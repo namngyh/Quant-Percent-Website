@@ -172,6 +172,103 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-09 (khuya) — Sáu mục: co cửa sổ, luồng paper, lịch sử vô hạn, màu, khoảng ngày
+
+**247 test Python + toàn bộ render check**, không lỗi.
+
+#### 1. Lỗi khi thu nhỏ cửa sổ — đã sửa
+
+Tái hiện được ở **1050px**: giá và dải nút khung thời gian vẽ đè lên nhau, cả
+hai không đọc được.
+
+Nguyên nhân: `.topbar-controls` được phép co, nhưng `.tf-group` bên trong nó
+khai báo `flex-shrink: 0`. Một flex item từ chối co bên trong một cha đã co
+**không bị cắt — nó tràn ra và vẽ đè** lên thứ bên cạnh. Đây là hành vi đúng
+của flexbox và là loại lỗi chỉ hiện ra ở một khoảng bề rộng nhất định.
+
+Sửa: dải khung thời gian tự cuộn ngang (`overflow-x: auto`) ở **mọi** bề rộng
+— không phải chỉ dưới một breakpoint điện thoại, vì lỗi xuất hiện ở 1050px.
+Thêm các mốc bỏ dần thứ ít quan trọng (1240 tên thương hiệu, 1140 ô số nến,
+1080 nhãn Realtime và múi giờ), và dưới **1000px** thanh trên xuống hai dòng
+thay vì giấu nút người dùng vẫn cần.
+
+#### 2. Paper trading bắt đầu từ một thị trường cụ thể
+
+Nút cũ chỉ ghi "Giao dịch tay", nên điều duy nhất cần biết trước khi bấm — *tôi
+sắp giao dịch mã nào* — lại là điều nó không nói. Giờ nút ghi thẳng **"Giao
+dịch tay trên BTCUSDT"**, đổi theo biểu đồ, và bị vô hiệu hoá khi chưa chọn mã.
+
+#### 3. Vào chi tiết một thị trường thì hiện nến
+
+Bấm vào **chính biểu đồ tổng quan** là mở chế độ nến. Nút trên thanh vẫn làm
+được điều đó, nhưng cử chỉ người ta thật sự có là bấm vào thứ mình đang nhìn,
+không phải đi tìm một nút.
+
+*Nói rõ phần chưa làm:* tôi **chưa** dựng một bảng danh sách thị trường riêng
+kiểu "Major indices" trong ảnh mẫu. Hiện ô chọn mã ở thanh trên đóng vai trò
+đó. Nếu Nam muốn đúng dạng danh sách nhiều mã kèm giá và % thay đổi thì đó là
+một mục riêng.
+
+#### 4. Màu chỉ báo
+
+Cái xấu thật không nằm ở bảng màu mà ở cách phát màu: `as_dict(i)` dùng chỉ số
+output **bên trong một chỉ báo**, nên output đầu tiên của **mọi** chỉ báo đều
+nhận cùng một màu. Vẽ EMA, VWAP và đường giữa Bollinger là ba đường xanh giống
+hệt nhau.
+
+- Mỗi **instance** được vẽ giờ lấy một offset khác nhau trong bảng màu, nên chỉ
+  báo thứ hai bắt đầu từ chỗ chỉ báo thứ nhất dừng lại. Chỉ báo tự chọn màu thì
+  không bị đụng vào (`color_auto` phân biệt hai loại).
+- Bảng màu mới **8 màu thay vì 10**, chọn theo ba ràng buộc chứ không theo mắt:
+  cùng dải độ sáng (bảng cũ trộn vàng mù tạt nhạt `#a16207` với xám gần đen
+  `#475569` — cái nhạt biến mất, cái đậm trông như chuỗi quan trọng nhất); tránh
+  hẳn dải xanh lá và đỏ vì hai màu đó mang nghĩa hướng giá; và không có cặp
+  đỏ/xanh lá nào để bộ màu còn dùng được với người mù màu. Chỉ còn chỗ cho 8.
+- Đường overlay mảnh lại **2px → 1.5px**: nó nằm đè lên giá và phải đọc được mà
+  không che thứ nó vẽ lên trên.
+- **Histogram cắt ngang 0** (MACD, momentum) giờ tô hai màu theo dấu. Dấu chính
+  là thông điệp; một màu duy nhất bắt người đọc tự suy ra từ hình dạng.
+
+#### 5. Vuốt trái là tự nạp lịch sử
+
+Không cần đặt số nến nữa. Kéo qua nến cũ nhất thì trang trước đó tự về.
+
+Kích hoạt theo **chỉ số logic** chứ không theo vị trí pixel, để cùng một cử chỉ
+mang cùng một nghĩa ở mọi mức phóng to: "còn chưa tới một màn hình nến ở bên
+trái bạn". Trang 1 000 nến — đủ nhỏ để về kịp trong một cú vuốt.
+
+Hai chi tiết dễ bỏ sót, đều đã xử lý: phạm vi hiển thị được **chụp lại và khôi
+phục** quanh `setData`, nếu không thì mỗi trang về là biểu đồ nhảy về đầu và cú
+vuốt sẽ chống lại người dùng; và khi kho hết dữ liệu cũ hơn thì **ngừng hỏi** —
+một biểu đồ bắn lại cùng một request rỗng theo từng cú vuốt là cách một cử chỉ
+cuộn biến thành bão request.
+
+#### 6. Backtest theo khoảng thời gian
+
+`_load_candles` nhận `start`/`end` (ISO, bao gồm cả hai đầu), và **cả bảy**
+request model nạp nến đều có thêm hai trường đó — backtest, report, optimize,
+walk-forward, Monte Carlo, so sánh, và thống kê. Chạy walk-forward trên một
+khoảng khác với backtest nó đang kiểm chứng là trả lời một câu hỏi khác.
+
+Giao diện: hai ô ngày trong panel Chiến lược, bỏ trống thì dùng số nến gần nhất
+như cũ. Ngày kết thúc gửi đi là **23:59:59** chứ không phải nửa đêm — chọn "đến
+30/6" là có ý cả ngày 30/6, gửi nửa đêm sẽ lặng lẽ mất nến của ngày đó.
+
+Từ chối có lý do: khoảng ngược (400), ngày không đọc được (400), và khoảng
+không có nến nào (404 — chứ không phải một backtest rỗng báo 0 lệnh, vì con số
+đó đọc như một kết luận).
+
+*Một lỗi trong fixture test của tôi, đáng ghi lại:* tôi đổi `DatetimeIndex` sang
+mili giây bằng `astype("int64") // 1_000_000`. pandas 3 lưu datetime bằng **micro
+giây** chứ không phải nano giây, nên phép đó ra **giây** — sai một nghìn lần mà
+vẫn trông như một timestamp hợp lệ. Dùng `astype("datetime64[ms]")` thay thế.
+
+*Một lỗi tôi tự tạo khi sửa hàng loạt bằng regex, đúng §2.3:* chèn `period` vào
+các endpoint trong `api.js` bằng regex làm `statsStrategy` có phần thân dùng
+`period` nhưng **không có tham số** đó — lỗi runtime. Ba endpoint khác thì có
+tham số mà không có thân. Đã sửa tay từng cái và thêm một phép kiểm quét lại
+toàn file xem còn endpoint nào dùng `period` mà không khai báo không.
+
 ### 2026-09-09 (tối) — Khởi động, chế độ tổng quan, và chữ
 
 **241 test Python + 109 check render**, không lỗi.

@@ -156,6 +156,18 @@
             </div>
 
             <div class="field-group">
+              <div class="field-group-title" data-i18n="st.period">Khoảng thời gian</div>
+              <p class="hint" data-i18n="st.periodHint">Bỏ trống là dùng số nến gần nhất.</p>
+              <div class="params">
+                <label class="param-row"><span data-i18n="st.from">Từ ngày</span>
+                  <input id="bt-start" type="date" /></label>
+                <label class="param-row"><span data-i18n="st.to">Đến ngày</span>
+                  <input id="bt-end" type="date" /></label>
+              </div>
+              <div id="bt-period-note" class="hint"></div>
+            </div>
+
+            <div class="field-group">
               <div class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</div>
               <div class="params">
                 <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <button type="button" class="info-btn" data-explain="exec.capital" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
@@ -356,8 +368,12 @@
         </div>
         <div class="panel-body">
           <p class="hint" data-i18n="paper.lead"></p>
-          <button id="start-manual" class="btn btn-primary btn-block"
-                  data-i18n="ps.manual">Giao dịch tay</button>
+          <!-- Names the market you are actually looking at. A paper session
+               belongs to a symbol, and choosing the symbol first and the
+               session second is the order a person thinks in; the button
+               labelled just "Manual trading" left it ambiguous which market it
+               would open on. -->
+          <button id="start-manual" class="btn btn-primary btn-block"></button>
           <div id="paper-sessions" class="paper-list"></div>
 
           <div class="field-group" style="margin-top:14px">

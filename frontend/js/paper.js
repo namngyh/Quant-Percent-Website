@@ -481,15 +481,33 @@ const Paper = (() => {
     });
   }
 
+  /* The button names the symbol it will open on, and follows the chart.
+
+     Without this it read "Manual trading" whatever was on screen, so the one
+     thing a person needs to know before pressing it — which market am I about
+     to trade — was the one thing it did not say. */
+  function refreshManualButton() {
+    const button = elements.startManual;
+    if (!button) return;
+    const symbol = elements.context?.().symbol;
+    button.textContent = symbol
+      ? t('ps.manualOn', { symbol })
+      : t('ps.pickMarket');
+    button.disabled = !symbol;
+  }
+
   function init(config) {
     elements = config.elements;
     onToast = config.onToast;
     elements.refresh.addEventListener('click', refresh);
     elements.startManual?.addEventListener('click', startManual);
+    refreshManualButton();
+    I18n.onChange(refreshManualButton);
     bindSettings();
   }
 
   return { init, refresh, start, apply, rerender: render,
            openSettings, settingsValues, startManual, ticket, symbolBadge,
+           refreshManualButton,
            get sessions() { return sessions; } };
 })();

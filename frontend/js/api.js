@@ -42,6 +42,18 @@ const API = (() => {
     config: () => request('/api/config'),
     coverage: () => request('/api/coverage'),
 
+    /* One page of history older than `before` (epoch seconds).
+
+       `end` plus `limit` returns the most recent `limit` candles at or before
+       `end`, which is exactly a page going backwards. The timestamp is sent as
+       a full ISO instant rather than a date, because an intraday page has to
+       land on the right minute, not the right day. */
+    candlesBefore: ({ symbol, timeframe, before, limit }) =>
+      request(`/api/candles?${new URLSearchParams({
+        symbol, timeframe, limit: String(limit),
+        end: new Date((before - 1) * 1000).toISOString(),
+      })}`),
+
     candles: ({ symbol, timeframe, limit }) => {
       const q = new URLSearchParams({ symbol, timeframe, limit: String(limit) });
       return request(`/api/candles?${q}`);
@@ -63,23 +75,25 @@ const API = (() => {
 
     strategies: () => request('/api/strategies'),
 
-    backtest: ({ strategyId, symbol, timeframe, params, limit, execution }) =>
+    backtest: ({ strategyId, symbol, timeframe, params, limit, execution, period }) =>
       post('/api/strategies/backtest', {
         strategy_id: strategyId,
         symbol,
         timeframe,
         params,
         limit,
+        ...(period || {}),
         execution,
       }),
 
-    optimize: ({ strategyId, symbol, timeframe, ranges, limit, metric, execution, mode, samples }) =>
+    optimize: ({ strategyId, symbol, timeframe, ranges, limit, metric, execution, mode, samples, period }) =>
       post('/api/strategies/optimize', {
         strategy_id: strategyId,
         symbol,
         timeframe,
         ranges,
         limit,
+        ...(period || {}),
         metric,
         execution,
         mode,
@@ -90,9 +104,10 @@ const API = (() => {
       post('/api/strategies/optimize/size', { ranges, bars }),
 
     walkForward: ({ strategyId, symbol, timeframe, limit, ranges, metric,
-                    trainBars, testBars, purgeBars, foldMode, execution }) =>
+                    trainBars, testBars, purgeBars, foldMode, execution, period }) =>
       post('/api/validate/walk-forward', {
         strategy_id: strategyId, symbol, timeframe, limit, ranges, metric,
+        ...(period || {}),
         train_bars: trainBars, test_bars: testBars,
         // Bars dropped between training and test, and whether the training
         // window slides or grows from bar zero.
@@ -101,28 +116,34 @@ const API = (() => {
         execution,
       }),
 
-    monteCarlo: ({ strategyId, symbol, timeframe, limit, params, simulations, execution }) =>
+    monteCarlo: ({ strategyId, symbol, timeframe, limit, params, simulations, execution, period }) =>
       post('/api/validate/monte-carlo', {
-        strategy_id: strategyId, symbol, timeframe, limit, params, simulations, execution,
+        strategy_id: strategyId, symbol, timeframe, limit, params, simulations,
+        ...(period || {}), execution,
       }),
 
-    compareStrategies: ({ entries, symbol, timeframe, limit, execution }) =>
-      post('/api/validate/compare', { entries, symbol, timeframe, limit, execution }),
+    compareStrategies: ({ entries, symbol, timeframe, limit, execution, period }) =>
+      post('/api/validate/compare', {
+        entries, symbol, timeframe, limit, ...(period || {}), execution,
+      }),
 
-    report: ({ strategyId, symbol, timeframe, limit, params, execution }) =>
+    report: ({ strategyId, symbol, timeframe, limit, params, execution, period }) =>
       post('/api/strategies/report', {
-        strategy_id: strategyId, symbol, timeframe, limit, params, execution,
+        strategy_id: strategyId, symbol, timeframe, limit, params,
+        ...(period || {}), execution,
       }),
 
-    statsSeries: ({ symbol, timeframe, limit }) =>
-      post('/api/stats/series', { symbol, timeframe, limit }),
+    statsSeries: ({ symbol, timeframe, limit, period }) =>
+      post('/api/stats/series', { symbol, timeframe, limit, ...(period || {}) }),
 
-    statsStrategy: ({ strategyId, symbol, timeframe, limit, params, execution, nTrials }) =>
+    statsStrategy: ({ strategyId, symbol, timeframe, limit, params, execution,
+                      nTrials, period }) =>
       post('/api/stats/strategy', {
         strategy_id: strategyId,
         symbol,
         timeframe,
         limit,
+        ...(period || {}),
         params,
         execution,
         // The number of parameter combinations behind these params. Passing it

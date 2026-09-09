@@ -33,6 +33,9 @@ class SeriesRequest(BaseModel):
     symbol: str | None = None
     timeframe: str | None = None
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
 
 
 class StrategyStatsRequest(BaseModel):
@@ -41,6 +44,9 @@ class StrategyStatsRequest(BaseModel):
     timeframe: str | None = None
     params: dict = Field(default_factory=dict)
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
     # How many parameter combinations were tried to arrive at these params.
     # This is the single most important number for honest inference: picking
@@ -53,7 +59,8 @@ class StrategyStatsRequest(BaseModel):
 @router.post("/series")
 def series(request: SeriesRequest) -> dict:
     """Distribution and randomness tests on the price series itself."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     try:
         result = _stats().analyse_series(df)
     except Exception as exc:
@@ -68,7 +75,8 @@ def series(request: SeriesRequest) -> dict:
 @router.post("/strategy")
 def strategy(request: StrategyStatsRequest) -> dict:
     """Inference on one strategy's trades, and on its equity curve."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     config = request.execution.to_config()
 
     try:

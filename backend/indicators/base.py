@@ -39,12 +39,31 @@ import pandas as pd
 IndicatorKind = Literal["overlay", "panel"]
 PlotType = Literal["line", "histogram", "area"]
 
-# Assigned in order to outputs that don't specify a color.
+# Assigned in order to outputs that don't specify a colour.
+#
+# Eight rather than ten, and chosen on three constraints rather than by eye:
+#
+#   * **Even weight.** All eight sit within a narrow lightness band, so no line
+#     shouts louder than another. The old set mixed a pale mustard (#a16207)
+#     with a near-black slate (#475569); on one chart the mustard vanished and
+#     the slate read as the most important series on screen.
+#   * **Away from the market hues.** Nothing in the green band around 160° or
+#     the red band around 0°, because those two mean price direction here and
+#     an indicator line must never be read as one (see frontend/styles.css).
+#     That is also what caps the set at eight: with two wide bands excluded
+#     there is not room for ten hues that stay far enough apart.
+#   * **Separable without hue alone.** No red/green pair, so the set survives
+#     the common colour vision deficiencies; the brown and the blue-grey are
+#     also separated by chroma, not just by hue.
 PALETTE = [
-    # Readable on white, and distinguishable from the candle green and red so
-    # an indicator line is never mistaken for price direction.
-    "#2f5fd0", "#c2410c", "#7c3aed", "#0e7490", "#a16207",
-    "#be185d", "#4d7c0f", "#475569", "#9333ea", "#0f766e",
+    "#2962ff",  # blue
+    "#ef6c00",  # orange
+    "#7b1fa2",  # purple
+    "#0097a7",  # cyan
+    "#f9a825",  # amber
+    "#c2185b",  # magenta
+    "#5d4037",  # brown
+    "#455a64",  # blue grey
 ]
 
 
@@ -112,6 +131,12 @@ class OutputSpec:
             "key": self.key,
             "label": self.label or self.key,
             "color": self.color or PALETTE[index % len(PALETTE)],
+            # Whether that colour was chosen by the indicator or handed out by
+            # the palette. The interface rotates the automatic ones per drawn
+            # instance: `index` counts outputs *within* one indicator, so
+            # without this every indicator's first line is the same blue and a
+            # chart with EMA, VWAP and a Bollinger mid is three blue lines.
+            "color_auto": self.color is None,
             "plot_type": self.plot_type,
         }
 

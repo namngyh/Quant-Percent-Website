@@ -1882,3 +1882,64 @@ body[data-mode="overview"] .tz-badge {
 body[data-mode="overview"] .topbar { gap: 24px; }
 body[data-mode="overview"] .price-ticker { font-size: 26px; letter-spacing: -0.6px; }
 body[data-mode="overview"] .price-change { font-size: 14px; }
+
+/* ==================== Top bar at narrow widths ====================
+ *
+ * The bug this fixes: `.topbar-controls` is allowed to shrink, but `.tf-group`
+ * inside it is `flex-shrink: 0`. A flex child that refuses to shrink inside a
+ * parent that has shrunk does not get clipped — it overflows and paints over
+ * whatever is beside it. At 1050px the price ticker and the timeframe buttons
+ * were drawn on top of each other, both unreadable.
+ *
+ * Two changes. Nothing may overflow its group any more, and below the width
+ * where one row genuinely stops fitting the bar wraps to two rows rather than
+ * hiding controls the user still needs.
+ */
+.topbar-controls, .topbar-right { min-width: 0; }
+.topbar-controls > *, .topbar-right > * { min-width: 0; }
+
+/* `min-width: 0` alone does not help a child that declares `flex-shrink: 0`:
+   the timeframe strip keeps its full width and spills out of the group. It
+   scrolls sideways instead, at every width rather than only on small screens,
+   because the overlap appeared at 1050px — well above any phone breakpoint. */
+.topbar-controls {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.topbar-controls::-webkit-scrollbar { display: none; }
+
+/* The quote is the one thing in the bar that must never be squeezed. */
+.price-block { flex-shrink: 0; }
+
+/* Shed the least useful things first, while one row still works. */
+@media (max-width: 1240px) { .brand-name { display: none; } }
+@media (max-width: 1140px) { #limit { display: none; } }
+@media (max-width: 1080px) {
+  .tz-badge { display: none; }
+  #live-label { display: none; }
+}
+
+/* Below this a single row cannot hold the controls at a readable size, so it
+   becomes two. Height stops being fixed; the layout below it already fills
+   whatever is left. */
+@media (max-width: 1000px) {
+  .topbar {
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .topbar-right { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 720px) {
+  #symbol { width: 150px; max-width: 150px; }
+  .btn { padding: 7px 12px; }
+  .btn-lg { padding: 8px 16px; font-size: 14px; }
+}
+
+/* In overview the chart is a link to its own detail, so it says so. */
+body[data-mode="overview"] .chart-main { cursor: pointer; }

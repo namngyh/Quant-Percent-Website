@@ -29,6 +29,9 @@ class WalkForwardRequest(BaseModel):
     timeframe: str | None = None
     ranges: list[SweepRange] = Field(default_factory=list)
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     metric: str = "sharpe"
     train_bars: int = Field(default=1000, ge=50, le=100_000)
     test_bars: int = Field(default=250, ge=50, le=100_000)
@@ -51,6 +54,9 @@ class MonteCarloRequest(BaseModel):
     timeframe: str | None = None
     params: dict = Field(default_factory=dict)
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     simulations: int = Field(default=DEFAULT_SIMULATIONS, ge=100, le=MAX_SIMULATIONS)
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
 
@@ -66,13 +72,17 @@ class CompareRequest(BaseModel):
     symbol: str | None = None
     timeframe: str | None = None
     limit: int | None = None
+    # Inclusive ISO instants. Omitted means "the most recent `limit` bars".
+    start: str | None = None
+    end: str | None = None
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
 
 
 @router.post("/walk-forward")
 def run_walk_forward(request: WalkForwardRequest) -> dict:
     """Optimise on each window, score only the window that follows it."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     ranges = [ParamRange(r.name, r.start, r.stop, r.step) for r in request.ranges]
 
     try:
@@ -97,7 +107,8 @@ def run_walk_forward(request: WalkForwardRequest) -> dict:
 @router.post("/monte-carlo")
 def run_monte_carlo(request: MonteCarloRequest) -> dict:
     """Resample the trades of one backtest to show the range of outcomes."""
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     config = request.execution.to_config()
 
     try:
@@ -133,7 +144,8 @@ def compare(request: CompareRequest) -> dict:
     if len(request.entries) > 8:
         raise HTTPException(422, "So sánh tối đa 8 chiến lược một lần.")
 
-    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
+    df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
+                                  request.start, request.end)
     config = request.execution.to_config()
 
     rows, failures = [], []

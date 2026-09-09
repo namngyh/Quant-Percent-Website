@@ -122,6 +122,9 @@
       ChartManager.setCandles(data.candles, data.volumes, {
         timeVisible: INTRADAY.has(state.timeframe),
       });
+      // A different series has its own history; the previous "nothing older"
+      // answer says nothing about this one.
+      historyExhausted = false;
 
       // The symbol and the timeframe are already selected two controls to the
       // left, and the price now has a readout of its own, so the status line
@@ -225,6 +228,45 @@
 
     el.priceBlock.hidden = false;
     lastPrice = value;
+  }
+
+  /* ---------- History paging ----------
+
+     Panning left loads more of the past instead of stopping at whatever the
+     bar-count box happened to say. The box still exists for the working view,
+     where "give me exactly 5 000 bars" is a real thing to want before running
+     a backtest, but nobody should have to set it just to look further back.
+
+     `HISTORY_PAGE` is a page rather than the whole history because the point
+     is to keep the pan smooth: a page arrives in about the time one flick
+     takes, and the next flick asks for the next one. */
+  const HISTORY_PAGE = 1000;
+  let historyExhausted = false;
+
+  async function loadOlderHistory(oldestSeconds) {
+    if (historyExhausted) return;
+    try {
+      const data = await API.candlesBefore({
+        symbol: state.symbol,
+        timeframe: state.timeframe,
+        before: oldestSeconds,
+        limit: HISTORY_PAGE,
+      });
+      const added = ChartManager.prependCandles(data.candles, data.volumes);
+      if (!added) {
+        // The store has nothing older. Stop asking; a chart that refires the
+        // same empty request on every pan is how a scroll gesture becomes a
+        // request storm.
+        historyExhausted = true;
+        return;
+      }
+      // The indicator panes are drawn over the bars that were on screen, so
+      // they have to be recomputed against the longer series.
+      await Indicators.recomputeAll();
+    } catch (err) {
+      historyExhausted = true;
+      toast(`Không nạp thêm được lịch sử: ${err.message}`, 'bad');
+    }
   }
 
   /* ---------- View mode ----------
@@ -1123,6 +1165,8 @@ def signals(df, params):
     Report.init({ onToast: toast });
     setupMarkerControls();
     ChartManager.init(el.chartMain);
+    // Panning left past the oldest bar fetches the page before it.
+    ChartManager.onNeedHistory = loadOlderHistory;
     // Dividers change the chart's box, so the charts re-measure on every drag.
     Resizer.init({ onChange: () => ChartManager.refreshSize() });
     setupNavigation();
@@ -1170,6 +1214,10 @@ def signals(df, params):
         params: document.getElementById('strategy-params'),
         sweep: document.getElementById('sweep-ranges'),
         metric: document.getElementById('opt-metric'),
+        // The backtest window, shared by every run the strategy panel starts.
+        startDate: document.getElementById('bt-start'),
+        endDate: document.getElementById('bt-end'),
+        periodNote: document.getElementById('bt-period-note'),
         mode: document.getElementById('opt-mode'),
         samples: document.getElementById('opt-samples'),
         samplesRow: document.getElementById('opt-samples-row'),
@@ -1235,6 +1283,7 @@ def signals(df, params):
       },
       context: () => ({ ...state }),
       execution: () => Strategy.execution(),
+      period: () => Strategy.period(),
       catalog: () => Strategy.catalog,
       onToast: toast,
     });
@@ -1296,6 +1345,8 @@ def signals(df, params):
       // and report BTC's move as a percentage of a VN equity's price.
       hidePrice();
       refreshStars();
+      // The paper button follows the chart, so it always names this market.
+      Paper.refreshManualButton();
       buildTimeframeButtons();      // markets differ in what they offer
       applyMarketCapabilities();
       loadCandles();
@@ -1304,6 +1355,16 @@ def signals(df, params):
     el.backfill.addEventListener('click', runBackfill);
     el.modeToggle?.addEventListener('click', () => {
       setViewMode(ChartManager.mode === 'overview' ? 'trading' : 'overview');
+    });
+
+    /* Clicking the overview chart opens the detail of that market.
+
+       The button in the header does the same thing, but reaching for a button
+       to say "show me this properly" is not the gesture people have — they
+       click the thing itself. Only in overview: in the working view a click on
+       the chart belongs to the chart. */
+    el.chartMain?.addEventListener('click', () => {
+      if (ChartManager.mode === 'overview') setViewMode('trading');
     });
 
     el.liveToggle.addEventListener('click', () => {

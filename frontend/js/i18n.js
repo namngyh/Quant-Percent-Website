@@ -203,8 +203,17 @@ const I18n = (() => {
     'ps.copy':            { vi: 'Lấy từ backtest', en: 'Copy from backtest' },
     'ps.start':           { vi: 'Bắt đầu phiên', en: 'Start session' },
     'ps.manual':          { vi: 'Giao dịch tay', en: 'Manual trading' },
+    'ps.manualOn':        { vi: 'Giao dịch tay trên {symbol}',
+                            en: 'Trade {symbol} by hand' },
+    'ps.pickMarket':      { vi: 'Chọn một mã ở thanh trên rồi bấm vào đây.',
+                            en: 'Pick a symbol in the bar above, then press here.' },
     'top.trade':          { vi: 'Giao dịch', en: 'Trade' },
     'top.overview':       { vi: 'Tổng quan', en: 'Overview' },
+    'st.period':          { vi: 'Khoảng thời gian', en: 'Date range' },
+    'st.periodHint':      { vi: 'Bỏ trống là dùng số nến gần nhất.',
+                            en: 'Leave empty to use the most recent bars.' },
+    'st.from':            { vi: 'Từ ngày', en: 'From' },
+    'st.to':              { vi: 'Đến ngày', en: 'To' },
 
     // Hints and dialog chrome that were left as bare Vietnamese in index.html.
     'wf.hint':            { vi: 'Tối ưu trên một cửa sổ rồi áp <em>nguyên tham số đó</em> lên cửa sổ kế tiếp. Đây là phép thử trung thực nhất có ở đây, và cũng là phép thử khắt khe nhất: kết quả thường tệ hơn <strong>Tối ưu</strong> rất nhiều.',

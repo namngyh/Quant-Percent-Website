@@ -191,6 +191,24 @@ const ChartManager = (() => {
     });
     paintOverview(UP_TREND);
 
+    /* Panning left past the oldest bar asks for more history.
+
+       Triggered on the *logical* range rather than on a pixel position,
+       because the same gesture has to mean the same thing at every zoom level:
+       "there are fewer than a screenful of bars left to the left of you".
+       Lightweight Charts reports negative logical indices once the user pans
+       past the start of the data, so `from < THRESHOLD` catches the approach
+       rather than waiting for the wall. */
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range || !onNeedHistory || historyPending) return;
+      const HEADROOM = 40;
+      if (range.from > HEADROOM) return;
+      const oldest = candleData.length ? candleData[0].time : null;
+      if (oldest === null) return;
+      historyPending = true;
+      Promise.resolve(onNeedHistory(oldest)).finally(() => { historyPending = false; });
+    });
+
     // A window resize always reaches us, even when the observer does not.
     window.addEventListener('resize', refreshSize);
 
@@ -202,24 +220,58 @@ const ChartManager = (() => {
 
      Indicator series are extended to reach it; see `reserveSlot`. */
   let lastBarTime = null;
+  /* Every candle currently on the chart, oldest first, so older pages can be
+     prepended without refetching what is already drawn. Lightweight Charts has
+     no "prepend" — setData replaces — so the series' own data has to be kept
+     here to build the new array from. */
+  let candleData = [];
+  let volumeData = [];
+  let onNeedHistory = null;
+
+  /* Palette rotation across drawn instances.
+
+     The backend hands out colours by output index *within* one indicator, so
+     the first line of every indicator is the same blue: a chart with EMA, VWAP
+     and a Bollinger mid was three blue lines. Each drawn instance takes the
+     next offset into the same palette, so the second indicator starts where
+     the first left off. Indicators that pick their own colours are left alone
+     — `color_auto` says which is which.
+
+     Kept in a Map keyed by instance so redrawing one (a parameter change,
+     a recompute) does not renumber the others under it. */
+  const PALETTE = [
+    '#2962ff', '#ef6c00', '#7b1fa2', '#0097a7',
+    '#f9a825', '#c2185b', '#5d4037', '#455a64',
+  ];
+  const instanceOffset = new Map();
+  let nextOffset = 0;
+
+  function colourFor(instanceId, output, outputIndex) {
+    if (!output.color_auto) return output.color;
+    if (!instanceOffset.has(instanceId)) {
+      instanceOffset.set(instanceId, nextOffset);
+      nextOffset += 1;
+    }
+    const base = instanceOffset.get(instanceId);
+    return PALETTE[(base + outputIndex) % PALETTE.length];
+  }
+  let historyPending = false;
 
   function setCandles(candles, volumes, { timeVisible }) {
     for (const chart of allCharts()) {
       chart.applyOptions({ timeScale: { ...THEME.timeScale, timeVisible, secondsVisible: false } });
     }
-    candleSeries.setData(
-      candles.map((c) => ({
-        time: toChart(c.time),
-        open: c.open, high: c.high, low: c.low, close: c.close,
-      })),
-    );
-    volumeSeries.setData(
-      volumes.map((v) => ({
-        time: toChart(v.time),
-        value: v.value,
-        color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
-      })),
-    );
+    candleData = candles.map((c) => ({
+      time: toChart(c.time),
+      open: c.open, high: c.high, low: c.low, close: c.close,
+    }));
+    candleSeries.setData(candleData);
+    volumeData = volumes.map((v) => ({
+      time: toChart(v.time),
+      value: v.value,
+      color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
+    }));
+    volumeSeries.setData(volumeData);
 
     /* The same closes as a line. Coloured by where the window ended against
        where it started, which is what a quote page's colour means — not the
@@ -260,10 +312,12 @@ const ChartManager = (() => {
     removeOverlay(instanceId);
     const seriesList = [];
 
-    for (const output of result.outputs) {
+    result.outputs.forEach((output, i) => {
       const series = mainChart.addLineSeries({
-        color: output.color,
-        lineWidth: 2,
+        color: colourFor(instanceId, output, i),
+        // Thinner than a candle body. An overlay sits on top of the price and
+        // has to stay legible without hiding what it is drawn over.
+        lineWidth: 1.5,
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: true,
@@ -271,7 +325,7 @@ const ChartManager = (() => {
       const points = toPoints(result.times, result.values[output.key] || []);
       series.setData(points);
       seriesList.push({ series, points });
-    }
+    });
 
     overlays.set(instanceId, seriesList);
     for (const entry of seriesList) reserveSlot(entry, lastBarTime);
@@ -324,20 +378,37 @@ const ChartManager = (() => {
     trackSize(chart, element);
 
     const seriesList = [];
-    for (const output of result.outputs) {
+    result.outputs.forEach((output, i) => {
+      const colour = colourFor(instanceId, output, i);
       const isHistogram = output.plot_type === 'histogram';
       const series = isHistogram
-        ? chart.addHistogramSeries({ color: output.color, priceLineVisible: false })
+        ? chart.addHistogramSeries({ color: colour, priceLineVisible: false })
         : chart.addLineSeries({
-            color: output.color,
-            lineWidth: 2,
+            color: colour,
+            lineWidth: 1.5,
             priceLineVisible: false,
             lastValueVisible: true,
           });
-      const points = toPoints(result.times, result.values[output.key] || []);
+      let points = toPoints(result.times, result.values[output.key] || []);
+      /* A histogram that crosses zero — MACD, momentum, most oscillators —
+         reads far better split at the zero line than as one flat colour: the
+         sign is the whole message, and a single colour makes the reader work
+         it out from the geometry. Series that never cross zero (volume-like)
+         keep the plain colour. */
+      if (isHistogram) {
+        const values = points.filter((pt) => pt.value !== undefined);
+        const crossesZero = values.some((pt) => pt.value > 0)
+          && values.some((pt) => pt.value < 0);
+        if (crossesZero) {
+          points = points.map((pt) => (pt.value === undefined ? pt : {
+            ...pt,
+            color: pt.value >= 0 ? 'rgba(8,153,129,0.55)' : 'rgba(242,54,69,0.55)',
+          }));
+        }
+      }
       series.setData(points);
       seriesList.push({ series, points });
-    }
+    });
 
     panes.set(instanceId, { chart, element, series: seriesList });
     // A recompute reads closed candles only, so a fresh pane is already a bar
@@ -574,7 +645,56 @@ const ChartManager = (() => {
     return candleSeries ? candleSeries.data().length : 0;
   }
 
-  return { init, setCandles, setMode, draw, drawOverlay, drawPane, remove, clearAll, alignment,
+  /* Put an older page in front of what is already drawn.
+
+     The visible range is captured and restored around the setData, because
+     setData re-anchors the view and without this the chart would jump to the
+     newly prepended start every time a page arrived — the pan would fight the
+     user. Returns how many bars were actually added. */
+  function prependCandles(candles, volumes) {
+    if (!candleSeries || !candles?.length) return 0;
+
+    const known = new Set(candleData.map((c) => c.time));
+    const older = candles
+      .map((c) => ({
+        time: toChart(c.time),
+        open: c.open, high: c.high, low: c.low, close: c.close,
+      }))
+      .filter((c) => !known.has(c.time));
+    if (!older.length) return 0;
+
+    const knownVol = new Set(volumeData.map((v) => v.time));
+    const olderVol = (volumes || [])
+      .map((v) => ({
+        time: toChart(v.time),
+        value: v.value,
+        color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
+      }))
+      .filter((v) => !knownVol.has(v.time));
+
+    const scale = mainChart.timeScale();
+    const before = scale.getVisibleLogicalRange();
+
+    candleData = [...older, ...candleData];
+    volumeData = [...olderVol, ...volumeData];
+    candleSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
+    overviewSeries?.setData(candleData.map((c) => ({ time: c.time, value: c.close })));
+
+    // Everything shifted right by exactly the number of bars added.
+    if (before) {
+      scale.setVisibleLogicalRange({
+        from: before.from + older.length,
+        to: before.to + older.length,
+      });
+    }
+    return older.length;
+  }
+
+  return { init, setCandles, setMode, prependCandles,
+           set onNeedHistory(fn) { onNeedHistory = fn || null; },
+           get oldestTime() { return candleData.length ? candleData[0].time : null; },
+           draw, drawOverlay, drawPane, remove, clearAll, alignment,
            get mode() { return mode; },
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
            get markerCount() { return markerCount(); },
