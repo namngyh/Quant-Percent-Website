@@ -356,6 +356,13 @@
             '><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/><circle cx="10" cy="10" r="2"/></svg>'))}
       </div>
       <div class="draw-group">
+        <button type="button" class="draw-btn" data-draw-action="remove"
+                title="${escapeAttr(Drawings.hasSelection
+                  ? t('draw.remove') : t('draw.pick'))}"
+                aria-label="${escapeAttr(t('draw.remove'))}"
+                ${Drawings.hasSelection ? '' : 'disabled'}>${
+          drawGlyph('').replace('></svg>',
+            '><path d="M6 6l8 8M14 6l-8 8"/><circle cx="10" cy="10" r="7.5"/></svg>')}</button>
         <button type="button" class="draw-btn" data-draw-action="undo"
                 title="${escapeAttr(t('draw.undo'))}" aria-label="${escapeAttr(t('draw.undo'))}"
                 ${Drawings.count ? '' : 'disabled'}>${
@@ -392,6 +399,7 @@
 
       const action = event.target.closest('[data-draw-action]');
       if (!action) return;
+      if (action.dataset.drawAction === 'remove') Drawings.removeSelected();
       if (action.dataset.drawAction === 'undo') Drawings.undo();
       if (action.dataset.drawAction === 'clear') {
         // Wiping every shape on the series is not undoable, so it asks.
@@ -522,17 +530,18 @@
       el.modeToggle.textContent = mode === 'overview' ? t('top.trade') : t('top.overview');
       el.modeToggle.classList.toggle('btn-primary', mode === 'overview');
     }
-    if (mode === 'trading') {
-      loadWorkingView();
-      // Opening the working view puts you at the recent end, zoomed to candles
-      // you can read, rather than on the whole history squeezed flat.
-      ChartManager.focusRecent();
-    } else {
-      // Back to overview: the whole loaded history, which is the point of it.
-      ChartManager.fitAll();
-    }
-    // The chart's own box changes size when the panels appear or go away.
-    requestAnimationFrame(() => ChartManager.refreshSize());
+    if (mode === 'trading') loadWorkingView();
+
+    /* Resize first, then frame. Switching mode shows or hides the rail and
+       the panel, so the chart's box changes width — measured, 775px in the
+       working view against 1161px in the overview — and the library derives
+       bar spacing from the width it currently knows about. A fit computed
+       before the resize is a fit for a box that no longer exists. */
+    requestAnimationFrame(() => {
+      ChartManager.refreshSize();
+      if (mode === 'trading') ChartManager.focusRecent();
+      else ChartManager.fitAll();
+    });
   }
 
   function hidePrice() {

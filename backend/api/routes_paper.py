@@ -32,6 +32,17 @@ class OrderRequest(BaseModel):
     action: str                       # "long" | "short" | "close"
     # Share of equity to stake, 0-1. Omitted means the session's own size.
     size_pct: float | None = Field(default=None, gt=0, le=1)
+    # Exit levels as prices, both optional. The engine refuses a level on the
+    # wrong side of the fill rather than accepting one that fires immediately.
+    stop_loss: float | None = Field(default=None, gt=0)
+    take_profit: float | None = Field(default=None, gt=0)
+
+
+class ExitsRequest(BaseModel):
+    """Move or clear the exit levels on an open position."""
+
+    stop_loss: float | None = Field(default=None, gt=0)
+    take_profit: float | None = Field(default=None, gt=0)
 
 
 @router.get("")
@@ -73,13 +84,27 @@ async def start(request: StartRequest) -> dict:
 async def order(session_id: str, request: OrderRequest) -> dict:
     """Buy, sell or close by hand, filled at the live price."""
     try:
-        return await manager.order(session_id, request.action, request.size_pct)
+        return await manager.order(
+            session_id, request.action, request.size_pct,
+            request.stop_loss, request.take_profit,
+        )
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
     except OrderRefused as exc:
         # Refusals here are things a person can act on — the session is
         # stopped, there is no position to close — so they travel as a stable
         # code plus both languages, never as a sentence to be pattern-matched.
+        raise HTTPException(422, detail=exc.as_dict()) from exc
+
+
+@router.post("/{session_id}/exits")
+async def exits(session_id: str, request: ExitsRequest) -> dict:
+    """Attach, move or clear the stop and target on an open position."""
+    try:
+        return await manager.set_exits(session_id, request.stop_loss, request.take_profit)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except OrderRefused as exc:
         raise HTTPException(422, detail=exc.as_dict()) from exc
 
 

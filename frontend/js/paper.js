@@ -119,6 +119,24 @@ const Paper = (() => {
           <span class="ticket-price">${money(s.last_price)}</span>
         </button>
       </div>
+      <div class="ticket-row ticket-exits">
+        <label class="ticket-field">
+          <span>${esc(L('Cắt lỗ', 'Stop loss'))}</span>
+          <input type="number" step="any" min="0" inputmode="decimal"
+                 placeholder="${esc(L('không đặt', 'none'))}"
+                 value="${s.stop_loss ?? ''}" data-stop="${esc(s.id)}" />
+        </label>
+        <label class="ticket-field">
+          <span>${esc(L('Chốt lời', 'Take profit'))}</span>
+          <input type="number" step="any" min="0" inputmode="decimal"
+                 placeholder="${esc(L('không đặt', 'none'))}"
+                 value="${s.take_profit ?? ''}" data-target="${esc(s.id)}" />
+        </label>
+      </div>
+      ${s.position !== 0 ? `<div class="ticket-row">
+        <button class="btn btn-quiet btn-sm btn-block" data-apply-exits="${esc(s.id)}"
+          >${esc(L('Áp dụng cắt lỗ / chốt lời', 'Apply stop and target'))}</button>
+      </div>` : ''}
       <div class="ticket-row ticket-controls">
         <label class="ticket-size">
           <span>${esc(L('% vốn', '% equity'))}</span>
@@ -220,13 +238,45 @@ const Paper = (() => {
     bind();
   }
 
+  /* The two exit boxes as the API wants them: a number or nothing.
+
+     An empty box means "no level", not zero — a stop of 0 would be a level the
+     price can never reach, which is a different instruction from having none. */
+  function exitsFor(id) {
+    const read = (selector) => {
+      const el = elements.list.querySelector(selector);
+      const value = Number(el?.value);
+      return el && el.value !== '' && Number.isFinite(value) && value > 0 ? value : null;
+    };
+    return {
+      stopLoss: read(`[data-stop="${CSS.escape(id)}"]`),
+      takeProfit: read(`[data-target="${CSS.escape(id)}"]`),
+    };
+  }
+
   function bind() {
+    for (const btn of elements.list.querySelectorAll('[data-apply-exits]')) {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.applyExits;
+        btn.disabled = true;
+        try {
+          const result = await API.paperExits(id, exitsFor(id));
+          apply(result.snapshot);
+          onToast(L('Đã cập nhật cắt lỗ / chốt lời', 'Stop and target updated'));
+        } catch (err) {
+          onToast(tp(err.detail?.message) || err.message, true);
+          btn.disabled = false;
+        }
+      });
+    }
+
     for (const btn of elements.list.querySelectorAll('[data-order]')) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.session;
         const action = btn.dataset.order;
         const sizeInput = elements.list.querySelector(`[data-size="${CSS.escape(id)}"]`);
         const raw = Number(sizeInput?.value);
+        const exits = exitsFor(id);
         // Omitted rather than guessed: the backend then uses the session's own
         // configured size, which is the honest default.
         const sizePct = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 100) / 100 : undefined;
@@ -237,7 +287,11 @@ const Paper = (() => {
           `[data-session="${CSS.escape(id)}"]`)];
         for (const b of buttons) b.disabled = true;
         try {
-          const result = await API.paperOrder(id, action, action === 'close' ? undefined : sizePct);
+          const result = await API.paperOrder(
+            id, action,
+            action === 'close' ? undefined : sizePct,
+            action === 'close' ? undefined : exits,
+          );
           apply(result.snapshot);
           const filled = (result.events || []).find((e) => e.type === 'entry');
           onToast(filled

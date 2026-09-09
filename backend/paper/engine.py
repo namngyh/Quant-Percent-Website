@@ -101,6 +101,12 @@ class PaperSession:
     entry_time: int = 0
     margin: float = 0.0
 
+    # Exit levels attached to the open position, as prices. None means the leg
+    # is not armed. They are cleared with the position, because a level for a
+    # position that no longer exists would fire on the next one.
+    stop_loss: float | None = None
+    take_profit: float | None = None
+
     # A signal is computed when a candle closes and filled at the next open,
     # so it waits here in between.
     pending_signal: int = 0
@@ -154,6 +160,8 @@ class PaperSession:
         self.entry_price = 0.0
         self.margin = 0.0
         self.entry_time = 0
+        self.stop_loss = None
+        self.take_profit = None
         return trade
 
     def _open(
@@ -177,7 +185,13 @@ class PaperSession:
     def is_manual(self) -> bool:
         return self.strategy_id == MANUAL_STRATEGY_ID
 
-    def place_order(self, action: str, size_pct: float | None = None) -> dict:
+    def place_order(
+        self,
+        action: str,
+        size_pct: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+    ) -> dict:
         """Open, reverse or close a position by hand, at the live price.
 
         ``action`` is "long", "short" or "close". Returns the events booked, in
@@ -215,6 +229,16 @@ class PaperSession:
             )
 
         target = {"long": 1, "short": -1, "close": 0}[action]
+
+        # Levels are checked against the price the order will fill at, not
+        # against the last trade: a stop 1 tick under the last price is under
+        # the fill too, and refusing on the wrong reference would reject an
+        # order that is actually fine.
+        if target != 0:
+            self._validate_exits(
+                target, self._fill_price(self.last_price, target), stop_loss, take_profit
+            )
+
         if target == self.position:
             raise OrderRefused(
                 "already_flat" if target == 0 else "already_in_position",
@@ -246,6 +270,8 @@ class PaperSession:
                 self._fill_price(self.last_price, target), when, target,
                 size_pct=size_pct,
             )
+            self.stop_loss = stop_loss
+            self.take_profit = take_profit
             events.append({
                 "type": "entry",
                 "side": "long" if target > 0 else "short",
@@ -253,6 +279,8 @@ class PaperSession:
                 "quantity": abs(self.quantity),
                 "time": when,
                 "manual": True,
+                "stop_loss": self.stop_loss,
+                "take_profit": self.take_profit,
             })
 
         self.manual_orders += 1
@@ -262,6 +290,101 @@ class PaperSession:
         self.pending_signal = self.position
         self.updated_at = when
         return {"events": events, "snapshot": self.snapshot()}
+
+    def _exit_level_hit(self, candle: dict) -> tuple[float, str] | None:
+        """Which of stop loss / take profit this candle reached, if either.
+
+        Both are filled **at their own price**, not at the candle's close: a
+        resting order fills where it rests. Slippage is not applied on top,
+        because the level is already the worst case the user asked for.
+
+        When one candle spans both levels the stop wins. From daily OHLC there
+        is no way to know which came first — the bar says the price visited
+        both, not in what order — so the choice is between guessing favourably
+        and guessing unfavourably, and a paper account that resolves its own
+        ambiguities in the user's favour teaches the wrong lesson. This is the
+        same reason slippage is always adverse (§3.1).
+        """
+        if self.position == 0:
+            return None
+
+        low = float(candle["low"])
+        high = float(candle["high"])
+
+        if self.position > 0:
+            stop_hit = self.stop_loss is not None and low <= self.stop_loss
+            target_hit = self.take_profit is not None and high >= self.take_profit
+        else:
+            stop_hit = self.stop_loss is not None and high >= self.stop_loss
+            target_hit = self.take_profit is not None and low <= self.take_profit
+
+        if stop_hit:
+            return (self.stop_loss, "stop_loss")
+        if target_hit:
+            return (self.take_profit, "take_profit")
+        return None
+
+    def set_exits(
+        self, stop_loss: float | None = None, take_profit: float | None = None
+    ) -> dict:
+        """Attach, move or clear the exit levels on the open position."""
+        if self.position == 0:
+            raise OrderRefused(
+                "no_position",
+                "Chưa có vị thế nào để đặt cắt lỗ hay chốt lời.",
+                "There is no open position to attach a stop or a target to.",
+            )
+        self._validate_exits(self.position, self.entry_price, stop_loss, take_profit)
+        self.stop_loss = stop_loss
+        self.take_profit = take_profit
+        self.updated_at = int(time.time())
+        return {"events": [], "snapshot": self.snapshot()}
+
+    def _validate_exits(
+        self,
+        direction: int,
+        reference: float,
+        stop_loss: float | None,
+        take_profit: float | None,
+    ) -> None:
+        """Refuse a level that is already on the wrong side of the price.
+
+        A stop above the entry on a long is not a stop — it fills instantly on
+        the next candle and books a win as a "stop loss". Refusing is the only
+        honest answer: silently accepting it produces a trade log that says
+        something untrue about what the user intended.
+        """
+        for value, name, code in (
+            (stop_loss, "stop_loss", "bad_stop"),
+            (take_profit, "take_profit", "bad_target"),
+        ):
+            if value is None:
+                continue
+            if value <= 0:
+                raise OrderRefused(
+                    code,
+                    "Giá phải lớn hơn 0.",
+                    "The price must be above zero.",
+                )
+            # A stop sits below a long and above a short; a target is the
+            # reverse. `direction` is +1 long, -1 short.
+            wants_below = (name == "stop_loss") == (direction > 0)
+            if wants_below and value >= reference:
+                raise OrderRefused(
+                    code,
+                    f"{'Cắt lỗ' if name == 'stop_loss' else 'Chốt lời'} phải thấp hơn "
+                    f"giá {reference:.8g} cho lệnh {'mua' if direction > 0 else 'bán'}.",
+                    f"The {'stop' if name == 'stop_loss' else 'target'} must be below "
+                    f"{reference:.8g} for a {'long' if direction > 0 else 'short'}.",
+                )
+            if not wants_below and value <= reference:
+                raise OrderRefused(
+                    code,
+                    f"{'Cắt lỗ' if name == 'stop_loss' else 'Chốt lời'} phải cao hơn "
+                    f"giá {reference:.8g} cho lệnh {'mua' if direction > 0 else 'bán'}.",
+                    f"The {'stop' if name == 'stop_loss' else 'target'} must be above "
+                    f"{reference:.8g} for a {'long' if direction > 0 else 'short'}.",
+                )
 
     def resume_strategy(self) -> None:
         """Hand the position back to the strategy after a manual intervention."""
@@ -332,7 +455,17 @@ class PaperSession:
                 trade = self._close(liq, when, "liquidation")
                 events.append({"type": "liquidation", "trade": trade.as_dict()})
 
-        # 3. Append to history and decide what to do at the next open.
+        # 3. Stop loss and take profit, checked the same way for the same
+        #    reason: both are resting orders, and a resting order fills when
+        #    the price *reaches* it, not when the candle happens to close past
+        #    it. Checking the close would miss every level touched and left.
+        exit_hit = self._exit_level_hit(candle)
+        if exit_hit is not None:
+            price, reason = exit_hit
+            trade = self._close(price, when, reason)
+            events.append({"type": "exit", "trade": trade.as_dict(), "reason": reason})
+
+        # 4. Append to history and decide what to do at the next open.
         self._append(candle)
         self.pending_signal = self._decide(signal_fn)
 
@@ -406,6 +539,8 @@ class PaperSession:
             "quantity": abs(self.quantity),
             "entry_price": self.entry_price,
             "entry_time": self.entry_time,
+            "stop_loss": self.stop_loss,
+            "take_profit": self.take_profit,
             "last_price": self.last_price,
             "pending_signal": self.pending_signal,
             "is_manual": self.is_manual,

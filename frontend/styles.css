@@ -2340,3 +2340,24 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 /* Overview is a quote page: there is nothing there to annotate. */
 body[data-mode="overview"] .draw-bar,
 body[data-mode="overview"] .draw-layer { display: none; }
+
+
+/* Stop and target sit above the size box, because they are decided before the
+   order is sent rather than after — and a position that is already open shows
+   the levels it is carrying rather than an empty pair of boxes. */
+.ticket-exits { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ticket-field { display: grid; gap: 3px; font-size: 11px; color: var(--text-dim); }
+.ticket-field input {
+  width: 100%;
+  text-align: right;
+  padding: 6px 9px;
+  border-radius: var(--radius-md);
+  border-color: transparent;
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+.ticket-field input:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}

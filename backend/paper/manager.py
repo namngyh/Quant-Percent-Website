@@ -150,15 +150,32 @@ class PaperManager:
         return session
 
     async def order(
-        self, session_id: str, action: str, size_pct: float | None = None
+        self,
+        session_id: str,
+        action: str,
+        size_pct: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
     ) -> dict:
-        """Place a hand order on a session. Raises ValueError with a reason."""
+        """Place a hand order on a session. Raises OrderRefused with a reason."""
         session = self._require(session_id)
-        result = session.place_order(action, size_pct)
+        result = session.place_order(action, size_pct, stop_loss, take_profit)
         await asyncio.to_thread(self._persist, session)
         log.info(
             "paper session %s: manual %s at %.8g", session_id, action, session.last_price
         )
+        return result
+
+    async def set_exits(
+        self,
+        session_id: str,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+    ) -> dict:
+        """Attach, move or clear the exit levels on an open position."""
+        session = self._require(session_id)
+        result = session.set_exits(stop_loss, take_profit)
+        await asyncio.to_thread(self._persist, session)
         return result
 
     async def resume_strategy(self, session_id: str) -> PaperSession:

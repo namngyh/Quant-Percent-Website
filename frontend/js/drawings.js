@@ -54,6 +54,7 @@ const Drawings = (() => {
   let pending = null;        // the shape being drawn, before its last click
   let hover = null;          // pointer position in chart coords, for previews
   let dragging = null;       // { shape, grabbedAt, origin }
+  let selected = null;       // the shape the cursor last picked up
   let seriesKey = null;      // symbol + timeframe these shapes belong to
   let visible = true;
   let locked = false;
@@ -107,6 +108,7 @@ const Drawings = (() => {
       if (Array.isArray(all[key])) shapes = all[key];
     } catch { /* unreadable store: start empty rather than fail to draw */ }
     pending = null;
+    selected = null;
     paint();
     onChange();
   }
@@ -164,10 +166,12 @@ const Drawings = (() => {
     if (pts.some((p) => p.x === null || p.y === null
                      || p.x === undefined || p.y === undefined)) return;
 
+    const isSelected = shape === selected && !isPreview;
+
     ctx.save();
     ctx.strokeStyle = shape.colour || COLOUR;
     ctx.fillStyle = shape.colour || COLOUR;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
     ctx.setLineDash(isPreview ? [4, 4] : []);
     ctx.font = '12px system-ui, sans-serif';
 
@@ -252,6 +256,21 @@ const Drawings = (() => {
       default:
         break;
     }
+
+    /* Handles on the selected shape's anchors: they say which shape is about
+       to be deleted, and they are the part you grab to move it. */
+    if (isSelected) {
+      ctx.setLineDash([]);
+      for (const p of pts) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = shape.colour || COLOUR;
+        ctx.stroke();
+      }
+    }
     ctx.restore();
   }
 
@@ -335,6 +354,7 @@ const Drawings = (() => {
     if (tool === 'cursor') {
       if (locked) return;
       const hit = shapeAt(x, y);
+      if (hit !== selected) { selected = hit; paint(); onChange(); }
       if (!hit) return;
       const at = pointAt(event.clientX, event.clientY);
       if (!at) return;
@@ -367,12 +387,21 @@ const Drawings = (() => {
       pending.text = text;
     }
     shapes.push(pending);
+    selected = pending;
     pending = null;
     save();
+
+    /* Back to the cursor once a shape is finished.
+
+       The tool used to stay armed so that drawing five levels was five clicks.
+       That is the wrong trade: it means every click afterwards draws another
+       shape, including the click you make to select the one you just drew, and
+       the only way out is to notice the toolbar. Ten shapes in and wanting to
+       delete the fifth, you cannot even point at it. Drawing is occasional;
+       looking at the chart is constant, so the resting state is the cursor. */
+    setTool('cursor');
     paint();
     onChange();
-    // A tool stays selected after one shape, so drawing five levels is five
-    // clicks rather than five trips to the toolbar. Escape or Cursor exits.
   }
 
   function onPointerMove(event) {
@@ -413,9 +442,32 @@ const Drawings = (() => {
     if (event.key === 'Escape') {
       pending = null;
       hover = null;
+      selected = null;
       setTool('cursor');
       paint();
+      onChange();
+      return;
     }
+    /* Delete removes the selected shape — but not while the user is typing.
+       Without the target check, backspacing a symbol out of the search box
+       would quietly delete a drawing behind it. */
+    if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+    const el = event.target;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+    if (removeSelected()) event.preventDefault();
+  }
+
+  /** Delete the selected shape. Returns whether there was one. */
+  function removeSelected() {
+    if (!selected || locked) return false;
+    const at = shapes.indexOf(selected);
+    if (at < 0) { selected = null; return false; }
+    shapes.splice(at, 1);
+    selected = null;
+    save();
+    paint();
+    onChange();
+    return true;
   }
 
   // ---------- public ----------
@@ -437,7 +489,7 @@ const Drawings = (() => {
 
   function undo() {
     if (!shapes.length) return;
-    shapes.pop();
+    if (shapes.pop() === selected) selected = null;
     save();
     paint();
     onChange();
@@ -446,6 +498,7 @@ const Drawings = (() => {
   function clear() {
     if (!shapes.length) return;
     shapes = [];
+    selected = null;
     save();
     paint();
     onChange();
@@ -489,7 +542,8 @@ const Drawings = (() => {
 
   return {
     init, load, setSeries, setTool, undo, clear, resize, paint,
-    setVisible, setLocked, setMagnet,
+    setVisible, setLocked, setMagnet, removeSelected,
+    get hasSelection() { return selected !== null; },
     get tools() { return TOOLS.slice(); },
     get tool() { return tool; },
     get count() { return shapes.length; },

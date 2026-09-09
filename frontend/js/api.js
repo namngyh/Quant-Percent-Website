@@ -177,8 +177,20 @@ const API = (() => {
 
     // A hand order on a paper session. `action` is long | short | close;
     // `sizePct` is 0-1 and may be omitted to use the session's own size.
-    paperOrder: (id, action, sizePct) =>
-      post(`/api/paper/${id}/order`, { action, size_pct: sizePct ?? null }),
+    paperOrder: (id, action, sizePct, exits) =>
+      post(`/api/paper/${id}/order`, {
+        action,
+        size_pct: sizePct ?? null,
+        stop_loss: exits?.stopLoss ?? null,
+        take_profit: exits?.takeProfit ?? null,
+      }),
+
+    // Move or clear the levels on a position that is already open.
+    paperExits: (id, exits) =>
+      post(`/api/paper/${id}/exits`, {
+        stop_loss: exits?.stopLoss ?? null,
+        take_profit: exits?.takeProfit ?? null,
+      }),
 
     paperResumeStrategy: (id) => post(`/api/paper/${id}/resume-strategy`, {}),
 

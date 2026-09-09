@@ -478,6 +478,124 @@ def _():
     assert snap["manual_orders"] == 1, snap
     assert snap["position"] == 1 and snap["quantity"] > 0, snap
 
+# ============================================ stop loss and take profit
+
+def bar(o, h, l, c, t=1_700_000_000_000):
+    return {"open_time": t, "open": o, "high": h, "low": l, "close": c, "volume": 1.0}
+
+
+@check("a stop fills at the stop, not at the candle's close")
+def _():
+    s = manual()
+    s.place_order("long", stop_loss=95.0)
+    s.on_closed_candle(bar(100, 101, 94, 99), lambda h: None)
+    t = s.trades[0]
+    # A resting order fills where it rests. Filling at the close would book 99
+    # on a bar that traded down to 94 — a stop that did not stop anything.
+    assert abs(t.exit_price - 95.0) < 1e-9, t.exit_price
+    assert t.exit_reason == "stop_loss", t.exit_reason
+
+
+@check("a target fills at the target")
+def _():
+    s = manual()
+    s.place_order("long", take_profit=110.0)
+    s.on_closed_candle(bar(100, 112, 99, 104), lambda h: None)
+    t = s.trades[0]
+    assert abs(t.exit_price - 110.0) < 1e-9, t.exit_price
+    assert t.exit_reason == "take_profit", t.exit_reason
+
+
+@check("a level the candle never reached does not fire")
+def _():
+    s = manual()
+    s.place_order("long", stop_loss=90.0, take_profit=120.0)
+    s.on_closed_candle(bar(100, 105, 96, 103), lambda h: None)
+    assert not s.trades, s.trades
+    assert s.position == 1, s.position
+
+
+@check("when one candle spans both levels, the stop wins")
+def _():
+    s = manual()
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    s.on_closed_candle(bar(100, 112, 94, 104), lambda h: None)
+    # The bar says the price visited both and not in which order, so the
+    # ambiguity is resolved against the account. A paper account that resolves
+    # its own ambiguities favourably teaches the wrong lesson — the same reason
+    # slippage is always adverse (§3.1).
+    assert s.trades[0].exit_reason == "stop_loss", s.trades[0].exit_reason
+
+
+@check("short exits are mirrored, not copied")
+def _():
+    up = manual()
+    up.place_order("short", stop_loss=105.0, take_profit=90.0)
+    up.on_closed_candle(bar(100, 106, 99, 101), lambda h: None)
+    assert up.trades[0].exit_reason == "stop_loss", up.trades[0].exit_reason
+
+    down = manual()
+    down.place_order("short", stop_loss=105.0, take_profit=90.0)
+    down.on_closed_candle(bar(100, 101, 88, 92), lambda h: None)
+    assert down.trades[0].exit_reason == "take_profit", down.trades[0].exit_reason
+    assert down.trades[0].pnl > 0, down.trades[0].pnl
+
+
+@check("a level on the wrong side of the fill is refused")
+def _():
+    cases = [
+        ("bad_stop", {"stop_loss": 105.0}, "long"),
+        ("bad_target", {"take_profit": 95.0}, "long"),
+        ("bad_stop", {"stop_loss": 95.0}, "short"),
+        ("bad_target", {"take_profit": 105.0}, "short"),
+    ]
+    for code, kwargs, side in cases:
+        try:
+            manual().place_order(side, **kwargs)
+        except OrderRefused as exc:
+            assert exc.code == code, (side, kwargs, exc.code)
+            assert exc.message["vi"] and exc.message["en"], exc.message
+        else:
+            raise AssertionError(f"{side} accepted {kwargs}")
+
+
+@check("exit levels are cleared with the position that carried them")
+def _():
+    s = manual()
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("close")
+    assert s.stop_loss is None and s.take_profit is None, (s.stop_loss, s.take_profit)
+    # A level left behind would fire on the next position, which is not the
+    # one it was set for.
+    s.place_order("short")
+    assert s.stop_loss is None and s.take_profit is None, (s.stop_loss, s.take_profit)
+
+
+@check("exits can be attached, moved and cleared after the fact")
+def _():
+    s = manual()
+    s.place_order("long")
+    s.set_exits(stop_loss=97.0, take_profit=108.0)
+    assert (s.stop_loss, s.take_profit) == (97.0, 108.0)
+    s.set_exits(stop_loss=None, take_profit=None)
+    assert s.stop_loss is None and s.take_profit is None
+
+    try:
+        manual().set_exits(stop_loss=95.0)
+    except OrderRefused as exc:
+        assert exc.code == "no_position", exc.code
+    else:
+        raise AssertionError("exits were attached with no position open")
+
+
+@check("the snapshot reports the levels the position is carrying")
+def _():
+    s = manual()
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    snap = s.snapshot()
+    assert snap["stop_loss"] == 95.0, snap["stop_loss"]
+    assert snap["take_profit"] == 110.0, snap["take_profit"]
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:

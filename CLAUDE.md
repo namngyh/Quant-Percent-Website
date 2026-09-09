@@ -172,6 +172,86 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-11 — Chọn/xoá từng hình vẽ, và cắt lỗ / chốt lời cho lệnh tay
+
+**258 test Python + toàn bộ render check.**
+
+#### 1. Công cụ vẽ bị "dính", và không xoá được một hình
+
+Hai lỗi trong một, và cái thứ nhất gây ra cái thứ hai.
+
+Tôi cho công cụ **giữ nguyên** sau khi vẽ xong một hình, với lý do "vẽ năm mức
+giá là năm cú nhấp thay vì năm lần đi lại thanh công cụ". Đó là đánh đổi sai:
+nó có nghĩa là **mọi** cú nhấp sau đó lại vẽ thêm một hình — kể cả cú nhấp bạn
+định dùng để chọn hình vừa vẽ. Vẽ mười hình rồi muốn xoá hình thứ năm thì thậm
+chí không trỏ vào nó được. Vẽ là việc thỉnh thoảng, nhìn biểu đồ là việc liên
+tục, nên trạng thái nghỉ phải là con trỏ.
+
+Giờ: vẽ xong thì tự về con trỏ. Bấm vào một hình là **chọn** nó (đường dày lên,
+hiện các điểm neo), rồi `Delete` hoặc nút xoá trên thanh công cụ. Nút chỉ bật
+khi thật sự có hình đang chọn, và tooltip của nó khi chưa chọn nói luôn phải
+làm gì.
+
+Một chi tiết dễ hỏng: phím `Delete` bỏ qua khi con trỏ đang ở trong ô nhập —
+nếu không, xoá lùi một ký tự trong ô tìm mã sẽ lặng lẽ xoá mất một hình vẽ ở
+sau lưng.
+
+#### 2. Zoom khi đổi mã — **đã chạy đúng**, và tôi sai ba lần khi đi tìm
+
+Đo trên chính app đang chạy, ở chế độ giao dịch:
+
+| | Phạm vi hiển thị |
+|---|---|
+| sau khi vào Giao dịch | 1820–2006 → **186 nến** |
+| sau khi đổi BTCUSDT → VN:VNINDEX | 1217–1403 → **186 nến** |
+| sau khi đổi khung thời gian | **186 nến** |
+
+Nó giữ zoom. **Ba giả thuyết của tôi đều sai**, ghi lại cả ba theo §2.2:
+
+1. *"Pane chỉ báo phát phạm vi của nó ngược lên biểu đồ chính"* — sai, pane đã
+   nhận phạm vi của biểu đồ chính **trước khi** vào nhóm đồng bộ.
+2. *"`fitAll` chạy trước khi biểu đồ được resize sang bề rộng mới"* — đảo thứ
+   tự lại, đo lại: không đổi.
+3. *"`fitAll` không có tác dụng"* — **chính phép đo của tôi mới là thứ hỏng**.
+   Lần `setVisibleLogicalRange` đầu tiên sau đó trả về **2019 nến dù tôi chỉ
+   xin 300**, nghĩa là fit đã tính đúng toàn bộ dải từ trước, chỉ là Chrome
+   headless chưa vẽ lại nên tôi đọc phải giá trị cũ.
+
+Giữ lại thay đổi thứ tự resize rồi mới fit vì nó đúng hơn về nguyên tắc (bề
+rộng đo được: 775px ở chế độ làm việc so với 1161px ở tổng quan), nhưng
+**không** nhận là nó sửa được gì.
+
+Nếu Nam vẫn thấy chưa zoom: nhiều khả năng đang đổi mã trong **chế độ Tổng
+quan**, nơi hiện toàn bộ lịch sử là cố ý. Bấm **Giao dịch** rồi đổi mã thì nó
+zoom sẵn.
+
+#### 3. Cắt lỗ / chốt lời cho lệnh đặt tay
+
+Gắn được lúc đặt lệnh, hoặc gắn/sửa/gỡ sau khi vị thế đã mở
+(`POST /api/paper/{id}/exits`).
+
+**Khớp trong nến, ở đúng mức đã đặt**, cùng chỗ với kiểm tra thanh lý và cùng
+lý do: lệnh chờ khớp khi giá **chạm** tới nó, không phải khi nến tình cờ đóng
+qua nó. Đo: nến `O100 H101 L94 C99` với cắt lỗ 95 khớp ở **95.0000**, không
+phải 99. Không cộng thêm trượt giá, vì mức đó đã là trường hợp xấu nhất người
+dùng tự chọn.
+
+**Một nến chạm cả hai mức thì cắt lỗ thắng.** Từ OHLC không có cách nào biết
+cái nào đến trước — nến chỉ nói giá đã đi qua cả hai, không nói theo thứ tự
+nào. Vậy nên lựa chọn là đoán có lợi hay đoán bất lợi, và một tài khoản giấy tự
+giải quyết mập mờ của chính nó theo hướng có lợi thì dạy sai bài học. Cùng lý
+do với việc trượt giá luôn bất lợi (§3.1).
+
+**Mức đặt sai phía bị từ chối**, kèm mã ổn định: cắt lỗ **trên** giá vào của
+lệnh mua không phải là cắt lỗ — nó khớp ngay ở nến sau và ghi vào nhật ký một
+khoản lãi mang nhãn "stop loss". Kiểm theo **giá khớp** chứ không phải giá cuối
+cùng, nếu không sẽ từ chối nhầm một lệnh vốn hợp lệ.
+
+Mức được **xoá cùng vị thế**: một mức còn sót lại sẽ kích hoạt trên vị thế kế
+tiếp, vốn không phải vị thế nó được đặt cho. Ô để trống nghĩa là *không đặt*,
+không phải 0 — 0 là một mức giá không bao giờ chạm tới, khác hẳn với việc không
+có mức nào.
+
 ### 2026-09-10 (khuya) — Mười hai kiểu biểu đồ, và bộ công cụ vẽ
 
 **240 test Python + toàn bộ render check + 25 check kiểu biểu đồ.**

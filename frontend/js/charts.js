@@ -159,9 +159,19 @@ const ChartManager = (() => {
     });
   }
 
-  /** The whole loaded history, which is what the overview is for. */
+  /** The whole loaded history, which is what the overview is for.
+
+     Set as an explicit range rather than `fitContent()` so it matches the
+     shape `focusRecent` uses, with the same small pad past the last bar: the
+     two are the only two framings in the app and they should not be reached by
+     two different mechanisms. */
   function fitAll() {
-    mainChart?.timeScale().fitContent();
+    if (!mainChart) return;
+    if (!candleData.length) { mainChart.timeScale().fitContent(); return; }
+    mainChart.timeScale().setVisibleLogicalRange({
+      from: 0,
+      to: candleData.length - 1 + Math.max(4, Math.round(candleData.length * 0.01)),
+    });
   }
 
   function setMode(next) {

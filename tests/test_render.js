@@ -470,6 +470,21 @@ async function render(label, kind, payload) {
   tk = window.Paper.ticket(fakeSession({ position: -1 }));
   tsay('sell is disabled while already short', /data-order="short"[^>]*disabled/.test(tk));
 
+  // Stop and target.
+  tk = window.Paper.ticket(fakeSession());
+  tsay('a flat ticket offers a stop and a target',
+       /data-stop=/.test(tk) && /data-target=/.test(tk));
+  tsay('a flat ticket does not offer to apply levels to nothing',
+       !/data-apply-exits/.test(tk));
+
+  tk = window.Paper.ticket(fakeSession({ position: 1, stop_loss: 78000, take_profit: 82000 }));
+  tsay('an open position shows the levels it is carrying',
+       /value="78000"/.test(tk) && /value="82000"/.test(tk));
+  tsay('an open position can change them without reopening',
+       /data-apply-exits/.test(tk));
+  tsay('an unset level shows as empty, not as zero',
+       /value=""/.test(window.Paper.ticket(fakeSession({ position: 1 }))));
+
   tsay('a stopped session offers no ticket at all',
        window.Paper.ticket(fakeSession({ active: false })) === '');
 
