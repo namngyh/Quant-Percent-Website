@@ -1464,7 +1464,32 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
   color: var(--text-faint); font-weight: 600;
 }
-.pf-row-fields input { width: 100%; text-align: right; font-family: var(--mono); }
+/* Softer than the 6px controls elsewhere. The panel's own shape language is
+   now a 16px card holding rounded rows; a sharp 6px box inside that reads as
+   a leftover from a different design. They also sit on a tinted ground rather
+   than white, so the field reads as a slot in the row instead of a card
+   floating on a card. */
+.pf-row-fields input {
+  width: 100%;
+  text-align: right;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-md);
+  border-color: transparent;
+  background: var(--surface-2);
+  padding: 8px 11px;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.pf-row-fields input:hover {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.pf-row-fields input:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pf-row-fields input::placeholder { color: var(--text-faint); }
 
 /* --- Asset Allocation Donut Visual --- */
 .pf-visual-card {
@@ -2089,7 +2114,9 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 .pf-row-head .pf-symbol:hover { border: 0; background: transparent; }
 .pf-row-head .pf-symbol:focus {
   outline: none;
-  box-shadow: 0 1px 0 0 var(--accent);
+  /* The ticker is a heading that happens to be editable, so focus draws a rule
+     under it rather than boxing it in. */
+  box-shadow: 0 2px 0 -0.5px var(--accent);
 }
 
 /* The two number fields sit beside the ticker rather than under it: a row is
@@ -2122,6 +2149,17 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   cursor: pointer;
 }
 .pf-remove:hover { background: var(--down-soft); color: var(--down); }
+
+/* Cash, lookback and horizon share the rounder, softer treatment so the whole
+   panel reads as one set of controls rather than two. */
+.panel[data-panel="portfolio"] .param-row input,
+.panel[data-panel="portfolio"] .param-row select {
+  border-radius: var(--radius-md);
+  padding: 8px 11px;
+}
+.panel[data-panel="portfolio"] .field-group {
+  border-radius: var(--radius-lg);
+}
 
 /* Quick-add: chips that look pressable at the new control sizes. */
 .pf-quick-bar { display: grid; gap: 8px; margin-bottom: 12px; }

@@ -312,7 +312,16 @@ const ChartManager = (() => {
       paintOverview(line[line.length - 1].value >= line[0].value ? UP_TREND : DOWN_TREND);
     }
     lastBarTime = candles.length ? toChart(candles[candles.length - 1].time) : null;
-    mainChart.timeScale().fitContent();
+
+    /* Frame the new series the way the current mode wants it.
+
+       This used to always fit the whole history, which is right for the
+       overview and wrong for the working view: changing symbol there dropped
+       you back to two thousand candles a few pixels wide, so the zoom had to
+       be redone on every switch. The mode already knows which framing it
+       wants; loading data should not override it. */
+    if (mode === 'overview') mainChart.timeScale().fitContent();
+    else focusRecent();
   }
 
   /** Convert {times, values[key]} into the points the chart wants.

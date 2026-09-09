@@ -172,6 +172,30 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-10 (tối) — Đổi mã vẫn giữ zoom, và ô nhập của Quant Portfolio
+
+#### 1. Khung nhìn đi theo chế độ, không theo lần nạp dữ liệu
+
+`setCandles` luôn gọi `fitContent()` — đúng cho chế độ tổng quan, sai cho chế độ
+làm việc. Đổi mã trong khi đang giao dịch là nạp dữ liệu mới, nên nó ném người
+dùng về hai nghìn nến rộng vài pixel và phải zoom lại từ đầu **mỗi lần đổi mã**.
+
+Chế độ đã biết nó muốn khung nhìn nào; việc nạp dữ liệu không được quyền ghi đè.
+Giờ `setCandles` fit toàn bộ khi ở tổng quan và gọi `focusRecent()` khi ở chế độ
+làm việc, nên đổi mã, đổi khung thời gian hay bù nến đều giữ nguyên cách đóng
+khung.
+
+#### 2. Ô nhập của Quant Portfolio
+
+Hai ô số trên mỗi dòng vị thế đang là hộp 6px sắc cạnh nằm trong một thẻ 16px —
+đọc như thứ sót lại từ một thiết kế khác. Giờ bo `10px`, bỏ viền, đặt trên nền
+xám nhạt: ô đọc như một **khe** trong dòng chứ không phải một thẻ nổi trên thẻ.
+Khi focus thì nền trắng lại và viền xanh hiện ra, nên vẫn rõ đang gõ ở đâu.
+
+Ô mã là một tiêu đề tình cờ sửa được, nên focus vẽ một gạch dưới thay vì đóng
+khung nó lại. Ô tiền mặt và hai ô chọn cùng nhận độ bo đó để cả panel đọc như
+một bộ điều khiển chứ không phải hai.
+
 ### 2026-09-10 (chiều) — Zoom sẵn, sàn theo mã, Quant Portfolio, splash
 
 **249 test Python + toàn bộ render check.**
