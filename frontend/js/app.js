@@ -1435,6 +1435,7 @@ def signals(df, params):
     // until it is listening.
     Explain.init();
     Report.init({ onToast: toast });
+    PaperDash.init({ onToast: toast });
     setupMarkerControls();
     ChartManager.init(el.chartMain);
     // Panning left past the oldest bar fetches the page before it.
@@ -1455,6 +1456,7 @@ def signals(df, params):
         horizon: document.getElementById('pf-horizon'),
         lookback: document.getElementById('pf-lookback'),
         run: document.getElementById('pf-run'),
+        paper: document.getElementById('pf-paper'),
         count: document.getElementById('pf-count'),
         message: document.getElementById('pf-message'),
         datalist: document.getElementById('pf-symbols'),
@@ -1517,6 +1519,7 @@ def signals(df, params):
         list: document.getElementById('paper-sessions'),
         refresh: document.getElementById('refresh-paper'),
         startManual: document.getElementById('start-manual'),
+        dash: document.getElementById('paper-dash'),
         // A hand-traded session opens on whatever the chart is showing.
         context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
         // The settings dialog: a paper session's costs are its own, not the

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.routes_strategy import ExecutionSettings
 from backend.config import settings
+from backend.paper import summary as paper_summary
 from backend.paper.engine import OrderRefused
 from backend.paper.manager import manager
 from backend.strategy.base import StrategyError
@@ -49,6 +50,16 @@ class ExitsRequest(BaseModel):
 def list_sessions() -> dict:
     """Every paper session, running or stopped."""
     return {"sessions": manager.list()}
+
+
+@router.get("/summary")
+def account_summary() -> dict:
+    """Every session read as one account.
+
+    Declared before `/{session_id}` because FastAPI matches in order and
+    "summary" would otherwise be taken for a session id.
+    """
+    return paper_summary.build(manager.list())
 
 
 @router.get("/{session_id}")

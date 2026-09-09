@@ -175,6 +175,10 @@ const API = (() => {
 
     paperSessions: () => request('/api/paper'),
 
+    // Every session read as one account: combined equity, trade history and
+    // a breakdown per symbol.
+    paperSummary: () => request('/api/paper/summary'),
+
     // A hand order on a paper session. `action` is long | short | close;
     // `sizePct` is 0-1 and may be omitted to use the session's own size.
     paperOrder: (id, action, sizePct, exits) =>

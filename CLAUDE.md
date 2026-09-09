@@ -172,6 +172,68 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-12 — Bảng tài khoản Paper, và danh mục chuyển thẳng sang paper
+
+**269 test Python** (trước 258) + toàn bộ render check.
+
+#### 1. Paper bám mã đang xem
+
+Phiên của mã đang hiện trên biểu đồ được **đẩy lên đầu danh sách** và viền xanh.
+Phiên thì cứ tích lại, mà cái cần dùng gần như luôn là cái của biểu đồ đang
+nhìn — phải đi lục trong một danh sách xếp theo ngày tạo chính là "phải chọn
+lại" mà Nam nói.
+
+#### 2. Bảng tài khoản Paper Trading
+
+Panel bên cạnh trả lời "phiên **này** đang thế nào" — một mã, một chiến lược,
+một số dư. Nó không trả lời được "**tôi** đang thế nào", vì câu đó trải qua mọi
+phiên cùng lúc và trong một cột rộng 344px không có chỗ đặt.
+
+Cửa sổ mới `PaperDash` (nút **Tài khoản** ở đầu panel Paper), ba tab: Tài
+khoản, Lịch sử lệnh, Theo mã. Backend gộp ở `backend/paper/summary.py`.
+
+Hai điều bộ gộp này cẩn thận, và cả hai đều được nói lại trên giao diện chứ
+không bắt người đọc đi tra:
+
+- **Đường vốn chỉ có điểm tại thời điểm đóng lệnh.** Phiên paper ghi lệnh và số
+  dư chạy, nó không giữ chuỗi vốn theo từng nến. Nội suy giữa các lần đóng lệnh
+  sẽ vẽ ra một đường trơn mà tài khoản **chưa bao giờ đi qua**. Nên đường được
+  vẽ **bậc thang**, chỉ nhảy ở đúng chỗ tiền thật sự chuyển.
+- **Đã chốt và chưa chốt nằm ở hai thẻ riêng.** Một cái đã xong, một cái là ý
+  kiến hiện tại về vị thế còn đang chạy. Cộng chúng vào một con số là cách một
+  khoản sụt giảm đang mở bị giấu đi — test kiểm đúng chỗ này: lãi đã chốt +500
+  cùng lỗ chưa chốt −800 phải hiện ra là hai số, không phải một số +300.
+
+Vài chỗ nhỏ nhưng cố ý: không có phiên nào thì báo "chưa có phiên" chứ **không**
+in ra một trang toàn số 0 (một trang số 0 đọc như "bạn chưa mất gì", đó là một
+phát biểu về giao dịch); sụt giảm đo từ đỉnh xuống đáy dọc đường vốn chứ không
+phải so với vốn ban đầu; profit factor trả `None` thay vì vô cực khi chưa có
+lệnh lỗ nào, vì "∞" đọc như một kết luận còn `None` đọc đúng là "chưa trả lời
+được".
+
+Biểu đồ vẽ bằng SVG chứ không dùng thư viện chart: nó nằm trong một modal mở ra
+đóng vào, mà thư viện thì cần một container để đo và tự quản vòng đời của nó.
+Một SVG có `viewBox` co giãn theo bề rộng modal, không cần resize observer, và
+không thể bị bỏ sót lại khi cửa sổ đóng.
+
+#### 3. Danh mục chuyển thẳng sang Paper
+
+Sau khi phân tích, nút **Paper trading cả danh mục** mở một phiên cho từng mã,
+**chia vốn theo đúng tỷ trọng mà phân tích vừa đưa ra** — không chia đều. Cả ý
+nghĩa của lần phân tích là *chính những tỷ lệ này* mang *chính những rủi ro
+kia*; paper trading một tỷ lệ khác là trả lời một câu hỏi không ai hỏi.
+
+Mã nào đã có phiên đang chạy thì **bỏ qua chứ không mở thêm**, vì hai phiên trên
+một mã sẽ lặng lẽ nhân đôi mức phơi nhiễm của mã đó trong bảng tài khoản.
+
+#### Một phép soi sai của tôi
+
+Tôi kiểm thứ tự route bằng `app.routes` và nó báo **0 route paper**, suýt nữa
+thì đi sửa `app.py`. Bản FastAPI này bọc router đã include vào `_IncludedRouter`
+nên `app.routes` không trải phẳng — **phép soi sai, không phải code sai**. Kiểm
+thẳng trên `routes_paper.router.routes` thì thấy đúng: `/summary` khai báo ở vị
+trí 1, `/{session_id}` ở vị trí 2, nên `/summary` không bị nuốt thành một id.
+
 ### 2026-09-11 (tối) — Mốc phần trăm không còn tự nhớ, và đơn vị tiền
 
 Ảnh thứ hai chỉ rõ hơn ảnh thứ nhất: trục giá **0 → 100.000**, header **+3993,11%**

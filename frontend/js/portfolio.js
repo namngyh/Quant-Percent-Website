@@ -16,6 +16,9 @@ const Portfolio = (() => {
   let elements = {};
   let onToast = () => {};
   let known = new Map();
+  // The last analysis, kept so the basket can be handed to paper trading
+  // without asking the user to type it again.
+  let analysed = null;
   let rows = [];
   let nextId = 1;
   let lastResult = null;
@@ -767,7 +770,38 @@ const Portfolio = (() => {
       horizonDays: Number(elements.horizon.value) || 63,
       lookbackDays: Number(elements.lookback.value) || 252,
     });
+    analysed = result;
+    if (elements.paper) elements.paper.hidden = false;
     show(result);
+  }
+
+  /* Carry the analysed basket into paper trading.
+
+     The weights come from the analysis rather than being split evenly: the
+     point of the analysis was that these particular proportions carry these
+     particular risks, and paper trading a different mix would answer a
+     question nobody asked. Prefixed with VN: because that is the market these
+     tickers live on and the paper engine routes on it. */
+  async function toPaper() {
+    if (!analysed?.positions?.length) return;
+    const capital = analysed.total_value
+      ?? analysed.positions.reduce((sum, p) => sum + (p.market_value || 0), 0);
+    if (!(capital > 0)) {
+      onToast(L('Danh mục chưa có giá trị để chia vốn.',
+                'The portfolio has no value to split capital by.'), true);
+      return;
+    }
+
+    const entries = analysed.positions.map((p) => ({
+      symbol: p.symbol.startsWith('VN:') ? p.symbol : `VN:${p.symbol}`,
+      weight: p.weight_pct || 0,
+    }));
+
+    const { started } = await Paper.startBasket(entries, { capital, timeframe: '1d' });
+    if (started) {
+      onToast(L(`Đã mở ${started} phiên paper theo tỷ trọng danh mục`,
+                `Opened ${started} paper sessions at the portfolio's weights`));
+    }
   }
 
   function init(config) {
@@ -812,6 +846,10 @@ const Portfolio = (() => {
     rows = [blankRow(), blankRow()];
     renderRows();
     bindRows();
+
+    elements.paper?.addEventListener('click', () => config.withButton(
+      elements.paper, L('Đang mở phiên…', 'Opening sessions…'), toPaper,
+    ));
 
     elements.run.addEventListener('click', () => config.withButton(
       elements.run, L('Đang phân tích…', 'Analysing…'), run,

@@ -2374,3 +2374,75 @@ body[data-mode="overview"] .draw-layer { display: none; }
   margin-left: 5px;
   letter-spacing: 0.02em;
 }
+
+/* ==================== Paper trading account ====================
+ *
+ * A window rather than a panel: it spans every session at once, and there is
+ * nowhere in a 344px column to put a combined equity curve and a trade log.
+ */
+.pd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(19, 23, 34, 0.34);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.pd-window {
+  width: min(1080px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.pd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pd-head h2 { margin: 0; font-size: 17px; }
+.pd-head-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.pd-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pd-body { padding: 18px 20px 22px; overflow-y: auto; }
+
+/* The equity curve. Stepped, and drawn as SVG so it scales with the window
+   without a resize observer and cannot outlive it. */
+.pd-chart { margin: 16px 0 6px; }
+.pd-chart svg {
+  width: 100%;
+  height: 220px;
+  display: block;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.pd-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A bar per symbol, sized against the largest absolute result so the tails
+   are visible rather than everything being nearly full width. */
+.pd-bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+.pd-bar span { display: block; height: 100%; border-radius: 4px; background: var(--text-faint); }
+.pd-bar span.pos { background: var(--up); }
+.pd-bar span.neg { background: var(--down); }
+
+/* The session for the symbol on screen, marked so it is findable at a glance. */
+.paper-card.watching { border-color: var(--accent); }

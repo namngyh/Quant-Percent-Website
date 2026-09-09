@@ -389,6 +389,10 @@
           </div>
 
           <button id="pf-run" class="btn btn-primary btn-block" data-i18n="pf.run">Phân tích danh mục</button>
+          <!-- Only useful once there is an analysis to carry over, so it stays
+               hidden until one exists. -->
+          <button id="pf-paper" class="btn btn-block" data-i18n="pf.paper" hidden
+            >Paper trading cả danh mục</button>
           <p id="pf-message" class="hint"></p>
         </div>
       </section>
@@ -397,7 +401,11 @@
       <section class="panel" data-panel="paper">
         <div class="panel-head">
           <h2 data-i18n="paper.title">Paper trading</h2>
-          <button id="refresh-paper" class="btn btn-quiet btn-sm" data-i18n="paper.refresh">Làm mới</button>
+          <div class="panel-head-actions">
+            <button id="paper-dash" class="btn btn-quiet btn-sm"
+                    data-i18n="paper.account">Tài khoản</button>
+            <button id="refresh-paper" class="btn btn-quiet btn-sm" data-i18n="paper.refresh">Làm mới</button>
+          </div>
         </div>
         <div class="panel-body">
           <p class="hint" data-i18n="paper.lead"></p>
@@ -549,6 +557,7 @@
   <script src="/static/js/indicators.js"></script>
   <script src="/static/js/strategy.js"></script>
   <script src="/static/js/paper.js"></script>
+  <script src="/static/js/paper-dash.js"></script>
   <script src="/static/js/report.js"></script>
   <script src="/static/js/portfolio.js"></script>
   <script src="/static/js/validation.js"></script>

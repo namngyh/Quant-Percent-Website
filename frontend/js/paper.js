@@ -165,11 +165,23 @@ const Paper = (() => {
       return;
     }
 
-    elements.list.innerHTML = sessions
+    /* The session for the symbol on screen goes to the top.
+
+       Sessions accumulate, and the one you want is almost always the one for
+       the chart you are looking at — hunting for it in a list ordered by
+       creation date is the "choosing again" this is meant to remove. */
+    const watching = elements.context?.().symbol;
+    const ordered = watching
+      ? [...sessions].sort((a, b) => (b.symbol === watching) - (a.symbol === watching))
+      : sessions;
+
+    elements.list.innerHTML = ordered
       .map((s) => {
         const pnl = s.equity - s.config.initial_capital;
         const open = s.position !== 0;
-        return `<div class="paper-card ${s.active ? '' : 'stopped'}">
+        const current = watching && s.symbol === watching;
+        return `<div class="paper-card ${s.active ? '' : 'stopped'}${
+          current ? ' watching' : ''}">
           <div class="paper-card-head">
             ${symbolBadge(s.symbol)}
             <div>
@@ -640,11 +652,65 @@ const Paper = (() => {
     button.disabled = !symbol;
   }
 
+  /* Open one hand-traded session per symbol, sharing a pot of capital.
+
+     Used by the portfolio: after an analysis there is a basket of tickers and
+     an obvious next question — how would holding these actually go. Each
+     symbol gets its own session because that is what a session is, and the
+     capital is split by the weights the analysis produced rather than evenly:
+     an equal split would be a different portfolio from the one just analysed.
+
+     Symbols that already have a running session are skipped rather than
+     duplicated, and reported, because two sessions on one symbol quietly
+     double that symbol's exposure in the account view. */
+  async function startBasket(entries, { capital, timeframe = '1d' } = {}) {
+    const existing = new Set(sessions.filter((s) => s.active).map((s) => s.symbol));
+    const fresh = entries.filter((e) => !existing.has(e.symbol));
+    const skipped = entries.length - fresh.length;
+    if (!fresh.length) {
+      onToast(L('Mọi mã trong danh mục đều đã có phiên đang chạy.',
+                'Every symbol in the portfolio already has a running session.'), true);
+      return { started: 0, skipped };
+    }
+
+    const total = fresh.reduce((sum, e) => sum + (e.weight || 0), 0) || fresh.length;
+    let started = 0;
+    const failures = [];
+
+    for (const entry of fresh) {
+      const share = (entry.weight || 1) / total;
+      try {
+        const session = await API.paperStart({
+          strategyId: MANUAL_STRATEGY,
+          symbol: entry.symbol,
+          timeframe,
+          params: {},
+          execution: {
+            initial_capital: Math.max(Math.round(capital * share), 1),
+            size_pct: 1,
+            leverage: 1,
+            // HOSE costs, because that is the market a VN portfolio trades on.
+            fee: PRESETS.hose.fee / 100,
+            slippage: PRESETS.hose.slippage / 100,
+          },
+        });
+        apply(session);
+        started += 1;
+      } catch (err) {
+        failures.push(`${entry.symbol}: ${tp(err.detail?.message) || err.message}`);
+      }
+    }
+
+    if (failures.length) onToast(failures.join(' · '), true);
+    return { started, skipped, failures };
+  }
+
   function init(config) {
     elements = config.elements;
     onToast = config.onToast;
     elements.refresh.addEventListener('click', refresh);
     elements.startManual?.addEventListener('click', startManual);
+    elements.dash?.addEventListener('click', () => PaperDash.open());
     refreshManualButton();
     I18n.onChange(refreshManualButton);
     bindSettings();
@@ -652,6 +718,6 @@ const Paper = (() => {
 
   return { init, refresh, start, apply, rerender: render,
            openSettings, settingsValues, startManual, ticket, symbolBadge,
-           refreshManualButton, venuesFor, currencyFor,
+           refreshManualButton, venuesFor, currencyFor, startBasket,
            get sessions() { return sessions; } };
 })();
