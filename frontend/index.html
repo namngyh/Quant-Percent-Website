@@ -60,7 +60,8 @@
         <span id="live-dot" class="live-dot"></span>
         <span id="live-label" data-i18n="top.live">Realtime</span>
       </button>
-      <button id="backfill" class="btn btn-primary" data-i18n="top.backfill">Cập nhật dữ liệu</button>
+      <button id="mode-toggle" class="btn btn-primary btn-lg" data-i18n="top.trade">Giao dịch</button>
+      <button id="backfill" class="btn" data-i18n="top.backfill">Cập nhật dữ liệu</button>
       <div class="lang-switch" role="group" data-i18n-aria="top.lang">
         <button class="lang-btn" data-lang="vi" type="button">VI</button>
         <button class="lang-btn" data-lang="en" type="button">EN</button>
@@ -68,7 +69,7 @@
     </div>
   </header>
 
-  <main class="layout">
+  <main class="layout" id="layout">
     <!-- ============ Rail: exactly one panel open at a time ============ -->
     <nav class="rail" role="tablist" data-i18n-aria="rail.panels">
       <button class="rail-btn active" data-panel="indicators" role="tab" data-i18n-title="rail.indicators">
@@ -157,15 +158,15 @@
             <div class="field-group">
               <div class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</div>
               <div class="params">
-                <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <button type="button" class="info-btn" data-explain="exec.capital" aria-label="Giải thích Vốn ban đầu" title="Giải thích Vốn ban đầu">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <button type="button" class="info-btn" data-explain="exec.capital" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-capital" type="number" value="10000" min="100" step="100" /></label>
-                <label class="param-row"><span><span data-i18n="st.size">% vốn/lệnh</span> <button type="button" class="info-btn" data-explain="exec.size" aria-label="Giải thích % vốn mỗi lệnh" title="Giải thích % vốn mỗi lệnh">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.size">% vốn/lệnh</span> <button type="button" class="info-btn" data-explain="exec.size" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-size" type="number" value="100" min="1" max="100" step="1" /></label>
-                <label class="param-row"><span><span data-i18n="st.leverage">Đòn bẩy</span> <button type="button" class="info-btn" data-explain="exec.leverage" aria-label="Giải thích Đòn bẩy" title="Giải thích Đòn bẩy">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.leverage">Đòn bẩy</span> <button type="button" class="info-btn" data-explain="exec.leverage" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
-                <label class="param-row"><span><span data-i18n="st.fee">Phí (%)</span> <button type="button" class="info-btn" data-explain="exec.fee" aria-label="Giải thích Phí giao dịch" title="Giải thích Phí giao dịch">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.fee">Phí (%)</span> <button type="button" class="info-btn" data-explain="exec.fee" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
-                <label class="param-row"><span><span data-i18n="st.slippage">Trượt giá (%)</span> <button type="button" class="info-btn" data-explain="exec.slippage" aria-label="Giải thích Trượt giá" title="Giải thích Trượt giá">i</button></span>
+                <label class="param-row"><span><span data-i18n="st.slippage">Trượt giá (%)</span> <button type="button" class="info-btn" data-explain="exec.slippage" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
               </div>
             </div>
@@ -198,15 +199,8 @@
           <div class="subpanel" data-subpanel="check">
             <div class="field-group">
               <div class="field-group-title" data-i18n="wf.title">Walk-forward</div>
-              <p class="hint">
-                Tối ưu trên một cửa sổ rồi áp <em>nguyên tham số đó</em> lên cửa sổ
-                kế tiếp (dữ liệu chưa từng thấy). Chỉ kết quả ngoài mẫu mới đáng tin.
-                Dùng dải quét ở tab <strong>Tối ưu</strong>.
-              </p>
-              <p class="hint">
-                Cần nhiều nến: với cửa sổ mặc định, hãy đặt <strong>Candles</strong>
-                từ 5&nbsp;000 trở lên để có đủ 3–5 vòng.
-              </p>
+              <p class="hint" data-i18n-html="wf.hint"></p>
+              <p class="hint" data-i18n-html="wf.bars"></p>
               <label class="param-row"><span data-i18n="wf.train">Cửa sổ huấn luyện</span>
                 <input id="wf-train" type="number" value="1000" min="50" step="50" /></label>
               <label class="param-row"><span data-i18n="wf.test">Cửa sổ kiểm tra</span>
@@ -227,10 +221,7 @@
 
             <div class="field-group">
               <div class="field-group-title" data-i18n="mc.title">Monte Carlo</div>
-              <p class="hint">
-                Xáo lại thứ tự các lệnh nhiều lần để biết kết quả thật nằm ở đâu
-                trong vùng hợp lý, thay vì tin vào một con số duy nhất.
-              </p>
+              <p class="hint" data-i18n="mc.hint"></p>
               <label class="param-row"><span data-i18n="mc.sims">Số mô phỏng</span>
                 <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
               <button id="run-montecarlo" class="btn btn-block" data-i18n="mc.run">Chạy Monte Carlo</button>
@@ -238,10 +229,7 @@
 
             <div class="field-group">
               <div class="field-group-title" data-i18n="stat.title">Kiểm định thống kê</div>
-              <p class="hint">
-                Dữ liệu có gì để khai thác không, và lợi thế quan sát được có
-                khác 0 một cách có ý nghĩa không.
-              </p>
+              <p class="hint" data-i18n="stats.hint"></p>
               <button id="run-stats-series" class="btn btn-block" data-i18n="stat.series">Phân tích chuỗi giá</button>
               <button id="run-stats-strategy" class="btn btn-block" data-i18n="stat.strategy">Kiểm định chiến lược</button>
             </div>
@@ -338,7 +326,7 @@
               <input id="pf-cash" type="text" inputmode="numeric" placeholder="0" /></label>
             <label class="param-row"><span><span data-i18n="pf.lookback">Cửa sổ đo</span>
               <button type="button" class="info-btn" data-explain="pf.lookback"
-                      title="Giải thích cửa sổ đo">i</button></span>
+                      data-i18n-title="a11y.explain" title="Giải thích">i</button></span>
               <select id="pf-lookback">
                 <option value="126" data-i18n="pf.m6">6 tháng</option>
                 <option value="252" selected data-i18n="pf.y1">1 năm</option>
@@ -346,7 +334,7 @@
               </select></label>
             <label class="param-row"><span><span data-i18n="pf.horizon">Kỳ dự phóng</span>
               <button type="button" class="info-btn" data-explain="pf.horizon"
-                      title="Giải thích kỳ dự phóng">i</button></span>
+                      data-i18n-title="a11y.explain" title="Giải thích">i</button></span>
               <select id="pf-horizon">
                 <option value="21" data-i18n="pf.m1">1 tháng</option>
                 <option value="63" selected data-i18n="pf.m3">3 tháng</option>
@@ -425,13 +413,13 @@
   <div id="format-dialog" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="format-title">
       <div class="dialog-head">
-        <h2 id="format-title">Định dạng file</h2>
+        <h2 id="format-title" data-i18n="dlg.format">Định dạng file</h2>
         <button id="format-close" class="btn btn-quiet btn-sm">✕</button>
       </div>
       <div class="dialog-body" id="format-body"></div>
       <div class="dialog-foot">
-        <button id="format-download" class="btn btn-primary">Tải file mẫu</button>
-        <button id="format-copy" class="btn">Sao chép mã</button>
+        <button id="format-download" class="btn btn-primary" data-i18n="dlg.sample">Tải file mẫu</button>
+        <button id="format-copy" class="btn" data-i18n="dlg.copy">Sao chép mã</button>
       </div>
     </div>
   </div>
@@ -452,7 +440,7 @@
     <div class="dialog" role="dialog" aria-modal="true">
       <div class="dialog-head">
         <h2 data-i18n="ps.title">Cài đặt Paper Trading</h2>
-        <button id="paper-settings-close" class="btn btn-quiet btn-sm" aria-label="Đóng">×</button>
+        <button id="paper-settings-close" class="btn btn-quiet btn-sm" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
       </div>
       <div class="dialog-body">
         <p class="hint" data-i18n="ps.hint">

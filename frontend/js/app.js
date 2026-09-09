@@ -27,6 +27,8 @@
     runCompare: document.getElementById('run-compare'),
     compareList: document.getElementById('compare-list'),
     openReport: document.getElementById('open-report'),
+    modeToggle: document.getElementById('mode-toggle'),
+    layout: document.getElementById('layout'),
     price: document.getElementById('price'),
     priceBlock: document.getElementById('price-block'),
     priceChange: document.getElementById('price-change'),
@@ -127,6 +129,13 @@
       const last = data.candles[data.candles.length - 1];
       setStatusLive(() =>
         t('status.bars', { n: data.count.toLocaleString(I18n.locale()) }));
+
+      // Anchor the percentage to the first candle of the loaded window, not to
+      // the first tick that happens to arrive. Anchoring to the tick made the
+      // readout open at +0.00% every time and only start moving from there,
+      // while the overview line beside it was already coloured green or red
+      // for the whole window. The two now answer the same question.
+      sessionOpen = data.candles[0]?.close ?? null;
       showPrice(last.close);
 
       ChartManager.clearTradeMarkers();
@@ -205,6 +214,7 @@
        moving right now"; this answers "where is it against where it started",
        and the two are often opposite. Anchored to the first price seen after a
        symbol change, so it never compares two different instruments. */
+    // Falls back to the first tick only when no window has been loaded yet.
     if (sessionOpen === null) sessionOpen = value;
     if (el.priceChange && sessionOpen > 0) {
       const delta = (value / sessionOpen - 1) * 100;
@@ -215,6 +225,51 @@
 
     el.priceBlock.hidden = false;
     lastPrice = value;
+  }
+
+  /* ---------- View mode ----------
+
+     The app opens on the overview: one line, no panels, nothing to configure.
+     That is the question someone has before they have any other question —
+     what has this thing been doing — and it costs one request to answer.
+
+     The working view is everything else, and everything it needs is fetched
+     the first time it is opened rather than at start-up. Measured on a warm
+     server, that took the indicator catalogue and the strategy list off the
+     path to the first candle entirely. */
+  let workingViewLoaded = null;
+
+  function loadWorkingView() {
+    if (workingViewLoaded) return workingViewLoaded;
+    workingViewLoaded = (async () => {
+      const [catalog] = await Promise.all([API.catalog(), Strategy.load()]);
+      Indicators.setCatalog(catalog);
+      renderComparePicker();
+    })().catch((err) => {
+      // Let the next attempt try again rather than leaving the panels empty
+      // for the rest of the session.
+      workingViewLoaded = null;
+      toast(`Không nạp được chỉ báo và chiến lược: ${err.message}`, 'bad');
+    });
+    return workingViewLoaded;
+  }
+
+  function setViewMode(next) {
+    const mode = ChartManager.setMode(next);
+    document.body.dataset.mode = mode;
+    // Reflected in the URL so a working session can be bookmarked or reloaded
+    // straight back into the working view instead of via the overview.
+    const hash = mode === 'trading' ? '#trade' : '';
+    if (window.location.hash !== hash) {
+      history.replaceState(null, '', window.location.pathname + hash);
+    }
+    if (el.modeToggle) {
+      el.modeToggle.textContent = mode === 'overview' ? t('top.trade') : t('top.overview');
+      el.modeToggle.classList.toggle('btn-primary', mode === 'overview');
+    }
+    if (mode === 'trading') loadWorkingView();
+    // The chart's own box changes size when the panels appear or go away.
+    requestAnimationFrame(() => ChartManager.refreshSize());
   }
 
   function hidePrice() {
@@ -286,17 +341,25 @@
     return symbolHasIntraday(symbol) ? all : all.filter((tf) => tf === '1d');
   }
 
-  async function loadSymbolOptions(config) {
+  /* Crypto symbols come with the config, so this costs nothing and runs before
+     the first paint. The Vietnamese list does not: it is a database query over
+     the Tailscale VPN, measured at 2.11 s with the VPN up, and much worse with
+     it down where it has to time out first. It used to be awaited here, which
+     meant nobody saw a chart until it came back — for a list that is only read
+     when the symbol dropdown is opened. */
+  function loadCryptoSymbols(config) {
     markets.crypto = config.markets?.find((m) => m.id === 'crypto') || {
       symbols: config.symbols, timeframes: config.timeframes,
     };
-
-    const groups = [
+    symbolGroups = [
       { label: 'Crypto · Binance', options: markets.crypto.symbols.map((s) => ({ id: s, text: s })) },
     ];
+    rebuildSymbolOptions();
+  }
 
-    // Best effort: the VN list lives behind the VPN, and the app must still
-    // work on crypto when that is off.
+  /** Fetch the VN names and merge them into the picker when they arrive. */
+  async function loadVnSymbols() {
+    const groups = [...symbolGroups];
     try {
       const vn = await API.vnSymbols();
       markets.vn = {
@@ -323,11 +386,16 @@
     } catch (err) {
       markets.vn = null;
       // Not fatal, and not silent either: say why the VN names are missing.
+      // This now arrives after the chart is already up, which is the point —
+      // a VPN that is off should cost the user a message, not a blank screen.
       setStatus(`Thị trường VN không khả dụng: ${err.message}`, 'error');
+      return;
     }
 
     symbolGroups = groups;
     rebuildSymbolOptions();
+    // The picker may have been rebuilt from a favourite in the meantime.
+    if (el.symbol.value !== state.symbol) el.symbol.value = state.symbol;
   }
 
   let symbolGroups = [];
@@ -1198,18 +1266,22 @@ def signals(df, params):
       state.timeframe = config.default_timeframe;
       state.limit = Number(el.limit.value);
 
-      splashSay('Đang nạp danh mục mã…');
-      await loadSymbolOptions(config);
+      loadCryptoSymbols(config);
       el.symbol.value = state.symbol;
       buildTimeframeButtons();
       applyMarketCapabilities();
 
-      splashSay('Đang nạp chỉ báo và chiến lược…');
-      Indicators.setCatalog(await API.catalog());
-      await Strategy.load();
-      renderComparePicker();
+      /* Everything below this line used to be awaited one after another before
+         the first candle was drawn. Measured on a warm server: the VN symbol
+         list alone was 2.11 s of it, for a list nobody has asked to see yet.
+
+         Now the chart is the only thing on the critical path. The indicator
+         catalogue and strategy list are fetched together rather than in
+         sequence, and the VN names and paper sessions arrive whenever they
+         arrive — each one merges into a screen that is already usable. */
       refreshStars();
-      await Paper.refresh();
+      loadVnSymbols();
+      Paper.refresh();
     } catch (err) {
       dismissSplash();
       setStatus(`Không kết nối được backend: ${err.message}`, 'error');
@@ -1230,6 +1302,9 @@ def signals(df, params):
     });
     el.limit.addEventListener('change', () => { state.limit = Number(el.limit.value); loadCandles(); });
     el.backfill.addEventListener('click', runBackfill);
+    el.modeToggle?.addEventListener('click', () => {
+      setViewMode(ChartManager.mode === 'overview' ? 'trading' : 'overview');
+    });
 
     el.liveToggle.addEventListener('click', () => {
       const turningOn = !Live.enabled;
@@ -1323,6 +1398,10 @@ def signals(df, params):
         toast('Đã bắt đầu phiên paper trading');
       }));
 
+    // Overview first: the chart is the only thing that had to be fetched to
+    // get here, and it is the only thing on screen until the user asks for
+    // more.
+    setViewMode(window.location.hash === '#trade' ? 'trading' : 'overview');
     await loadCandles();
     dismissSplash();
   }

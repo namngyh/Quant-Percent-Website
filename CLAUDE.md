@@ -172,6 +172,98 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-09 (tối) — Khởi động, chế độ tổng quan, và chữ
+
+**241 test Python + 109 check render**, không lỗi.
+
+#### 1. Khởi động: 2 073 ms → 98 ms trước lượt vẽ đầu tiên
+
+Đo từng endpoint trên đường khởi động (trung vị 3 lần, server đã ấm):
+
+| Endpoint | Thời gian |
+|---|---|
+| `/api/config` | 16.9 ms |
+| **`/api/markets/vn/symbols`** | **1 916.3 ms** |
+| `/api/indicators` | 27.7 ms |
+| `/api/strategies` | 14.9 ms |
+| `/api/paper` | 16.4 ms |
+| `/api/candles` (2 000 nến) | 80.9 ms |
+
+Cả sáu cái này trước đây được `await` **lần lượt** trước khi vẽ nến đầu tiên.
+Riêng danh sách mã Việt Nam chiếm **92%** thời gian chờ — cho một danh sách chỉ
+được đọc khi người dùng mở ô chọn mã, và nó là một truy vấn database qua VPN
+Tailscale nên khi VPN tắt thì còn phải chờ timeout.
+
+Giờ chỉ `config` + `candles` nằm trên đường tới biểu đồ: **2 073 ms → 98 ms,
+bớt 95%**. Danh sách mã VN, catalog chỉ báo, danh sách chiến lược và các phiên
+paper đều gộp vào một màn hình đã dùng được rồi.
+
+**Import server: 1 244 ms → 790 ms.** `backend.analysis.report` và
+`backend.analysis.stats` kéo `scipy.stats` vào đúng đường khởi động, đo được
+557 ms. Cả hai giờ import khi dùng lần đầu.
+
+*Lần thử đầu không ăn thua và tôi ghi lại theo §2.2:* tôi hoãn import ở
+`grid.py` và `routes_stats.py` trước, đo lại — **1243/1288/1262 ms, không đổi
+gì**, vì `routes_strategy` vẫn kéo `analysis.report` vào. Chỉ khi hoãn nốt cái
+đó thì con số mới xuống.
+
+#### 2. Chế độ tổng quan
+
+Ứng dụng giờ mở ra ở **Tổng quan**: một đường có gradient bên dưới, không nến,
+không volume, không pane chỉ báo, không panel. Nó trả lời câu hỏi người ta có
+*trước* mọi câu hỏi khác — thứ này dạo này thế nào — và chỉ tốn một request.
+
+Bấm **Giao dịch** để sang chế độ làm việc. Catalog chỉ báo và danh sách chiến
+lược nạp ở **lần đầu vào chế độ đó**, không phải lúc khởi động; nếu hỏng thì
+lần sau thử lại chứ không để panel rỗng cả phiên.
+
+Chuyển chế độ là đổi `visible`, không dựng lại gì: cùng một chart, cùng một
+time scale, nên vị trí người dùng đang cuộn tới được giữ nguyên.
+
+Đường tổng quan tô màu theo **cả cửa sổ** (kết thúc so với bắt đầu), khác với
+màu nhấp nháy của ticker trên đầu (theo từng tick). Hai câu hỏi khác nhau và
+thường ngược nhau.
+
+Thêm `#trade` trong URL để mở thẳng chế độ làm việc — vừa đánh dấu được, vừa
+làm cho việc chụp ảnh kiểm tra hai chế độ trở nên khả thi.
+
+*Lỗi bắt được ngay trên ảnh chụp:* phần trăm hiện **+0.00%** trong khi đường
+tổng quan đã xanh, vì mốc neo vào tick **đầu tiên nhận được** chứ không phải
+nến đầu của cửa sổ. Neo lại vào `candles[0].close` thì nó thành **+21.35%**,
+khớp với màu của đường.
+
+#### 3. Chữ
+
+**Trebuchet MS là lựa chọn sai cho tiếng Việt.** Nó là first choice của
+TradingView nhưng phủ tiếng Việt kém: trên Windows, ế ộ ữ ậ rơi xuống font dự
+phòng, nên một câu tiếng Việt được vẽ bằng **hai typeface cùng lúc** và dấu
+chồng nằm sai độ cao. Đó chính là cái "cứng" — chữ không xấu, nó là hai font
+giả vờ làm một. Đổi sang Segoe UI (có sẵn trên Windows, phủ đủ dấu chồng).
+
+`line-height` 1.5 → **1.6**: tiếng Việt chồng dấu thanh lên trên dấu nguyên âm
+(ế, ộ, ữ), cần nhiều chỗ phía trên x-height hơn chữ Latin.
+
+**Tên chỉ báo bỏ font monospace.** Tên do người dùng đặt và thường là tiếng
+Việt ("ML · Trạng thái thị trường"); font mono không phủ tiếng Việt nên chúng
+cũng bị vẽ bằng hai typeface. Chỉ mã nguồn thật mới còn monospace; các con số
+dùng `font-variant-numeric: tabular-nums` thay vì cả một font mono.
+
+**Tiếng Anh chưa đồng nhất — tìm bằng máy, không bằng mắt.** Thêm phép kiểm
+`English is clean` vào `tests/test_render.js`: render mọi panel ở chế độ tiếng
+Anh rồi tìm ký tự có dấu tiếng Việt. Các panel đều sạch, nên vấn đề nằm ở HTML
+tĩnh. Một script quét `index.html` tìm text và thuộc tính có dấu tiếng Việt mà
+không có `data-i18n` đi kèm: **22 chỗ**, gồm 9 đoạn văn bản và 13 thuộc tính
+`title`/`aria-label`. Đã dịch hết, quét lại còn **0**.
+
+#### 4. Bố cục và kích thước
+
+- Cỡ chữ nền 14px → **15px**.
+- Nút cao 30px → **36px**, chữ 13px → 14px; thêm `.btn-lg` 40px cho nút đổi
+  chế độ.
+- Tên chỉ báo 11.5px → 13px, dòng trạng thái 11.5px → 12.5px.
+- Ở chế độ tổng quan, giá hiển thị **26px** thay vì 19px, và biểu đồ nằm trong
+  một khung bo 16px có lề — dáng của một trang báo giá.
+
 ### 2026-09-09 (chiều) — Giao dịch tay trong Paper Trading, và restyle theo TradingView
 
 **241 test Python pass** (trước 231) và **98 check render pass** (trước 84).

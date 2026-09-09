@@ -106,6 +106,55 @@ const ChartManager = (() => {
     }
   }
 
+  /* Colours for the overview area, kept next to each other because the fill
+     has to be the line colour at low alpha or the gradient reads as a second
+     series rather than as shading under the first. */
+  const UP_TREND = {
+    lineColor: '#089981',
+    topColor: 'rgba(8, 153, 129, 0.28)',
+    bottomColor: 'rgba(8, 153, 129, 0.02)',
+    crosshairMarkerBackgroundColor: '#089981',
+  };
+  const DOWN_TREND = {
+    lineColor: '#f23645',
+    topColor: 'rgba(242, 54, 69, 0.28)',
+    bottomColor: 'rgba(242, 54, 69, 0.02)',
+    crosshairMarkerBackgroundColor: '#f23645',
+  };
+
+  let overviewSeries = null;
+  let mode = 'overview';
+
+  function paintOverview(colours) {
+    if (overviewSeries) overviewSeries.applyOptions(colours);
+  }
+
+  /* Switch between the quote-page view and the working view.
+
+     Overview is what the app opens on: one line, no volume, no indicator
+     panes, nothing to configure. It answers "what has this thing been doing",
+     which is the question someone has before they have any other question.
+     Trading mode is everything else. */
+  function setMode(next) {
+    if (next !== 'overview' && next !== 'trading') return mode;
+    mode = next;
+    const overview = mode === 'overview';
+
+    candleSeries?.applyOptions({ visible: !overview });
+    volumeSeries?.applyOptions({ visible: !overview });
+    overviewSeries?.applyOptions({ visible: overview });
+
+    // Indicator panes and overlays belong to the working view only.
+    for (const pane of panes.values()) {
+      pane.element.hidden = overview;
+    }
+    for (const seriesList of overlays.values()) {
+      for (const entry of seriesList) entry.series.applyOptions({ visible: !overview });
+    }
+    refreshSize();
+    return mode;
+  }
+
   function init(container) {
     mainChart = LightweightCharts.createChart(container, { ...THEME });
     trackSize(mainChart, container);
@@ -128,6 +177,19 @@ const ChartManager = (() => {
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.86, bottom: 0 },
     });
+
+    /* The overview series: one line with a gradient under it, the shape a
+       quote page uses. It lives on the same chart as the candles rather than
+       on a chart of its own so that switching modes is a visibility change —
+       no teardown, no refetch, and the time scale the user had scrolled to
+       stays exactly where it was. */
+    overviewSeries = mainChart.addAreaSeries({
+      lineWidth: 2,
+      priceLineVisible: false,
+      crosshairMarkerBorderWidth: 2,
+      visible: false,
+    });
+    paintOverview(UP_TREND);
 
     // A window resize always reaches us, even when the observer does not.
     window.addEventListener('resize', refreshSize);
@@ -158,6 +220,16 @@ const ChartManager = (() => {
         color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
       })),
     );
+
+    /* The same closes as a line. Coloured by where the window ended against
+       where it started, which is what a quote page's colour means — not the
+       direction of the last tick, which is what the ticker in the header
+       shows. The two are different questions and they are often opposite. */
+    const line = candles.map((c) => ({ time: toChart(c.time), value: c.close }));
+    overviewSeries?.setData(line);
+    if (line.length > 1) {
+      paintOverview(line[line.length - 1].value >= line[0].value ? UP_TREND : DOWN_TREND);
+    }
     lastBarTime = candles.length ? toChart(candles[candles.length - 1].time) : null;
     mainChart.timeScale().fitContent();
   }
@@ -419,6 +491,10 @@ const ChartManager = (() => {
     if (!candleSeries) return;
     const time = toChart(candle.time);
 
+    // The overview line tracks the same forming bar, so switching modes mid
+    // session never shows a line that stops short of the candles.
+    overviewSeries?.update({ time, value: candle.close });
+
     candleSeries.update({
       time,
       open: candle.open,
@@ -498,7 +574,8 @@ const ChartManager = (() => {
     return candleSeries ? candleSeries.data().length : 0;
   }
 
-  return { init, setCandles, draw, drawOverlay, drawPane, remove, clearAll, alignment,
+  return { init, setCandles, setMode, draw, drawOverlay, drawPane, remove, clearAll, alignment,
+           get mode() { return mode; },
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
            get markerCount() { return markerCount(); },
            get markersVisible() { return markersVisible; },

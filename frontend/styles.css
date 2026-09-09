@@ -62,10 +62,20 @@
   --panel-w:     344px;
 
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-  /* TradingView's own stack. Trebuchet is doing real work here: its digits are
-     narrower than Roboto's, which is why their tables fit so much. */
-  --sans: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu,
-          "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  /* Trebuchet MS is TradingView's own first choice and it is the wrong one
+     here. Its Vietnamese coverage is poor: on Windows, ế ộ ữ ậ fall through to
+     a fallback face, so a Vietnamese sentence renders in two typefaces at
+     once and the stacked diacritics sit at the wrong height. That is the
+     "cứng" — the text is not badly designed, it is two fonts pretending to be
+     one.
+     Segoe UI ships with Windows, carries the full Vietnamese range including
+     the doubled marks, and has the open apertures that keep ơ and ư legible
+     at 14px. It leads; Trebuchet is gone rather than demoted, because a
+     partial match is worse than no match at all. */
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system,
+          BlinkMacSystemFont, Roboto, "Noto Sans", "Helvetica Neue", Arial,
+          sans-serif;
 
   /* Shadow only for things that genuinely float. */
   --shadow-sm: 0 1px 2px rgba(19, 23, 34, 0.04);
@@ -81,8 +91,12 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  /* 1.6 rather than 1.5: Vietnamese stacks a tone mark on top of a vowel mark
+     (ế, ộ, ữ), which needs more room above the x-height than Latin text. At
+     1.5 the marks of one line very nearly touch the descenders of the one
+     above. */
+  line-height: 1.6;
   /* Trebuchet is already fairly open; Material's tracking loosens it too far. */
   letter-spacing: 0;
   overflow: hidden;
@@ -127,7 +141,9 @@ html, body {
 .topbar-controls { display: flex; align-items: center; gap: 10px; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
-.status { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); white-space: nowrap; }
+/* The status line carries sentences, sometimes Vietnamese ones. */
+.status { font-size: 12.5px; color: var(--text-dim); white-space: nowrap;
+          font-variant-numeric: tabular-nums; }
 .status.error { color: var(--down); }
 .status.busy  { color: var(--warn); }
 
@@ -190,11 +206,14 @@ select { cursor: pointer; }
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  padding: 7px 14px;
+  /* 36px tall rather than 30px. Small targets are a real cost on a screen
+     someone uses for hours, and this interface has a lot of them. */
+  padding: 8px 16px;
+  min-height: 36px;
   border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -223,7 +242,9 @@ select { cursor: pointer; }
   background: var(--surface-2); color: var(--text); border-color: transparent;
 }
 
-.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-sm { padding: 5px 12px; min-height: 30px; font-size: 13px; }
+/* The one button that starts a whole mode change. */
+.btn-lg { padding: 9px 22px; min-height: 40px; font-size: 15px; font-weight: 600; }
 .btn-block { width: 100%; margin-top: 8px; }
 .btn-danger { color: var(--down); }
 .btn-danger:hover:not(:disabled) { background: var(--down-soft); border-color: var(--down); }
@@ -403,7 +424,8 @@ select { cursor: pointer; }
 }
 .cat-item:hover { background: var(--surface-2); }
 .cat-item.on { background: var(--accent-soft); }
-.cat-item-name { font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+/* Names, not code: these carry Vietnamese and must use the text face. */
+.cat-item-name { font-size: 13px; font-weight: 600; }
 .cat-item-kind {
   margin-left: auto;
   font-size: 9px;
@@ -440,7 +462,7 @@ select { cursor: pointer; }
   border-bottom: 1px solid var(--border-soft);
 }
 .swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-.active-name { font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+.active-name { font-size: 13px; font-weight: 600; }
 .active-kind { font-size: 9px; color: var(--text-faint); text-transform: uppercase; }
 .active-remove { margin-left: auto; }
 
@@ -451,7 +473,9 @@ select { cursor: pointer; }
   font-size: 11.5px; color: var(--text-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.param-value { font-family: var(--mono); font-size: 11.5px; text-align: right; font-weight: 600; }
+/* A number, so tabular figures rather than a whole monospace face. */
+.param-value { font-size: 13px; text-align: right; font-weight: 600;
+               font-variant-numeric: tabular-nums; }
 
 input[type="range"] {
   -webkit-appearance: none; appearance: none;
@@ -1818,3 +1842,43 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   background: var(--text-faint);
   text-transform: uppercase;
 }
+
+/* ==================== View modes ====================
+ *
+ * The app opens on the overview: the chart, the symbol picker, and nothing
+ * else. Everything a working session needs — the rail, the open panel, the
+ * chart's own toolbar, the timeframe strip — is hidden rather than removed,
+ * so switching back costs a class change and no rebuild.
+ *
+ * Hidden with `display: none` rather than width: 0 because Lightweight Charts
+ * measures its container: a 0-width panel still participates in layout and the
+ * chart would keep a gap where it used to be.
+ */
+body[data-mode="overview"] .rail,
+body[data-mode="overview"] .panel-host,
+body[data-mode="overview"] .chart-tools,
+body[data-mode="overview"] #backfill {
+  display: none;
+}
+
+/* Overview gives the chart the whole width and a bit of breathing room, the
+   way a quote page does. */
+body[data-mode="overview"] .charts {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin: 16px;
+  overflow: hidden;
+}
+body[data-mode="overview"] .chart-pane { border-bottom: 0; }
+
+/* The overview needs the symbol and the quote, not the depth controls. */
+body[data-mode="overview"] #limit,
+body[data-mode="overview"] .tz-badge {
+  display: none;
+}
+
+/* A quieter separator between the two halves of the top bar in overview:
+   there is much less in it, so the group reads better spaced out. */
+body[data-mode="overview"] .topbar { gap: 24px; }
+body[data-mode="overview"] .price-ticker { font-size: 26px; letter-spacing: -0.6px; }
+body[data-mode="overview"] .price-change { font-size: 14px; }

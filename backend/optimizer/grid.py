@@ -23,7 +23,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from backend.analysis.stats import sharpe_tests
 from backend.strategy.base import normalize_signals
 from backend.strategy.engine import run_backtest
 from backend.i18n import bi
@@ -316,6 +315,12 @@ def _deflated_winner(rows: list[dict], bar_returns, timeframe: str) -> dict:
     is called on a single backtest, because one backtest cannot see the other
     trials. The sweep kept every cell's Sharpe, so here it is measured.
     """
+    # Imported here rather than at module scope. This module is on the server's
+    # boot path; backend.analysis.stats pulls scipy.stats, which measured 561 ms
+    # of the 1 244 ms it took to import the app at all. Deflation runs once per
+    # sweep, so paying that cost then rather than at every start-up is free.
+    from backend.analysis.stats import sharpe_tests
+
     sharpes = np.array(
         [r["metrics"]["sharpe"] for r in rows
          if r["metrics"]["sharpe"] is not None

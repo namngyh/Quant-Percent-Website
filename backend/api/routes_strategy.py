@@ -18,7 +18,6 @@ from backend.optimizer.grid import (
     grid_size,
     optimize,
 )
-from backend.analysis.report import build_report
 from backend.strategy import registry
 from backend.strategy.base import StrategyError
 from backend.strategy.engine import BacktestConfig
@@ -71,6 +70,12 @@ def report(request: BacktestRequest) -> dict:
         spec, resolved, result, probability = registry.simulate(
             request.strategy_id, df, timeframe, request.params, config
         )
+        # Imported on first use, not at start-up. backend.analysis.report pulls
+        # scipy.stats, measured at 557 ms of the 1 244 ms the app took to
+        # import; a report is requested at most a few times per session, so the
+        # cost belongs there rather than in every server start.
+        from backend.analysis.report import build_report
+
         payload = build_report(result, df, timeframe, probability=probability)
     except StrategyError as exc:
         raise HTTPException(422, str(exc)) from exc

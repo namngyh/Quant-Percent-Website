@@ -8,13 +8,24 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.analysis import stats
 from backend.api.routes_strategy import ExecutionSettings, _load_candles
 from backend.strategy import registry
 from backend.strategy.base import StrategyError
 from backend.strategy.metrics import BARS_PER_YEAR
 
 log = logging.getLogger(__name__)
+def _stats():
+    """backend.analysis.stats, imported on first use rather than at start-up.
+
+    It pulls scipy.stats and statsmodels, which measured 561 ms of the 1 244 ms
+    the whole app took to import. Nothing in this module needs them until a
+    request actually asks for a statistical test, and the server should be
+    answering /api/health long before then.
+    """
+    from backend.analysis import stats
+    return stats
+
+
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
@@ -44,7 +55,7 @@ def series(request: SeriesRequest) -> dict:
     """Distribution and randomness tests on the price series itself."""
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit)
     try:
-        result = stats.analyse_series(df)
+        result = _stats().analyse_series(df)
     except Exception as exc:
         log.exception("series analysis failed")
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
@@ -72,7 +83,7 @@ def strategy(request: StrategyStatsRequest) -> dict:
             bar_returns = np.diff(equity) / np.where(equity[:-1] > 0, equity[:-1], np.nan)
         bar_returns = bar_returns[np.isfinite(bar_returns)]
 
-        result = stats.analyse_strategy(
+        result = _stats().analyse_strategy(
             backtest["trades"],
             config.initial_capital,
             bar_returns=bar_returns,

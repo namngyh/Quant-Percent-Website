@@ -454,6 +454,41 @@ async function render(label, kind, payload) {
          hits.length === 0);
   }
 
+  // ---------- Language purity ----------
+  //
+  // Every panel is bilingual by construction, but a string added in a hurry as
+  // a bare Vietnamese literal renders identically in both languages and
+  // nothing complains about it. Vietnamese carries diacritics that English
+  // does not, so looking for them in the English render is an exact test.
+  const VIET = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+
+  const pure = (label, html) => {
+    const holder = window.document.createElement('div');
+    holder.innerHTML = html;
+    const bad = holder.textContent.split(/\s+/).filter((w) => VIET.test(w));
+    if (!bad.length) { console.log(`  PASS  English is clean: ${label}`); return; }
+    console.log(`  FAIL  Vietnamese leaked into English: ${label} -> ${
+      [...new Set(bad)].slice(0, 10).join(' ')}`);
+    failures++;
+  };
+
+  window.I18n.set('en');
+  for (const [id] of window.Report.tabs) {
+    pure(`report/${id}`, window.Report.renderTab(id, payloads.report));
+  }
+  pure('paper ticket', window.Paper.ticket(fakeSession({ position: 1 })));
+
+  $('optimize-results').innerHTML = '';
+  window.Strategy.renderOptimize(payloads.opt);
+  pure('optimiser', $('optimize-results').innerHTML);
+
+  nextPayload = payloads.wf_anchored;
+  await window.Validation.runWalkForward([]);
+  pure('walk-forward', $('validation-output').innerHTML);
+
+  nextPayload = payloads.mc;
+  await window.Validation.runMonteCarlo({});
+  pure('monte carlo', $('validation-output').innerHTML);
   console.log(failures ? `\n${failures} failed` : '\nall render checks passed');
   process.exit(failures ? 1 : 0);
 })();
