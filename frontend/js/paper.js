@@ -369,6 +369,18 @@ const Paper = (() => {
      commission fills itself in, instead of remembering that Binance futures
      taker is 0.04%. */
 
+  /* What a venue settles in. Stated rather than assumed, because "10 000" is
+     two entirely different accounts depending on the answer, and a paper
+     account whose size the user has misread teaches nothing useful. */
+  const CURRENCY = {
+    binance_futures_taker: 'USDT',
+    binance_futures_maker: 'USDT',
+    binance_spot: 'USDT',
+    hose: 'VND',
+    vn_derivatives: 'VND',
+    custom: '',
+  };
+
   const PRESETS = {
     binance_futures_taker: { fee: 0.04, slippage: 0.02, leverage: 1,
       label: () => 'Binance Futures — taker',
@@ -400,6 +412,11 @@ const Paper = (() => {
      known from the symbol, so the list is filtered to the venues that can
      actually trade it and the first is chosen. */
   const VN_PREFIX = 'VN:';
+
+  /** The currency a symbol's account settles in. */
+  function currencyFor(symbol) {
+    return CURRENCY[venuesFor(symbol)[0]] || '';
+  }
 
   function venuesFor(symbol) {
     const name = String(symbol || '');
@@ -470,12 +487,21 @@ const Paper = (() => {
   }
 
   function applyPreset(key) {
-    const preset = PRESETS[key];
     const el = elements.settings || {};
+    showCurrency(key);
+    const preset = PRESETS[key];
     if (!preset || !el.fee) return;
     el.fee.value = preset.fee;
     el.slippage.value = preset.slippage;
     refreshSettings();
+  }
+
+  /** Name the currency beside the capital box, from the chosen venue. */
+  function showCurrency(key) {
+    const el = elements.settings || {};
+    if (!el.currency) return;
+    // "Custom" has no venue behind it, so there is nothing honest to claim.
+    el.currency.textContent = CURRENCY[key] ?? '';
   }
 
   function refreshSettings() {
@@ -626,6 +652,6 @@ const Paper = (() => {
 
   return { init, refresh, start, apply, rerender: render,
            openSettings, settingsValues, startManual, ticket, symbolBadge,
-           refreshManualButton, venuesFor,
+           refreshManualButton, venuesFor, currencyFor,
            get sessions() { return sessions; } };
 })();

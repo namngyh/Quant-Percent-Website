@@ -237,6 +237,7 @@ async function render(label, kind, payload) {
       settings: {
         root: psel('paper-settings'), close: psel('paper-settings-close'),
         preset: psel('ps-preset'), capital: psel('ps-capital'),
+        currency: psel('ps-currency'),
         size: psel('ps-size'), leverage: psel('ps-leverage'),
         fee: psel('ps-fee'), slippage: psel('ps-slippage'),
         summary: psel('ps-summary'), warning: psel('ps-warning'),
@@ -294,6 +295,19 @@ async function render(label, kind, payload) {
                               timeframe: '1d', params: {} });
   expect('a different market does not inherit the previous custom costs',
          psel('ps-preset').value === 'hose' && Number(psel('ps-fee').value) === 0.15);
+
+  // The account currency follows the venue.
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'BTCUSDT',
+                              timeframe: '1m', params: {} });
+  expect('a crypto account is denominated in USDT',
+         psel('ps-currency').textContent === 'USDT');
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VIC',
+                              timeframe: '1d', params: {} });
+  expect('a HOSE account is denominated in VND',
+         psel('ps-currency').textContent === 'VND');
+  expect('currencyFor agrees with the dialog',
+         window.Paper.currencyFor('VN:VN30F1M') === 'VND'
+           && window.Paper.currencyFor('BTCUSDT') === 'USDT');
 
   // A venue preset fills the fee in. Back on crypto, where spot is offered.
   window.I18n.set('en');

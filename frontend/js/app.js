@@ -57,9 +57,6 @@
   // rest of the module state rather than beside `showPrice`, because
   // `loadCandles` calls that before the ticker's own section is reached.
   let lastPrice = null;
-  // First price seen for the current symbol; the percentage is measured from
-  // it and reset whenever the symbol changes.
-  let sessionOpen = null;
   /* How many bars the chart is holding. Kept here rather than read from the
      selector, because after panning left the chart holds more than the
      selector ever asked for and the two numbers stop agreeing. The old status
@@ -124,10 +121,16 @@
 
   async function loadCandles() {
     setLoading(true);
+    const requested = `${state.symbol}|${state.timeframe}`;
     try {
       const data = await API.candles({
         symbol: state.symbol, timeframe: state.timeframe, limit: state.limit,
       });
+
+      /* Two symbol changes in quick succession start two requests, and they
+         can finish in either order. Without this the slower one wins and the
+         chart settles on a series nobody asked for last. */
+      if (requested !== `${state.symbol}|${state.timeframe}`) return;
 
       if (!data.count) {
         // Drop the drawings too, or lines from the previous timeframe linger
@@ -141,10 +144,9 @@
         return;
       }
 
-      const key = `${state.symbol}|${state.timeframe}`;
       ChartManager.setCandles(data.candles, data.volumes, {
         timeVisible: INTRADAY.has(state.timeframe),
-        key,
+        key: requested,
       });
 
       /* Subscribe as soon as the chart is showing the new series, and before
@@ -162,7 +164,7 @@
       historyExhausted = false;
       // Shapes are notes about one series. Showing a trend line drawn on BTC
       // 1h over VIC daily would be worse than not showing it at all.
-      Drawings.load(`${state.symbol}|${state.timeframe}`);
+      Drawings.load(requested);
 
       // The symbol and the timeframe are already selected two controls to the
       // left, and the price now has a readout of its own, so the status line
@@ -171,12 +173,6 @@
       loadedBars = data.count;
       showLoadedBars();
 
-      // Anchor the percentage to the first candle of the loaded window, not to
-      // the first tick that happens to arrive. Anchoring to the tick made the
-      // readout open at +0.00% every time and only start moving from there,
-      // while the overview line beside it was already coloured green or red
-      // for the whole window. The two now answer the same question.
-      sessionOpen = data.candles[0]?.close ?? null;
       showPrice(last.close);
 
       ChartManager.clearTradeMarkers();
@@ -261,15 +257,19 @@
       el.price.classList.toggle('down', value < lastPrice);
     }
 
-    /* Change against the session's opening price, the way a quote is normally
-       read. The colour above flickers with each tick, which answers "is it
-       moving right now"; this answers "where is it against where it started",
-       and the two are often opposite. Anchored to the first price seen after a
-       symbol change, so it never compares two different instruments. */
-    // Falls back to the first tick only when no window has been loaded yet.
-    if (sessionOpen === null) sessionOpen = value;
-    if (el.priceChange && sessionOpen > 0) {
-      const delta = (value / sessionOpen - 1) * 100;
+    /* Change against the opening price of the window on screen.
+
+       Read from the chart rather than remembered in a variable of our own.
+       A remembered anchor drifts out of step with the candles the moment
+       anything goes wrong: a load that throws leaves the previous
+       instrument's opening price in place while live ticks keep arriving, and
+       the header then reports Bitcoin against a Vietnamese index — measured
+       once at +3 993%. Paging older bars in moves the window's start too, and
+       a remembered value would not know. Derived from the data on screen, the
+       number cannot disagree with what is beside it. */
+    const anchor = ChartManager.firstClose;
+    if (el.priceChange && anchor > 0) {
+      const delta = (value / anchor - 1) * 100;
       el.priceChange.textContent = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%`;
       el.priceChange.classList.toggle('up', delta > 0);
       el.priceChange.classList.toggle('down', delta < 0);
@@ -294,6 +294,11 @@
 
   async function loadOlderHistory(oldestSeconds) {
     if (historyExhausted) return;
+    // The series this page belongs to, captured before the request rather than
+    // read after it: `state.symbol` is whatever is selected *now*, and a pan
+    // that starts a fetch and a click that changes symbol are two things a
+    // person does within the same second.
+    const key = `${state.symbol}|${state.timeframe}`;
     try {
       const data = await API.candlesBefore({
         symbol: state.symbol,
@@ -301,7 +306,8 @@
         before: oldestSeconds,
         limit: HISTORY_PAGE,
       });
-      const added = ChartManager.prependCandles(data.candles, data.volumes);
+      if (key !== ChartManager.seriesKey) return;
+      const added = ChartManager.prependCandles(data.candles, data.volumes, key);
       if (added) {
         loadedBars += added;
         showLoadedBars();
@@ -573,7 +579,6 @@
     el.price.classList.remove('up', 'down');
     el.priceChange?.classList.remove('up', 'down');
     lastPrice = null;
-    sessionOpen = null;
   }
 
   function onLiveCandle(candle) {
@@ -1520,6 +1525,7 @@ def signals(df, params):
           root: document.getElementById('paper-settings'),
           close: document.getElementById('paper-settings-close'),
           preset: document.getElementById('ps-preset'),
+          currency: document.getElementById('ps-currency'),
           capital: document.getElementById('ps-capital'),
           size: document.getElementById('ps-size'),
           leverage: document.getElementById('ps-leverage'),

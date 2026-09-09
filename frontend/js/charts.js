@@ -771,8 +771,18 @@ const ChartManager = (() => {
      setData re-anchors the view and without this the chart would jump to the
      newly prepended start every time a page arrived — the pan would fight the
      user. Returns how many bars were actually added. */
-  function prependCandles(candles, volumes) {
+  function prependCandles(candles, volumes, key = null) {
     if (!candleSeries || !candles?.length) return 0;
+
+    /* Older bars for a different series are not this series' history.
+
+       `setCandles` replaces everything, so a late response there is merely
+       stale. This one *merges*, so a late response is corruption: a page of
+       VN index bars around 1 900 prepended to a Bitcoin series around 79 000
+       leaves one series holding both, the price scale spanning 0 to 100 000,
+       and the window's opening price — taken from the first bar — belonging to
+       the wrong instrument. That is what produced a +3 993% day. */
+    if (key !== null && seriesKey !== null && key !== seriesKey) return 0;
 
     const known = new Set(candleData.map((c) => c.time));
     const older = candles
@@ -843,6 +853,12 @@ const ChartManager = (() => {
   return { init, setCandles, setMode, prependCandles, focusRecent, fitAll,
            setPriceType, barAt, barsBetween,
            get seriesKey() { return seriesKey; },
+           // The close of the oldest bar the chart is holding. The header's
+           // percentage measures against this, so that it can never disagree
+           // with the candles beside it.
+           get firstClose() {
+             return candleData.length ? candleData[0].close : null;
+           },
            get chart() { return mainChart; },
            get priceSeries() { return candleSeries; },
            get priceType() { return priceType; },

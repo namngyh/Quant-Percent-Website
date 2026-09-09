@@ -172,6 +172,60 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-11 (tối) — Mốc phần trăm không còn tự nhớ, và đơn vị tiền
+
+Ảnh thứ hai chỉ rõ hơn ảnh thứ nhất: trục giá **0 → 100.000**, header **+3993,11%**
+trên BTCUSDT, nến bị nén dẹp xuống đáy.
+
+`+3993%` giải được ra một con số: mốc so sánh ≈ **1.940**. Đó là một giá trị chỉ
+số VN, trong khi giá đang là BTC.
+
+#### Cái sai thật: một biến tự nhớ
+
+`sessionOpen` là biến riêng của `app.js`, gán trong `loadCandles` và reset trong
+`hidePrice`. Nó **có thể lệch khỏi thứ đang hiện trên biểu đồ**, và có ít nhất
+ba đường để lệch:
+
+- một lần nạp ném lỗi giữa chừng thì mốc của mã cũ nằm nguyên đó, trong khi tick
+  của mã mới vẫn gọi `showPrice` — đúng ra +3993%;
+- vuốt trái nạp thêm 1000 nến cũ hơn thì nến đầu cửa sổ đổi, mốc thì không;
+- khi chưa có mốc, nó neo vào **tick đầu tiên** thay vì vào cửa sổ.
+
+Bỏ hẳn biến đó. Mốc giờ **lấy từ chính dữ liệu biểu đồ đang giữ**
+(`ChartManager.firstClose`), nên nó không thể mâu thuẫn với những cây nến nằm
+ngay cạnh nó. Đo lại sau khi sửa: **+20,91%**, trục 75.600–84.000.
+
+#### Ba lần tôi sai khi đi tìm, ghi lại theo §2.2
+
+1. *"Cuộc đua ở phần nạp lịch sử trộn hai mã vào một chuỗi."* Tôi thêm guard
+   theo `symbol|khung` cho cả `prependCandles` lẫn `loadOlderHistory`, rồi viết
+   một probe để chứng minh. **Probe vô nghĩa**: nó gọi `loadOlderHistory` bằng
+   `eval`, mà hàm đó nằm trong closure của module nên `eval` ném lỗi và probe
+   im lặng không kiểm gì cả.
+2. Sửa probe để kích hoạt đúng cách (kéo phạm vi về mép trái). Lần này nó chạy
+   thật và cho `3000 nến` sau khi đổi mã — tôi gọi đó là dấu hiệu hỏng. **Sai
+   nữa**: 3000 nến là phân trang **hợp lệ**, 2000 nến gốc cộng một trang 1000
+   nến cũ hơn của cùng mã đó.
+3. Chạy lại với guard đã khôi phục: vẫn 3000 nến. Nếu tin vào phép thử đó thì
+   tôi đã kết luận guard không hoạt động.
+
+Guard vẫn giữ — nó đúng về nguyên tắc và rẻ (một phép so chuỗi), nhưng **tôi
+không nhận là nó sửa được thứ Nam gặp**, vì tôi chưa tái hiện được cuộc đua đó.
+Thứ giải thích được toàn bộ các con số trên ảnh là mốc tự nhớ ở trên.
+
+#### Xem nến quá khứ khi đang paper trading
+
+Không có đoạn code nào chặn việc này — vuốt trái vẫn nạp lịch sử kể cả khi có
+phiên paper đang chạy. Cái chặn là biểu đồ hỏng: khi trục giá bị kéo ra
+0–100.000 thì nến dồn thành một vạch và không còn gì để xem. Sửa mốc là hết.
+
+#### Đơn vị tiền trong cài đặt
+
+"10.000" là hai tài khoản hoàn toàn khác nhau trên Binance và trên HOSE. Ô vốn
+giờ ghi rõ đơn vị **theo sàn đã chọn** — `USDT` cho Binance, `VND` cho HOSE và
+phái sinh VN — và bỏ trống khi chọn "Tự đặt", vì lúc đó không có sàn nào phía
+sau để nói cho thành thật. Ô đòn bẩy ghi `×`.
+
 ### 2026-09-11 (chiều) — Rà soát biểu đồ: ba lỗ hổng cùng một chỗ
 
 Ảnh Nam gửi: header ghi **1,966.00** cho BTCUSDT trong khi trục giá đúng
