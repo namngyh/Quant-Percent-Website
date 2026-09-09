@@ -47,7 +47,8 @@ const Strategy = (() => {
     elements.metric.value = 'sharpe';
 
     if (catalog.length) select(catalog[0].id);
-    else elements.params.innerHTML = '<p class="empty">Chưa có chiến lược nào.</p>';
+    else elements.params.innerHTML = `<p class="empty">${esc(L(
+      'Chưa có chiến lược nào.', 'No strategies yet.'))}</p>`;
   }
 
   function renderLoadErrors(errors) {
@@ -87,7 +88,8 @@ const Strategy = (() => {
 
   function renderParams() {
     if (!current.params.length) {
-      elements.params.innerHTML = '<p class="empty">Chiến lược này không có tham số.</p>';
+      elements.params.innerHTML = `<p class="empty">${esc(L(
+        'Chiến lược này không có tham số.', 'This strategy has no parameters.'))}</p>`;
       return;
     }
 
@@ -125,11 +127,17 @@ const Strategy = (() => {
   function renderSweep() {
     const names = Object.keys(sweep);
     if (!names.length) {
-      elements.sweep.innerHTML = '<p class="empty">Không có tham số số học để quét.</p>';
+      elements.sweep.innerHTML = `<p class="empty">${esc(L(
+        'Không có tham số số học để quét.',
+        'No numeric parameter to sweep.'))}</p>`;
       return;
     }
 
-    let html = '<div class="sweep-head"><span></span><span>Tham số</span><span>Từ</span><span>Đến</span><span>Bước</span></div>';
+    let html = `<div class="sweep-head"><span></span>
+      <span>${esc(L('Tham số', 'Parameter'))}</span>
+      <span>${esc(L('Từ', 'From'))}</span>
+      <span>${esc(L('Đến', 'To'))}</span>
+      <span>${esc(L('Bước', 'Step'))}</span></div>`;
     for (const name of names) {
       const s = sweep[name];
       const label = current.params.find((p) => p.name === name)?.label || name;
@@ -181,9 +189,11 @@ const Strategy = (() => {
   }
 
   function fmtDuration(seconds) {
-    if (seconds < 60) return `${seconds.toFixed(0)} giây`;
-    if (seconds < 3600) return `${(seconds / 60).toFixed(0)} phút`;
-    return `${(seconds / 3600).toFixed(1)} giờ`;
+    if (seconds < 60) return L(`${seconds.toFixed(0)} giây`, `${seconds.toFixed(0)}s`);
+    if (seconds < 3600) {
+      return L(`${(seconds / 60).toFixed(0)} phút`, `${(seconds / 60).toFixed(0)} min`);
+    }
+    return L(`${(seconds / 3600).toFixed(1)} giờ`, `${(seconds / 3600).toFixed(1)} h`);
   }
 
   async function updateSize() {
@@ -193,7 +203,8 @@ const Strategy = (() => {
     const ranges = enabledRanges();
     if (!ranges.length) {
       box.className = 'sweep-size';
-      box.textContent = 'Chưa chọn tham số nào để quét.';
+      box.textContent = L('Chưa chọn tham số nào để quét.',
+                          'No parameter selected to sweep.');
       return;
     }
 
@@ -215,19 +226,25 @@ const Strategy = (() => {
       const coverage = (samples / info.combinations) * 100;
       box.className = 'sweep-size';
       box.innerHTML =
-        `Không gian <span class="big">${total}</span> tổ hợp: ${axes}<br>` +
-        `Lấy <span class="big">${samples.toLocaleString('vi-VN')}</span> mẫu ` +
+        L(`Không gian <span class="big">${total}</span> tổ hợp: ${axes}<br>`,
+          `A space of <span class="big">${total}</span> combinations: ${axes}<br>`) +
+        L(`Lấy <span class="big">${samples.toLocaleString(I18n.locale())}</span> mẫu `,
+          `Sampling <span class="big">${samples.toLocaleString(I18n.locale())}</span> of them `) +
         `(${coverage < 0.01 ? '&lt;0,01' : coverage.toFixed(2)}%) ≈ ${fmtDuration(seconds)}`;
       return;
     }
 
     box.className = `sweep-size${info.exceeds_limit ? ' over' : ''}`;
     box.innerHTML =
-      `<span class="big">${total}</span> tổ hợp: ${axes}<br>` +
+      L(`<span class="big">${total}</span> tổ hợp: ${axes}<br>`,
+        `<span class="big">${total}</span> combinations: ${axes}<br>`) +
       (info.exceeds_limit
-        ? `Vượt giới hạn ${info.max_combinations.toLocaleString('vi-VN')}, ước tính ` +
-          `${fmtDuration(info.estimated_seconds)}. Nới bước nhảy hoặc chuyển sang <strong>Ngẫu nhiên</strong>.`
-        : `Ước tính ${fmtDuration(info.estimated_seconds)}`);
+        ? L(`Vượt giới hạn ${info.max_combinations.toLocaleString(I18n.locale())}, ước tính `
+            + `${fmtDuration(info.estimated_seconds)}. Nới bước nhảy hoặc chuyển sang <strong>Ngẫu nhiên</strong>.`,
+            `Over the ${info.max_combinations.toLocaleString(I18n.locale())} limit, about `
+            + `${fmtDuration(info.estimated_seconds)}. Widen the step or switch to <strong>Random</strong>.`)
+        : L(`Ước tính ${fmtDuration(info.estimated_seconds)}`,
+            `About ${fmtDuration(info.estimated_seconds)}`));
   }
 
   // ---------- Execution settings ----------
@@ -280,11 +297,11 @@ const Strategy = (() => {
   const METRIC_LABELS = {
     sharpe: 'Sharpe',
     sortino: 'Sortino',
-    total_return_pct: 'Tổng lợi nhuận',
+    total_return_pct: L('Tổng lợi nhuận', 'Total return'),
     cagr_pct: 'CAGR',
     profit_factor: 'Profit factor',
-    win_rate_pct: 'Tỷ lệ thắng',
-    vs_buy_hold_pct: 'So với mua và giữ',
+    win_rate_pct: L('Tỷ lệ thắng', 'Win rate'),
+    vs_buy_hold_pct: L('So với mua và giữ', 'Against buy and hold'),
   };
 
   function metricCard(label, value, cls = '', sub = '', info = '') {
@@ -302,44 +319,53 @@ const Strategy = (() => {
     let html = '';
 
     if (m.ruined) {
-      html += `<div class="callout bad"><strong>Cháy tài khoản.</strong>
-        Vốn về 0 sau ${m.liquidations} lần bị thanh lý: hãy hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.</div>`;
+      html += `<div class="callout bad">${esc(L(
+        `Cháy tài khoản. Vốn về 0 sau ${m.liquidations} lần bị thanh lý: hãy hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.`,
+        `Account wiped out. Equity reached zero after ${m.liquidations} liquidation(s): lower the leverage or the share of equity per trade.`))}</div>`;
     } else if (m.liquidations > 0) {
-      html += `<div class="callout warn"><strong>${m.liquidations} lần bị thanh lý.</strong>
-        Vị thế bị đóng cưỡng bức khi lỗ chạm mức ký quỹ.</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `${m.liquidations} lần bị thanh lý. Vị thế bị đóng cưỡng bức khi lỗ chạm mức ký quỹ.`,
+        `${m.liquidations} liquidation(s). The position was force-closed when the loss reached the margin.`))}</div>`;
     }
 
     if (!m.ruined && m.vs_buy_hold_pct < 0) {
-      html += `<div class="callout warn">Chiến lược <strong>thua mua-và-giữ ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} điểm %</strong>
-        trên cùng khoảng thời gian. Chỉ mua rồi giữ đã tốt hơn.</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Chiến lược thua mua-và-giữ ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} điểm % trên cùng khoảng thời gian. Chỉ mua rồi giữ đã tốt hơn.`,
+        `The strategy lost to buy-and-hold by ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} points over the same window. Simply buying and holding did better.`))}</div>`;
     }
 
     if (m.num_trades < 10 && m.num_trades > 0) {
-      html += `<div class="callout warn">Chỉ ${m.num_trades} lệnh (quá ít để kết luận).
-        Kéo dài dữ liệu hoặc nới tham số.</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Chỉ ${m.num_trades} lệnh — quá ít để kết luận. Kéo dài dữ liệu hoặc nới tham số.`,
+        `Only ${m.num_trades} trades — too few to conclude anything. Widen the data or loosen the parameters.`))}</div>`;
     }
 
     html += '<div class="metrics">';
-    html += metricCard('Tổng lợi nhuận', pct(m.total_return_pct), sign(m.total_return_pct),
+    html += metricCard(L('Tổng lợi nhuận', 'Total return'),
+      pct(m.total_return_pct), sign(m.total_return_pct),
       `${money(m.initial_capital)} → ${money(m.final_equity)}`);
-    html += metricCard('Mua và giữ', pct(m.buy_hold_return_pct), sign(m.buy_hold_return_pct),
-      `chênh ${pct(m.vs_buy_hold_pct)}`);
+    html += metricCard(L('Mua và giữ', 'Buy and hold'),
+      pct(m.buy_hold_return_pct), sign(m.buy_hold_return_pct),
+      L(`chênh ${pct(m.vs_buy_hold_pct)}`, `${pct(m.vs_buy_hold_pct)} difference`));
     html += metricCard('CAGR', pct(m.cagr_pct), sign(m.cagr_pct));
-    html += metricCard('Sụt giảm tối đa', `-${m.max_drawdown_pct.toFixed(2)}%`,
+    html += metricCard(L('Sụt giảm tối đa', 'Max drawdown'),
+      `-${m.max_drawdown_pct.toFixed(2)}%`,
       m.max_drawdown_pct > 0 ? 'neg' : '');
     html += metricCard('Sharpe', num(m.sharpe), sign(m.sharpe));
     html += metricCard('Sortino', num(m.sortino), sign(m.sortino));
-    html += metricCard('Số lệnh', String(m.num_trades), '',
-      `${m.num_wins} thắng / ${m.num_losses} thua`);
-    html += metricCard('Tỷ lệ thắng', `${m.win_rate_pct.toFixed(1)}%`);
+    html += metricCard(L('Số lệnh', 'Trades'), String(m.num_trades), '',
+      L(`${m.num_wins} thắng / ${m.num_losses} thua`,
+        `${m.num_wins} won / ${m.num_losses} lost`));
+    html += metricCard(L('Tỷ lệ thắng', 'Win rate'), `${m.win_rate_pct.toFixed(1)}%`);
     html += metricCard('Profit factor',
       Number.isFinite(m.profit_factor) ? num(m.profit_factor) : '∞',
       m.profit_factor > 1 ? 'pos' : 'neg');
-    html += metricCard('Tỷ lệ nắm giữ', `${m.exposure_pct.toFixed(1)}%`, '',
-      `${m.avg_bars_held.toFixed(0)} nến/lệnh`);
-    html += metricCard('Lãi TB / lỗ TB',
+    html += metricCard(L('Tỷ lệ nắm giữ', 'Exposure'), `${m.exposure_pct.toFixed(1)}%`, '',
+      L(`${m.avg_bars_held.toFixed(0)} nến/lệnh`,
+        `${m.avg_bars_held.toFixed(0)} bars per trade`));
+    html += metricCard(L('Lãi TB / lỗ TB', 'Avg win / avg loss'),
       `${money(m.avg_win)} / ${money(m.avg_loss)}`);
-    html += metricCard('Tốt nhất / tệ nhất',
+    html += metricCard(L('Tốt nhất / tệ nhất', 'Best / worst'),
       `${money(m.best_trade)} / ${money(m.worst_trade)}`);
     html += '</div>';
 
@@ -357,15 +383,21 @@ const Strategy = (() => {
 
   function renderTrades(trades) {
     if (!trades.length) {
-      elements.trades.innerHTML = '<p class="empty">Không có lệnh nào.</p>';
+      elements.trades.innerHTML = `<p class="empty">${esc(L(
+        'Không có lệnh nào.', 'No trades.'))}</p>`;
       return;
     }
 
     const fmt = (ts) => new Date(ts * 1000).toISOString().slice(0, 16).replace('T', ' ');
 
     let html = `<table class="data-table"><thead><tr>
-      <th>Vào</th><th>Chiều</th><th>Giá vào</th><th>Giá ra</th>
-      <th>Lãi/Lỗ</th><th>%</th><th>Nến</th><th>Kết thúc</th>
+      <th>${esc(L('Vào', 'In'))}</th>
+      <th>${esc(L('Chiều', 'Side'))}</th>
+      <th>${esc(L('Giá vào', 'Entry'))}</th>
+      <th>${esc(L('Giá ra', 'Exit'))}</th>
+      <th>${esc(L('Lãi/Lỗ', 'P&L'))}</th><th>%</th>
+      <th>${esc(L('Nến', 'Bars'))}</th>
+      <th>${esc(L('Kết thúc', 'Closed by'))}</th>
     </tr></thead><tbody>`;
 
     for (const t of trades) {
@@ -378,7 +410,10 @@ const Strategy = (() => {
         <td class="${cls}">${money(t.pnl)}</td>
         <td class="${cls}">${t.return_pct.toFixed(1)}</td>
         <td class="muted">${t.bars_held}</td>
-        <td class="muted">${t.exit_reason === 'liquidation' ? 'THANH LÝ' : t.exit_reason === 'end_of_data' ? 'hết dữ liệu' : 'tín hiệu'}</td>
+        <td class="muted">${esc(
+          t.exit_reason === 'liquidation' ? L('THANH LÝ', 'LIQUIDATED')
+            : t.exit_reason === 'end_of_data' ? L('hết dữ liệu', 'end of data')
+            : L('tín hiệu', 'signal'))}</td>
       </tr>`;
     }
     html += '</tbody></table>';
@@ -394,7 +429,9 @@ const Strategy = (() => {
 
     if (!ranges.length) {
       elements.optimize.innerHTML =
-        '<p class="empty">Chọn ít nhất một tham số để quét (tích ô bên trái).</p>';
+        `<p class="empty">${esc(L(
+          'Chọn ít nhất một tham số để quét (tích ô bên trái).',
+          'Tick at least one parameter to sweep, on the left.'))}</p>`;
       return null;
     }
 
@@ -484,7 +521,10 @@ const Strategy = (() => {
       String(s.combinations),
       '',
       s.mode === 'random'
-        ? `${s.coverage_pct < 0.01 ? '<0,01' : s.coverage_pct.toFixed(2)}% của ${s.space_size.toLocaleString('vi-VN')}`
+        ? L(`${s.coverage_pct < 0.01 ? '<0,01' : s.coverage_pct.toFixed(2)}% của ${
+              s.space_size.toLocaleString(I18n.locale())}`,
+            `${s.coverage_pct < 0.01 ? '<0.01' : s.coverage_pct.toFixed(2)}% of ${
+              s.space_size.toLocaleString(I18n.locale())}`)
         : (s.failed ? L(`${s.failed} lỗi`, `${s.failed} failed`) : ''),
     );
     html += metricCard(L('Có lãi', 'Profitable'), `${s.profitable_pct.toFixed(0)}%`,

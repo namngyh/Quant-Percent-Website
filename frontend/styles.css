@@ -818,7 +818,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   flex-shrink: 0;
   text-overflow: ellipsis;
 }
-#limit { width: 84px; flex-shrink: 0; }
 
 .tf-group { flex-shrink: 0; }
 .tf-btn { padding: 4px 8px; }
@@ -1903,10 +1902,18 @@ body[data-mode="overview"] .price-change { font-size: 14px; }
    scrolls sideways instead, at every width rather than only on small screens,
    because the overlap appeared at 1050px — well above any phone breakpoint. */
 .topbar-controls {
-  flex: 1 1 auto;
+  /* Shrink but never grow. With `flex: 1 1 auto` this group swallowed all the
+     free space in the bar and squeezed the status line beside the price down
+     to zero width, so the bar count simply vanished. The right-hand group is
+     already pushed over by its own `margin-left: auto`; nothing here needs to
+     grow to make that happen. */
+  flex: 0 1 auto;
   overflow-x: auto;
   scrollbar-width: none;
 }
+/* The status text is short and matters; it should not be the thing that gives
+   way when the bar is tight. */
+.status { flex-shrink: 0; }
 .topbar-controls::-webkit-scrollbar { display: none; }
 
 /* The quote is the one thing in the bar that must never be squeezed. */
@@ -1914,7 +1921,8 @@ body[data-mode="overview"] .price-change { font-size: 14px; }
 
 /* Shed the least useful things first, while one row still works. */
 @media (max-width: 1240px) { .brand-name { display: none; } }
-@media (max-width: 1140px) { #limit { display: none; } }
+/* The bar-count selector left the top bar for the strategy panel, so this
+   breakpoint no longer has anything to hide here. */
 @media (max-width: 1080px) {
   .tz-badge { display: none; }
   #live-label { display: none; }
@@ -1943,3 +1951,67 @@ body[data-mode="overview"] .price-change { font-size: 14px; }
 
 /* In overview the chart is a link to its own detail, so it says so. */
 body[data-mode="overview"] .chart-main { cursor: pointer; }
+
+/* ---------- Opening screen ----------
+ *
+ * The mark draws, the name fades in, a bar sweeps while the two boot requests
+ * are in flight, and the charting credit sits at the foot. The bar is
+ * indeterminate rather than a percentage: the boot is two requests, there is
+ * no meaningful fraction to report, and inventing one is worse than an honest
+ * sweep.
+ */
+.splash-inner { gap: 18px; }
+
+.splash-word { font-size: 13px; letter-spacing: 3.4px; }
+
+.splash-bar {
+  width: 168px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+  opacity: 0;
+  animation: fadeUp 0.4s ease-out 0.85s forwards;
+}
+.splash-bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: splashSweep 1.15s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+@keyframes splashSweep {
+  from { transform: translateX(-110%); }
+  to   { transform: translateX(360%); }
+}
+
+.splash-credit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 26px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out 1.05s forwards;
+}
+.splash-tv { width: 34px; height: 19px; fill: var(--text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-bar span { animation: none; width: 100%; }
+}
+
+/* A hairline between the three groups on the right of the top bar: the quote,
+   the feed state, and the actions. Twelve controls in one flat row read as a
+   list of twelve equal things; three groups of three or four read as three. */
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+@media (max-width: 1080px) { .topbar-sep { display: none; } }
+
+/* The bar-count selector now lives in the strategy panel. */
+#limit { width: 100%; }

@@ -57,6 +57,25 @@
   // First price seen for the current symbol; the percentage is measured from
   // it and reset whenever the symbol changes.
   let sessionOpen = null;
+  /* How many bars the chart is holding. Kept here rather than read from the
+     selector, because after panning left the chart holds more than the
+     selector ever asked for and the two numbers stop agreeing. The old status
+     line showed the selector's value beside the selector itself — the same
+     number twice, and the wrong one once history had loaded. */
+  let loadedBars = 0;
+
+  /* The loaded bar count lives on the symbol picker, not in the status line.
+
+     The status line is for things that need words, and `onLiveCandle` clears
+     it on every tick for exactly that reason. With realtime now on from the
+     start, a count written there is wiped by the first tick — it would flash
+     once after every history page and never be readable. On the picker it is
+     always available and takes no space in a bar the user asked to have less
+     in it. */
+  function showLoadedBars() {
+    if (!el.symbol) return;
+    el.symbol.title = t('status.bars', { n: loadedBars.toLocaleString(I18n.locale()) });
+  }
 
   const INTRADAY = new Set(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h']);
 
@@ -130,8 +149,8 @@
       // left, and the price now has a readout of its own, so the status line
       // is left for the one thing neither of those shows.
       const last = data.candles[data.candles.length - 1];
-      setStatusLive(() =>
-        t('status.bars', { n: data.count.toLocaleString(I18n.locale()) }));
+      loadedBars = data.count;
+      showLoadedBars();
 
       // Anchor the percentage to the first candle of the loaded window, not to
       // the first tick that happens to arrive. Anchoring to the tick made the
@@ -253,6 +272,10 @@
         limit: HISTORY_PAGE,
       });
       const added = ChartManager.prependCandles(data.candles, data.volumes);
+      if (added) {
+        loadedBars += added;
+        showLoadedBars();
+      }
       if (!added) {
         // The store has nothing older. Stop asking; a chart that refires the
         // same empty request on every pan is how a scroll gesture becomes a
@@ -1362,10 +1385,26 @@ def signals(df, params):
        The button in the header does the same thing, but reaching for a button
        to say "show me this properly" is not the gesture people have — they
        click the thing itself. Only in overview: in the working view a click on
-       the chart belongs to the chart. */
-    el.chartMain?.addEventListener('click', () => {
-      if (ChartManager.mode === 'overview') setViewMode('trading');
+       the chart belongs to the chart.
+
+       A drag is not a click. The browser fires `click` after any
+       press-move-release on the same element, so panning the overview into the
+       past ended with the view jumping into the working mode — the gesture
+       that loads history and the gesture that leaves the page were the same
+       event. Press and release have to land within a few pixels of each other,
+       which is what separates "I pointed at this" from "I dragged this". */
+    let pressAt = null;
+    el.chartMain?.addEventListener('pointerdown', (event) => {
+      pressAt = { x: event.clientX, y: event.clientY };
     });
+    el.chartMain?.addEventListener('pointerup', (event) => {
+      if (ChartManager.mode !== 'overview' || !pressAt) { pressAt = null; return; }
+      const moved = Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y);
+      pressAt = null;
+      // 5px covers the wobble of a deliberate click; a pan is tens of pixels.
+      if (moved <= 5) setViewMode('trading');
+    });
+    el.chartMain?.addEventListener('pointercancel', () => { pressAt = null; });
 
     el.liveToggle.addEventListener('click', () => {
       const turningOn = !Live.enabled;
@@ -1463,6 +1502,15 @@ def signals(df, params):
     // get here, and it is the only thing on screen until the user asks for
     // more.
     setViewMode(window.location.hash === '#trade' ? 'trading' : 'overview');
+
+    /* Realtime is on from the start, for whatever symbol is open.
+
+       It used to be off until the toggle was pressed, so the platform opened
+       showing a chart that had quietly stopped at whenever the last session
+       ended. A chart that is not updating and does not look any different from
+       one that is, is worse than no chart. Both markets are covered: Binance
+       pushes, the HOSE database is polled. */
+    Live.setEnabled(true);
     await loadCandles();
     dismissSplash();
   }

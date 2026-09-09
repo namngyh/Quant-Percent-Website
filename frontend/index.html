@@ -15,6 +15,12 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 </head>
 <body>
+  <!-- Opening screen. Three things in a column: the mark, the name, and the
+       one credit this platform owes — the charts are TradingView's Lightweight
+       Charts, and saying so on the way in is both accurate and the licence's
+       expectation. The progress bar is indeterminate on purpose: the boot has
+       two requests and no useful percentage to report, and a fake percentage
+       is worse than an honest sweep. -->
   <div id="splash" class="splash">
     <div class="splash-inner">
       <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
@@ -22,7 +28,16 @@
         <rect x="58" y="62" width="25" height="25" />
         <path d="M19 81 L81 19" />
       </svg>
-      <div class="splash-word">QUANT<strong>PERCENT</strong></div>
+      <div class="splash-word">QUANT<strong>PERCENT</strong> TERMINAL</div>
+      <div class="splash-bar" role="progressbar" aria-label="Loading"><span></span></div>
+      <div class="splash-credit">
+        <span data-i18n="splash.charting">Charting powered by</span>
+        <svg class="splash-tv" viewBox="0 0 36 20" aria-label="TradingView">
+          <path d="M1 1h13v4H9v14H5V5H1z" />
+          <path d="M17 1h8a5 5 0 0 1 0 10h-3l4 8h-4.5l-4-8V19H17z" />
+          <circle cx="31.5" cy="4" r="3" />
+        </svg>
+      </div>
     </div>
   </div>
   <header class="topbar">
@@ -39,14 +54,6 @@
       <button id="star-symbol" class="star star-lg" data-i18n-title="top.starSymbol">☆</button>
       <select id="symbol" data-i18n-aria="top.symbol"></select>
       <div id="timeframes" class="tf-group" role="group" data-i18n-aria="top.timeframes"></div>
-      <select id="limit" data-i18n-aria="top.bars" data-i18n-title="top.bars">
-        <option value="500">500</option>
-        <option value="1000">1 000</option>
-        <option value="2000" selected>2 000</option>
-        <option value="5000">5 000</option>
-        <option value="10000">10 000</option>
-        <option value="20000">20 000</option>
-      </select>
     </div>
 
     <div class="topbar-right">
@@ -54,6 +61,7 @@
         <span id="price" class="price-ticker"></span>
         <span id="price-change" class="price-change"></span>
       </span>
+      <span class="topbar-sep" aria-hidden="true"></span>
       <span id="status" class="status" title=""></span>
       <span class="tz-badge" data-i18n-title="top.tz">GMT+7</span>
       <button id="live-toggle" class="btn btn-quiet live-toggle" data-i18n-title="top.liveToggle">
@@ -61,6 +69,7 @@
         <span id="live-label" data-i18n="top.live">Realtime</span>
       </button>
       <button id="mode-toggle" class="btn btn-primary btn-lg" data-i18n="top.trade">Giao dịch</button>
+      <span class="topbar-sep" aria-hidden="true"></span>
       <button id="backfill" class="btn" data-i18n="top.backfill">Cập nhật dữ liệu</button>
       <div class="lang-switch" role="group" data-i18n-aria="top.lang">
         <button class="lang-btn" data-lang="vi" type="button">VI</button>
@@ -163,6 +172,17 @@
                   <input id="bt-start" type="date" /></label>
                 <label class="param-row"><span data-i18n="st.to">Đến ngày</span>
                   <input id="bt-end" type="date" /></label>
+                <label class="param-row"><span><span data-i18n="top.bars">Số nến</span>
+                  <button type="button" class="info-btn" data-explain="st.bars"
+                          data-i18n-title="top.bars" title="Số nến">i</button></span>
+                  <select id="limit">
+                    <option value="500">500</option>
+                    <option value="1000">1 000</option>
+                    <option value="2000" selected>2 000</option>
+                    <option value="5000">5 000</option>
+                    <option value="10000">10 000</option>
+                    <option value="20000">20 000</option>
+                  </select></label>
               </div>
               <div id="bt-period-note" class="hint"></div>
             </div>

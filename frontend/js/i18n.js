@@ -209,6 +209,7 @@ const I18n = (() => {
                             en: 'Pick a symbol in the bar above, then press here.' },
     'top.trade':          { vi: 'Giao dịch', en: 'Trade' },
     'top.overview':       { vi: 'Tổng quan', en: 'Overview' },
+    'splash.charting':    { vi: 'Biểu đồ bởi', en: 'Charting powered by' },
     'st.period':          { vi: 'Khoảng thời gian', en: 'Date range' },
     'st.periodHint':      { vi: 'Bỏ trống là dùng số nến gần nhất.',
                             en: 'Leave empty to use the most recent bars.' },

@@ -29,10 +29,13 @@ const Paper = (() => {
   function ago(seconds) {
     if (!seconds) return '—';
     const delta = Math.max(0, Math.floor(Date.now() / 1000) - seconds);
-    if (delta < 60) return `${delta}s trước`;
-    if (delta < 3600) return `${Math.floor(delta / 60)} phút trước`;
-    if (delta < 86400) return `${Math.floor(delta / 3600)} giờ trước`;
-    return `${Math.floor(delta / 86400)} ngày trước`;
+    if (delta < 60) return L(`${delta}s trước`, `${delta}s ago`);
+    const m = Math.floor(delta / 60);
+    if (delta < 3600) return L(`${m} phút trước`, `${m}m ago`);
+    const h = Math.floor(delta / 3600);
+    if (delta < 86400) return L(`${h} giờ trước`, `${h}h ago`);
+    const d = Math.floor(delta / 86400);
+    return L(`${d} ngày trước`, `${d}d ago`);
   }
 
   async function refresh() {
@@ -289,7 +292,7 @@ const Paper = (() => {
           await API.paperDelete(id);
           sessions = sessions.filter((s) => s.id !== id);
           render();
-          onToast('Đã xóa phiên');
+          onToast(L('Đã xóa phiên', 'Session deleted'));
         } catch (err) {
           onToast(err.message, true);
         }

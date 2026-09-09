@@ -172,6 +172,73 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-10 — Realtime mặc định, splash mới, thanh trên gọn lại, và một cái ratchet cho i18n
+
+**249 test Python + toàn bộ render check.**
+
+#### 1. Realtime bật sẵn cho mọi mã
+
+Trước đây phải bấm nút mới chạy, nên nền tảng mở ra với một biểu đồ đã lặng lẽ
+dừng ở lần chạy trước — và nó trông không khác gì một biểu đồ đang chạy. Giờ
+`Live.setEnabled(true)` ngay lúc khởi động, cả hai thị trường (Binance đẩy,
+database HOSE hỏi vòng).
+
+#### 2. Lỗi kéo biểu đồ tổng quan lại nhảy vào chế độ giao dịch
+
+Lỗi tôi tạo ra ở đợt trước. Trình duyệt bắn `click` sau **mọi** chuỗi
+nhấn–kéo–thả trên cùng một phần tử, nên cử chỉ kéo về quá khứ để nạp lịch sử và
+cử chỉ rời trang là **cùng một sự kiện**. Giờ so vị trí `pointerdown` với
+`pointerup`: lệch quá 5px là kéo, không phải bấm.
+
+#### 3. Thanh trên
+
+- **Bỏ ô số nến khỏi thanh trên.** Từ khi vuốt trái tự nạp lịch sử, nó không
+  còn quyết định thứ bạn nhìn thấy mà chỉ quyết định một lần *chạy* dùng bao
+  nhiêu dữ liệu — cùng loại lựa chọn với khoảng ngày, nên nó chuyển xuống panel
+  Chiến lược. Để nó ở trên còn khiến **cùng một con số hiện hai lần**, một ở ô
+  chọn và một ở dòng trạng thái ngay cạnh giá.
+- Thêm hai vạch ngăn: 12 điều khiển trong một hàng phẳng đọc như 12 thứ ngang
+  nhau; ba nhóm thì đọc như ba.
+- *Lỗi bố cục tìm được khi đo DOM thật:* `.topbar-controls { flex: 1 1 auto }`
+  nuốt hết chỗ trống và bóp dòng trạng thái về **0 chiều rộng**, nên số nến
+  biến mất hẳn. Đổi thành `flex: 0 1 auto` — nhóm bên phải vốn đã được
+  `margin-left: auto` đẩy sang, không cần ai phình ra cả.
+- Số nến đã nạp chuyển sang `title` của ô chọn mã. `onLiveCandle` xoá dòng
+  trạng thái mỗi tick (chủ ý cũ: "dòng trạng thái dành cho thứ cần chữ"), nên
+  từ khi realtime bật sẵn, một con số viết ở đó sẽ bị tick đầu tiên xoá và chỉ
+  loé lên sau mỗi lần nạp lịch sử.
+
+#### 4. Tiếng Anh còn dính tiếng Việt — tìm bằng máy
+
+`tests/test_i18n.py` mới: đi qua từng file, bám theo việc con trỏ đang ở trong
+comment, trong đối số **đầu** của `L(`, hay sau khoá `vi:` — ba chỗ tiếng Việt
+được phép. Mọi chuỗi có dấu tiếng Việt ngoài đó là chuỗi không có bản tiếng Anh.
+
+Bốn lần trình quét sai và đều đã sửa, ghi lại vì mỗi lần là một loại sai khác:
+
+| Vấn đề | Hậu quả |
+|---|---|
+| Không vào trong `${…}` của template | `${L('a','b')}` bị báo nhầm, mà chuỗi trần trong cùng chỗ đó lại lọt |
+| Recursion vào `${…}` mất ngữ cảnh `L(` | hai nhánh của `${x ? 'MUA' : 'BÁN'}` trong đối số tiếng Việt bị báo |
+| Khoá object bị coi là văn bản | `'thấp':` — khoá tra cứu cố ý giữ nguyên theo API |
+| Tên riêng có dấu | "Cramér", "López de Prado" trong **bản tiếng Anh** bị báo là tiếng Việt |
+
+Kết quả: **254 → 97**. Đã dịch xong `validation.js` (toàn bộ panel Thống kê),
+`strategy.js`, `portfolio.js`, `indicators.js`, `paper.js`, `favourites.js`.
+
+**Còn lại 97 chuỗi trong `app.js`** — chủ yếu hai khối văn xuôi dài: hướng dẫn
+định dạng file plugin và hướng dẫn cài Telegram. Không giấu đi: test dùng một
+**ratchet** (`BUDGET = {'app.js': 97}`). Thêm bất kỳ chuỗi chưa dịch nào ở bất
+kỳ file nào sẽ làm test đỏ, và nếu con số tụt xuống thì test cũng đỏ để bắt hạ
+ngưỡng. Hạ về 0 rồi xoá dòng đó là xong.
+
+#### 5. Màn hình mở đầu
+
+Dấu hiệu vẽ ra, tên **QUANT PERCENT TERMINAL**, một thanh tiến trình, và dòng
+"Charting powered by TradingView" ở chân. Thanh tiến trình **không xác định**
+chứ không phải phần trăm: cả quá trình khởi động chỉ có hai request, không có
+tỷ lệ nào đáng báo, và bịa ra một phần trăm còn tệ hơn một vệt quét thành thật.
+
 ### 2026-09-09 (khuya) — Sáu mục: co cửa sổ, luồng paper, lịch sử vô hạn, màu, khoảng ngày
 
 **247 test Python + toàn bộ render check**, không lỗi.

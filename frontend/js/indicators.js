@@ -59,16 +59,19 @@ const Indicators = (() => {
     // Starred indicators get their own group at the top, so the handful you
     // actually use are not buried among 189.
     const { starred, rest } = Favourites.sort('indicator', matches);
-    if (starred.length) groups.set('★ đánh dấu', starred);
+    if (starred.length) groups.set(L('★ đánh dấu', '★ favourites'), starred);
 
     for (const spec of rest) {
-      const key = spec.source === 'plugin' ? 'của bạn (python)' : spec.category;
+      const key = spec.source === 'plugin'
+        ? L('của bạn (python)', 'yours (python)')
+        : spec.category;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(spec);
     }
 
     if (!groups.size) {
-      elements.catalog.innerHTML = '<p class="empty">Không tìm thấy chỉ báo nào.</p>';
+      elements.catalog.innerHTML = `<p class="empty">${escapeHtml(L(
+        'Không tìm thấy chỉ báo nào.', 'No indicator matches.'))}</p>`;
       return;
     }
 
@@ -83,7 +86,8 @@ const Indicators = (() => {
           Favourites.button('indicator', spec.id, { size: 'star-sm' }) +
           `<span class="cat-item-name">${escapeHtml(spec.name)}</span>` +
           `<span class="cat-item-kind">${spec.kind === 'overlay' ? 'overlay' : 'panel'}</span>` +
-          `<button class="info-btn" data-info="${escapeHtml(spec.id)}" title="Giải thích chỉ báo">i</button>` +
+          `<button class="info-btn" data-info="${escapeHtml(spec.id)}" title="${
+            escapeHtml(L('Giải thích chỉ báo', 'Explain this indicator'))}">i</button>` +
           `</div>`;
       }
       html += '</div>';
@@ -182,8 +186,9 @@ const Indicators = (() => {
 
   function renderActive() {
     if (!active.size) {
-      elements.active.innerHTML =
-        '<p class="empty">Chưa có chỉ báo nào. Chọn từ danh sách bên trên.</p>';
+      elements.active.innerHTML = `<p class="empty">${escapeHtml(L(
+        'Chưa có chỉ báo nào. Chọn từ danh sách bên trên.',
+        'No indicators yet. Pick one from the list above.'))}</p>`;
       return;
     }
 
@@ -195,7 +200,8 @@ const Indicators = (() => {
           <span class="swatch" style="background:${escapeHtml(color)}"></span>
           <span class="active-name">${escapeHtml(spec.name)}</span>
           <span class="active-kind">${spec.kind}</span>
-          <button class="info-btn" data-info-active="${escapeHtml(spec.id)}" title="Giải thích chỉ báo">i</button>
+          <button class="info-btn" data-info-active="${escapeHtml(spec.id)}" title="${
+            escapeHtml(L('Giải thích chỉ báo', 'Explain this indicator'))}">i</button>
           <button class="btn btn-ghost btn-sm active-remove" data-remove="${escapeHtml(instanceId)}">✕</button>
         </div>`;
 

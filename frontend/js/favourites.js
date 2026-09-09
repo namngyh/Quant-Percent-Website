@@ -65,7 +65,8 @@ const Favourites = (() => {
     return (
       `<button class="star${on ? ' on' : ''}${size ? ' ' + size : ''}" ` +
       `data-star-kind="${kind}" data-star-id="${String(id).replace(/"/g, '&quot;')}" ` +
-      `title="${on ? 'Bỏ đánh dấu' : 'Đánh dấu sao'}" aria-pressed="${on}">` +
+      `title="${on ? L('Bỏ đánh dấu', 'Remove from favourites')
+                   : L('Đánh dấu sao', 'Add to favourites')}" aria-pressed="${on}">` +
       `${on ? '★' : '☆'}</button>`
     );
   }

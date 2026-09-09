@@ -505,7 +505,7 @@ const Portfolio = (() => {
         const gapCls = gap > 5 ? 'alert' : gap < -5 ? 'safe' : 'neutral';
         return `<tr>
           <td><span class="pf-bar-badge">${esc(p.symbol)}</span></td>
-          <td style="font-family:var(--mono)">${p.price.toLocaleString(I18n.locale())} đ</td>
+          <td style="font-family:var(--mono)">${p.price.toLocaleString(I18n.locale())} ₫</td>
           <td style="font-family:var(--mono)">${dong(p.market_value)}</td>
           <td style="font-family:var(--mono)">${upct(p.weight_pct)}</td>
           <td style="font-family:var(--mono); font-weight:600">${upct(p.risk_contribution_pct)}</td>
@@ -627,7 +627,9 @@ const Portfolio = (() => {
   function metric(label, value, explain, klass = '', sub = '') {
     const info = !explain ? ''
       : explain.startsWith('<') ? explain
-        : Explain.button(explain, { title: `Giải thích ${label}` });
+        : Explain.button(explain, {
+          title: L(`Giải thích ${label}`, `Explain ${label}`),
+        });
     return `<div class="metric">
       <div class="metric-label">${esc(label)} ${info}</div>
       <div class="metric-value ${klass}">${value}</div>
@@ -763,22 +765,37 @@ const Portfolio = (() => {
 
     Explain.define('pf.about', {
       title: 'Quant Portfolio',
-      what: 'Đo rủi ro thật của một danh mục cổ phiếu Việt Nam đã nhập, dựa trên lịch sử giá của chính các mã đó.',
-      how: 'Con số quan trọng nhất là đóng góp rủi ro. Bạn đã biết mỗi mã chiếm bao nhiêu phần trăm tiền; điều bạn không thấy là một mã chiếm 25% tiền có thể chiếm 45% rủi ro, vì nó vừa biến động mạnh hơn vừa đi cùng chiều với phần còn lại.',
-      watch: 'Không có gì ở đây đến từ một mô hình dự báo. Tất cả là số học trên lợi suất đã quan sát được, cộng một mô phỏng bootstrap lấy mẫu lại chính những phiên đó. Không có mã nào được lưu lại sau khi phân tích xong.',
+      what: L(
+        'Đo rủi ro thật của một danh mục cổ phiếu Việt Nam đã nhập, dựa trên lịch sử giá của chính các mã đó.',
+        'Measures the real risk of a Vietnamese equity portfolio you have entered, from the price history of those very tickers.'),
+      how: L(
+        'Con số quan trọng nhất là đóng góp rủi ro. Bạn đã biết mỗi mã chiếm bao nhiêu phần trăm tiền; điều bạn không thấy là một mã chiếm 25% tiền có thể chiếm 45% rủi ro, vì nó vừa biến động mạnh hơn vừa đi cùng chiều với phần còn lại.',
+        'The figure that matters is risk contribution. You already know what share of the money each ticker holds; what you cannot see is that a ticker holding 25% of the money can carry 45% of the risk, because it is both more volatile and moves with the rest.'),
+      watch: L(
+        'Không có gì ở đây đến từ một mô hình dự báo. Tất cả là số học trên lợi suất đã quan sát được, cộng một mô phỏng bootstrap lấy mẫu lại chính những phiên đó. Không có mã nào được lưu lại sau khi phân tích xong.',
+        'None of this comes from a forecasting model. It is arithmetic on observed returns, plus a bootstrap that resamples those same sessions. No ticker is stored once the analysis is done.'),
       source: 'Chuyển từ tính năng Quant Portfolio của quantpercent.com. Phần tỷ trọng theo ngành bị bỏ vì tài khoản đọc chỉ thấy schema `api`; phần dự phóng được thay bằng bootstrap tự tính thay vì mượn kết quả một mô hình không kiểm chứng được ở đây.',
     });
     Explain.define('pf.lookback', {
-      title: 'Cửa sổ đo',
-      what: 'Số phiên lịch sử dùng để đo biến động, tương quan và beta.',
-      how: 'Một năm giao dịch (252 phiên) là mặc định. Cửa sổ ngắn hơn phản ứng nhanh hơn với chế độ thị trường hiện tại, nhưng ước lượng tương quan từ ít quan sát hơn nên nhiễu hơn.',
-      watch: 'Chỉ những phiên mà MỌI mã đều giao dịch mới được dùng. Một mã mới lên sàn sẽ kéo số phiên chung xuống cho cả danh mục.',
+      title: L('Cửa sổ đo', 'Lookback window'),
+      what: L('Số phiên lịch sử dùng để đo biến động, tương quan và beta.',
+              'How many past sessions are used to measure volatility, correlation and beta.'),
+      how: L(
+        'Một năm giao dịch (252 phiên) là mặc định. Cửa sổ ngắn hơn phản ứng nhanh hơn với chế độ thị trường hiện tại, nhưng ước lượng tương quan từ ít quan sát hơn nên nhiễu hơn.',
+        'One trading year (252 sessions) is the default. A shorter window reacts faster to the current regime, but estimates correlation from fewer observations and is noisier for it.'),
+      watch: L(
+        'Chỉ những phiên mà MỌI mã đều giao dịch mới được dùng. Một mã mới lên sàn sẽ kéo số phiên chung xuống cho cả danh mục.',
+        'Only sessions on which EVERY ticker traded are used. One recently listed ticker drags the common session count down for the whole portfolio.'),
     });
     Explain.define('pf.horizon', {
-      title: 'Kỳ dự phóng',
-      what: 'Mô phỏng nhìn về phía trước bao nhiêu phiên giao dịch.',
-      how: '21 / 63 / 126 / 252 phiên tương ứng 1 tháng, 3 tháng, 6 tháng và 1 năm.',
-      watch: 'Kỳ càng dài thì mô phỏng càng phụ thuộc vào giả định rằng chế độ thị trường trong cửa sổ quá khứ còn tiếp tục. Với kỳ một năm, đó là một giả định lớn.',
+      title: L('Kỳ dự phóng', 'Projection horizon'),
+      what: L('Mô phỏng nhìn về phía trước bao nhiêu phiên giao dịch.',
+              'How many trading sessions ahead the simulation looks.'),
+      how: L('21 / 63 / 126 / 252 phiên tương ứng 1 tháng, 3 tháng, 6 tháng và 1 năm.',
+             '21 / 63 / 126 / 252 sessions are one month, three months, six months and a year.'),
+      watch: L(
+        'Kỳ càng dài thì mô phỏng càng phụ thuộc vào giả định rằng chế độ thị trường trong cửa sổ quá khứ còn tiếp tục. Với kỳ một năm, đó là một giả định lớn.',
+        'The longer the horizon, the more the simulation rests on the assumption that the regime in the past window continues. At a year, that is a large assumption.'),
     });
 
     rows = [blankRow(), blankRow()];
@@ -786,7 +803,7 @@ const Portfolio = (() => {
     bindRows();
 
     elements.run.addEventListener('click', () => config.withButton(
-      elements.run, 'Đang phân tích…', run,
+      elements.run, L('Đang phân tích…', 'Analysing…'), run,
     ));
 
     loadSymbols();
