@@ -76,21 +76,32 @@ const Portfolio = (() => {
           : known.size
             ? `<span class="pf-warn">${esc(t('pf.unknown'))}</span>` : '';
 
+      /* The badge comes from Paper rather than being reimplemented here.
+         Its whole value is that one ticker is one colour everywhere it
+         appears; two copies of the hash and the palette would drift apart the
+         first time either was edited, and then FPT would be one colour in a
+         paper session and another in the portfolio. */
+      const badge = code ? Paper.symbolBadge(code)
+        : '<span class="sym-badge sym-badge-empty" aria-hidden="true"></span>';
+
       return `<div class="pf-row" data-row="${row.id}">
         <div class="pf-row-head">
-          <input class="pf-symbol" list="pf-symbols" value="${esc(row.symbol)}"
-                 placeholder="FPT" autocomplete="off" spellcheck="false" />
+          ${badge}
+          <div class="pf-row-id">
+            <input class="pf-symbol" list="pf-symbols" value="${esc(row.symbol)}"
+                   placeholder="FPT" autocomplete="off" spellcheck="false" />
+            ${note}
+          </div>
+          <div class="pf-row-fields">
+            <label><span>${esc(t('pf.quantity'))}</span>
+              <input class="pf-quantity" inputmode="numeric" value="${esc(row.quantity)}"
+                     placeholder="1.000" /></label>
+            <label><span>${esc(t('pf.costBasis'))}</span>
+              <input class="pf-cost" inputmode="numeric" value="${esc(row.costBasis)}"
+                     placeholder="${esc(t('pf.optional'))}" /></label>
+          </div>
           <button class="pf-remove" title="${esc(t('pf.remove'))}"
                   aria-label="${esc(t('pf.remove'))}">✕</button>
-        </div>
-        ${note}
-        <div class="pf-row-fields">
-          <label><span>${esc(t('pf.quantity'))}</span>
-            <input class="pf-quantity" inputmode="numeric" value="${esc(row.quantity)}"
-                   placeholder="1.000" /></label>
-          <label><span>${esc(t('pf.costBasis'))}</span>
-            <input class="pf-cost" inputmode="numeric" value="${esc(row.costBasis)}"
-                   placeholder="${esc(t('pf.optional'))}" /></label>
         </div>
       </div>`;
     }).join('');

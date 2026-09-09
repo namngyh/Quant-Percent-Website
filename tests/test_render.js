@@ -261,8 +261,44 @@ async function render(label, kind, payload) {
   expect('opening the dialog does not start a session', started === false);
   expect('the dialog becomes visible', psel('paper-settings').hidden === false);
 
-  // A venue preset fills the fee in.
+  // The venue list follows the market the session will open on.
+  expect('crypto offers the Binance venues',
+         JSON.stringify(window.Paper.venuesFor('BTCUSDT'))
+           === JSON.stringify(['binance_futures_taker', 'binance_futures_maker', 'binance_spot']));
+  expect('a VN equity offers only HOSE',
+         JSON.stringify(window.Paper.venuesFor('VN:VIC')) === JSON.stringify(['hose']));
+  expect('a VN30F contract offers only the derivatives venue',
+         JSON.stringify(window.Paper.venuesFor('VN:VN30F1M')) === JSON.stringify(['vn_derivatives']));
+  expect('no Binance venue is offered for a VN contract',
+         !window.Paper.venuesFor('VN:VN30F1M').some((v) => v.startsWith('binance')));
+
+  // Opening on a VN contract must not leave a Binance venue selected.
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VN30F1M',
+                              timeframe: '1m', params: {} });
+  expect('opening on VN30F1M selects the derivatives venue',
+         psel('ps-preset').value === 'vn_derivatives');
+  expect('a single-venue market does not pretend to offer a choice',
+         psel('ps-preset').disabled === true);
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'BTCUSDT',
+                              timeframe: '1m', params: {} });
+  expect('opening on crypto re-enables the choice',
+         psel('ps-preset').disabled === false);
+
+  // Hand-typed costs must not follow you into another market.
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'BTCUSDT',
+                              timeframe: '1m', params: {} });
+  psel('ps-fee').value = '0.99';
+  psel('ps-fee').dispatchEvent(new window.Event('input'));
+  expect('hand editing marks the venue custom', psel('ps-preset').value === 'custom');
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VIC',
+                              timeframe: '1d', params: {} });
+  expect('a different market does not inherit the previous custom costs',
+         psel('ps-preset').value === 'hose' && Number(psel('ps-fee').value) === 0.15);
+
+  // A venue preset fills the fee in. Back on crypto, where spot is offered.
   window.I18n.set('en');
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'BTCUSDT',
+                              timeframe: '1m', params: {} });
   psel('ps-preset').value = 'binance_spot';
   psel('ps-preset').dispatchEvent(new window.Event('change'));
   expect('a preset sets the fee', Number(psel('ps-fee').value) === 0.1);
@@ -307,13 +343,17 @@ async function render(label, kind, payload) {
   expect('the dialog closes after starting', psel('paper-settings').hidden === true);
 
   // And the whole dialog is bilingual.
+  // The venue list is filtered by symbol now, so reach HOSE the way a user
+  // does: by opening the dialog on a HOSE symbol.
   window.I18n.set('vi');
-  psel('ps-preset').value = 'hose';
-  psel('ps-preset').dispatchEvent(new window.Event('change'));
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VIC',
+                              timeframe: '1d', params: {} });
   const vi = psel('ps-warning').textContent;
   window.I18n.set('en');
   psel('ps-preset').dispatchEvent(new window.Event('change'));
   expect('venue notes are bilingual', vi !== psel('ps-warning').textContent && vi.length > 0);
+  expect('a HOSE session is told it cannot short',
+         /cannot be sold short/.test(psel('ps-warning').textContent));
 
   // ---------- Report tabs ----------
   //

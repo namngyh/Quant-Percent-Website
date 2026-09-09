@@ -332,7 +332,15 @@
       el.modeToggle.textContent = mode === 'overview' ? t('top.trade') : t('top.overview');
       el.modeToggle.classList.toggle('btn-primary', mode === 'overview');
     }
-    if (mode === 'trading') loadWorkingView();
+    if (mode === 'trading') {
+      loadWorkingView();
+      // Opening the working view puts you at the recent end, zoomed to candles
+      // you can read, rather than on the whole history squeezed flat.
+      ChartManager.focusRecent();
+    } else {
+      // Back to overview: the whole loaded history, which is the point of it.
+      ChartManager.fitAll();
+    }
     // The chart's own box changes size when the panels appear or go away.
     requestAnimationFrame(() => ChartManager.refreshSize());
   }
@@ -1169,7 +1177,15 @@ def signals(df, params):
     // Let the mark finish drawing even when the data arrives instantly;
     // a splash that flickers away mid-stroke looks like a glitch.
     const elapsed = Date.now() - bootedAt;
-    const wait = Math.max(0, 1250 - elapsed);
+    /* Long enough for the animation to finish rather than be interrupted.
+
+       The mark draws for 0.78s, the name fades in at 0.72s, the bar appears at
+       0.85s and the credit at 1.05s — so at 1 250 ms the last element was
+       still fading in as the whole screen began to leave. Boot now takes about
+       100 ms of that (the slow requests moved off the critical path), which
+       means the splash is almost always waiting anyway; waiting for the right
+       length is free. */
+    const wait = Math.max(0, 2100 - elapsed);
     setTimeout(() => {
       splash.classList.add('done');
       setTimeout(() => splash.remove(), 600);

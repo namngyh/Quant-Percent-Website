@@ -32,11 +32,16 @@
       <div class="splash-bar" role="progressbar" aria-label="Loading"><span></span></div>
       <div class="splash-credit">
         <span data-i18n="splash.charting">Charting powered by</span>
-        <svg class="splash-tv" viewBox="0 0 36 20" aria-label="TradingView">
-          <path d="M1 1h13v4H9v14H5V5H1z" />
-          <path d="M17 1h8a5 5 0 0 1 0 10h-3l4 8h-4.5l-4-8V19H17z" />
-          <circle cx="31.5" cy="4" r="3" />
-        </svg>
+<!-- The wordmark as text, not a drawn logo.
+
+             The SVG here before was my own approximation of the TradingView
+             mark and it rendered as a garbled shape. Approximating someone
+             else's trademark by hand is the wrong thing to do twice over: it
+             looks broken, and a wrong logo is a worse attribution than none.
+             The Lightweight Charts licence asks for attribution with a link to
+             tradingview.com, which is exactly what this is. -->
+        <a class="splash-tv" href="https://www.tradingview.com/"
+           target="_blank" rel="noopener noreferrer">TradingView</a>
       </div>
     </div>
   </div>
@@ -487,13 +492,10 @@
         <label class="param-row"><span><span data-i18n="ps.preset">Sàn</span>
           <button type="button" class="info-btn" data-explain="ps.preset"
                   data-i18n-title="ps.preset" title="Sàn">i</button></span>
-          <select id="ps-preset">
-            <option value="binance_futures_taker">Binance Futures — taker</option>
-            <option value="binance_futures_maker">Binance Futures — maker</option>
-            <option value="binance_spot">Binance Spot</option>
-            <option value="hose">HOSE</option>
-            <option value="custom" data-i18n="ps.custom">Tự đặt</option>
-          </select></label>
+          <!-- Filled from the symbol when the dialog opens: a VN30F contract
+               has one possible venue and offering Binance beside it is the
+               interface inviting a mistake. See venuesFor() in paper.js. -->
+          <select id="ps-preset"></select></label>
 
         <div class="params">
           <label class="param-row"><span data-i18n="st.capital">Vốn ban đầu</span>

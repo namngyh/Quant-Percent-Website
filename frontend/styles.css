@@ -941,22 +941,22 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .splash-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 
-.splash-mark { width: 84px; height: 84px; overflow: visible; }
+.splash-mark { width: 132px; height: 132px; overflow: visible; }
 .splash-mark rect {
   fill: var(--accent);
   opacity: 0;
   transform-origin: center;
-  animation: markSquare 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  animation: markSquare 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
 .splash-mark rect:nth-of-type(1) { animation-delay: 0.05s; }
-.splash-mark rect:nth-of-type(2) { animation-delay: 0.42s; }
+.splash-mark rect:nth-of-type(2) { animation-delay: 0.52s; }
 .splash-mark path {
   stroke: var(--accent);
   stroke-width: 16;
   fill: none;
   stroke-dasharray: 124;
   stroke-dashoffset: 124;
-  animation: markSlash 0.62s cubic-bezier(0.65, 0, 0.35, 1) 0.16s forwards;
+  animation: markSlash 0.78s cubic-bezier(0.65, 0, 0.35, 1) 0.22s forwards;
 }
 
 @keyframes markSquare {
@@ -973,7 +973,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   color: var(--text-faint);
   font-weight: 500;
   opacity: 0;
-  animation: fadeUp 0.5s ease-out 0.72s forwards;
+  animation: fadeUp 0.55s ease-out 1.05s forwards;
 }
 .splash-word strong { color: var(--text); font-weight: 700; }
 
@@ -1962,7 +1962,7 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
  */
 .splash-inner { gap: 18px; }
 
-.splash-word { font-size: 13px; letter-spacing: 3.4px; }
+.splash-word { font-size: 15px; letter-spacing: 4px; }
 
 .splash-bar {
   width: 168px;
@@ -1971,7 +1971,7 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   background: var(--surface-3);
   overflow: hidden;
   opacity: 0;
-  animation: fadeUp 0.4s ease-out 0.85s forwards;
+  animation: fadeUp 0.45s ease-out 1.35s forwards;
 }
 .splash-bar span {
   display: block;
@@ -1994,9 +1994,16 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   font-size: 11.5px;
   color: var(--text-faint);
   opacity: 0;
-  animation: fadeUp 0.5s ease-out 1.05s forwards;
+  animation: fadeUp 0.5s ease-out 1.6s forwards;
 }
-.splash-tv { width: 34px; height: 19px; fill: var(--text-dim); }
+.splash-tv {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.1px;
+  color: var(--text);
+  text-decoration: none;
+}
+.splash-tv:hover { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
   .splash-bar span { animation: none; width: 100%; }
@@ -2015,3 +2022,121 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 
 /* The bar-count selector now lives in the strategy panel. */
 #limit { width: 100%; }
+
+
+/* ==================== Quant Portfolio ====================
+ *
+ * The positions were eight separate cards, each with its own border, its own
+ * shadow and its own hover lift. Eight floating boxes in a 344px panel is a
+ * lot of edges for very little content, and the shadows were the only ones
+ * left in the interface — everything else separates with a hairline.
+ *
+ * They are now one bordered list with rules between the rows, the shape the
+ * rest of the app uses for a series of like things, and each row leads with
+ * the same coloured badge the paper sessions use so a ticker is recognisable
+ * before it is read.
+ */
+.pf-rows {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.pf-rows:empty { display: none; }
+
+.pf-row {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 12px 14px;
+  background: var(--surface);
+  box-shadow: none;
+  transition: background 0.15s ease;
+}
+.pf-row:last-child { border-bottom: 0; }
+.pf-row:hover { border-color: var(--border-soft); box-shadow: none; background: var(--surface-2); }
+
+/* Two rows: the badge, ticker and remove button across the top, the two
+   number fields underneath spanning the ticker's column.
+
+   Not side by side. The panel is a fixed 344px at every viewport width, so
+   there is no screen on which a ticker, two labelled number fields and a
+   remove button fit on one line — the earlier attempt guarded that layout
+   with a viewport media query, which is the wrong measurement entirely: the
+   panel does not get wider when the window does. */
+.pf-row-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'badge ident remove'
+    '.     fields fields';
+  gap: 8px 10px;
+  align-items: center;
+}
+.pf-row-head > .sym-badge { grid-area: badge; }
+.pf-row-id { grid-area: ident; min-width: 0; display: grid; gap: 1px; }
+.pf-row-head .pf-symbol {
+  width: 100%;
+  min-width: 0;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: inherit;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font-size: 14px;
+}
+.pf-row-head .pf-symbol:hover { border: 0; background: transparent; }
+.pf-row-head .pf-symbol:focus {
+  outline: none;
+  box-shadow: 0 1px 0 0 var(--accent);
+}
+
+/* The two number fields sit beside the ticker rather than under it: a row is
+   one position, and a position reads across. */
+.pf-row-fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.pf-row-fields label { display: grid; gap: 3px; }
+.pf-row-fields label span { font-size: 10.5px; color: var(--text-faint); }
+.pf-row-fields input { font-family: inherit; font-variant-numeric: tabular-nums; }
+
+.sym-badge-empty {
+  background: var(--surface-3);
+  border: 1px dashed var(--border);
+}
+
+.pf-remove {
+  grid-area: remove;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+.pf-remove:hover { background: var(--down-soft); color: var(--down); }
+
+/* Quick-add: chips that look pressable at the new control sizes. */
+.pf-quick-bar { display: grid; gap: 8px; margin-bottom: 12px; }
+.pf-quick-title { font-size: 12px; color: var(--text-dim); }
+.pf-quick-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-quick-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 5px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pf-quick-chip:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+

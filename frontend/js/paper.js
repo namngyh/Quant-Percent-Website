@@ -329,10 +329,66 @@ const Paper = (() => {
       note: () => L('Phí spot 0,1%. Spot không có đòn bẩy — hãy để đòn bẩy bằng 1.',
                     'Spot fee of 0.1%. Spot has no leverage — leave leverage at 1.') },
     hose: { fee: 0.15, slippage: 0.05, leverage: 1,
-      label: () => 'HOSE',
+      label: () => L('HOSE — cổ phiếu', 'HOSE — equities'),
       note: () => L('Phí môi giới ~0,15%. Chưa gồm thuế bán 0,1% và phí lưu ký, nên chi phí thật cao hơn con số này. Cổ phiếu Việt Nam cũng không cho bán khống.',
                     'Brokerage around 0.15%. This excludes the 0.1% sell tax and custody fees, so the real cost is higher. Vietnamese equities also cannot be sold short.') },
+    vn_derivatives: { fee: 0.03, slippage: 0.03, leverage: 1,
+      label: () => L('Phái sinh VN (VN30F)', 'VN derivatives (VN30F)'),
+      note: () => L('Phí môi giới ~0,03% cộng phí giao dịch của sở. Khác cổ phiếu ở hai điểm: hợp đồng tương lai được bán khống, và vị thế chạy trên ký quỹ chứ không phải tiền mặt đầy đủ.',
+                    'Brokerage around 0.03% plus the exchange fee. Two things differ from equities: futures can be sold short, and the position runs on margin rather than on the full cash amount.') },
   };
+
+  /* Which venues can apply to a symbol.
+
+     Offering "Binance Futures — taker" while opening a session on VN30F1M is
+     not a harmless extra option: it is the interface asking a question that
+     has one answer and letting the user get it wrong. The market is already
+     known from the symbol, so the list is filtered to the venues that can
+     actually trade it and the first is chosen. */
+  const VN_PREFIX = 'VN:';
+
+  function venuesFor(symbol) {
+    const name = String(symbol || '');
+    if (!name.startsWith(VN_PREFIX)) {
+      return ['binance_futures_taker', 'binance_futures_maker', 'binance_spot'];
+    }
+    // VN30F1M, VN30F2M and the quarterly contracts are futures; everything
+    // else on this market is an ordinary HOSE listing.
+    const bare = name.slice(VN_PREFIX.length);
+    return /^VN30F/i.test(bare) ? ['vn_derivatives'] : ['hose'];
+  }
+
+  // The symbol the venue list was last built for.
+  let venuesFor_symbol = null;
+
+  /** Rebuild the venue list for the symbol the session will open on. */
+  function fillVenues(symbol) {
+    const el = elements.settings || {};
+    if (!el.preset) return;
+    const keys = venuesFor(symbol);
+    const previous = el.preset.value;
+    const sameMarket = venuesFor_symbol !== null
+      && JSON.stringify(venuesFor(venuesFor_symbol)) === JSON.stringify(keys);
+    venuesFor_symbol = symbol;
+
+    el.preset.innerHTML = keys
+      .map((key) => `<option value="${key}">${esc(PRESETS[key].label())}</option>`)
+      .join('') + `<option value="custom">${esc(L('Tự đặt', 'Custom'))}</option>`;
+
+    /* Keep the previous choice only while the market is the same.
+
+       "Custom" carries hand-typed fees, and hand-typed Binance fees are not a
+       reasonable default for a HOSE session — carrying them across markets
+       meant a VN session silently opened on crypto costs with no venue note to
+       say otherwise. A different market starts from that market's own venue. */
+    el.preset.value = sameMarket && (keys.includes(previous) || previous === 'custom')
+      ? previous
+      : keys[0];
+    // A single-venue market has nothing to choose, so the control says so
+    // rather than pretending to offer a decision.
+    el.preset.disabled = keys.length === 1 && el.preset.value !== 'custom';
+    applyPreset(el.preset.value);
+  }
 
   function settingsValues() {
     const el = elements.settings || {};
@@ -385,6 +441,10 @@ const Paper = (() => {
       notes.push(L('Đòn bẩy trên HOSE là ký quỹ margin của công ty chứng khoán, cơ chế khác hẳn mô hình thanh lý trong nến mà engine dùng.',
                    'Leverage on HOSE is broker margin, which behaves quite differently from the intrabar liquidation model the engine uses.'));
     }
+    if (key === 'hose') {
+      notes.push(L('Cổ phiếu HOSE không bán khống được, nên mọi lệnh BÁN ở đây chỉ là đóng vị thế mua.',
+                   'HOSE equities cannot be sold short, so every SELL here only closes a long.'));
+    }
     if (v.leverage >= 10) {
       notes.push(L(`Ở đòn bẩy ${v.leverage}x, một biến động bất lợi ${(100 / v.leverage).toFixed(1)}% là đủ để thanh lý — và engine kiểm tra theo giá thấp nhất trong nến, không phải giá đóng cửa.`,
                    `At ${v.leverage}x, an adverse move of ${(100 / v.leverage).toFixed(1)}% is enough to liquidate — and the engine checks the bar's low, not its close.`));
@@ -397,6 +457,7 @@ const Paper = (() => {
     pending = request;
     const el = elements.settings || {};
     if (!el.root) return start(request);   // dialog absent: behave as before
+    fillVenues(request.symbol);
     refreshSettings();
     el.root.hidden = false;
     el.capital?.focus();
@@ -511,6 +572,6 @@ const Paper = (() => {
 
   return { init, refresh, start, apply, rerender: render,
            openSettings, settingsValues, startManual, ticket, symbolBadge,
-           refreshManualButton,
+           refreshManualButton, venuesFor,
            get sessions() { return sessions; } };
 })();

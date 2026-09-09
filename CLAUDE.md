@@ -172,6 +172,79 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-10 (chiều) — Zoom sẵn, sàn theo mã, Quant Portfolio, splash
+
+**249 test Python + toàn bộ render check.**
+
+#### 1. Vào "Giao dịch" là biểu đồ đã zoom sẵn
+
+Chế độ tổng quan cố ý hiện **toàn bộ** lịch sử; mang nguyên phạm vi đó sang chế
+độ làm việc nghĩa là mở ra với hai nghìn nến bị nén còn vài pixel mỗi cây, và
+việc đầu tiên ai cũng phải làm là zoom vào — mỗi lần.
+
+`focusRecent(180)` đưa đầu mới nhất lên màn hình ở bề rộng nến đọc được. Đếm
+theo **số nến** chứ không theo hệ số zoom: lượng lịch sử hợp lý là một con số
+nến, không phải một tỷ lệ — 180 cây là một màn hình đọc được dù chuỗi có 500
+hay 20 000 cây. Quay lại tổng quan thì `fitAll()` trả về toàn bộ.
+
+#### 2. Không hỏi sàn nữa khi sàn đã biết
+
+Mở phiên tay trên VN30F1M mà vẫn bày ra "Binance Futures — taker" không phải là
+thừa một lựa chọn vô hại: đó là giao diện hỏi một câu chỉ có một đáp án, và cho
+phép người dùng trả lời sai. Danh sách sàn giờ **lọc theo mã**:
+
+| Mã | Sàn được chào |
+|---|---|
+| `BTCUSDT` | Binance Futures taker / maker / Spot |
+| `VN:VIC` | HOSE — cổ phiếu |
+| `VN:VN30F1M` | Phái sinh VN (VN30F) |
+
+Thêm preset **phái sinh VN** vì hợp đồng tương lai khác cổ phiếu ở hai điểm
+thật: bán khống được, và chạy trên ký quỹ. Thị trường một sàn thì ô chọn bị vô
+hiệu hoá — không giả vờ mời một quyết định không tồn tại. Phiên HOSE được nói
+thẳng là **không bán khống được**, nên mọi lệnh BÁN chỉ là đóng vị thế mua.
+
+*Một lỗi thiết kế của tôi lộ ra khi test:* quy tắc đầu của tôi là "giữ lựa chọn
+cũ nếu còn áp dụng được, kể cả Tự đặt". Nhưng "Tự đặt" mang theo phí gõ tay, và
+phí Binance gõ tay **không phải** mặc định hợp lý cho một phiên HOSE — một phiên
+VN sẽ lặng lẽ mở bằng chi phí crypto mà không có ghi chú sàn nào. Giờ chỉ giữ
+lựa chọn cũ khi **cùng thị trường**; đổi thị trường là bắt đầu lại từ sàn của
+thị trường đó. Đã có test cho đúng tình huống này.
+
+#### 3. Quant Portfolio
+
+Các vị thế trước đây là tám thẻ rời, mỗi thẻ một viền, một shadow và một hiệu
+ứng nhấc lên khi rê chuột. Tám hộp nổi trong một panel 344px là rất nhiều cạnh
+cho rất ít nội dung — và đó là những shadow **duy nhất còn sót lại** trong giao
+diện, mọi thứ khác đã chuyển sang phân tách bằng một đường kẻ mảnh.
+
+Giờ là **một danh sách có viền, các dòng ngăn nhau bằng kẻ mảnh**, đúng hình
+dáng phần còn lại của ứng dụng dùng cho một chuỗi thứ cùng loại. Mỗi dòng mở
+đầu bằng **huy hiệu màu** giống hệt phiên paper — gọi `Paper.symbolBadge` chứ
+không viết lại, vì toàn bộ giá trị của huy hiệu là *một mã một màu ở mọi nơi*;
+hai bản sao của hàm băm và bảng màu sẽ lệch nhau ngay lần sửa đầu tiên.
+
+*Bản đầu của tôi sai và ảnh chụp cho thấy:* tôi xếp ô số lượng nằm **cạnh** mã
+và bọc biến thể xếp chồng trong `@media (max-width: 1080px)`. Đó là đo sai đại
+lượng — panel rộng cố định 344px ở **mọi** bề rộng cửa sổ, nó không nở ra khi
+cửa sổ nở. Không có màn hình nào mà mã, hai ô số có nhãn và nút xoá vừa trên
+một dòng. Đã bỏ hẳn biến thể đó: badge + mã + nút xoá ở hàng trên, hai ô số ở
+hàng dưới.
+
+#### 5. Màn hình mở đầu
+
+- **Logo TradingView không còn hỏng.** Cái SVG trước là tôi tự phỏng theo dấu
+  hiệu của họ và nó render ra một hình méo. Phỏng theo thương hiệu người khác
+  bằng tay là sai hai lần: nó trông như lỗi, và một logo sai còn tệ hơn không
+  có logo. Giờ là **wordmark chữ có link tới tradingview.com** — đúng thứ giấy
+  phép Lightweight Charts yêu cầu.
+- **Logo QP to hơn**: 84px → 132px.
+- **Chậm lại để chạy hết hiệu ứng**: dấu hiệu vẽ 0,78s, tên hiện ở 1,05s, thanh
+  ở 1,35s, dòng ghi công ở 1,6s — trước đây màn hình bắt đầu rời đi ở 1 250ms,
+  tức là phần tử cuối vẫn đang hiện dần thì cả màn hình đã tan. Giờ chờ 2 100ms.
+  Khởi động chỉ tốn ~100ms trong số đó (các request chậm đã ra khỏi đường tới
+  hạn), nên splash vốn đã phải đợi — đợi đúng độ dài là miễn phí.
+
 ### 2026-09-10 — Realtime mặc định, splash mới, thanh trên gọn lại, và một cái ratchet cho i18n
 
 **249 test Python + toàn bộ render check.**

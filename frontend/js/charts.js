@@ -135,6 +135,35 @@ const ChartManager = (() => {
      panes, nothing to configure. It answers "what has this thing been doing",
      which is the question someone has before they have any other question.
      Trading mode is everything else. */
+  /* Put the newest bars on screen at a size you can actually read.
+
+     The overview is meant to show a whole history at once, so its default
+     range is every bar loaded. Carrying that into the working view means
+     opening on two thousand candles compressed to a few pixels each — the
+     first thing anyone does is zoom in, every time. A working chart opens
+     where work happens: the recent end, at a candle width you can see.
+
+     `bars` is a count rather than a zoom factor because the right amount of
+     history is a number of bars, not a ratio: 180 candles is a readable
+     screenful whether the series holds 500 of them or 20 000. */
+  function focusRecent(bars = 180) {
+    if (!mainChart || !candleData.length) return;
+    const scale = mainChart.timeScale();
+    const last = candleData.length - 1;
+    const span = Math.min(bars, candleData.length);
+    scale.setVisibleLogicalRange({
+      from: last - span + 1,
+      // A little room past the last bar so the newest candle is not welded to
+      // the right edge, which is where the price scale and its label sit.
+      to: last + Math.max(4, Math.round(span * 0.04)),
+    });
+  }
+
+  /** The whole loaded history, which is what the overview is for. */
+  function fitAll() {
+    mainChart?.timeScale().fitContent();
+  }
+
   function setMode(next) {
     if (next !== 'overview' && next !== 'trading') return mode;
     mode = next;
@@ -691,7 +720,7 @@ const ChartManager = (() => {
     return older.length;
   }
 
-  return { init, setCandles, setMode, prependCandles,
+  return { init, setCandles, setMode, prependCandles, focusRecent, fitAll,
            set onNeedHistory(fn) { onNeedHistory = fn || null; },
            get oldestTime() { return candleData.length ? candleData[0].time : null; },
            draw, drawOverlay, drawPane, remove, clearAll, alignment,
