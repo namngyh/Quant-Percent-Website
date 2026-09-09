@@ -50,7 +50,10 @@
     </div>
 
     <div class="topbar-right">
-      <span id="price" class="price-ticker" hidden></span>
+      <span id="price-block" class="price-block" hidden>
+        <span id="price" class="price-ticker"></span>
+        <span id="price-change" class="price-change"></span>
+      </span>
       <span id="status" class="status" title=""></span>
       <span class="tz-badge" data-i18n-title="top.tz">GMT+7</span>
       <button id="live-toggle" class="btn btn-quiet live-toggle" data-i18n-title="top.liveToggle">
@@ -365,6 +368,8 @@
         </div>
         <div class="panel-body">
           <p class="hint" data-i18n="paper.lead"></p>
+          <button id="start-manual" class="btn btn-primary btn-block"
+                  data-i18n="ps.manual">Giao dịch tay</button>
           <div id="paper-sessions" class="paper-list"></div>
 
           <div class="field-group" style="margin-top:14px">

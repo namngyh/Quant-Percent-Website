@@ -388,6 +388,72 @@ async function render(label, kind, payload) {
   if (riskTabHtml.includes('RAR/MDD')) console.log('  PASS  risk tab: RAR/MDD card');
   else { console.log('  FAIL  risk tab: RAR/MDD card missing'); failures++; }
 
+  // ---------- Trade ticket ----------
+  //
+  // The one place a user's own money-shaped intention enters the system. A
+  // ticket that renders the wrong price, or leaves Buy enabled while already
+  // long, is worse than a wrong metric elsewhere.
+
+  const fakeSession = (over) => Object.assign({
+    id: 'sess1', strategy_id: 'manual', is_manual: true, manual_override: false,
+    manual_orders: 0, symbol: 'BTCUSDT', timeframe: '1m', active: true,
+    bars_seen: 42, position: 0, quantity: 0, entry_price: 0, entry_time: 0,
+    last_price: 79616.01, last_closed_time: 1700000000, pending_signal: 0,
+    realized_equity: 10000, unrealized_pnl: 0, equity: 10000, return_pct: 0,
+    num_trades: 0, num_wins: 0, win_rate_pct: 0, realized_pnl: 0, trades: [],
+    config: { initial_capital: 10000, size_pct: 1, leverage: 1,
+              fee: 0.0004, slippage: 0.0002 },
+  }, over);
+
+  const tsay = (what, ok) => {
+    if (ok) console.log(`  PASS  ticket: ${what}`);
+    else { console.log(`  FAIL  ticket: ${what}`); failures++; }
+  };
+
+  window.I18n.set('en');
+  let tk = window.Paper.ticket(fakeSession());
+  tsay('shows the live price on both buttons',
+       (tk.match(/79,616\.01/g) || []).length >= 2);
+  tsay('buy and sell are both offered when flat',
+       /data-order="long"/.test(tk) && /data-order="short"/.test(tk));
+  tsay('close is disabled when there is no position',
+       /data-order="close"[^>]*disabled/.test(tk));
+  tsay('round-trip cost is stated on the ticket', /0\.120% of notional/.test(tk));
+
+  tk = window.Paper.ticket(fakeSession({ position: 1 }));
+  tsay('buy is disabled while already long', /data-order="long"[^>]*disabled/.test(tk));
+  tsay('sell stays enabled while long, so a flip is one click',
+       /data-order="short"(?![^>]*disabled)/.test(tk));
+  tsay('close is enabled while holding',
+       /data-order="close"(?![^>]*disabled)/.test(tk));
+
+  tk = window.Paper.ticket(fakeSession({ position: -1 }));
+  tsay('sell is disabled while already short', /data-order="short"[^>]*disabled/.test(tk));
+
+  tsay('a stopped session offers no ticket at all',
+       window.Paper.ticket(fakeSession({ active: false })) === '');
+
+  tk = window.Paper.ticket(fakeSession({ manual_override: true, is_manual: false,
+                                         strategy_id: 'example_ema_cross' }));
+  tsay('a strategy session under manual override offers to hand control back',
+       /data-resume-strategy/.test(tk));
+  tsay('a purely manual session does not offer that',
+       !/data-resume-strategy/.test(window.Paper.ticket(fakeSession())));
+
+  window.I18n.set('vi');
+  const tkvi = window.Paper.ticket(fakeSession());
+  tsay('the ticket is bilingual', /MUA/.test(tkvi) && /BÁN/.test(tkvi));
+
+  // And nothing in it prints a placeholder.
+  for (const lang of ['vi', 'en']) {
+    window.I18n.set(lang);
+    const holder = window.document.createElement('div');
+    holder.innerHTML = window.Paper.ticket(fakeSession({ position: 1 }));
+    const hits = BAD.filter(([, re]) => re.test(holder.textContent)).map(([nm]) => nm);
+    tsay(`renders clean in ${lang}${hits.length ? ` (printed ${hits.join(', ')})` : ''}`,
+         hits.length === 0);
+  }
+
   console.log(failures ? `\n${failures} failed` : '\nall render checks passed');
   process.exit(failures ? 1 : 0);
 })();

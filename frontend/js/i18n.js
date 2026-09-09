@@ -202,6 +202,7 @@ const I18n = (() => {
     'ps.custom':          { vi: 'Tự đặt', en: 'Custom' },
     'ps.copy':            { vi: 'Lấy từ backtest', en: 'Copy from backtest' },
     'ps.start':           { vi: 'Bắt đầu phiên', en: 'Start session' },
+    'ps.manual':          { vi: 'Giao dịch tay', en: 'Manual trading' },
     'rp.period':          { vi: 'Theo kỳ', en: 'By period' },
     'rp.dist':            { vi: 'Phân phối', en: 'Distribution' },
     'rp.ml':              { vi: 'Học máy', en: 'Machine learning' },

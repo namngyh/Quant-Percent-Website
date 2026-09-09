@@ -28,6 +28,8 @@
     compareList: document.getElementById('compare-list'),
     openReport: document.getElementById('open-report'),
     price: document.getElementById('price'),
+    priceBlock: document.getElementById('price-block'),
+    priceChange: document.getElementById('price-change'),
     chartTools: document.getElementById('chart-tools'),
     toggleMarkers: document.getElementById('toggle-markers'),
     clearMarkers: document.getElementById('clear-markers'),
@@ -50,6 +52,9 @@
   // rest of the module state rather than beside `showPrice`, because
   // `loadCandles` calls that before the ticker's own section is reached.
   let lastPrice = null;
+  // First price seen for the current symbol; the percentage is measured from
+  // it and reset whenever the symbol changes.
+  let sessionOpen = null;
 
   const INTRADAY = new Set(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h']);
 
@@ -194,14 +199,30 @@
       el.price.classList.toggle('up', value > lastPrice);
       el.price.classList.toggle('down', value < lastPrice);
     }
-    el.price.hidden = false;
+
+    /* Change against the session's opening price, the way a quote is normally
+       read. The colour above flickers with each tick, which answers "is it
+       moving right now"; this answers "where is it against where it started",
+       and the two are often opposite. Anchored to the first price seen after a
+       symbol change, so it never compares two different instruments. */
+    if (sessionOpen === null) sessionOpen = value;
+    if (el.priceChange && sessionOpen > 0) {
+      const delta = (value / sessionOpen - 1) * 100;
+      el.priceChange.textContent = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%`;
+      el.priceChange.classList.toggle('up', delta > 0);
+      el.priceChange.classList.toggle('down', delta < 0);
+    }
+
+    el.priceBlock.hidden = false;
     lastPrice = value;
   }
 
   function hidePrice() {
-    el.price.hidden = true;
+    el.priceBlock.hidden = true;
     el.price.classList.remove('up', 'down');
+    el.priceChange?.classList.remove('up', 'down');
     lastPrice = null;
+    sessionOpen = null;
   }
 
   function onLiveCandle(candle) {
@@ -951,6 +972,8 @@ def signals(df, params):
       button.addEventListener('click', () => {
         if (state.timeframe === tf) return;
         state.timeframe = tf;
+        // A new timeframe is a new series, so the percentage restarts with it.
+        hidePrice();
         for (const b of el.timeframes.children) b.classList.toggle('active', b === button);
         loadCandles();
       });
@@ -1105,6 +1128,9 @@ def signals(df, params):
       elements: {
         list: document.getElementById('paper-sessions'),
         refresh: document.getElementById('refresh-paper'),
+        startManual: document.getElementById('start-manual'),
+        // A hand-traded session opens on whatever the chart is showing.
+        context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
         // The settings dialog: a paper session's costs are its own, not the
         // backtest panel's, and they are frozen once the session starts.
         settings: {
@@ -1193,6 +1219,10 @@ def signals(df, params):
 
     el.symbol.addEventListener('change', () => {
       state.symbol = el.symbol.value;
+      // The percentage is measured from the first price of the *current*
+      // instrument. Without this it would keep the previous symbol's anchor
+      // and report BTC's move as a percentage of a VN equity's price.
+      hidePrice();
       refreshStars();
       buildTimeframeButtons();      // markets differ in what they offer
       applyMarketCapabilities();

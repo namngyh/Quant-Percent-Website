@@ -5,6 +5,10 @@
    /api/paper and pushes actions back. */
 
 const Paper = (() => {
+  // Matches MANUAL_STRATEGY_ID in backend/paper/engine.py: the sentinel that
+  // marks a session with no strategy behind it.
+  const MANUAL_STRATEGY = 'manual';
+
   let elements = {};
   let onToast = () => {};
   let sessions = [];
@@ -49,17 +53,94 @@ const Paper = (() => {
     render();
   }
 
+  /* A stable colour per symbol. Hashing the name rather than assigning from a
+     list means BTCUSDT is the same colour in every session card, in every
+     session, across reloads — which is the only thing that makes the badge
+     worth having. The palette is fixed and readable against white text. */
+  // Deliberately excludes the market green (#089981) and red (#f23645), and
+  // anything close to them. This stylesheet's first rule is that green and red
+  // mean direction and P&L and nothing else; a green badge beside a red P&L
+  // figure is exactly the decorative use that rule exists to prevent.
+  const BADGE_COLOURS = [
+    '#2962ff', '#7b1fa2', '#0277bd', '#5e35b1', '#00838f',
+    '#6d4c41', '#455a64', '#ad1457', '#283593', '#4e342e',
+  ];
+
+  function symbolBadge(symbol) {
+    const name = String(symbol || '?');
+    let hash = 0;
+    for (let i = 0; i < name.length; i += 1) {
+      hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    }
+    const colour = BADGE_COLOURS[hash % BADGE_COLOURS.length];
+    // Three characters is what fits legibly at 34px.
+    const label = name.replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || '?';
+    return `<span class="sym-badge" style="background:${colour}"
+      aria-hidden="true">${esc(label)}</span>`;
+  }
+
   function positionPill(s) {
     if (s.position > 0) return '<span class="pill long">LONG</span>';
     if (s.position < 0) return '<span class="pill short">SHORT</span>';
-    return '<span class="pill flat">ĐỨNG NGOÀI</span>';
+    return `<span class="pill flat">${esc(L('ĐỨNG NGOÀI', 'FLAT'))}</span>`;
+  }
+
+  /* The trade ticket.
+
+     Two buttons and a size box, sized and coloured the way an order pad is:
+     buy on the left in green, sell on the right in red, the live price on both
+     so you can see what you are about to pay. A manual order fills at that
+     price immediately — there is no next-candle wait, because the user is
+     acting on a number they can see (see backend/paper/engine.py).
+
+     Buttons are disabled rather than hidden when an action is impossible, so
+     the pad does not reshuffle under the pointer between two clicks. */
+  function ticket(s) {
+    if (!s.active) return '';
+    const long = s.position > 0;
+    const short = s.position < 0;
+    const costPct = (s.config.fee * 2 + s.config.slippage * 2) * 100;
+
+    return `<div class="ticket" data-ticket="${esc(s.id)}">
+      <div class="ticket-row">
+        <button class="ticket-btn buy ${long ? 'held' : ''}"
+                data-order="long" data-session="${esc(s.id)}"
+                ${long ? 'disabled' : ''}>
+          <span class="ticket-verb">${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
+          <span class="ticket-price">${money(s.last_price)}</span>
+        </button>
+        <button class="ticket-btn sell ${short ? 'held' : ''}"
+                data-order="short" data-session="${esc(s.id)}"
+                ${short ? 'disabled' : ''}>
+          <span class="ticket-verb">${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
+          <span class="ticket-price">${money(s.last_price)}</span>
+        </button>
+      </div>
+      <div class="ticket-row ticket-controls">
+        <label class="ticket-size">
+          <span>${esc(L('% vốn', '% equity'))}</span>
+          <input type="number" min="1" max="100" step="1" value="${
+            Math.round(s.config.size_pct * 100)}" data-size="${esc(s.id)}" />
+        </label>
+        <button class="btn btn-quiet btn-sm" data-order="close" data-session="${esc(s.id)}"
+                ${s.position === 0 ? 'disabled' : ''}>${esc(L('Đóng vị thế', 'Close position'))}</button>
+        ${s.manual_override ? `<button class="btn btn-quiet btn-sm"
+          data-resume-strategy="${esc(s.id)}">${esc(L('Trả lại chiến lược', 'Back to strategy'))}</button>` : ''}
+      </div>
+      <div class="ticket-note">${esc(L(
+        `Khớp ngay ở giá hiện tại. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
+        `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}</div>
+    </div>`;
   }
 
   function render() {
     if (!sessions.length) {
-      elements.list.innerHTML =
-        '<p class="empty">Chưa có phiên nào. Mở tab <strong>Chiến lược</strong>, ' +
-        'chọn chiến lược rồi bấm <strong>Chạy paper trading</strong>.</p>';
+      elements.list.innerHTML = `<p class="empty">${L(
+        'Chưa có phiên nào. Bấm <strong>Giao dịch tay</strong> ở trên để tự đặt lệnh, ' +
+        'hoặc mở tab <strong>Chiến lược</strong> rồi bấm <strong>Chạy paper trading</strong>.',
+        'No sessions yet. Press <strong>Manual trading</strong> above to place orders ' +
+        'yourself, or open the <strong>Strategy</strong> tab and press ' +
+        '<strong>Run paper trading</strong>.')}</p>`;
       return;
     }
 
@@ -69,52 +150,65 @@ const Paper = (() => {
         const open = s.position !== 0;
         return `<div class="paper-card ${s.active ? '' : 'stopped'}">
           <div class="paper-card-head">
+            ${symbolBadge(s.symbol)}
             <div>
-              <div class="paper-name">${esc(s.strategy_id)}</div>
-              <div class="paper-series">${esc(s.symbol)} · ${esc(s.timeframe)} · ${s.bars_seen} nến</div>
+              <div class="paper-name">${esc(s.is_manual
+                ? L('Giao dịch tay', 'Manual trading') : s.strategy_id)}${
+                s.manual_override
+                  ? ` <span class="pill warn">${esc(L('CAN THIỆP TAY', 'MANUAL'))}</span>` : ''}</div>
+              <div class="paper-series">${esc(s.symbol)} · ${esc(s.timeframe)} · ${
+                L(`${s.bars_seen} nến`, `${s.bars_seen} bars`)}</div>
             </div>
             <div class="paper-actions">
-              <span class="pill ${s.active ? 'running' : 'stopped'}">${s.active ? 'ĐANG CHẠY' : 'ĐÃ DỪNG'}</span>
-              <button class="btn btn-quiet btn-sm" data-paper-toggle="${esc(s.id)}">${s.active ? 'Dừng' : 'Chạy lại'}</button>
+              <span class="pill ${s.active ? 'running' : 'stopped'}">${
+                esc(s.active ? L('ĐANG CHẠY', 'RUNNING') : L('ĐÃ DỪNG', 'STOPPED'))}</span>
+              <button class="btn btn-quiet btn-sm" data-paper-toggle="${esc(s.id)}">${
+                esc(s.active ? L('Dừng', 'Stop') : L('Chạy lại', 'Resume'))}</button>
               <button class="btn btn-quiet btn-sm btn-danger" data-paper-delete="${esc(s.id)}">✕</button>
             </div>
           </div>
 
           <div class="paper-body">
             <div class="paper-stat">
-              <div class="paper-stat-label">Vốn</div>
+              <div class="paper-stat-label">${esc(L('Vốn', 'Equity'))}</div>
               <div class="paper-stat-value ${sign(pnl)}">${money(s.equity)}</div>
             </div>
             <div class="paper-stat">
-              <div class="paper-stat-label">Lợi nhuận</div>
+              <div class="paper-stat-label">${esc(L('Lợi nhuận', 'Return'))}</div>
               <div class="paper-stat-value ${sign(s.return_pct)}">${pct(s.return_pct)}</div>
             </div>
             <div class="paper-stat">
-              <div class="paper-stat-label">Vị thế</div>
+              <div class="paper-stat-label">${esc(L('Vị thế', 'Position'))}</div>
               <div class="paper-stat-value">${positionPill(s)}</div>
             </div>
             <div class="paper-stat">
-              <div class="paper-stat-label">${open ? 'Lãi/lỗ mở' : 'Đã đóng'}</div>
+              <div class="paper-stat-label">${esc(open
+                ? L('Lãi/lỗ mở', 'Open P&L') : L('Đã đóng', 'Closed'))}</div>
               <div class="paper-stat-value ${open ? sign(s.unrealized_pnl) : ''}">${
-                open ? money(s.unrealized_pnl) : `${s.num_trades} lệnh`
+                open ? money(s.unrealized_pnl)
+                     : L(`${s.num_trades} lệnh`, `${s.num_trades} trades`)
               }</div>
             </div>
             ${
               open
-                ? `<div class="paper-note">Vào ${money(s.entry_price)} · khối lượng ${s.quantity.toFixed(6)} · giá hiện tại ${money(s.last_price)}</div>`
+                ? `<div class="paper-note">${esc(L(
+                    `Vào ${money(s.entry_price)} · khối lượng ${s.quantity.toFixed(6)} · giá hiện tại ${money(s.last_price)}`,
+                    `In at ${money(s.entry_price)} · size ${s.quantity.toFixed(6)} · now ${money(s.last_price)}`))}</div>`
                 : ''
             }
-            <div class="paper-note">
-              ${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% ·
-              đã thực hiện ${money(s.realized_pnl)} · nến cuối ${ago(s.last_closed_time)}
-            </div>
+            <div class="paper-note">${esc(L(
+              `${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% · đã thực hiện ${money(s.realized_pnl)} · nến cuối ${ago(s.last_closed_time)}`,
+              `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · realised ${money(s.realized_pnl)} · last bar ${ago(s.last_closed_time)}`))}</div>
             ${
               s.pending_signal !== s.position
-                ? `<div class="paper-note">Chờ khớp ở nến kế tiếp: <strong>${
-                    s.pending_signal > 0 ? 'MUA' : s.pending_signal < 0 ? 'BÁN' : 'ĐÓNG'
-                  }</strong></div>`
+                ? `<div class="paper-note">${esc(L('Chờ khớp ở nến kế tiếp: ',
+                    'Waiting to fill at the next candle: '))}<strong>${esc(
+                    s.pending_signal > 0 ? L('MUA', 'BUY')
+                      : s.pending_signal < 0 ? L('BÁN', 'SELL') : L('ĐÓNG', 'CLOSE')
+                  )}</strong></div>`
                 : ''
             }
+            ${ticket(s)}
           </div>
         </div>`;
       })
@@ -124,6 +218,51 @@ const Paper = (() => {
   }
 
   function bind() {
+    for (const btn of elements.list.querySelectorAll('[data-order]')) {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.session;
+        const action = btn.dataset.order;
+        const sizeInput = elements.list.querySelector(`[data-size="${CSS.escape(id)}"]`);
+        const raw = Number(sizeInput?.value);
+        // Omitted rather than guessed: the backend then uses the session's own
+        // configured size, which is the honest default.
+        const sizePct = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 100) / 100 : undefined;
+
+        // Every order button on this card locks while the fill is in flight.
+        // Without it a double click books two fills and pays two sets of fees.
+        const buttons = [...elements.list.querySelectorAll(
+          `[data-session="${CSS.escape(id)}"]`)];
+        for (const b of buttons) b.disabled = true;
+        try {
+          const result = await API.paperOrder(id, action, action === 'close' ? undefined : sizePct);
+          apply(result.snapshot);
+          const filled = (result.events || []).find((e) => e.type === 'entry');
+          onToast(filled
+            ? L(`Đã khớp ${filled.side === 'long' ? 'MUA' : 'BÁN'} ở ${money(filled.price)}`,
+                `Filled ${filled.side === 'long' ? 'BUY' : 'SELL'} at ${money(filled.price)}`)
+            : L('Đã đóng vị thế', 'Position closed'));
+        } catch (err) {
+          // The server sends {code, message:{vi,en}} for a refusal, so the
+          // interface shows the text and never matches on it (§2.4).
+          onToast(tp(err.detail?.message) || err.message, true);
+          for (const b of buttons) b.disabled = false;
+        }
+      });
+    }
+
+    for (const btn of elements.list.querySelectorAll('[data-resume-strategy]')) {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          apply(await API.paperResumeStrategy(btn.dataset.resumeStrategy));
+          onToast(L('Chiến lược điều khiển trở lại', 'The strategy is steering again'));
+        } catch (err) {
+          onToast(tp(err.detail?.message) || err.message, true);
+          btn.disabled = false;
+        }
+      });
+    }
+
     for (const btn of elements.list.querySelectorAll('[data-paper-toggle]')) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.paperToggle;
@@ -132,7 +271,8 @@ const Paper = (() => {
         try {
           const updated = session.active ? await API.paperStop(id) : await API.paperResume(id);
           apply(updated);
-          onToast(updated.active ? 'Đã chạy lại phiên' : 'Đã dừng phiên');
+          onToast(updated.active ? L('Đã chạy lại phiên', 'Session resumed')
+                                 : L('Đã dừng phiên', 'Session stopped'));
         } catch (err) {
           onToast(err.message, true);
         }
@@ -143,7 +283,8 @@ const Paper = (() => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.paperDelete;
         // Deleting throws away the whole trade history, so make it deliberate.
-        if (!window.confirm('Xóa phiên này? Toàn bộ lịch sử lệnh sẽ mất.')) return;
+        if (!window.confirm(L('Xóa phiên này? Toàn bộ lịch sử lệnh sẽ mất.',
+          'Delete this session? Its whole trade history goes with it.'))) return;
         try {
           await API.paperDelete(id);
           sessions = sessions.filter((s) => s.id !== id);
@@ -327,14 +468,28 @@ const Paper = (() => {
     return session;
   }
 
+  /* Open a hand-traded session on whatever the chart is showing. It goes
+     through the same settings dialog as a strategy session, because the costs
+     matter just as much when the orders are yours. */
+  function startManual() {
+    const ctx = elements.context?.() || {};
+    return openSettings({
+      strategyId: MANUAL_STRATEGY,
+      symbol: ctx.symbol,
+      timeframe: ctx.timeframe,
+      params: {},
+    });
+  }
+
   function init(config) {
     elements = config.elements;
     onToast = config.onToast;
     elements.refresh.addEventListener('click', refresh);
+    elements.startManual?.addEventListener('click', startManual);
     bindSettings();
   }
 
   return { init, refresh, start, apply, rerender: render,
-           openSettings, settingsValues,
+           openSettings, settingsValues, startManual, ticket, symbolBadge,
            get sessions() { return sessions; } };
 })();

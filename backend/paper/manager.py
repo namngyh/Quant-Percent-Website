@@ -19,7 +19,12 @@ import pandas as pd
 
 from backend.data import sources, store
 from backend.notify import telegram
-from backend.paper.engine import PaperSession, PaperTrade
+from backend.paper.engine import (
+    MANUAL_STRATEGY_ID,
+    OrderRefused,
+    PaperSession,
+    PaperTrade,
+)
 from backend.strategy import registry
 from backend.strategy.engine import BacktestConfig
 
@@ -106,8 +111,13 @@ class PaperManager:
         params: dict | None,
         config: BacktestConfig,
     ) -> PaperSession:
-        spec = registry.get_spec(strategy_id)       # raises if unknown
-        resolved = spec.resolve_params(params)
+        # A manual session has no strategy to look up or resolve parameters
+        # for; it is an account and a symbol, waiting for the user to act.
+        if strategy_id == MANUAL_STRATEGY_ID:
+            resolved: dict = {}
+        else:
+            spec = registry.get_spec(strategy_id)   # raises if unknown
+            resolved = spec.resolve_params(params)
 
         session = PaperSession(
             strategy_id=strategy_id,
@@ -128,7 +138,8 @@ class PaperManager:
             ].reset_index(drop=True)
             session.last_price = float(history["close"].iloc[-1])
             session.last_closed_time = int(history["open_time"].iloc[-1]) // 1000
-            session.pending_signal = session._decide(self._signal_fn(session))
+            if strategy_id != MANUAL_STRATEGY_ID:
+                session.pending_signal = session._decide(self._signal_fn(session))
 
         async with self._lock:
             self._sessions[session.id] = session
@@ -136,6 +147,24 @@ class PaperManager:
         await self._subscribe(session)
         await asyncio.to_thread(self._persist, session)
         log.info("paper session %s started (%s %s %s)", session.id, strategy_id, symbol, timeframe)
+        return session
+
+    async def order(
+        self, session_id: str, action: str, size_pct: float | None = None
+    ) -> dict:
+        """Place a hand order on a session. Raises ValueError with a reason."""
+        session = self._require(session_id)
+        result = session.place_order(action, size_pct)
+        await asyncio.to_thread(self._persist, session)
+        log.info(
+            "paper session %s: manual %s at %.8g", session_id, action, session.last_price
+        )
+        return result
+
+    async def resume_strategy(self, session_id: str) -> PaperSession:
+        session = self._require(session_id)
+        session.resume_strategy()
+        await asyncio.to_thread(self._persist, session)
         return session
 
     async def stop(self, session_id: str) -> PaperSession:
@@ -170,6 +199,10 @@ class PaperManager:
     # ------------------------------------------------------------------ feed
 
     def _signal_fn(self, session: PaperSession):
+        # Nothing decides for a manual session, so the candle loop asks it for
+        # a signal and is told to keep whatever the user is holding.
+        if session.is_manual:
+            return lambda history: None
         spec = registry.get_spec(session.strategy_id)
 
         def signal_fn(history: pd.DataFrame):

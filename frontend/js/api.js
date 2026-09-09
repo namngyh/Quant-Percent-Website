@@ -16,7 +16,21 @@ const API = (() => {
 
     if (!response.ok) {
       const detail = payload?.detail || `${response.status} ${response.statusText}`;
-      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      // A structured refusal — {code, message:{vi,en}} — used to be flattened
+      // into JSON.stringify and shown to the user as raw braces. The message
+      // is now the error text and the object is kept on the error, so callers
+      // can branch on `code` and display the right language (§2.4, §3.2).
+      const structured = detail && typeof detail === 'object' && !Array.isArray(detail);
+      const text = typeof detail === 'string' ? detail
+        : structured && detail.message ? (detail.message.vi || detail.message.en)
+        : JSON.stringify(detail);
+      const error = new Error(text);
+      error.status = response.status;
+      if (structured) {
+        error.detail = detail;
+        error.code = detail.code;
+      }
+      throw error;
     }
     return payload;
   }
@@ -139,6 +153,13 @@ const API = (() => {
     notifyClear: () => request('/api/notify/settings', { method: 'DELETE' }),
 
     paperSessions: () => request('/api/paper'),
+
+    // A hand order on a paper session. `action` is long | short | close;
+    // `sizePct` is 0-1 and may be omitted to use the session's own size.
+    paperOrder: (id, action, sizePct) =>
+      post(`/api/paper/${id}/order`, { action, size_pct: sizePct ?? null }),
+
+    paperResumeStrategy: (id) => post(`/api/paper/${id}/resume-strategy`, {}),
 
     paperStart: ({ strategyId, symbol, timeframe, params, execution }) =>
       post('/api/paper/start', {

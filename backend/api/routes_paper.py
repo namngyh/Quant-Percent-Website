@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.routes_strategy import ExecutionSettings
 from backend.config import settings
+from backend.paper.engine import OrderRefused
 from backend.paper.manager import manager
 from backend.strategy.base import StrategyError
 
@@ -17,11 +18,20 @@ router = APIRouter(prefix="/api/paper", tags=["paper"])
 
 
 class StartRequest(BaseModel):
+    # "manual" starts a hand-traded session with no strategy behind it.
     strategy_id: str
     symbol: str | None = None
     timeframe: str | None = None
     params: dict = Field(default_factory=dict)
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
+
+
+class OrderRequest(BaseModel):
+    """A hand order on a paper session."""
+
+    action: str                       # "long" | "short" | "close"
+    # Share of equity to stake, 0-1. Omitted means the session's own size.
+    size_pct: float | None = Field(default=None, gt=0, le=1)
 
 
 @router.get("")
@@ -56,6 +66,32 @@ async def start(request: StartRequest) -> dict:
         log.exception("could not start a paper session")
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
 
+    return session.snapshot()
+
+
+@router.post("/{session_id}/order")
+async def order(session_id: str, request: OrderRequest) -> dict:
+    """Buy, sell or close by hand, filled at the live price."""
+    try:
+        return await manager.order(session_id, request.action, request.size_pct)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except OrderRefused as exc:
+        # Refusals here are things a person can act on — the session is
+        # stopped, there is no position to close — so they travel as a stable
+        # code plus both languages, never as a sentence to be pattern-matched.
+        raise HTTPException(422, detail=exc.as_dict()) from exc
+
+
+@router.post("/{session_id}/resume-strategy")
+async def resume_strategy(session_id: str) -> dict:
+    """Hand the position back to the strategy after a manual intervention."""
+    try:
+        session = await manager.resume_strategy(session_id)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except OrderRefused as exc:
+        raise HTTPException(422, detail=exc.as_dict()) from exc
     return session.snapshot()
 
 

@@ -1,68 +1,76 @@
-/* Quant Percent: Material-flavoured research terminal
+/* Quant Percent: a TradingView-flavoured research terminal
  *
- * The palette, type and shape language follow Google's: Blue 600 as the single
- * accent, the Grey 50/300/700/900 ramp, 8px cards with 20px pill buttons, and
- * elevation from shadow rather than from borders.
+ * The shape and colour language follow TradingView's: white ground, cards
+ * defined by a hairline border rather than by shadow, 8px controls inside 16px
+ * cards, and a type ramp where the *number* is the largest thing on screen.
  *
- * Two deliberate departures from stock Material, both because this is a
- * trading tool rather than a productivity app:
+ * Three choices worth naming, because they are what makes it read as a
+ * trading tool rather than a generic dashboard:
  *
- * 1. **Green and red are never decorative.** Material would happily use them
- *    for success and error states. Here they mean market direction and P&L and
- *    nothing else, so a failed request is amber and a confirmation is blue.
- * 2. **Density is tighter than Material's defaults.** A 48px row height is
- *    right for a phone and wrong for a panel holding forty parameters. Spacing
- *    is scaled down roughly a third; the type ramp and shape language are not.
+ * 1. **Green and red are never decorative.** They mean market direction and
+ *    P&L, nothing else. A failed request is amber, a confirmation is blue.
+ *    TradingView's own #089981 / #f23645 are used rather than the usual web
+ *    green and red: they are darker and less saturated, which matters when a
+ *    screen holds two hundred of them at once.
+ * 2. **Borders, not shadows.** Elevation reads as importance. On a screen
+ *    where a dozen panels are all equally important, shadow just adds noise,
+ *    so structure comes from 1px lines and shadow is reserved for things that
+ *    genuinely float — popovers, dialogs, the settings sheet.
+ * 3. **Tabular numerals everywhere a number changes.** A price that reflows
+ *    its own width on every tick is unreadable, and this screen updates live.
  */
 
 :root {
-  /* Google Neutral Ramp (Màu chủ đạo Đen - Trắng / Monochrome) */
-  --bg:          #f8f9fa;   /* Google surface light */
+  /* Ground and structure. TradingView builds on white and separates with a
+     single hairline; the greys below are its own ramp. */
+  --bg:          #ffffff;
   --surface:     #ffffff;
-  --surface-2:   #f1f3f4;
-  --surface-3:   #e8eaed;
-  --border:      #dadce0;
-  --border-soft: #eceef1;
+  --surface-2:   #f8f9fd;
+  --surface-3:   #f0f3fa;
+  --border:      #e0e3eb;
+  --border-soft: #f0f3fa;
 
-  --text:        #1f1f1f;   /* Đen đậm Google Material */
-  --text-dim:    #444746;   /* Xám đậm dễ đọc */
-  --text-faint:  #747775;   /* Xám ghi phụ */
+  --text:        #131722;   /* TradingView ink: near-black with a blue cast */
+  --text-dim:    #5d606b;
+  --text-faint:  #9598a1;
 
-  /* Điểm nhấn đen trắng chủ đạo (High-contrast monochrome) */
-  --accent:      #1f1f1f;
-  --accent-hover:#000000;
-  --accent-soft: rgba(31, 31, 31, 0.08);
-  --accent-tint: rgba(31, 31, 31, 0.04);
-  --focus:       #1f1f1f;
+  /* One accent, TradingView blue. */
+  --accent:      #2962ff;
+  --accent-hover:#1e53e5;
+  --accent-soft: rgba(41, 98, 255, 0.10);
+  --accent-tint: rgba(41, 98, 255, 0.05);
+  --focus:       #2962ff;
 
-  /* Market colours: Xanh lá & Đỏ bảo lưu duy nhất cho nến & P&L */
-  --up:          #16a34a;
-  --up-soft:     rgba(22, 163, 74, 0.10);
-  --down:        #dc2626;
-  --down-soft:   rgba(220, 38, 38, 0.10);
-  --warn:        #d97706;   /* Amber */
-  --warn-soft:   rgba(217, 119, 6, 0.10);
+  /* Market colours. Reserved for direction and P&L. */
+  --up:          #089981;
+  --up-soft:     rgba(8, 153, 129, 0.10);
+  --down:        #f23645;
+  --down-soft:   rgba(242, 54, 69, 0.10);
+  --warn:        #ff9800;
+  --warn-soft:   rgba(255, 152, 0, 0.12);
 
-  /* Phong cách Google: Bo tròn các hộp mềm mại */
-  --radius-xs:   6px;
-  --radius-sm:   10px;
-  --radius:      14px;
-  --radius-md:   18px;
-  --radius-lg:   24px;
+  /* Controls are 8px, cards 16px: the contrast between the two is most of
+     what makes a TradingView panel look like one. */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
   --radius-pill: 999px;
   --topbar-h:    56px;
   --rail-w:      76px;
   --panel-w:     344px;
 
-  --mono: "Roboto Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
-          Consolas, monospace;
-  --sans: "Google Sans Text", "Google Sans", Roboto, -apple-system,
-          BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* TradingView's own stack. Trebuchet is doing real work here: its digits are
+     narrower than Roboto's, which is why their tables fit so much. */
+  --sans: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu,
+          "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 
-  /* Google Elevation & Soft Shadow */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow:    0 4px 14px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
-  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.10), 0 4px 12px rgba(0, 0, 0, 0.05);
+  /* Shadow only for things that genuinely float. */
+  --shadow-sm: 0 1px 2px rgba(19, 23, 34, 0.04);
+  --shadow:    0 2px 8px rgba(19, 23, 34, 0.08);
+  --shadow-lg: 0 12px 32px rgba(19, 23, 34, 0.16), 0 2px 8px rgba(19, 23, 34, 0.08);
 }
 
 * { box-sizing: border-box; }
@@ -75,7 +83,8 @@ html, body {
   font-family: var(--sans);
   font-size: 14px;
   line-height: 1.5;
-  letter-spacing: 0.0107142857em;   /* Material body-medium tracking */
+  /* Trebuchet is already fairly open; Material's tracking loosens it too far. */
+  letter-spacing: 0;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -140,6 +149,7 @@ select:hover, input:hover { border-color: var(--text-faint); }
 /* Material's focused text field thickens its outline rather than glowing; the
    inset shadow fakes a 2px border without the 1px layout shift. */
 select:focus, input:focus {
+  outline: none;
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
@@ -150,7 +160,7 @@ select { cursor: pointer; }
 .tf-group {
   display: flex;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface);
 }
@@ -164,48 +174,49 @@ select { cursor: pointer; }
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 500;
-  letter-spacing: 0.0178571429em;
   transition: background 0.15s, color 0.15s;
 }
 .tf-btn:first-child { border-left: 0; }
 .tf-btn:hover { color: var(--text); background: var(--accent-tint); }
 .tf-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 
-/* Material buttons: pill-shaped, blue label, tinted hover. The outlined
-   variant is the default here rather than the filled one, because a panel with
-   six filled blue buttons has no hierarchy left to spend. */
+/* Buttons: 8px rectangles with an ink label. The outlined variant is the
+   default rather than the filled one, because a panel with six filled blue
+   buttons has no hierarchy left to spend.
+
+   The label is ink rather than blue: on a screen where blue also means "the
+   one primary action", a dozen blue labels dilute it to nothing. */
 .btn {
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--accent);
-  padding: 7px 16px;
-  border-radius: var(--radius-pill);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.0178571429em;
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.btn:hover:not(:disabled) { background: var(--accent-tint); border-color: var(--text-faint); }
+.btn:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border); }
 .btn:active:not(:disabled) { background: var(--accent-soft); }
 .btn:disabled { opacity: 0.38; cursor: not-allowed; }
 
-/* Elevation, not just fill: the filled button is the one action on a panel
-   that should look pressable from across the room. */
+/* The one action on a panel that should be obvious. Flat: this interface
+   separates by colour and border, and a floating button on a screen with no
+   other shadows reads as a mistake rather than as emphasis. */
 .btn-primary {
   background: var(--accent);
   border-color: transparent;
   color: #fff;
-  box-shadow: var(--shadow);
+  font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: transparent;
-  box-shadow: var(--shadow-lg);
 }
-.btn-primary:active:not(:disabled) { background: #185abc; }
+.btn-primary:active:not(:disabled) { background: var(--accent-hover); }
 
 .btn-quiet { background: transparent; border-color: transparent; color: var(--text-dim); }
 .btn-quiet:hover:not(:disabled) {
@@ -246,7 +257,6 @@ select { cursor: pointer; }
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.0178571429em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -352,7 +362,6 @@ select { cursor: pointer; }
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.0178571429em;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
   margin-bottom: -1px;
 }
@@ -490,7 +499,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .field-group-title {
   font-size: 11px;
   text-transform: none;
-  letter-spacing: 0.0178571429em;
   color: var(--text-dim);
   font-weight: 500;
   margin-bottom: 8px;
@@ -555,17 +563,18 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 }
 .metric {
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 11px 12px;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 13px 15px;
+  transition: border-color 0.15s;
 }
-.metric:hover { box-shadow: var(--shadow); border-color: transparent; }
+/* Hover darkens the line rather than lifting the card: nothing else on this
+   screen floats, so one card that does reads as a glitch. */
+.metric:hover { border-color: var(--text-faint); }
 /* Sentence case, not all-caps: Material dropped small-caps labels because they
    are slower to read, and a metric label is read far more often than a heading. */
 .metric-label {
   font-size: 11px;
-  letter-spacing: 0.0178571429em;
   color: var(--text-dim);
   margin-bottom: 4px;
   font-weight: 500;
@@ -656,25 +665,26 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .paper-card {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--surface);
   overflow: hidden;
-  box-shadow: var(--shadow);
+  transition: border-color 0.15s ease;
 }
+.paper-card:hover { border-color: var(--text-faint); }
 .paper-card.stopped { opacity: 0.72; }
 
 .paper-card-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 11px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border-soft);
 }
-.paper-name { font-size: 12.5px; font-weight: 600; }
-.paper-series { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+.paper-name { font-size: 13.5px; font-weight: 600; }
+.paper-series { font-size: 11.5px; color: var(--text-faint); margin-top: 1px; }
 .paper-actions { margin-left: auto; display: flex; gap: 4px; }
 
 .pill {
   font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
-  font-weight: 700; padding: 2px 7px; border-radius: 20px;
+  font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill);
 }
 .pill.running { background: var(--up-soft); color: var(--up); }
 .pill.stopped { background: var(--surface-2); color: var(--text-faint); }
@@ -682,13 +692,19 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .pill.short   { background: var(--down-soft); color: var(--down); }
 .pill.flat    { background: var(--surface-2); color: var(--text-faint); }
 
-.paper-body { padding: 10px 11px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
-.paper-stat { }
-.paper-stat-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); font-weight: 600; }
-.paper-stat-value { font-family: var(--mono); font-size: 12.5px; font-weight: 650; margin-top: 1px; }
+.paper-body { padding: 12px 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; }
+.paper-stat-label { font-size: 11px; color: var(--text-faint); font-weight: 400; }
+/* The number, not its label, is the thing being read. */
+.paper-stat-value {
+  font-size: 15px; font-weight: 600; margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
 .paper-stat-value.pos { color: var(--up); }
 .paper-stat-value.neg { color: var(--down); }
-.paper-note { grid-column: 1 / -1; font-size: 10.5px; color: var(--text-faint); font-family: var(--mono); }
+.paper-note {
+  grid-column: 1 / -1; font-size: 11.5px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ==================== Charts ==================== */
 
@@ -1278,7 +1294,6 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   color: var(--text-dim);
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.01em;
   padding: 7px 16px;
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -1463,7 +1478,6 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   font-size: 11px;
   fill: var(--text-dim);
   font-weight: 500;
-  letter-spacing: 0.02em;
 }
 .pf-donut-center-val {
   font-size: 15px;
@@ -1636,11 +1650,10 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
  * shuffle sideways on every tick. */
 
 .price-ticker {
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 14px;
+  font-size: 19px;
   font-weight: 600;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   color: var(--text);
   white-space: nowrap;
   transition: color 0.18s ease;
@@ -1694,7 +1707,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 .lang-switch {
   display: flex;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -1706,7 +1719,6 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   font: inherit;
   font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.05em;
   padding: 5px 10px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -1718,3 +1730,91 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 /* The annual chart labels one bar per year, so the axis has to wrap rather
    than push the ends off the card. */
 .rp-axis { flex-wrap: wrap; }
+
+
+/* ---------- Trade ticket ----------
+
+   An order pad, laid out the way order pads are: buy left and green, sell
+   right and red, both showing the price you are about to get. A manual order
+   fills at that price immediately, so the number on the button is the number
+   that matters. Impossible actions are disabled rather than removed, so the
+   pad does not reshuffle under the pointer between two clicks. */
+.ticket {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+.ticket-row { display: flex; gap: 8px; align-items: center; }
+.ticket-btn {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  color: #fff;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.ticket-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.ticket-btn:disabled { cursor: default; opacity: 0.5; }
+.ticket-btn.buy  { background: var(--up); }
+.ticket-btn.sell { background: var(--down); }
+.ticket-btn.held { opacity: 0.9; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55); }
+.ticket-verb {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; opacity: 0.9;
+}
+.ticket-price { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ticket-controls { flex-wrap: wrap; }
+.ticket-size { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+               color: var(--text-dim); }
+.ticket-size input {
+  width: 62px; padding: 5px 7px; text-align: right;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-note { font-size: 11.5px; color: var(--text-faint); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+
+/* ---------- Quote block ----------
+
+   A quote reads as one object: the number, then how far it has moved. The
+   number is the largest thing in the bar because it is the thing being looked
+   at, and it is tabular so it does not reflow its own width on every tick. */
+.price-block { display: inline-flex; align-items: baseline; gap: 8px; }
+.price-block[hidden] { display: none; }
+.price-change {
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.price-change.up   { color: var(--up); }
+.price-change.down { color: var(--down); }
+
+/* ---------- Symbol badge ----------
+
+   The circular mark TradingView puts beside every instrument. It carries no
+   information the row does not already have; what it does is give the eye a
+   fixed anchor down the left edge of a list, which is what makes a long list
+   of quotes scannable rather than a wall of text. */
+.sym-badge {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--text-faint);
+  text-transform: uppercase;
+}

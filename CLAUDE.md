@@ -172,6 +172,100 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-09 (chiều) — Giao dịch tay trong Paper Trading, và restyle theo TradingView
+
+**241 test Python pass** (trước 231) và **98 check render pass** (trước 84).
+
+#### Giao dịch tay
+
+Paper trading trước đây chỉ chạy chiến lược. Giờ người dùng tự đặt lệnh
+long/short/đóng trên bất kỳ mã nào, hoặc mở hẳn một phiên **Giao dịch tay**
+không có chiến lược nào đứng sau.
+
+**Lệnh tay khớp NGAY ở giá hiện tại — đây là ngoại lệ có chủ ý với §3.1.**
+Quy tắc "tín hiệu ở nến `i` khớp ở giá mở nến `i+1`" tồn tại để chặn *chiến
+lược* dùng thông tin nó chưa thể biết lúc ra quyết định. Người bấm nút Mua
+không có vấn đề đó: họ đang hành động trên một con số đang hiện trên màn hình.
+Bắt họ đợi tới nến sau là khớp ở một mức giá họ chưa từng nhìn thấy — một lời
+nói dối tệ hơn cái mà quy tắc kia ngăn. Trượt giá vẫn bất lợi, phí vẫn hai
+chiều.
+
+Đo lại để chắc chi phí không bị bỏ sót ở đường đi mới này:
+
+| Phép đo | Kết quả |
+|---|---|
+| Vòng khứ hồi ở giá đứng yên | −0.119976% (lý thuyết −0.120000%) |
+| Phần chênh 0.000024 đ% | phí tính trên danh nghĩa **đã khớp** (100.02), đúng như sàn làm |
+| Đảo chiều thẳng so với đóng-rồi-mở | equity **giống hệt** tới 1e-9 |
+| Cỡ vị thế 25% / 50% / 100% | ký quỹ 2 500 / 5 000 / 10 000 |
+
+Đảo chiều là **hai lần khớp**, mỗi lần trả phí riêng. Gộp thành một sẽ lặng lẽ
+tặng người dùng một bộ phí.
+
+**Hai thứ không được cùng lái một vị thế.** Đặt lệnh tay trên phiên có chiến
+lược sẽ bật `manual_override`: chiến lược vẫn được tính và vẫn hiển thị nhưng
+không còn giao dịch. Nếu không, nến kế tiếp sẽ lặng lẽ đảo ngược điều người
+dùng vừa làm, và nhật ký lệnh hiện ra một lần đảo chiều không ai yêu cầu. Có
+nút **Trả lại chiến lược** để giao quyền lại.
+
+**Từ chối mang mã ổn định, không phải câu chữ.** `OrderRefused` trả về
+`{code, message:{vi,en}}` — `already_flat`, `session_stopped`, `no_price`,
+`bad_size`, `already_in_position`, `no_equity`, `no_strategy`. Đây là chỗ ý
+định "có mùi tiền" của người dùng đi vào hệ thống, nên một lệnh bị nuốt im lặng
+trông y hệt một lệnh đã khớp.
+
+*Một lỗi thật lộ ra khi làm phần này:* `api.js` đang ép mọi `detail` không phải
+chuỗi qua `JSON.stringify`, nên người dùng sẽ thấy nguyên dấu ngoặc nhọn thay
+vì câu tiếng Việt. Giờ nó giữ nguyên object trên error và dùng `message` làm
+văn bản.
+
+**Bảng lệnh** đặt như một order pad thật: Mua bên trái màu xanh, Bán bên phải
+màu đỏ, cả hai in giá sắp khớp, cộng ô % vốn. Nút bị **vô hiệu hoá chứ không
+ẩn** khi không dùng được — nếu ẩn, bảng lệnh xô lệch dưới con trỏ giữa hai cú
+nhấp. Mọi nút trên cùng một thẻ khoá lại trong lúc lệnh đang bay: nhấp đúp mà
+không khoá là hai lần khớp và hai bộ phí.
+
+#### Restyle theo TradingView
+
+Toàn bộ đi qua token nên phần lớn nằm ở khối `:root`, cộng vài quy tắc thành
+phần còn cứng ngôn ngữ Material.
+
+| | Trước (Google) | Sau (TradingView) |
+|---|---|---|
+| Nền | `#f8f9fa` | `#ffffff` |
+| Chữ | `#1f1f1f` | `#131722` |
+| Nhấn | `#1f1f1f` đen | `#2962ff` |
+| Tăng / giảm | `#16a34a` / `#dc2626` | `#089981` / `#f23645` |
+| Bo góc nút | viên thuốc 999px | `8px` |
+| Bo góc thẻ | 14px | `16px` |
+| Phân tách | shadow | **viền 1px** |
+| Font | Google Sans / Roboto | Trebuchet MS stack |
+
+Ba lựa chọn đáng nói: **viền thay vì shadow** (elevation nghĩa là quan trọng
+hơn; trên màn hình mười panel đều quan trọng ngang nhau thì shadow chỉ là
+nhiễu); **nhãn nút màu mực chứ không xanh** (xanh còn phải mang nghĩa "hành
+động chính", mười hai nhãn xanh làm nó thành vô nghĩa); và **chữ số dạng bảng ở
+mọi nơi con số thay đổi** — một cái giá tự đổi độ rộng theo từng tick thì không
+đọc được.
+
+Thêm khối báo giá kiểu TradingView: giá lớn, cạnh nó là **% thay đổi so với giá
+mở phiên**. Màu nhấp nháy theo tick trả lời "đang chạy hướng nào"; phần trăm
+trả lời "so với lúc bắt đầu thì đang ở đâu" — hai câu này thường ngược nhau.
+
+*Lỗi tôi tự tạo và bắt được bằng cách kiểm tra chính lời chú thích mình vừa
+viết:* comment nói mốc phần trăm được neo lại khi đổi mã, nhưng handler đổi mã
+**không** gọi `hidePrice()`, nên nó sẽ giữ mốc của mã cũ và báo mức tăng của
+BTC theo phần trăm giá một cổ phiếu Việt Nam. Đã reset ở cả đổi mã lẫn đổi
+khung thời gian.
+
+*Lỗi thứ hai, phát hiện khi nhìn ảnh chụp màn hình:* bảng màu huy hiệu mã tôi
+viết ra có chứa đúng `#089981` và `#f23645` — tức là dùng xanh/đỏ thị trường để
+**trang trí**, vi phạm chính nguyên tắc số một của file style. Đã thay bằng
+bảng màu không đụng vào hai màu đó.
+
+Kiểm tra bằng Chrome headless trên một trang preview dựng riêng, vì server
+cổng 8000 của Nam đang giữ khoá DuckDB nên không mở được server thứ hai.
+
 ### 2026-09-09 — Xong bốn mục còn lại: Optimize, AmiBroker, CVaR, Paper Trading
 
 **231 test Python pass** (trước 209) và **84 check render pass** (trước 20).
