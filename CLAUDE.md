@@ -172,6 +172,65 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-11 (chiều) — Rà soát biểu đồ: ba lỗ hổng cùng một chỗ
+
+Ảnh Nam gửi: header ghi **1,966.00** cho BTCUSDT trong khi trục giá đúng
+~79.000, và **không nến nào được vẽ** — chỉ còn volume.
+
+Trong trình duyệt sạch mọi thứ đúng (2000 nến, giá 79.500), và tái hiện chuỗi
+đổi mã qua lại cũng đúng. Nhưng một phép đo chỉ thẳng vào nguyên nhân: chuyển
+sang `VN:VNINDEX` thì header hiện **1,827.12** — cùng cỡ với 1,966.00. Nghĩa là
+biểu đồ đang giữ dữ liệu BTC còn header nhận tick của một mã VN.
+
+Rà lại `loadCandles` thì thấy đúng chỗ đó, và nó là **lỗi cấu trúc chứ không
+phải lỗi hiển thị**:
+
+```js
+await Indicators.recomputeAll();                  // ném lỗi thì…
+drawPaperMarkers();
+Live.subscribe(state.symbol, state.timeframe);    // …dòng này không bao giờ chạy
+```
+
+`recomputeAll` chạy code Python do người dùng nạp qua API. Một plugin ném lỗi
+là chuyện bình thường, không phải chuyện bất thường. Khi nó ném, `catch` ở
+ngoài chỉ ghi một dòng trạng thái, còn **đăng ký stream kẹt lại ở mã cũ** — nên
+ô chọn ghi BTCUSDT mà tick của mã VN vẫn chảy vào biểu đồ.
+
+Ba lỗ hổng, đều đã sửa:
+
+**1. `Live.subscribe` nằm sau một `await` có thể ném.** Giờ nó chạy ngay sau
+`setCandles`, lúc biểu đồ đã hiển thị chuỗi mới và **trước** mọi thứ có thể
+hỏng. Không có gì giữa đó và cuối hàm là điều kiện cần để nhận dữ liệu live.
+
+**2. `updateCandle` tin bất cứ thứ gì được đưa vào.** Socket có lọc theo mã,
+nhưng bộ lọc đó chỉ mới bằng lần `Live.subscribe` gần nhất — mà lần đó có thể
+đã không chạy. Giờ biểu đồ **tự biết mình đang giữ chuỗi nào** (`symbol|khung`)
+và bỏ qua nến không thuộc về nó. Kiểm ở tầng sở hữu dữ liệu là tầng duy nhất
+chắc chắn được, và tốn đúng một phép so chuỗi mỗi tick.
+
+**3. Nến ngược thời gian làm chết luôn luồng live.** `series.update()` **ném**
+khi nhận thời điểm sớm hơn điểm mới nhất nó đang giữ, và lỗi đó thoát ra khỏi
+handler của socket, giết luôn feed cho cả phiên. Hai thị trường lệch đồng hồ
+làm chuyện này thành bình thường chứ không hiếm: nến ngày mới nhất của VN đi
+sau nến phút mới nhất của Bitcoin hàng giờ. Giờ nến cũ bị bỏ qua.
+
+**Cộng thêm:** một chỉ báo hỏng không còn kéo theo mọi thứ sau nó. Trước đây
+`recomputeAll` ném là mất luôn marker lệnh, đăng ký stream và phần bù nến, và
+cả lần nạp bị báo là thất bại. Giờ nó được bắt riêng và báo bằng một toast.
+
+**Kiểm chứng bằng cách bơm đúng hai thứ đã lọt vào trước đó**, trên chính app
+đang chạy chứ không phải mock — vì lỗi nằm ở *cách các mảnh được nối với
+nhau*, mà mock thì sẽ được nối theo đúng cách tôi tưởng tượng:
+
+```
+PASS  a candle from another instrument is dropped
+PASS  an out-of-order candle is dropped, not thrown on
+PASS  a genuine newer candle is still applied
+PASS  and it was appended, not swallowed
+```
+
+Giữ lại thành `tests/test_chart_guards.html`.
+
 ### 2026-09-11 — Chọn/xoá từng hình vẽ, và cắt lỗ / chốt lời cho lệnh tay
 
 **258 test Python + toàn bộ render check.**

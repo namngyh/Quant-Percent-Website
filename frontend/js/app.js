@@ -135,15 +135,28 @@
         // for this series arrives.
         ChartManager.clearAll();
         ChartManager.clearTradeMarkers();
-        ChartManager.setCandles([], [], { timeVisible: false });
+        ChartManager.setCandles([], [], { timeVisible: false, key: null });
         setStatusLive(() => t('status.noData'), 'error');
         hidePrice();
         return;
       }
 
+      const key = `${state.symbol}|${state.timeframe}`;
       ChartManager.setCandles(data.candles, data.volumes, {
         timeVisible: INTRADAY.has(state.timeframe),
+        key,
       });
+
+      /* Subscribe as soon as the chart is showing the new series, and before
+         anything that can fail.
+
+         This used to sit after `await Indicators.recomputeAll()`. A recompute
+         that threw took the rest of the function with it, so the socket stayed
+         subscribed to the previous symbol while the chart held the new one —
+         and the header price then tracked an instrument nobody had selected.
+         Nothing between here and the end of the function is a precondition for
+         receiving live data. */
+      Live.subscribe(state.symbol, state.timeframe);
       // A different series has its own history; the previous "nothing older"
       // answer says nothing about this one.
       historyExhausted = false;
@@ -167,9 +180,20 @@
       showPrice(last.close);
 
       ChartManager.clearTradeMarkers();
-      await Indicators.recomputeAll();
+
+      /* One broken indicator must not cost the chart everything after it.
+
+         `recomputeAll` runs user-supplied Python through the API; a plugin
+         that raises is a normal event, not an exceptional one. Letting it
+         propagate skipped the trade markers, the subscription and the
+         catch-up, and reported the whole load as failed. */
+      try {
+        await Indicators.recomputeAll();
+      } catch (err) {
+        toast(L(`Không tính được chỉ báo: ${err.message}`,
+                `Could not compute indicators: ${err.message}`), 'bad');
+      }
       drawPaperMarkers();
-      Live.subscribe(state.symbol, state.timeframe);
 
       // Fill any gap left while the app was closed, then redraw including it.
       if (await catchUpIfBehind(data)) {
@@ -553,11 +577,16 @@
   }
 
   function onLiveCandle(candle) {
+    // The chart checks this against the series it is holding and drops the
+    // candle if they disagree, so a stale subscription cannot repaint it.
+    const key = `${candle.symbol}|${candle.timeframe}`;
+    if (ChartManager.seriesKey && key !== ChartManager.seriesKey) return;
+
     ChartManager.updateCandle({
       time: Math.floor(candle.open_time / 1000),
       open: candle.open, high: candle.high, low: candle.low,
       close: candle.close, volume: candle.volume,
-    });
+    }, key);
     showPrice(candle.close);
     // The status line is for things that need words. The price is not one.
     setStatus('');

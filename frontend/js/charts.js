@@ -253,6 +253,16 @@ const ChartManager = (() => {
 
      Indicator series are extended to reach it; see `reserveSlot`. */
   let lastBarTime = null;
+  /* Which series the chart is currently holding, as "symbol|timeframe".
+
+     The live socket already filters by series, but that filter is only as
+     fresh as the last `Live.subscribe` call — and that call used to sit behind
+     an await that could throw, leaving the socket subscribed to the previous
+     symbol while the chart held the new one. Foreign candles then flowed
+     straight into the price series: a VN index tick around 1 900 pushed into a
+     Bitcoin series around 79 000. Checking here as well is defence at the
+     layer that owns the data, and costs one string comparison per tick. */
+  let seriesKey = null;
   /* Every candle currently on the chart, oldest first, so older pages can be
      prepended without refetching what is already drawn. Lightweight Charts has
      no "prepend" — setData replaces — so the series' own data has to be kept
@@ -342,7 +352,8 @@ const ChartManager = (() => {
     return priceType;
   }
 
-  function setCandles(candles, volumes, { timeVisible }) {
+  function setCandles(candles, volumes, { timeVisible, key = null }) {
+    seriesKey = key;
     for (const chart of allCharts()) {
       chart.applyOptions({ timeScale: { ...THEME.timeScale, timeVisible, secondsVisible: false } });
     }
@@ -652,9 +663,23 @@ const ChartManager = (() => {
      thousands of bars) or a failing one leaves that gap open indefinitely:
      what looks like a chart that occasionally drifts is really a chart that is
      always at least one bar out, and sometimes thirty. */
-  function updateCandle(candle) {
+  function updateCandle(candle, key = null) {
     if (!candleSeries) return;
+
+    // A candle for a series the chart is not showing is not this chart's
+    // candle, whatever the socket thinks.
+    if (key !== null && seriesKey !== null && key !== seriesKey) return;
+
     const time = toChart(candle.time);
+
+    /* An older bar is dropped rather than applied.
+
+       `series.update()` throws on a time before the newest point it holds, and
+       that exception escapes the socket handler and kills the live feed for
+       the rest of the session. Two markets with different clocks make this
+       ordinary rather than exotic: the newest VN daily bar is hours behind the
+       newest Bitcoin minute bar. */
+    if (lastBarTime !== null && time < lastBarTime) return;
 
     // The overview line tracks the same forming bar, so switching modes mid
     // session never shows a line that stops short of the candles.
@@ -817,6 +842,7 @@ const ChartManager = (() => {
 
   return { init, setCandles, setMode, prependCandles, focusRecent, fitAll,
            setPriceType, barAt, barsBetween,
+           get seriesKey() { return seriesKey; },
            get chart() { return mainChart; },
            get priceSeries() { return candleSeries; },
            get priceType() { return priceType; },
