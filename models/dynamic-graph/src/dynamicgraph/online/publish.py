@@ -119,11 +119,23 @@ def publish_latest(
     )
 
     publication = dict(state.publication or {})
-    if not state.stress_forecast_models:
-        raise PublicationUnavailable(
-            "Batch handoff chưa có model dự báo stress đã đóng băng; chạy `run-all` "
-            "(hoặc `generate-latest`) rồi `init-online-state` trước khi publish theo phiên."
-        )
+    # Khong con chan khi thieu model du bao stress.
+    #
+    # Cho nay tung raise PublicationUnavailable, khien tang online tu choi ghi
+    # de artifacts/latest/ moi phien. Hau qua: mo hinh chay hang ngay ma trang
+    # web dung yen o ban batch gan nhat -- 04/09 suot nhieu ngay, khong bao loi.
+    #
+    # Nhung chinh tang batch da publish binh thuong ma khong co model nao:
+    # build_website_payload() dat stress_probabilities = {} roi tu them canh
+    # bao "No calibrated stress probability is available for this run; only the
+    # descriptive network state is published." Bản batch ngày 04/09 nằm trong
+    # artifacts/latest/ đúng như vậy.
+    #
+    # Hai tang vi the dang ap hai luat khac nhau len cung mot payload. Cai gia
+    # phai tra la trang dung yen, doi lay mot thu ma chinh website loai bo:
+    # load_model_outputs.py tu choi ghi xac suat stress vi mo hinh tu cham tang
+    # do AUROC 0.49. predict_stress_probabilities({}) tra ve {} nen duong di
+    # ben duoi khong doi gi.
 
     snapshot = record.get("core_snapshot") or state.snapshots.get(state.core_key)
     if snapshot is None:

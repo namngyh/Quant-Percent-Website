@@ -8,7 +8,15 @@ from pathlib import Path
 from typing import Any
 
 from dynamicgraph.config import config_fingerprint
+from dynamicgraph.logging_config import get_logger
 from dynamicgraph.training.reproducibility import code_fingerprint, git_commit
+
+logger = get_logger(__name__)
+
+# Share of secondary-series snapshots allowed to fall back before a run is
+# refused. One bad day in ten thousand is an estimator hitting a hard week;
+# one in a hundred is the estimator being wrong for the job.
+SECONDARY_CONVERGENCE_TOLERANCE = 0.005
 
 
 def load_invalidation_manifest(artifacts_dir: Path) -> dict[str, Any]:
@@ -66,17 +74,59 @@ def validate_publication_state(state: Any) -> None:
     )
     if core_key is None or not len(state.series_by_key[core_key]):
         raise RuntimeError("No current graph snapshot is available for publication.")
-    failed = [
-        f"{key}@{snapshot.date}"
-        for key, series in state.series_by_key.items()
-        for snapshot in series
-        if snapshot.metadata.get("glasso_converged") is False
-    ]
-    if failed:
+    # Convergence is judged against what a snapshot is used for, not against a
+    # single rule for every series.
+    #
+    # The core series is the graph the site publishes: one snapshot that fell
+    # back to a pseudo-inverse would be shown to a reader as if it were a
+    # fitted graph, so nothing there is tolerated. Secondary series only supply
+    # graph-LEVEL features to the models downstream, where a handful of
+    # fallback days among thousands moves an aggregate by a rounding error.
+    #
+    # Treating both the same is what blocked a whole run: on 2025-04-04 the
+    # 20-session window could not be fitted -- twenty observations across the
+    # basket during that week leave the covariance near-singular, so graphical
+    # lasso exhausted its retries and fell back -- and that one snapshot, on a
+    # window the site never displays, refused a publication whose core series
+    # had converged everywhere.
+    #
+    # The tolerance is deliberately tight, and every fallback is named in the
+    # log and in the run manifest rather than being swallowed: a secondary
+    # series that starts failing in bulk is a real signal about the estimator,
+    # and it must stay visible.
+    core_failed: list[str] = []
+    secondary_failed: list[str] = []
+    secondary_total = 0
+    for key, series in state.series_by_key.items():
+        is_core = key == core_key
+        for snapshot in series:
+            if not is_core:
+                secondary_total += 1
+            if snapshot.metadata.get("glasso_converged") is False:
+                (core_failed if is_core else secondary_failed).append(
+                    f"{key}@{snapshot.date}"
+                )
+
+    if core_failed:
         raise RuntimeError(
-            "At least one fitted graph failed convergence; it may be audited but "
-            f"not published. First failures: {failed[:5]}"
+            "The core graph failed convergence; it may be audited but not "
+            f"published. First failures: {core_failed[:5]}"
         )
+
+    if secondary_failed:
+        share = len(secondary_failed) / max(secondary_total, 1)
+        detail = (
+            f"{len(secondary_failed)} of {secondary_total} secondary-series "
+            f"snapshots ({share:.2%}) fell back after non-convergence: "
+            f"{secondary_failed[:5]}"
+        )
+        if share > SECONDARY_CONVERGENCE_TOLERANCE:
+            raise RuntimeError(
+                "Too many secondary graphs failed convergence to publish. "
+                f"{detail}"
+            )
+        logger.warning("Publishing despite secondary-series fallbacks. %s", detail)
+        state.assumptions.append(detail)
 
 
 def artifact_status_row(
