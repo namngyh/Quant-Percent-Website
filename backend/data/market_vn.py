@@ -54,13 +54,115 @@ BUCKET_SECONDS = {"5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4
 SUPPORTED_TIMEFRAMES = ["1m", *BUCKET_SECONDS.keys(), "1d"]
 
 # A plain equity ticker: exactly three letters/digits (VIC, ITA, SD9, S99…).
-# Everything longer belongs to a different instrument class this platform does
-# not model separately — covered warrants (7-8 chars, e.g. CVNM2609), bonds
-# (9 chars, numeric-led, e.g. 41I1G8000), indices and fund certificates
-# (VNINDEX, VN30, FUESSV50). Mixing those into the equity picker would carry
-# them into backtests built on equity pricing conventions (§3.6) that do not
-# apply to a bond's accrued-interest quoting or a warrant's time decay.
 _EQUITY_TICKER_RE = re.compile(r"^[A-Z0-9]{3}$")
+
+# The `G-` family is this database's international feed: metals, energy, soft
+# commodities, FX pairs, crypto and foreign indices, several with history back
+# to the 1970s. Which is which cannot be read off the symbol reliably — both
+# G-XAUUSD (gold, per ounce) and G-EURUSD (a rate) end in USD, and G-USDTUSD is
+# a stablecoin, not a currency pair — so the split is an explicit table rather
+# than a regex that would quietly file gold under foreign exchange.
+_GLOBAL_CLASSES = {
+    "commodity": {
+        "G-GOLD", "G-XAUUSD", "G-XAGUSD", "G-PLATINUM", "G-ALUMINUM", "G-COPPER",
+        "G-NICKEL", "G-ZINC", "G-LEAD", "G-OIL", "G-BOIL", "G-HOIL", "G-GAS",
+        "G-SUGAR", "G-COCOA", "G-COFFEE", "G-COTTON",
+    },
+    "crypto": {
+        "G-BTCUSD", "G-ETHUSD", "G-XRPUSD", "G-BNBUSD", "G-ADAUSD", "G-LTCUSD",
+        "G-BCHUSD", "G-EOSUSD", "G-IOTUSD", "G-XEMUSD", "G-XLMUSD", "G-XMRUSD",
+        "G-XVGUSD", "G-DASHUSD", "G-USDTUSD", "G-PIUSD",
+    },
+    "fx": {
+        "G-EURUSD", "G-GBPUSD", "G-AUDUSD", "G-NZDUSD", "G-USDJPY", "G-USDCHF",
+        "G-USDCAD", "G-USDCNY", "G-USDRUB", "G-USDVND", "G-USDAUD", "G-CHFUSD",
+        "G-EURJPY", "G-EURGBP", "G-EURCHF", "G-GBPJPY", "G-AUDJPY", "G-NZDJPY",
+        "G-USDX",
+    },
+    "index_global": {
+        "G-SPX", "G-US500", "G-DJI", "G-DJ30F", "G-DJSH", "G-IXIC", "G-N225",
+        "G-FTSE", "G-GDAXI", "G-FCHI", "G-HSI", "G-SSEC", "G-KS11", "G-VFS",
+    },
+}
+
+# Vietnamese index futures. VN30F1M and its siblings are contracts on an index,
+# so they trade and are quoted differently from the index itself.
+_VN_FUTURES_RE = re.compile(r"^VN(30|100)F[12][MQ]$")
+
+# Exchange-traded funds and fund certificates on the Vietnamese market.
+_VN_FUND_RE = re.compile(r"^(FUE|FUC|E1)[A-Z0-9]+$")
+
+# Vietnamese sector indices, published as I1-/I2-/I3- by depth of the ICB tree.
+_VN_SECTOR_RE = re.compile(r"^I[123]-")
+
+# Vietnamese headline and basket indices.
+_VN_INDEX_NAMES = {
+    "VNINDEX", "VN30", "VN100", "VNALL", "VNX50", "VNXALL", "VNMID", "VNSML",
+    "VNDIAMOND", "VNFINLEAD", "VNFINSELECT", "VNSI", "VNIT", "VNCOND", "VNCONS",
+    "VNENE", "VNFIN", "VNHEAL", "VNIND", "VNMAT", "VNREAL", "VNUTI",
+    "HNXINDEX", "HNX30INDEX", "UPCOMINDEX",
+}
+
+# Covered warrants (CVNM2609) and bonds (41I1G8000) are deliberately excluded
+# everywhere below: a warrant carries time decay against a strike and a bond is
+# quoted against face value with accrued interest, and neither survives the
+# equity pricing conventions the rest of this platform assumes (§3.1, §3.6).
+_WARRANT_RE = re.compile(r"^C[A-Z]{3}\d{4}$")
+_BOND_RE = re.compile(r"^\d")
+
+# What each class is quoted in, so the interface never labels an index level as
+# money or a gold price as đồng. "point" means the number is an index level.
+CLASS_CURRENCY = {
+    "equity": "VND",
+    "fund": "VND",
+    "index_vn": "point",
+    "index_sector": "point",
+    "index_global": "point",
+    "futures_vn": "point",
+    "commodity": "USD",
+    "crypto": "USD",
+    "fx": "rate",
+}
+
+# Every class the picker will offer. Anything classified outside this set is
+# known about and deliberately not listed.
+TRADABLE_CLASSES = tuple(CLASS_CURRENCY)
+
+
+def classify(symbol: str) -> str | None:
+    """Which instrument family a symbol belongs to, or None if unrecognised.
+
+    Returns ``"warrant"`` / ``"bond"`` for the two families that are recognised
+    but deliberately kept out of the picker, so the caller can tell "excluded
+    on purpose" from "never seen this shape before".
+    """
+    name = (symbol or "").upper()
+    if not name:
+        return None
+
+    for asset_class, members in _GLOBAL_CLASSES.items():
+        if name in members:
+            return asset_class
+    if name.startswith("G-"):
+        # A new symbol on the international feed. Better to say "unknown" than
+        # to guess a class and mislabel its units.
+        return None
+
+    if name in _VN_INDEX_NAMES:
+        return "index_vn"
+    if _VN_SECTOR_RE.match(name):
+        return "index_sector"
+    if _VN_FUTURES_RE.match(name):
+        return "futures_vn"
+    if _VN_FUND_RE.match(name):
+        return "fund"
+    if _WARRANT_RE.match(name):
+        return "warrant"
+    if _BOND_RE.match(name):
+        return "bond"
+    if _EQUITY_TICKER_RE.match(name):
+        return "equity"
+    return None
 
 _pool = None
 _pool_lock = threading.Lock()
@@ -166,15 +268,17 @@ def query(sql: str, params: tuple = ()) -> list[tuple]:
 # --------------------------------------------------------------------- symbols
 
 def list_symbols() -> list[dict]:
-    """Every tradable symbol with its latest quote.
+    """Every tradable symbol with its latest quote and instrument class.
 
     ``api.v_quote`` is a curated live-price feed, not the whole catalogue —
     measured at 389 names while the daily-history table alone carries data for
-    2,100. The gap is not stale or delisted stock: roughly 1,150 of those
-    extra tickers were still trading as of the most recent session, with real
-    volume, just never added to the quote feed. Left out, the app was showing
-    a fraction of what the database actually has. ``_equities_without_quote``
-    fills that gap in from the history table itself.
+    2,100. The gap is not stale or delisted stock: roughly 1,150 equity tickers
+    were still trading as of the most recent session with real volume, and
+    beyond those sits a whole international feed (gold, silver, oil, FX pairs,
+    crypto, foreign indices) plus Vietnamese indices, sector indices, index
+    futures and fund certificates. Left out, the app was showing a fraction of
+    what the database actually has. ``_symbols_without_quote`` fills that gap
+    in from the history table itself.
     """
     rows = query(
         """
@@ -190,11 +294,17 @@ def list_symbols() -> list[dict]:
             "change_percent": float(r[3]) if r[3] is not None else None,
             "volume": int(r[4]) if r[4] is not None else None,
             "data_as_of": int(r[5].timestamp() * 1000) if r[5] else None,
+            # The quote feed carries no class of its own, so it is derived the
+            # same way for both sources — one rule, not two that can drift.
+            "asset_class": classify(r[0]) or "equity",
         }
         for r in rows
     ]
+    for quote in quotes:
+        quote["currency"] = CLASS_CURRENCY.get(quote["asset_class"], "")
+
     known = {q["symbol"] for q in quotes}
-    quotes.extend(_equities_without_quote(known))
+    quotes.extend(_symbols_without_quote(known))
 
     # ``ORDER BY volume DESC NULLS LAST`` was pushed down to SQL before the
     # merge; now that the two sources are combined in Python it is applied
@@ -203,8 +313,13 @@ def list_symbols() -> list[dict]:
     return quotes
 
 
-def _equities_without_quote(known: set[str]) -> list[dict]:
-    """Plain equity tickers with daily history but no row in ``api.v_quote``.
+def _symbols_without_quote(known: set[str]) -> list[dict]:
+    """Symbols with daily history but no row in ``api.v_quote``.
+
+    Covers every class the picker offers, not just equities: the international
+    feed (gold, oil, FX, crypto, foreign indices) and the Vietnamese indices,
+    sector indices, index futures and funds all live here rather than in the
+    quote feed. Warrants and bonds are recognised and skipped.
 
     There is no live price feed for these, so each is priced off its own two
     most recent closes instead — a quote that can lag the real feed by up to
@@ -233,9 +348,14 @@ def _equities_without_quote(known: set[str]) -> list[dict]:
     )
 
     by_symbol: dict[str, list[tuple]] = {}
+    classes: dict[str, str] = {}
     for symbol, trading_date, close, volume in rows:
-        if symbol in known or not _EQUITY_TICKER_RE.match(symbol):
+        if symbol in known:
             continue
+        asset_class = classify(symbol)
+        if asset_class not in TRADABLE_CLASSES:
+            continue  # a warrant, a bond, or a shape nothing here recognises
+        classes[symbol] = asset_class
         by_symbol.setdefault(symbol, []).append((trading_date, close, volume))
 
     out = []
@@ -247,6 +367,7 @@ def _equities_without_quote(known: set[str]) -> list[dict]:
             prev_close = float(points[1][1])
             if prev_close > 0:
                 change_pct = (price - prev_close) / prev_close * 100
+        asset_class = classes[symbol]
         out.append(
             {
                 "symbol": symbol,
@@ -255,6 +376,8 @@ def _equities_without_quote(known: set[str]) -> list[dict]:
                 "change_percent": change_pct,
                 "volume": int(latest_volume) if latest_volume is not None else None,
                 "data_as_of": _to_ms(latest_date),
+                "asset_class": asset_class,
+                "currency": CLASS_CURRENCY.get(asset_class, ""),
             }
         )
     return out

@@ -172,6 +172,116 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-13 (tối) — Vàng, dầu, FX, crypto: 192 mã nữa vốn đã nằm sẵn trong database
+
+**281 test Python** (trước 278) + toàn bộ render check, không lỗi. Ratchet i18n
+siết thêm một nấc: `app.js` từ 97 xuống **95** chuỗi chưa dịch, vì hai nhãn nhóm
+hardcode cũ giờ đã đi qua `L()`.
+
+#### Nam hỏi đúng chỗ tôi làm sót
+
+Vòng trước tôi thêm 1.140 cổ phiếu và báo là "đã lấy hết". **Sai.** Bộ lọc tôi
+viết là `^[A-Z0-9]{3}$` — đúng cho cổ phiếu, và nó **cắt sạch mọi thứ không
+phải cổ phiếu**. Nam nhớ có vàng và crypto trong database, và đúng là có.
+
+Quét lại toàn bộ 2.100 mã trong `api.v_history_1d`, phân theo họ:
+
+| Họ mã | Số mã | Còn cập nhật | Trước | Giờ |
+|---|---|---|---|---|
+| Cổ phiếu 3 ký tự | 1.533 | 1.523 | ✅ | ✅ |
+| **`G-` quốc tế** | **66** | **66** | ❌ | ✅ |
+| **Chỉ số ngành `I1-/I2-/I3-`** | **73** | **73** | ❌ | ✅ |
+| **Chỉ số VN** | **25** | **25** | một phần | ✅ |
+| **Phái sinh VN** (VN30F, VN100F) | **8** | **8** | một phần | ✅ |
+| **ETF / chứng chỉ quỹ** | **25** | **24** | một phần | ✅ |
+| Chứng quyền | 353 | 287 | ❌ | ❌ *(cố ý)* |
+| Trái phiếu | 18 | 14 | ❌ | ❌ *(cố ý)* |
+
+Họ `G-` là feed quốc tế của database, lịch sử dài hơn hẳn mọi thứ khác trong
+kho: `G-XAGUSD` từ **1970**, `G-GOLD` từ **1975**, `G-BTCUSD` từ **2010**,
+`G-USDVND` từ **1995**. Gồm vàng (2 chuỗi), bạc, bạch kim, nhôm, đồng, nickel,
+kẽm, chì, dầu (3 loại), khí, đường, ca cao, cà phê, bông; 19 cặp ngoại hối; 16
+đồng crypto; 14 chỉ số quốc tế (S&P, Dow, Nasdaq, Nikkei, FTSE, DAX, Hang
+Seng, Thượng Hải, KOSPI...).
+
+**Đường dẫn dữ liệu vốn đã sẵn sàng cho tất cả** — đo trước khi sửa: `sources.parse`
+nhận `VN:G-XAUUSD`, `get_candles` trả nến đúng, và cả 6 mã kiểm thử đều có nến
+1 phút. Thứ duy nhất chặn là **danh sách mã không liệt kê chúng ra**. Không
+phải thiếu tính năng, chỉ là thiếu tên trong một cái danh sách.
+
+#### Phân loại bằng bảng tra cứu, không bằng regex
+
+`classify()` mới trả về lớp công cụ cho từng mã. Với họ `G-`, phân loại bằng
+**bảng liệt kê tường minh** chứ không phải quy tắc suy diễn, vì suy diễn ở đây
+sai một cách im lặng:
+
+- `G-XAUUSD` (vàng, USD/ounce) và `G-EURUSD` (một tỷ giá) **cùng kết thúc bằng
+  USD**. Một regex `USD$` sẽ xếp vàng vào ngoại hối.
+- `G-USDTUSD` trông y hệt một cặp tiền tệ nhưng là **stablecoin**, thuộc crypto.
+
+Mã `G-` nào chưa có trong bảng thì trả `None` và **không lên danh sách** — thà
+nói "chưa biết" còn hơn gắn nhầm đơn vị cho một cái giá thật.
+
+**Mỗi lớp khai báo đơn vị của nó** (`CLASS_CURRENCY`), vì đây đúng là chỗ §2.7
+hay hỏng: cùng một con số `4.418,11` là USD/ounce với vàng, còn `1.827,12` là
+**điểm chỉ số** chứ không phải tiền, và `246,00` là **nghìn đồng**. Bốn đơn vị:
+`VND`, `USD`, `point`, `rate`.
+
+Chứng quyền và trái phiếu vẫn bị loại, và giờ được loại **có tên gọi**:
+`classify()` trả `"warrant"`/`"bond"` để phân biệt "cố ý bỏ" với "chưa từng
+thấy hình dạng này". Lý do không đổi — chứng quyền có time decay theo giá thực
+hiện, trái phiếu yết theo mệnh giá kèm lãi tích luỹ, cả hai không sống được với
+giả định giá cổ phiếu mà phần còn lại của nền tảng dựng trên (§3.1, §3.6).
+
+#### Ô chọn mã nhóm theo công cụ, không theo độ phân giải dữ liệu
+
+Cách nhóm cũ ("có nến phút" / "chỉ nến ngày") là **nhóm theo thứ không ai dùng
+để chọn mã**. Với 1.728 dòng, nó đặt vàng, một cổ phiếu ngân hàng và một chỉ số
+ngành chung một danh sách chỉ vì chúng tình cờ cùng độ phân giải.
+
+Giờ nhóm theo công cụ, và **các họ nhỏ đứng trước** — 1.530 cổ phiếu là đống cỏ
+khô, để lên đầu thì chôn mất mọi thứ khác. Đo trên DOM thật của Chrome:
+
+```
+Hàng hoá & kim loại (17)   Tiền mã hoá (16)      Ngoại hối (19)
+Chỉ số quốc tế (14)        Chỉ số Việt Nam (25)  Phái sinh Việt Nam (8)
+Chỉ số ngành (73)          Quỹ ETF (25)          Cổ phiếu Việt Nam (1530)
+```
+
+Có thêm nhóm "Khác" bắt mọi lớp backend biết mà danh sách này chưa được dạy —
+nếu không, dữ liệu mới sẽ **biến mất im lặng** đúng như lần vừa rồi.
+
+#### Sàn giao dịch cho các họ mới
+
+`venuesFor` trước đây coi mọi mã `VN:` không phải VN30F là "cổ phiếu HOSE". Với
+vàng hay EUR/USD thì đó là gán một biểu phí HOSE cho một thứ không giao dịch
+trên HOSE. Giờ: họ `G-` và các chỉ số → **"Tự đặt"**, vì không biết Nam sẽ giao
+dịch qua broker nào và chọn bừa một cái là đặt phí của nó lên tài khoản mà
+không có căn cứ. Phái sinh mở rộng từ `^VN30F` thành `^VN(30|100)F` — VN100F
+vốn là hợp đồng tương lai mà trước đây bị tính phí như cổ phiếu.
+
+#### Đo trước/sau
+
+| | Trước | Sau |
+|---|---|---|
+| Mã trong ô chọn | 1.535 | **1.728** |
+| Họ công cụ | 1 | **9** |
+| Vàng / crypto / FX / chỉ số quốc tế | 0 | 17 / 16 / 19 / 14 |
+| Chứng quyền + trái phiếu lọt vào | 0 | **0** |
+
+*Ghi chú §2.2 — bộ phát hiện code cũ tự chứng minh nó có ích:* sau khi sửa, tôi
+gọi `/api/health` trên server đang chạy và nhận `stale: true`. Đó chính là tình
+huống nó được viết ra để bắt, và lần này nó bắt được trước khi tôi kịp nhầm
+lẫn giữa "code sai" và "server cũ".
+
+**Chưa làm, cần Nam quyết:** chứng quyền (353) và trái phiếu (18) — thêm được,
+nhưng cần cách xử lý giá riêng cho từng loại chứ không dùng chung giả định cổ
+phiếu. Và trong `api` còn **6 view chưa dùng đến**: `v_forecast_history` (57
+dòng), `v_model_forecast_latest` (3), `v_network_latest` (1),
+`v_risk_distribution` (24), `v_risk_metrics` (6), `v_ingestion_gaps` (210) —
+trông như đầu ra mô hình dự báo và rủi ro của team, hiện không hiện ở đâu trên
+nền tảng.
+
 ### 2026-09-13 — Database có thêm ~1.150 mã mới, và một view đã chậm hẳn đi
 
 **278 test Python** (trước 272) + toàn bộ render check, không lỗi — DB đã nhanh trở lại nên phép kiểm live trước đó flaky cũng pass sạch.

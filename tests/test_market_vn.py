@@ -134,15 +134,54 @@ def _():
     assert market_vn._frame(rows)["volume"].iloc[0] == 0.0
 
 
-@check("the equity-ticker pattern accepts plain tickers, rejects everything else")
+@check("every instrument family is classified, and gold is not filed as FX")
 def _():
-    # Exactly three letters/digits: VIC, ITA, SD9, S99 all trade today.
-    for ticker in ("VIC", "ITA", "SD9", "S99", "ABC"):
-        assert market_vn._EQUITY_TICKER_RE.match(ticker), ticker
-    # Everything with a different shape belongs to another instrument class:
-    # covered warrants, bonds, indices, fund certificates.
-    for other in ("VNINDEX", "VN30", "VN30F1M", "FUESSV50", "CVNM2609", "41I1G8000"):
-        assert not market_vn._EQUITY_TICKER_RE.match(other), other
+    cases = {
+        # Equities: exactly three letters/digits.
+        "VIC": "equity", "ITA": "equity", "SD9": "equity", "S99": "equity",
+        # The international feed. G-XAUUSD and G-EURUSD both end in USD, which
+        # is exactly why the split is a table and not a regex.
+        "G-GOLD": "commodity", "G-XAUUSD": "commodity", "G-XAGUSD": "commodity",
+        "G-OIL": "commodity", "G-COFFEE": "commodity",
+        "G-BTCUSD": "crypto", "G-ETHUSD": "crypto",
+        # A stablecoin pair, which reads like FX and is not.
+        "G-USDTUSD": "crypto",
+        "G-EURUSD": "fx", "G-USDVND": "fx", "G-USDX": "fx",
+        "G-SPX": "index_global", "G-N225": "index_global",
+        # Vietnamese families.
+        "VNINDEX": "index_vn", "HNXINDEX": "index_vn", "UPCOMINDEX": "index_vn",
+        "I1-FIN": "index_sector", "I3-BANK": "index_sector",
+        "VN30F1M": "futures_vn", "VN100F2Q": "futures_vn",
+        "FUESSV50": "fund", "E1VFVN30": "fund",
+        # Recognised, and deliberately not offered.
+        "CVNM2609": "warrant", "41I1G8000": "bond",
+    }
+    for symbol, expected in cases.items():
+        assert market_vn.classify(symbol) == expected, (
+            symbol, market_vn.classify(symbol), expected)
+
+
+@check("an unrecognised symbol is refused rather than guessed at")
+def _():
+    # A new name on the international feed has unknown units; filing it under
+    # a class would put a wrong currency next to a real price.
+    assert market_vn.classify("G-NEWTHING") is None
+    assert market_vn.classify("") is None
+    assert market_vn.classify(None) is None
+
+
+@check("each class states what it is quoted in")
+def _():
+    # An index level is not money, and gold is not đồng. Anything the picker
+    # offers must say which of the three it is.
+    for asset_class in market_vn.TRADABLE_CLASSES:
+        assert market_vn.CLASS_CURRENCY[asset_class] in ("VND", "USD", "point", "rate")
+    assert market_vn.CLASS_CURRENCY["equity"] == "VND"
+    assert market_vn.CLASS_CURRENCY["commodity"] == "USD"
+    assert market_vn.CLASS_CURRENCY["index_vn"] == "point"
+    # Warrants and bonds are not offered, so they carry no unit at all.
+    assert "warrant" not in market_vn.TRADABLE_CLASSES
+    assert "bond" not in market_vn.TRADABLE_CLASSES
 
 
 @contextmanager
@@ -164,7 +203,7 @@ def _():
         ("ABC", date(2026, 9, 8), 10.0, 2000),
     ]
     with _fake_query(rows):
-        out = market_vn._equities_without_quote(known=set())
+        out = market_vn._symbols_without_quote(known=set())
     assert len(out) == 1, out
     row = out[0]
     assert row["symbol"] == "ABC"
@@ -178,27 +217,37 @@ def _():
 def _():
     rows = [("ABC", date(2026, 9, 9), 15.0, 1000)]
     with _fake_query(rows):
-        out = market_vn._equities_without_quote(known={"ABC"})
+        out = market_vn._symbols_without_quote(known={"ABC"})
     assert out == [], out
 
 
-@check("a warrant or bond code never enters the equity picker through this path")
+@check("a warrant or bond never reaches the picker, but an index does")
 def _():
     rows = [
-        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),
-        ("41I1G8000", date(2026, 9, 9), 100.0, 5),
-        ("VNINDEX", date(2026, 9, 9), 1900.0, 0),
+        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),    # time decay against a strike
+        ("41I1G8000", date(2026, 9, 9), 100.0, 5),     # quoted against face value
+        ("VNINDEX", date(2026, 9, 9), 1900.0, 0),      # a legitimate index level
+        ("G-XAUUSD", date(2026, 9, 9), 4418.11, 0),    # gold, priced in USD
     ]
     with _fake_query(rows):
-        out = market_vn._equities_without_quote(known=set())
-    assert out == [], out
+        out = market_vn._symbols_without_quote(known=set())
+
+    got = {row["symbol"]: row for row in out}
+    assert "CVNM2609" not in got, got
+    assert "41I1G8000" not in got, got
+    # And the two that belong come through carrying the right units, so the
+    # interface never prints an index level or an ounce of gold as đồng.
+    assert got["VNINDEX"]["asset_class"] == "index_vn"
+    assert got["VNINDEX"]["currency"] == "point"
+    assert got["G-XAUUSD"]["asset_class"] == "commodity"
+    assert got["G-XAUUSD"]["currency"] == "USD"
 
 
 @check("only one close means no percentage claim, not a fabricated one")
 def _():
     rows = [("XYZ", date(2026, 9, 9), 15.0, 1000)]
     with _fake_query(rows):
-        out = market_vn._equities_without_quote(known=set())
+        out = market_vn._symbols_without_quote(known=set())
     assert out[0]["change_percent"] is None, out[0]
 
 
@@ -317,6 +366,30 @@ def _():
     # history must have been deduplicated, not double-listed.
     names = [s["symbol"] for s in symbols]
     assert len(names) == len(set(names)), "duplicate symbol in the merged list"
+
+
+@live("gold, crypto, FX and the index families all reach the list")
+def _():
+    symbols = {s["symbol"]: s for s in market_vn.list_symbols()}
+
+    # These were in the database all along and never reachable from the app.
+    expected = {
+        "G-GOLD": "commodity", "G-XAUUSD": "commodity", "G-BTCUSD": "crypto",
+        "G-USDVND": "fx", "G-SPX": "index_global", "HNXINDEX": "index_vn",
+        "I1-FIN": "index_sector", "E1VFVN30": "fund", "VN30F1M": "futures_vn",
+    }
+    for symbol, asset_class in expected.items():
+        assert symbol in symbols, f"{symbol} missing from the symbol list"
+        assert symbols[symbol]["asset_class"] == asset_class, symbols[symbol]
+
+    # Every listed symbol carries a class and a unit; a price with no stated
+    # unit is the §2.7 failure this whole split exists to avoid.
+    for symbol, row in symbols.items():
+        assert row["asset_class"] in market_vn.TRADABLE_CLASSES, row
+        assert row["currency"], row
+
+    # And the two excluded families really are absent.
+    assert not [s for s in symbols if market_vn.classify(s) in ("warrant", "bond")]
 
 
 @live("the account holds no write privileges")

@@ -697,24 +697,45 @@
         index: new Map(vn.symbols.map((s) => [s.id, s])),
       };
 
-      const withMinutes = vn.symbols.filter((s) => s.has_intraday);
-      const dailyOnly = vn.symbols.filter((s) => !s.has_intraday);
       const label = (s) => `${s.symbol}${s.name && s.name !== s.symbol ? ' · ' + s.name : ''}`;
 
-      // Not labelled "HOSE": the merged list now includes tickers the
-      // database itself does not tag by exchange (HNX and UPCOM names sit
-      // alongside HOSE ones with no column to tell them apart), so claiming
-      // one exchange for all of them would be a guess dressed as a fact.
-      if (withMinutes.length) {
+      /* Grouped by what the instrument IS, not by whether it has minute bars.
+         With 1,700 names the old two-group split was a wall of tickers: gold,
+         a bank stock and a sector index sat in one list because they happened
+         to share a data resolution, which is the one thing nobody picks a
+         symbol by. Ordered so the small, distinct families come first — the
+         1,500 equities are the haystack, and putting them on top buries
+         everything else. Not labelled "HOSE" anywhere: the database has no
+         exchange column, and HNX and UPCOM names sit among the HOSE ones. */
+      const FAMILIES = [
+        ['commodity', () => L('Hàng hoá & kim loại', 'Commodities & metals')],
+        ['crypto', () => L('Tiền mã hoá', 'Crypto')],
+        ['fx', () => L('Ngoại hối', 'Foreign exchange')],
+        ['index_global', () => L('Chỉ số quốc tế', 'Global indices')],
+        ['index_vn', () => L('Chỉ số Việt Nam', 'Vietnam indices')],
+        ['futures_vn', () => L('Phái sinh Việt Nam', 'Vietnam futures')],
+        ['index_sector', () => L('Chỉ số ngành', 'Sector indices')],
+        ['fund', () => L('Quỹ ETF', 'ETFs')],
+        ['equity', () => L('Cổ phiếu Việt Nam', 'Vietnam equities')],
+      ];
+
+      for (const [assetClass, groupLabel] of FAMILIES) {
+        const members = vn.symbols.filter((s) => s.asset_class === assetClass);
+        if (!members.length) continue;
         groups.push({
-          label: `Việt Nam (có nến phút: ${withMinutes.length})`,
-          options: withMinutes.map((s) => ({ id: s.id, text: label(s) })),
+          label: `${groupLabel()} (${members.length})`,
+          options: members.map((s) => ({ id: s.id, text: label(s) })),
         });
       }
-      if (dailyOnly.length) {
+
+      // A class the backend knows about but this list has not been taught yet
+      // still has to reach the picker, or new data silently disappears.
+      const placed = new Set(FAMILIES.map(([c]) => c));
+      const rest = vn.symbols.filter((s) => !placed.has(s.asset_class));
+      if (rest.length) {
         groups.push({
-          label: `Việt Nam (chỉ nến ngày: ${dailyOnly.length})`,
-          options: dailyOnly.map((s) => ({ id: s.id, text: label(s) })),
+          label: L(`Khác (${rest.length})`, `Other (${rest.length})`),
+          options: rest.map((s) => ({ id: s.id, text: label(s) })),
         });
       }
     } catch (err) {

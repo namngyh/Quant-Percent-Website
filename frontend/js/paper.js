@@ -435,11 +435,36 @@ const Paper = (() => {
     if (!name.startsWith(VN_PREFIX)) {
       return ['binance_futures_taker', 'binance_futures_maker', 'binance_spot'];
     }
-    // VN30F1M, VN30F2M and the quarterly contracts are futures; everything
-    // else on this market is an ordinary HOSE listing.
     const bare = name.slice(VN_PREFIX.length);
-    return /^VN30F/i.test(bare) ? ['vn_derivatives'] : ['hose'];
+
+    /* The `G-` family is the database's international feed — gold, oil, FX,
+       crypto, foreign indices. We do not know which broker Nam would actually
+       trade these through, and picking one would put its fee schedule on the
+       account without any basis. "Tự đặt" is the honest answer: it asks for
+       the cost rather than inventing it. */
+    if (/^G-/i.test(bare)) return ['custom'];
+
+    // Index levels are not directly tradable, so no venue fits; the contract
+    // on the index is a separate symbol with its own row in the picker.
+    if (/^I[123]-/i.test(bare) || VN_INDEX_NAMES.has(bare.toUpperCase())) {
+      return ['custom'];
+    }
+
+    // VN30F1M and the VN100F/quarterly contracts are futures; everything else
+    // left on this market is an ordinary Vietnamese listing or fund.
+    return /^VN(30|100)F/i.test(bare) ? ['vn_derivatives'] : ['hose'];
   }
+
+  /* Kept in step with `_VN_INDEX_NAMES` in backend/data/market_vn.py. Two
+     copies is a real risk, but the alternative is an extra round trip before
+     the ticket can even name its venue; the backend stays the authority and
+     this list only decides which cost preset is offered. */
+  const VN_INDEX_NAMES = new Set([
+    'VNINDEX', 'VN30', 'VN100', 'VNALL', 'VNX50', 'VNXALL', 'VNMID', 'VNSML',
+    'VNDIAMOND', 'VNFINLEAD', 'VNFINSELECT', 'VNSI', 'VNIT', 'VNCOND', 'VNCONS',
+    'VNENE', 'VNFIN', 'VNHEAL', 'VNIND', 'VNMAT', 'VNREAL', 'VNUTI',
+    'HNXINDEX', 'HNX30INDEX', 'UPCOMINDEX',
+  ]);
 
   // The symbol the venue list was last built for.
   let venuesFor_symbol = null;
