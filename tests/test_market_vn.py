@@ -373,6 +373,30 @@ def _():
     assert out["gaps"] == [], out["gaps"]
 
 
+@check("the window starts at midnight, so the oldest day is never half-counted")
+def _():
+    # The bug this pins: the window began at `now() - 45 days`, which lands
+    # mid-session, so the boundary day was counted from (say) 03:48 onward and
+    # came back 45% short. Every symbol shares the same boundary, so all of
+    # them reported the same missing day — which read exactly like a
+    # market-wide outage and was reported as one before it was measured.
+    captured = {}
+    original = market_vn.query
+
+    def fake(sql, params=()):
+        captured["params"] = params
+        return []
+
+    market_vn.query = fake
+    try:
+        market_vn.data_coverage("VN30F1M")
+    finally:
+        market_vn.query = original
+
+    since = captured["params"][1]
+    assert (since.hour, since.minute, since.second, since.microsecond) == (0, 0, 0, 0), since
+
+
 @check("no minute history at all is reported as nothing to judge")
 def _():
     with _fake_query([]):

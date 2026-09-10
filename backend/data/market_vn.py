@@ -678,7 +678,14 @@ def data_coverage(symbol: str, lookback_days: int = 45) -> dict:
     * a closed market — gold prints nothing on Sundays, and Sundays are
       compared with other Sundays, so the day never registers as missing.
     """
-    since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    # Truncated to midnight, not left at the current clock time. A window that
+    # starts mid-session cuts the oldest day in half, and that half-day then
+    # reads as an outage on every symbol at once — which is exactly how it was
+    # first misread as a market-wide incident (§4, 2026-09-14). The boundary
+    # day has to be whole or absent, never partial.
+    since = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
     # One row per session: small enough to cross the VPN cheaply even for a
     # symbol that trades around the clock.

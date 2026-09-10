@@ -188,6 +188,93 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-15 — Cảnh báo 27/07 là lỗi của tôi, và trang tải nhanh gấp 2,5 lần
+
+**291 test Python** (trước 290) + toàn bộ render check, không lỗi. Test mới kiểm đúng lỗi cửa sổ trượt: bỏ bản sửa ra thì nó đỏ.
+
+#### Nam hỏi "thiếu dữ liệu thật sao?" — một cảnh báo đúng, một cảnh báo sai
+
+Hai toast trong ảnh chụp có **hai nguyên nhân hoàn toàn khác nhau**.
+
+**Toast 27/07 là lỗi của tôi.** Cửa sổ 45 ngày cắt theo `now() - interval '45
+days'`, tức **03:48 UTC ngày 27/07** — giữa phiên. Nên ngày cũ nhất chỉ được
+đếm từ 03:48 trở đi:
+
+| | Nến ngày 27/07 |
+|---|---|
+| Thật sự có trong database | **241** (đủ) |
+| `data_coverage` nhìn thấy | **132** |
+
+Ngày biên **luôn** bị báo thiếu, với **mọi mã**. Và đó chính là "bằng chứng"
+tôi đã dùng ở mục 2026-09-14 để kết luận 27/07 là *sự cố toàn thị trường*:
+bốn mã VN cùng thiếu một ngày trông rất thuyết phục, nhưng chúng thiếu vì
+**dùng chung một mốc cắt**. Đã đính chính mục đó.
+
+Sửa: cắt cửa sổ theo **ranh giới ngày** thay vì theo giờ — ngày biên phải
+nguyên vẹn hoặc không có, không được nửa vời. Sau khi sửa:
+
+| Mã | Trước | Sau |
+|---|---|---|
+| VN30F1M, VIC, SHS, VNINDEX, AAH | 1 "thủng" mỗi mã | **0 thủng** |
+| G-XAUUSD, G-BTCUSD | 1 thủng | **1 thủng** (giữ nguyên) |
+
+**Toast 9/9 là thật.** Nến mới nhất của `G-XAUUSD` là **2026-09-09 10:19 UTC**
+— feed quốc tế dừng từ hôm qua và chưa chạy lại. Ngày 08/09 chạy gần đủ 24
+giờ, ngày 09/09 chỉ tới 10 giờ rồi ngắt. Vàng, bạc, dầu, BTC, EUR/USD đều
+dừng cùng lúc, nên đây là feed `G-` chứ không phải một mã.
+
+Test mới `the window starts at midnight` kiểm đúng tham số truyền vào SQL. Đã
+xác nhận nó bắt được lỗi: bỏ bản sửa ra thì test đỏ.
+
+#### "Làm trang web nhanh hơn" — đo trong trình duyệt, không đo ở server
+
+Mọi endpoint đều dưới 100ms, nên chỗ chậm không nằm ở server. Dựng
+`frontend/_perf.html` đo bằng Navigation/Resource Timing API của chính trình
+duyệt. Tài nguyên chậm nhất hiện ra ngay:
+
+```
+319ms   /css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono...
+```
+
+**Google Fonts — cho một font không được dùng ở đâu cả.** Kiểu chữ đã chuyển
+sang Segoe UI từ 2026-09-09 (Roboto phủ tiếng Việt kém, dấu chồng rơi xuống
+font dự phòng giữa chừng), nhưng cái `<link>` bị bỏ quên. Nó là tài nguyên tốn
+thời gian nhất trên đường tải, và trên máy không có Internet thì còn phải chờ
+timeout trước khi trang ổn định. Đã xoá.
+
+| | Trước | Sau |
+|---|---|---|
+| `domContentLoaded` (trung vị 3 lần chạy nguội) | **465ms** | **184ms** |
+| Request | 29 | 28 |
+
+**Giảm 60%**, toàn bộ từ một dòng `<link>`.
+
+*Còn gzip thì tôi thử và bỏ — §2.2.* Tổng tải là 1 804KB không nén, đúng hình
+dạng gzip ăn tốt (JSON lặp lại nhiều: 1 728 mã, 2 000 nến, 190 chỉ báo). Bật
+`GZipMiddleware` thì tải xuống còn **399KB, giảm 78%**. Nhưng đo thời gian
+thật, ba lần chạy nguội mỗi cấu hình:
+
+| | Lần 1 | Lần 2 | Lần 3 | Trung vị |
+|---|---|---|---|---|
+| Không gzip | 160 | 186 | 190 | **186ms** |
+| Có gzip | 217 | 199 | 209 | **209ms** |
+
+**Chậm hơn 12%.** Đây là công cụ chạy local: băng thông loopback là vô hạn,
+nên 78% ít byte hơn không đổi lấy được gì, còn CPU nén thì tính vào thời gian
+chờ thật. Đã bỏ. *(Nếu sau này Nam mở nền tảng qua Tailscale từ máy khác thì
+bật lại là đúng — lúc đó băng thông mới là thứ có giá.)*
+
+#### Chỗ chậm còn lại không phải kỹ thuật
+
+Khởi động kỹ thuật giờ là **184ms**, còn màn hình mở đầu chờ **2 100ms** — cố
+ý, theo yêu cầu "chậm lại một chút để chạy hết hiệu ứng" (2026-09-10). Nghĩa
+là 92% thời gian từ lúc mở tới lúc dùng được là hiệu ứng, không phải tải.
+Muốn nhanh hơn nữa thì rút splash, và đó là quyết định của Nam chứ không phải
+một vấn đề kỹ thuật còn tồn.
+
+Kiểm thêm: 1 728 option trong ô chọn mã **không tốn gì đo được** (nhân bản cả
+`<select>` mất 0,0ms), nên danh sách dài không phải chỗ nghẽn.
+
 ### 2026-09-14 (tối) — Rủi ro thị trường của team, và một tối ưu tốc độ không ăn thua
 
 **290 test Python** (trước 287) + toàn bộ render check, không lỗi. Ba check backend cho `market_risk`, bảy check render cho khối mới.
@@ -306,8 +393,11 @@ Xây cảnh báo trên đó là dựng 210 báo động để bắt 3 nến.
 2026-07-27:  VN30F1M −34%  ·  VIC −31%  ·  SHS −35%  ·  VNINDEX −29%
 ```
 
-Cùng một ngày, mọi mã VN. Đó là sự cố hệ thống thật, và `v_ingestion_gaps`
-không hề nói ra. Nhóm `G-` có sự cố riêng ngày 2026-09-09 (vàng −55%, BTC −60%).
+> **ĐÍNH CHÍNH (xem mục 2026-09-15):** con số 27/07 này **là lỗi của tôi**, không
+> phải sự cố thị trường. Cửa sổ 45 ngày cắt theo *giờ* nên ngày cũ nhất bị đếm
+> nửa vời — và vì mọi mã dùng chung một mốc cắt, tất cả cùng "thiếu" một ngày,
+> trông y hệt một sự cố toàn thị trường. Sau khi sửa: **mọi mã VN đều 0 thủng**.
+> Sự cố `G-` ngày 2026-09-09 (vàng −55%, BTC −60%) thì có thật.
 
 Và thứ quan trọng hơn cả lỗ thủng: **A32 có trung vị 1 nến/phiên**. Không phải
 mất dữ liệu — mã đó gần như không giao dịch. Backtest intraday trên nó ra kết
@@ -319,7 +409,7 @@ Chấm mỗi phiên theo **trung vị của chính mã đó, cùng thứ trong t
 
 | Nguyên nhân | Dấu hiệu | Ví dụ đo được |
 |---|---|---|
-| Sự cố hệ thống | phiên thấp hẳn so với thói quen của chính mã | 27/07, cả 4 mã VN |
+| Sự cố hệ thống | phiên thấp hẳn so với thói quen của chính mã | `G-` ngày 09/09 (xem đính chính ở trên về 27/07) |
 | Mã quá mỏng | trung vị < 30 nến/phiên → `thin`, không chấm | A32: 1 nến/phiên |
 | Thị trường đóng cửa | so theo thứ trong tuần nên Chủ nhật so với Chủ nhật | vàng cuối tuần |
 

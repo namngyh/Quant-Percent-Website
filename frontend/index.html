@@ -4,13 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quant Percent</title>
-  <!-- Roboto and Roboto Mono are the faces this design is drawn for. Loaded
-       from Google Fonts with `display=swap` and a full system fallback stack in
-       styles.css, so a start with no internet renders immediately in the system
-       UI font rather than waiting on a request that will not arrive. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" />
+  <!-- No web font is fetched. Roboto was the face this design was originally
+       drawn for, but the type was moved to Segoe UI in 2026-09-09 (Trebuchet
+       and Roboto both cover Vietnamese badly enough that stacked diacritics
+       fall through to a second typeface mid-word), and the Google Fonts link
+       was left behind. Measured in the browser afterwards: it was the single
+       slowest resource on the load path at 319ms, for a face nothing renders
+       in — and on a machine with no internet it is a request that has to time
+       out before the page settles. The stacks in styles.css are all system
+       faces now. -->
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 </head>
