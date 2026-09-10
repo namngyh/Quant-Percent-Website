@@ -1,11 +1,16 @@
-"""Read-only access to the team's Vietnam market database (HOSE).
+"""Read-only access to the team's Vietnam market database.
 
 TimescaleDB on the team VPS, reachable only over the Tailscale VPN. The account
 can read the ``api`` schema and nothing else, which is deliberate — a
 "permission denied" here is a question for the administrator, not something to
 work around.
 
-Three properties of this data shape every query below:
+The schema does not carry an exchange column, and the ticker mix in
+``api.v_history_1d`` (HBC, BVS, SD9, AAV — HOSE and HNX names side by side)
+confirms this is not HOSE-only, whatever it was scoped to originally. Nothing
+here claims an exchange for a symbol it cannot actually name.
+
+Four properties of this data shape every query below:
 
 1. **There is no tick data.** One minute is the finest resolution available.
 2. **``api.v_history_1m`` has no ``is_final`` column**, so its newest row may be
@@ -14,6 +19,11 @@ Three properties of this data shape every query below:
 3. **``ts`` is UTC.** The Vietnamese session of 09:00–15:00 is 02:00–08:00 UTC.
    Timestamps are converted for display only; everything stored and compared
    here stays UTC, as it does for the Binance data.
+4. **``api.v_quote`` is not the whole catalogue.** It is a curated live-price
+   feed covering a few hundred names; ``api.v_history_1d`` carries far more
+   (2,100 measured, against 389 in the quote feed), most of it still trading.
+   ``list_symbols`` folds the gap in rather than only showing what the quote
+   feed happens to cover.
 
 The 5m/15m/1h/4h frames are aggregated from 1m in SQL. Only 1m and 1d exist in
 the database, and doing the bucketing server-side avoids dragging a hundred
@@ -24,6 +34,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -41,6 +52,15 @@ CONNECT_TIMEOUT = 8
 # Seconds per bucket for the frames aggregated from 1m data.
 BUCKET_SECONDS = {"5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400}
 SUPPORTED_TIMEFRAMES = ["1m", *BUCKET_SECONDS.keys(), "1d"]
+
+# A plain equity ticker: exactly three letters/digits (VIC, ITA, SD9, S99…).
+# Everything longer belongs to a different instrument class this platform does
+# not model separately — covered warrants (7-8 chars, e.g. CVNM2609), bonds
+# (9 chars, numeric-led, e.g. 41I1G8000), indices and fund certificates
+# (VNINDEX, VN30, FUESSV50). Mixing those into the equity picker would carry
+# them into backtests built on equity pricing conventions (§3.6) that do not
+# apply to a bond's accrued-interest quoting or a warrant's time decay.
+_EQUITY_TICKER_RE = re.compile(r"^[A-Z0-9]{3}$")
 
 _pool = None
 _pool_lock = threading.Lock()
@@ -148,17 +168,21 @@ def query(sql: str, params: tuple = ()) -> list[tuple]:
 def list_symbols() -> list[dict]:
     """Every tradable symbol with its latest quote.
 
-    ``api.v_quote`` is one row per symbol, so this is a small read even though
-    it covers all 389 names.
+    ``api.v_quote`` is a curated live-price feed, not the whole catalogue —
+    measured at 389 names while the daily-history table alone carries data for
+    2,100. The gap is not stale or delisted stock: roughly 1,150 of those
+    extra tickers were still trading as of the most recent session, with real
+    volume, just never added to the quote feed. Left out, the app was showing
+    a fraction of what the database actually has. ``_equities_without_quote``
+    fills that gap in from the history table itself.
     """
     rows = query(
         """
         SELECT symbol, name, price, change_percent, volume, data_as_of
         FROM api.v_quote
-        ORDER BY volume DESC NULLS LAST
         """
     )
-    return [
+    quotes = [
         {
             "symbol": r[0],
             "name": r[1],
@@ -169,6 +193,68 @@ def list_symbols() -> list[dict]:
         }
         for r in rows
     ]
+    known = {q["symbol"] for q in quotes}
+    quotes.extend(_equities_without_quote(known))
+
+    # ``ORDER BY volume DESC NULLS LAST`` was pushed down to SQL before the
+    # merge; now that the two sources are combined in Python it is applied
+    # here instead, on the same terms for both.
+    quotes.sort(key=lambda q: (q["volume"] is None, -(q["volume"] or 0)))
+    return quotes
+
+
+def _equities_without_quote(known: set[str]) -> list[dict]:
+    """Plain equity tickers with daily history but no row in ``api.v_quote``.
+
+    There is no live price feed for these, so each is priced off its own two
+    most recent closes instead — a quote that can lag the real feed by up to
+    one session, which is the honest cost of listing a symbol the quote feed
+    itself does not carry. The 15-day window bounds the scan to roughly the
+    last two trading weeks rather than ranking the full history of 2,100
+    symbols just to keep two rows of it.
+    """
+    rows = query(
+        """
+        SELECT symbol, trading_date, close, volume
+        FROM (
+            SELECT symbol, trading_date, close, volume,
+                   row_number() OVER (
+                       PARTITION BY symbol ORDER BY trading_date DESC
+                   ) AS rn
+            FROM api.v_history_1d
+            WHERE trading_date >= current_date - interval '15 days'
+        ) ranked
+        WHERE rn <= 2
+        ORDER BY symbol, trading_date DESC
+        """
+    )
+
+    by_symbol: dict[str, list[tuple]] = {}
+    for symbol, trading_date, close, volume in rows:
+        if symbol in known or not _EQUITY_TICKER_RE.match(symbol):
+            continue
+        by_symbol.setdefault(symbol, []).append((trading_date, close, volume))
+
+    out = []
+    for symbol, points in by_symbol.items():
+        latest_date, latest_close, latest_volume = points[0]
+        price = float(latest_close) if latest_close is not None else None
+        change_pct = None
+        if price is not None and len(points) > 1 and points[1][1]:
+            prev_close = float(points[1][1])
+            if prev_close > 0:
+                change_pct = (price - prev_close) / prev_close * 100
+        out.append(
+            {
+                "symbol": symbol,
+                "name": None,
+                "price": price,
+                "change_percent": change_pct,
+                "volume": int(latest_volume) if latest_volume is not None else None,
+                "data_as_of": _to_ms(latest_date),
+            }
+        )
+    return out
 
 
 def intraday_symbols() -> set[str]:

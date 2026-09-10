@@ -8,6 +8,7 @@ would not load".
 from __future__ import annotations
 
 import logging
+import time
 
 from fastapi import APIRouter, HTTPException
 
@@ -16,19 +17,38 @@ from backend.data import market_vn, sources
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/markets/vn", tags=["market-vn"])
 
+# ``api.v_quote`` itself has gotten slow as the database has grown — measured
+# at 13-20s for even a bare `count(*)`, independent of anything this endpoint
+# adds on top. That is the team's view, not something fixable from here, but a
+# symbol list does not need to pay that cost on every dropdown open: it is
+# cached for a minute, which a picker list can be that stale without anyone
+# noticing.
+_SYMBOLS_CACHE_SECONDS = 60
+_symbols_cache: dict | None = None
+_symbols_cache_at: float = 0.0
+
 
 @router.get("/symbols")
 def symbols() -> dict:
-    """Every HOSE symbol with its latest quote, and which have minute bars.
+    """Every symbol with its latest quote, and which have minute bars.
 
-    Only 35 of the 389 carry 1m data. Saying which lets the UI grey out the
-    intraday timeframes instead of showing an empty chart with no reason given.
+    ``api.v_quote`` is a curated live-price feed, not the full catalogue — it
+    covers 389 names while the daily-history table alone has 2,100, roughly
+    1,150 of them still trading with real volume and simply never added to
+    the quote feed. ``market_vn.list_symbols`` folds those in, priced off
+    their own last two closes since there is no live quote for them.
     """
+    global _symbols_cache, _symbols_cache_at
+
     if not market_vn.configured():
         raise HTTPException(
             503,
             "Chưa cấu hình MARKET_DSN. Copy .env.example thành .env và điền mật khẩu.",
         )
+
+    now = time.monotonic()
+    if _symbols_cache is not None and now - _symbols_cache_at < _SYMBOLS_CACHE_SECONDS:
+        return _symbols_cache
 
     try:
         quotes = market_vn.list_symbols()
@@ -40,16 +60,19 @@ def symbols() -> dict:
         quote["id"] = sources.qualify(sources.VIETNAM, quote["symbol"])
         quote["has_intraday"] = quote["symbol"] in intraday
 
-    return {
+    payload = {
         "count": len(quotes),
         "intraday_count": len(intraday),
         "symbols": quotes,
         "timeframes": market_vn.SUPPORTED_TIMEFRAMES,
         "daily_only_note": (
             "Chỉ các mã có nến 1 phút mới dùng được khung intraday; "
-            "các mã còn lại chỉ có khung ngày."
+            "các mã còn lại chỉ có khung ngày. Mã không có báo giá trực tiếp "
+            "được định giá theo phiên đóng cửa gần nhất, có thể trễ tới một phiên."
         ),
     }
+    _symbols_cache, _symbols_cache_at = payload, now
+    return payload
 
 
 @router.get("/freshness")

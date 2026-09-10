@@ -701,15 +701,19 @@
       const dailyOnly = vn.symbols.filter((s) => !s.has_intraday);
       const label = (s) => `${s.symbol}${s.name && s.name !== s.symbol ? ' · ' + s.name : ''}`;
 
+      // Not labelled "HOSE": the merged list now includes tickers the
+      // database itself does not tag by exchange (HNX and UPCOM names sit
+      // alongside HOSE ones with no column to tell them apart), so claiming
+      // one exchange for all of them would be a guess dressed as a fact.
       if (withMinutes.length) {
         groups.push({
-          label: `Việt Nam · HOSE (có nến phút: ${withMinutes.length})`,
+          label: `Việt Nam (có nến phút: ${withMinutes.length})`,
           options: withMinutes.map((s) => ({ id: s.id, text: label(s) })),
         });
       }
       if (dailyOnly.length) {
         groups.push({
-          label: `Việt Nam · HOSE (chỉ nến ngày: ${dailyOnly.length})`,
+          label: `Việt Nam (chỉ nến ngày: ${dailyOnly.length})`,
           options: dailyOnly.map((s) => ({ id: s.id, text: label(s) })),
         });
       }

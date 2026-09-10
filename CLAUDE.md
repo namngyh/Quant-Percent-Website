@@ -172,6 +172,83 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-13 — Database có thêm ~1.150 mã mới, và một view đã chậm hẳn đi
+
+**277 test Python** (trước 272; 1 flaky do DB chậm, không liên quan tới thay đổi ở đây) + toàn bộ render check.
+
+#### Chẩn đoán: `api.v_quote` chỉ là một góc của database
+
+Nam nói database có thêm nhiều dữ liệu, và đúng là vậy — nhưng không phải ở chỗ
+app đang nhìn vào. Toàn bộ danh sách mã của app lấy từ `api.v_quote` (389 dòng,
+đúng con số cũ). Đo trực tiếp `api.v_history_1d` thì nó có **2.100 mã**, và
+**1.140 mã** trong số chênh lệch đó vẫn đang giao dịch tới đúng phiên gần nhất
+(2026-09-09), có khối lượng thật, có khi 24 năm lịch sử (AGF từ 2002). Đây
+không phải mã đã huỷ niêm yết bị bỏ sót — đây là mã **chưa bao giờ được thêm
+vào nguồn báo giá trực tiếp** mà app dùng để dựng ô chọn mã.
+
+Kiểm mẫu vài mã: `AAH`, `AAV`, `AAN`, `ITA`, `HBC`, `BVS`... đều có giá, khối
+lượng thật ở phiên 2026-09-09 (`AAH`: 1,8 nghìn đồng, khối lượng 375.300).
+
+*Một phát hiện phụ đáng nói ra theo §2.7:* trộn cả HOSE lẫn HNX trong cùng
+chênh lệch đó (`BVS`, `SD9`, `AAV` là mã HNX quen thuộc) — nghĩa là database
+này **không chỉ có HOSE** như mô tả cũ trong `market_vn.py` và CLAUDE.md, dù
+schema không có cột nào ghi rõ sàn. Đã sửa docstring để không khẳng định một
+sàn mà chính dữ liệu không xác nhận được, và bỏ chữ "HOSE" khỏi hai nhãn nhóm
+trên ô chọn mã của frontend — nói "Việt Nam" thay vì đoán sàn.
+
+#### Đã thêm: `_equities_without_quote`
+
+`list_symbols()` giờ gộp `v_quote` với mọi mã có hình dạng cổ phiếu thường
+(đúng 3 ký tự chữ/số — `^[A-Z0-9]{3}$`) xuất hiện trong `v_history_1d` mà
+không có trong `v_quote`. Mã dạng khác — chứng quyền (`CVNM2609`, 353 mã),
+trái phiếu (mã 9 ký tự bắt đầu bằng số, `41I1G8000`), chỉ số và chứng chỉ quỹ
+— bị loại có chủ ý: chúng là loại công cụ khác, quy ước giá khác hẳn (không
+theo nghìn đồng như cổ phiếu, §3.6), và trộn vào bộ chọn mã cổ phiếu là mang
+chúng vào một bộ giả định backtest không dành cho chúng. **Chưa thêm nhóm này
+— hỏi Nam nếu muốn có luôn, vì cần một cách xử lý giá riêng.**
+
+Mã mới không có báo giá trực tiếp thì lấy giá từ **hai phiên đóng cửa gần nhất**
+của chính nó trong `v_history_1d` — trễ tối đa một phiên so với báo giá thật,
+đây là cái giá phải trả để không bỏ sót mã đó hoàn toàn. Chỉ một phiên thì
+không có `change_percent` — trả `None` thay vì bịa ra 0% hay chia cho 0.
+
+Đo trên dữ liệu thật:
+
+| | Trước | Sau |
+|---|---|---|
+| Tổng số mã trong ô chọn | 389 | **1.529** |
+| Trong đó có nến 1 phút | 35 (theo comment cũ) | 1.337 |
+
+`tests/test_market_vn.py` thêm 6 check không cần VPN (regex, gộp danh sách,
+khử trùng, sort theo khối lượng, `change_percent = None` khi thiếu điểm so
+sánh), cộng siết lại phép kiểm live "danh sách mã" theo đúng con số đo được.
+
+#### Phát hiện không sửa được từ phía app: `v_quote` và một vài truy vấn 1m đã chậm hẳn
+
+Đo trực tiếp, không phải giả định:
+
+| Truy vấn | Trước (báo cáo cũ) | Giờ |
+|---|---|---|
+| `SELECT ... FROM api.v_quote` (389 dòng) | 1.916 ms | **~20.000 ms** |
+| `SELECT count(*) FROM api.v_quote` | — | **~13.000 ms** |
+| `get_candles("VN30F1M", "1m", limit=20)` | nhanh | 3.0s |
+| `get_candles("VN30F1M", "1m", limit=600)` | nhanh | **timeout, 30s server + ~70s round trip** |
+
+Không phải lỗi VPN — mọi truy vấn khác (daily, coverage, symbol list mới) vẫn
+trả lời được, chỉ chậm hơn hẳn trước. Khả năng cao nhất là kế hoạch truy vấn
+trên `api.v_quote` và trên `api.v_history_1m` không còn phù hợp với khối lượng
+dữ liệu mới — đúng như Nam mô tả "thêm rất nhiều dữ liệu". Đây là việc của
+người quản trị database (index, continuous aggregate, hay vacuum lại view),
+không phải việc sửa được từ phía chỉ-đọc này, nên báo lại thay vì tự tìm đường
+vòng — đúng nguyên tắc §3.5.
+
+**Việc duy nhất chặn được từ phía app:** ô chọn mã giờ có cache 60 giây ở tầng
+route (`routes_market.py`), nên một khi đã trả lời một lần, mở lại ô chọn hay
+tải lại trang trong vòng một phút không phải trả giá 20 giây đó lần nữa. Không
+đụng vào phần còn lại — nếu `VN30F1M` với `limit` lớn vẫn timeout thật trên máy
+Nam khi tải biểu đồ, đó là dấu hiệu cần báo cho người quản trị database, không
+phải dấu hiệu app hỏng.
+
 ### 2026-09-12 (tối) — "unknown paper session: summary" không phải lỗi code
 
 **272 test Python** (trước 269) + toàn bộ render check.

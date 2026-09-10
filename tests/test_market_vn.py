@@ -11,6 +11,7 @@ state for this machine and not a broken build.
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -133,6 +134,99 @@ def _():
     assert market_vn._frame(rows)["volume"].iloc[0] == 0.0
 
 
+@check("the equity-ticker pattern accepts plain tickers, rejects everything else")
+def _():
+    # Exactly three letters/digits: VIC, ITA, SD9, S99 all trade today.
+    for ticker in ("VIC", "ITA", "SD9", "S99", "ABC"):
+        assert market_vn._EQUITY_TICKER_RE.match(ticker), ticker
+    # Everything with a different shape belongs to another instrument class:
+    # covered warrants, bonds, indices, fund certificates.
+    for other in ("VNINDEX", "VN30", "VN30F1M", "FUESSV50", "CVNM2609", "41I1G8000"):
+        assert not market_vn._EQUITY_TICKER_RE.match(other), other
+
+
+@contextmanager
+def _fake_query(rows):
+    """Swap ``market_vn.query`` for the duration of one test, then restore it."""
+    original = market_vn.query
+    market_vn.query = lambda sql, params=(): rows
+    try:
+        yield
+    finally:
+        market_vn.query = original
+
+
+@check("a symbol with daily history but no live quote is priced off its own closes")
+def _():
+    rows = [
+        # Newest first, as the SQL orders it; two rows is what the query keeps.
+        ("ABC", date(2026, 9, 9), 15.0, 1000),
+        ("ABC", date(2026, 9, 8), 10.0, 2000),
+    ]
+    with _fake_query(rows):
+        out = market_vn._equities_without_quote(known=set())
+    assert len(out) == 1, out
+    row = out[0]
+    assert row["symbol"] == "ABC"
+    assert row["name"] is None, row  # no name source for these — honestly absent
+    assert row["price"] == 15.0
+    assert abs(row["change_percent"] - 50.0) < 1e-9, row["change_percent"]
+    assert row["volume"] == 1000
+
+
+@check("a symbol already covered by the live quote is not duplicated")
+def _():
+    rows = [("ABC", date(2026, 9, 9), 15.0, 1000)]
+    with _fake_query(rows):
+        out = market_vn._equities_without_quote(known={"ABC"})
+    assert out == [], out
+
+
+@check("a warrant or bond code never enters the equity picker through this path")
+def _():
+    rows = [
+        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),
+        ("41I1G8000", date(2026, 9, 9), 100.0, 5),
+        ("VNINDEX", date(2026, 9, 9), 1900.0, 0),
+    ]
+    with _fake_query(rows):
+        out = market_vn._equities_without_quote(known=set())
+    assert out == [], out
+
+
+@check("only one close means no percentage claim, not a fabricated one")
+def _():
+    rows = [("XYZ", date(2026, 9, 9), 15.0, 1000)]
+    with _fake_query(rows):
+        out = market_vn._equities_without_quote(known=set())
+    assert out[0]["change_percent"] is None, out[0]
+
+
+@check("the merged list has no duplicates and stays sorted by volume, None last")
+def _():
+    quote_rows = [
+        ("VIC", "Vingroup", 45.0, 1.2, 900, None),
+        ("VNM", "Vinamilk", 60.0, -0.5, 300, None),
+    ]
+    daily_rows = [
+        ("ABC", date(2026, 9, 9), 10.0, 5000),  # louder than both quoted names
+        ("ABC", date(2026, 9, 8), 9.0, 4000),
+        ("XYZ", date(2026, 9, 9), 3.0, None),   # no volume at all
+    ]
+    calls = iter([quote_rows, daily_rows])
+    original = market_vn.query
+    market_vn.query = lambda sql, params=(): next(calls)  # v_quote, then history
+    try:
+        out = market_vn.list_symbols()
+    finally:
+        market_vn.query = original
+
+    symbols = [q["symbol"] for q in out]
+    assert len(symbols) == len(set(symbols)), symbols
+    assert symbols[0] == "ABC", symbols  # 5000 beats 900 and 300
+    assert symbols[-1] == "XYZ", symbols  # None volume sorts last
+
+
 @check("connection errors are translated into something actionable")
 def _():
     cases = {
@@ -206,9 +300,23 @@ def _():
 def _():
     symbols = market_vn.list_symbols()
     intraday = market_vn.intraday_symbols()
-    assert len(symbols) > 300, len(symbols)
-    assert 0 < len(intraday) < len(symbols), (len(intraday), len(symbols))
+    # Bounded well below the live-measured 1,529 (389 quoted + ~1,140 folded
+    # in from daily history) so ordinary listings/delistings don't flake this.
+    assert len(symbols) > 1000, len(symbols)
+
+    # `intraday` also covers warrants and bonds this picker deliberately
+    # excludes (§_EQUITY_TICKER_RE), so it is not a subset of `symbols` any
+    # more — comparing sizes directly would compare two different universes.
+    # What must hold is the overlap: some but not all of our equities carry
+    # minute bars.
+    overlap = intraday & {s["symbol"] for s in symbols}
+    assert 0 < len(overlap) < len(symbols), (len(overlap), len(symbols))
     assert "VN30F1M" in intraday
+
+    # No symbol appears twice: a name in both v_quote and the folded-in daily
+    # history must have been deduplicated, not double-listed.
+    names = [s["symbol"] for s in symbols]
+    assert len(names) == len(set(names)), "duplicate symbol in the merged list"
 
 
 @live("the account holds no write privileges")
