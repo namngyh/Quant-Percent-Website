@@ -185,10 +185,23 @@ def _():
 
 
 @contextmanager
-def _fake_query(rows):
-    """Swap ``market_vn.query`` for the duration of one test, then restore it."""
+def _fake_query(*results):
+    """Swap ``market_vn.query`` for the duration of one test, then restore it.
+
+    Several results can be given: they are handed out in call order, and the
+    last one repeats. Functions that read two views (``market_risk`` reads the
+    metrics then the distribution) would otherwise get the first view's rows
+    for both and fail on the unpack rather than on the thing being tested.
+    """
     original = market_vn.query
-    market_vn.query = lambda sql, params=(): rows
+    calls = {"n": 0}
+
+    def fake(sql, params=()):
+        index = min(calls["n"], len(results) - 1)
+        calls["n"] += 1
+        return results[index]
+
+    market_vn.query = fake
     try:
         yield
     finally:
@@ -366,6 +379,57 @@ def _():
         out = market_vn.data_coverage("VIC")
     assert out["sessions"] == 0 and out["gaps"] == [], out
     assert out["median_bars"] is None, out
+
+
+# --------------------------------------------------- the team's risk model
+
+def _risk_rows(paths=10_000, downside=0.5139):
+    from datetime import datetime as _dt
+    made = _dt(2026, 9, 9, 8, 17, tzinfo=timezone.utc)
+    return [(
+        _dt(2026, 9, 9, 8, 0, tzinfo=timezone.utc),
+        -0.0523, -0.1115, 0.1797, -0.0935, -0.1180, downside, "moderate",
+        paths, made,
+    )]
+
+
+@check("a simulated probability carries the error its path count implies")
+def _():
+    # sqrt(p(1-p)/N): 51.39% from 10,000 paths is ±0.50 points, so the second
+    # decimal is simulation noise. Printed without it, two runs that differ
+    # only by their seed look like a change in the market.
+    dist = [(-0.03, 0.7526), (-0.10, 0.0677)]
+    with _fake_query(_risk_rows(paths=10_000), dist):
+        coarse = market_vn.market_risk()
+    with _fake_query(_risk_rows(paths=40_000), dist):
+        fine = market_vn.market_risk()
+
+    a = coarse["latest"]["downside_sim_error_pct"]
+    b = fine["latest"]["downside_sim_error_pct"]
+    assert abs(a - 0.4998) < 0.01, a
+    # Four times the paths halves the error, and the payload has to show that
+    # rather than printing both to the same decimals as if they were equal.
+    assert abs(a / b - 2.0) < 1e-6, (a, b)
+
+
+@check("risk figures come back as percentages, not as fractions")
+def _():
+    with _fake_query(_risk_rows(), [(-0.03, 0.7526)]):
+        out = market_vn.market_risk()
+    latest = out["latest"]
+    # -0.0935 in the database is -9.35%, and a screen that prints -0.09% for a
+    # 9% value understates the risk by two orders of magnitude.
+    assert abs(latest["var_95_pct"] + 9.35) < 0.01, latest["var_95_pct"]
+    assert abs(latest["es_95_pct"] + 11.80) < 0.01, latest["es_95_pct"]
+    assert abs(latest["volatility_pct"] - 17.97) < 0.01, latest["volatility_pct"]
+
+
+@check("an empty risk view says so rather than showing zeros")
+def _():
+    with _fake_query([]):
+        out = market_vn.market_risk()
+    assert out["available"] is False, out
+    assert out["snapshots"] == [], out
 
 
 @check("connection errors are translated into something actionable")

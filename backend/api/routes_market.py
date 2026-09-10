@@ -32,6 +32,11 @@ _symbols_cache_at: float = 0.0
 _COVERAGE_CACHE_SECONDS = 300
 _coverage_cache: dict[str, tuple[float, dict]] = {}
 
+# The pipeline writes one risk snapshot a day at most, so a five-minute cache
+# costs nothing and keeps tab-flipping off the VPN.
+_RISK_CACHE_SECONDS = 300
+_risk_cache: dict[str, tuple[float, dict]] = {}
+
 
 @router.get("/symbols")
 def symbols() -> dict:
@@ -105,6 +110,32 @@ def coverage(symbol: str) -> dict:
         raise HTTPException(503, str(exc)) from exc
 
     _coverage_cache[bare] = (now, report)
+    return report
+
+
+@router.get("/risk")
+def risk() -> dict:
+    """The team's Monte Carlo risk read on VNINDEX.
+
+    Offered next to the user's own backtested risk numbers as a second,
+    independent opinion — the strategy tools measure a strategy, this measures
+    the index. See ``market_vn.market_risk`` for the three limits that travel
+    with it (uneven ``mc_paths``, a sparse series, VNINDEX only).
+    """
+    if not market_vn.configured():
+        raise HTTPException(503, "Chưa cấu hình MARKET_DSN.")
+
+    now = time.monotonic()
+    hit = _risk_cache.get("vnindex")
+    if hit and now - hit[0] < _RISK_CACHE_SECONDS:
+        return hit[1]
+
+    try:
+        report = market_vn.market_risk()
+    except market_vn.MarketUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    _risk_cache["vnindex"] = (now, report)
     return report
 
 

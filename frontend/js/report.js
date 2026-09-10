@@ -1117,8 +1117,80 @@ const Report = (() => {
       html += `<div class="callout warn">${esc(tp(lev.watch))}</div>`;
     }
 
+    html += marketRiskBlock();
     return html;
   }
+
+  /* The team's own Monte Carlo read on VNINDEX, kept visibly apart from
+     everything above it.
+
+     Everything above measures the strategy the user just backtested. This
+     measures the index, from a different model, on a different schedule. Two
+     risk numbers on one screen invite the reader to treat them as comparable,
+     so the heading says whose they are and the notes say what they cannot do. */
+  let marketRisk = null;
+
+  function marketRiskBlock() {
+    if (!marketRisk?.available) return '';
+    const latest = marketRisk.latest;
+    const pct = (v, digits = 2) => (v === null || v === undefined ? '—' : `${v.toFixed(digits)}%`);
+
+    let html = `<div class="field-group-title">${esc(L(
+      'Rủi ro thị trường — mô hình của team (VNINDEX)',
+      'Market risk — the team\'s model (VNINDEX)'))} ${marketRiskExplain()}</div>`;
+
+    html += '<div class="stat-cards">';
+    html += card(L('VaR 95%', 'VaR 95%'), pct(latest.var_95_pct), null, 'neg');
+    html += card(L('ES 95%', 'ES 95%'), pct(latest.es_95_pct), null, 'neg');
+    html += card(L('Biến động', 'Volatility'), pct(latest.volatility_pct), null, '');
+    html += card(L('Sụt giảm hiện tại', 'Current drawdown'),
+      pct(latest.current_drawdown_pct), null, 'neg',
+      L(`60 phiên: ${pct(latest.rolling_drawdown_60d_pct)}`,
+        `60 sessions: ${pct(latest.rolling_drawdown_60d_pct)}`));
+    // The simulation error is printed beside the probability, not tucked away:
+    // 51.39% from 10,000 paths carries ±0.50, so the last digit is noise.
+    html += card(L('Xác suất giảm', 'Downside probability'),
+      pct(latest.downside_probability_pct), null, '',
+      latest.downside_sim_error_pct
+        ? `± ${latest.downside_sim_error_pct.toFixed(2)} (${latest.mc_paths.toLocaleString()} ${
+            L('đường', 'paths')})`
+        : '');
+    html += '</div>';
+
+    if (marketRisk.distribution.length) {
+      html += `<table class="data-table stat-table"><thead><tr>
+        <th>${esc(L('Lỗ ít nhất', 'Loss of at least'))}</th>
+        <th>${esc(L('Xác suất', 'Probability'))}</th>
+        <th>${esc(L('Sai số mô phỏng', 'Simulation error'))}</th>
+        </tr></thead><tbody>`;
+      for (const row of marketRisk.distribution) {
+        html += `<tr>
+          <td class="neg">${row.loss_pct.toFixed(1)}%</td>
+          <td>${row.probability_pct.toFixed(2)}%</td>
+          <td class="muted">± ${row.sim_error_pct === null ? '—' : row.sim_error_pct.toFixed(2)}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    const gap = marketRisk.spacing_days;
+    if (gap && gap.max > gap.median * 3) {
+      html += `<div class="callout warn">${esc(L(
+        `Đây là ${marketRisk.snapshots.length} ảnh chụp rời rạc, không phải một chuỗi liên tục — khoảng cách lớn nhất giữa hai lần là ${gap.max.toFixed(0)} ngày. Đừng đọc chúng như một đường diễn biến.`,
+        `These are ${marketRisk.snapshots.length} separate snapshots, not a continuous series — the largest gap between two of them is ${gap.max.toFixed(0)} days. Do not read them as a trend.`))}</div>`;
+    }
+    return html;
+  }
+
+  const marketRiskExplain = () => Explain.inline({
+    title: L('Rủi ro thị trường của team', 'The team\'s market risk model'),
+    what: L('Mô phỏng Monte Carlo do pipeline của team chạy trên VNINDEX, không phải trên chiến lược của bạn. Đây là ý kiến thứ hai, độc lập với mọi con số phía trên.',
+            'A Monte Carlo simulation the team\'s pipeline runs on VNINDEX, not on your strategy. A second opinion, independent of every number above it.'),
+    how: L('Đọc cùng với bảng rủi ro đuôi phía trên: nếu chiến lược của bạn có CVaR nhẹ hơn thị trường thì đó là một lợi thế đáng nói, còn nếu nặng hơn thì bạn đang trả thêm rủi ro để lấy lợi nhuận.',
+           'Read it against the tail-risk table above: a strategy with a lighter CVaR than the index has an edge worth naming, while a heavier one is paying extra risk for its return.'),
+    watch: L('Ba giới hạn. Một, nó chỉ đo VNINDEX — không đo mã bạn đang xem. Hai, số đường mô phỏng không cố định giữa các lần chạy (10 000 và 40 000 đều xuất hiện), nên hai dòng in cùng số chữ số thập phân không mang cùng sai số; cột sai số mô phỏng nói ra điều đó. Ba, các ảnh chụp thưa và không đều, nên đừng nội suy giữa chúng.',
+             'Three limits. One, it measures VNINDEX only — not the symbol you are looking at. Two, the path count is not constant between runs (both 10,000 and 40,000 appear), so two rows printed to the same decimals do not carry the same error; the simulation-error column says so. Three, the snapshots are sparse and irregular, so do not interpolate between them.'),
+  });
 
   const varCvarExplain = (tail) => Explain.inline({
     title: L('VaR và CVaR', 'VaR and CVaR'),
@@ -1270,6 +1342,24 @@ const Report = (() => {
 
     paint();
     host.querySelector('.rp-close').focus();
+    loadMarketRisk();
+  }
+
+  /* Fetched after the window is already up, never before it.
+
+     It is a second opinion on one tab; a report that would not open because
+     the VPN is down, or because the team's risk view is empty, would be a
+     worse report than one without it. Failure is silent for the same reason
+     — there is nothing the reader is expected to do about it. */
+  async function loadMarketRisk() {
+    if (marketRisk !== null) return;      // one fetch per page load
+    try {
+      marketRisk = await API.vnRisk();
+    } catch {
+      marketRisk = { available: false };
+      return;
+    }
+    if (host && activeTab === 'risktools') paint();
   }
 
   /** Repaint in the current language, if the window is open. */
@@ -1296,5 +1386,10 @@ const Report = (() => {
       if (!entry) throw new Error(`no such report tab: ${id}`);
       return entry[2](payload);
     },
+    // Also for tests/test_render.js. The market-risk block arrives from its
+    // own endpoint rather than from the report payload, so without a way to
+    // set it the one part of that tab which talks about somebody else's model
+    // would be the part nothing checks.
+    setMarketRisk(value) { marketRisk = value; },
   };
 })();

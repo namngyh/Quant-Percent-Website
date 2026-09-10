@@ -188,6 +188,93 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-14 (tối) — Rủi ro thị trường của team, và một tối ưu tốc độ không ăn thua
+
+**290 test Python** (trước 287) + toàn bộ render check, không lỗi. Ba check backend cho `market_risk`, bảy check render cho khối mới.
+
+#### Mô hình rủi ro của team, đặt cạnh mô hình của người dùng
+
+Tab **Quản trị rủi ro** tính rủi ro của *chiến lược người dùng vừa backtest*.
+Team có một mô phỏng Monte Carlo riêng chạy trên *VNINDEX*. Hai thứ trả lời hai
+câu hỏi khác nhau, nên đặt cạnh nhau thì đối chiếu được — nhưng chỉ khi nói rõ
+chúng khác nhau ở đâu, nếu không hai con số rủi ro trên cùng màn hình sẽ được
+đọc như thể so sánh được.
+
+Đọc được từ `api.v_risk_metrics` + `api.v_risk_distribution` (phiên 09/09):
+
+| | VNINDEX |
+|---|---|
+| VaR 95% | −9,35% |
+| ES 95% | −11,80% |
+| Biến động | 17,97% |
+| Sụt giảm hiện tại | −5,23% (60 phiên: −11,15%) |
+| Xác suất giảm | 51,39% **± 0,50** |
+
+Cộng phân phối lỗ: ≥3% có xác suất 75,26%, ≥10% có 6,77%.
+
+#### Ba giới hạn đi kèm, vì không cái nào nhìn thấy được trong con số
+
+1. **`mc_paths` không cố định** giữa các lần chạy — cả 10 000 lẫn 40 000 đều
+   xuất hiện. Hai dòng in cùng số chữ số thập phân **không mang cùng sai số**.
+   Payload trả về sai số mô phỏng cho từng dòng, tính bằng `sqrt(p(1−p)/N)`:
+   51,39% từ 10 000 đường là **±0,50 điểm phần trăm**, nên chữ số thập phân thứ
+   hai là nhiễu. Có test kiểm đúng quan hệ này: gấp 4 lần số đường thì sai số
+   phải giảm đúng một nửa.
+2. **Chuỗi thưa và không đều** — 6 ảnh chụp, khoảng cách trung vị 2 ngày nhưng
+   lớn nhất **29 ngày**. Giao diện gọi thẳng đó là "ảnh chụp rời rạc, đừng đọc
+   như một đường diễn biến", và cảnh báo chỉ hiện khi lỗ lớn nhất gấp hơn 3 lần
+   trung vị — tức là ngưỡng tương đối, không phải hằng số.
+3. **Chỉ VNINDEX**, không phải mã người dùng đang xem. Tiêu đề khối ghi thẳng
+   `(VNINDEX)` chứ không để người đọc tự suy.
+
+Khối này nạp **sau khi cửa sổ báo cáo đã mở**, và hỏng thì im lặng: nó là ý
+kiến thứ hai trên một tab, còn một báo cáo không mở được vì VPN tắt là một báo
+cáo tệ hơn hẳn một báo cáo thiếu nó.
+
+`test_render.js` thêm 7 check, gồm cả **"mô hình vắng mặt thì phần còn lại của
+tab vẫn nguyên"** — vì đường hỏng mới là đường hay chạy nhất.
+
+#### Câu hỏi của Nam: truy vấn nhanh hơn được không?
+
+**Database đã nhanh hơn hẳn.** Đo lại cùng những truy vấn từng timeout:
+
+| Truy vấn | Lần đo trước | Giờ |
+|---|---|---|
+| nến VN30F1M 1m, limit=600 | **timeout 30s** | 1,46s |
+| nến VN30F1M 1m, limit=2000 | — | 1,35s |
+| `data_coverage()` | — | 0,29s |
+| `v_quote` (389 dòng) | ~20s → 5s | 5,02s |
+| `list_symbols()` tổng | ~20s | 8,3s |
+
+Nút thắt duy nhất còn lại là `v_quote` (5s) — chính CTE 45 ngày mà Nam đã nói
+để nguyên.
+
+*Tôi thử song song hoá và nó không ăn thua — ghi lại theo §2.2.* Ba truy vấn
+(`v_quote`, CTE bù mã, tập mã có nến phút) độc lập nhau nên tôi cho chạy đồng
+thời qua `ThreadPoolExecutor`, kỳ vọng 11s → 5s. Đo thật, ba lần xen kẽ:
+
+| | Lần 1 | Lần 2 | Lần 3 | Tốt nhất |
+|---|---|---|---|---|
+| Tuần tự | 11,33 | 13,26 | 11,78 | **11,33s** |
+| Song song | 24,55 | 11,84 | 10,60 | **10,60s** |
+
+Nhanh hơn **7%**, và lần chạy nguội còn **chậm hơn gấp đôi** vì phải mở thêm
+kết nối qua VPN. Database xử lý các truy vấn này tuần tự, nên gửi chúng cùng
+lúc không rút ngắn được gì. **Đã hoàn nguyên** — không giữ lại một lớp phức tạp
+đổi lấy 7% không chắc chắn.
+
+*Một lần suýt kết luận sai trong lúc đo:* hai đường cho ra danh sách "khác
+nhau", và tôi định đi tìm lỗi đồng bộ. Thật ra là **`volume` live đổi giữa hai
+lần gọi** (4 mã: SSB, SSI, STB…) làm thứ tự sắp xếp đổi theo. So bằng tập hợp
+thay vì danh sách có thứ tự thì hai đường trùng khớp hoàn toàn.
+
+Đường này vốn đã nằm ngoài critical path (chỉ `config` + `candles` chặn lượt vẽ
+đầu) và đã có cache 60 giây, nên 11s chạy nền một lần mỗi phút là chấp nhận
+được. Muốn nhanh hơn nữa thì phải bỏ `v_quote` khỏi đường nóng — nhưng nó là
+nguồn **duy nhất** cho tên công ty, và `price`/`change_percent` của nó thì
+frontend không dùng đến (giá trên header lấy từ nến). Đó là một đánh đổi có
+thật, để lại chờ Nam quyết.
+
 ### 2026-09-14 — Cảnh báo dữ liệu khuyết, và tiền đề sai của chính tôi
 
 **287 test Python** (trước 281) + toàn bộ render check, không lỗi. Sáu check mới cho `data_coverage`, cộng một probe trình duyệt thật cho phần toast mà test jsdom không chạm tới.

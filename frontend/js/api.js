@@ -163,6 +163,8 @@ const API = (() => {
       post('/api/portfolio/analyze', {
         holdings, cash, horizon_days: horizonDays, lookback_days: lookbackDays,
       }),
+    vnRisk: () => request('/api/markets/vn/risk'),
+
     vnStatus: () => request('/api/markets/vn/status'),
 
     notifyStatus: () => request('/api/notify/status'),

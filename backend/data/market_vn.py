@@ -33,6 +33,7 @@ thousand rows across the VPN to resample them locally.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import re
 import threading
@@ -758,4 +759,105 @@ def data_coverage(symbol: str, lookback_days: int = 45) -> dict:
         "session_spread": round(spread, 4) if spread is not None else None,
         "gaps": sorted(gaps, key=lambda g: -g["missing_pct"]),
         "checked_from": int(since.timestamp() * 1000),
+    }
+
+
+# --------------------------------------------------------- team risk model
+
+def market_risk() -> dict:
+    """The team's own Monte Carlo risk read on VNINDEX.
+
+    A second opinion, not a replacement: the Risk tools tab measures the
+    user's own backtested strategy, while this measures the index itself from
+    the pipeline's simulation. They answer different questions and are worth
+    seeing side by side, which only works if the differences are stated rather
+    than smoothed over.
+
+    Three limits travel with the numbers because none of them is visible in
+    the figures themselves:
+
+    * ``mc_paths`` is not constant across rows (10,000 and 40,000 both
+      appear), so two rows printed to the same decimals do not carry the same
+      simulation error. It is returned per row, with that error worked out.
+    * the series is sparse and irregular — six timestamps with a month-long
+      hole in the middle — so it is a set of snapshots, not a curve.
+    * it covers VNINDEX only, whatever symbol the user happens to be looking
+      at.
+    """
+    rows = query(
+        """
+        SELECT ts, current_drawdown, rolling_drawdown_60d, volatility,
+               var_95, es_95, downside_probability, risk_state, mc_paths,
+               generated_at
+        FROM api.v_risk_metrics
+        ORDER BY ts
+        """
+    )
+    if not rows:
+        return {"available": False, "snapshots": [], "distribution": []}
+
+    snapshots = []
+    for (ts, dd, dd60, vol, var95, es95, down_p, state, paths, made) in rows:
+        paths = int(paths) if paths else None
+        p = float(down_p) if down_p is not None else None
+        # Standard error of a simulated probability: sqrt(p(1-p)/N). Without
+        # it, 0.4699 from 10,000 paths and 0.4676 from 40,000 read as if the
+        # difference between them meant something.
+        sim_error = (
+            math.sqrt(p * (1 - p) / paths) if p is not None and paths else None
+        )
+        snapshots.append(
+            {
+                "time": _to_ms(ts),
+                "current_drawdown_pct": float(dd) * 100 if dd is not None else None,
+                "rolling_drawdown_60d_pct": float(dd60) * 100 if dd60 is not None else None,
+                "volatility_pct": float(vol) * 100 if vol is not None else None,
+                "var_95_pct": float(var95) * 100 if var95 is not None else None,
+                "es_95_pct": float(es95) * 100 if es95 is not None else None,
+                "downside_probability_pct": p * 100 if p is not None else None,
+                "downside_sim_error_pct": sim_error * 100 if sim_error else None,
+                "risk_state": state,
+                "mc_paths": paths,
+                "generated_at": _to_ms(made) if made else None,
+            }
+        )
+
+    latest_ts = rows[-1][0]
+    dist_rows = query(
+        """
+        SELECT bucket, probability FROM api.v_risk_distribution
+        WHERE ts = %s ORDER BY bucket DESC
+        """,
+        (latest_ts,),
+    )
+    latest_paths = snapshots[-1]["mc_paths"]
+    distribution = []
+    for bucket, probability in dist_rows:
+        p = float(probability)
+        distribution.append(
+            {
+                "loss_pct": float(bucket) * 100,
+                "probability_pct": p * 100,
+                "sim_error_pct": (
+                    math.sqrt(p * (1 - p) / latest_paths) * 100 if latest_paths else None
+                ),
+            }
+        )
+
+    # Whether the snapshots are close enough together to read as a series.
+    spacing_days = None
+    if len(rows) > 1:
+        spans = [
+            (rows[i][0] - rows[i - 1][0]).total_seconds() / 86400
+            for i in range(1, len(rows))
+        ]
+        spacing_days = {"median": median(spans), "max": max(spans)}
+
+    return {
+        "available": True,
+        "symbol": "VNINDEX",
+        "snapshots": snapshots,
+        "latest": snapshots[-1],
+        "distribution": distribution,
+        "spacing_days": spacing_days,
     }

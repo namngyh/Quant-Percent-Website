@@ -437,6 +437,50 @@ async function render(label, kind, payload) {
     else { console.log(`  FAIL  risk tools: ${what} missing`); failures++; }
   }
 
+  // The team's own risk model, which arrives from a separate endpoint rather
+  // than from the report payload.
+  window.Report.setMarketRisk({
+    available: true,
+    symbol: 'VNINDEX',
+    latest: {
+      time: 1788940800000,
+      var_95_pct: -9.353, es_95_pct: -11.796, volatility_pct: 17.972,
+      current_drawdown_pct: -5.229, rolling_drawdown_60d_pct: -11.155,
+      downside_probability_pct: 51.39, downside_sim_error_pct: 0.4998,
+      risk_state: 'moderate', mc_paths: 10000,
+    },
+    snapshots: new Array(6).fill(null),
+    distribution: [
+      { loss_pct: -3, probability_pct: 75.26, sim_error_pct: 0.43 },
+      { loss_pct: -10, probability_pct: 6.77, sim_error_pct: 0.25 },
+    ],
+    spacing_days: { median: 2, max: 29 },
+  });
+  const withRisk = window.Report.renderTab('risktools', payloads.report);
+  for (const [what, needle] of [
+    ['market risk heading names VNINDEX', 'VNINDEX'],
+    ['VaR from the team model', '-9.35%'],
+    ['simulation error beside the probability', '0.50'],
+    ['path count stated', '10,000'],
+    ['loss distribution row', '75.26%'],
+    ['sparse-series warning', '29'],
+  ]) {
+    if (withRisk.includes(needle)) console.log(`  PASS  market risk: ${what}`);
+    else { console.log(`  FAIL  market risk: ${what} missing`); failures++; }
+  }
+
+  // An absent or unreachable model must leave the rest of the tab intact
+  // rather than taking the report down with it.
+  window.Report.setMarketRisk({ available: false });
+  const noRisk = window.Report.renderTab('risktools', payloads.report);
+  if (!noRisk.includes('VNINDEX') && noRisk.includes('CVaR')) {
+    console.log('  PASS  market risk: absent model degrades quietly');
+  } else {
+    console.log('  FAIL  market risk: absent model breaks the tab');
+    failures++;
+  }
+  window.Report.setMarketRisk(null);
+
   // RAR/MDD sits next to CAR/MDD on the risk tab.
   const riskTabHtml = window.Report.renderTab('risk', payloads.report);
   if (riskTabHtml.includes('RAR/MDD')) console.log('  PASS  risk tab: RAR/MDD card');
