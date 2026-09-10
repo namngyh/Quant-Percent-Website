@@ -276,6 +276,98 @@ def _():
     assert symbols[-1] == "XYZ", symbols  # None volume sorts last
 
 
+# ------------------------------------------------------- data coverage
+
+def _sessions(counts, start=date(2026, 8, 3)):
+    """Daily bar counts as the coverage query returns them (date, isodow, bars)."""
+    from datetime import timedelta as _td
+    rows = []
+    day = start
+    for bars in counts:
+        while day.isoweekday() > 5:          # weekdays only, like the market
+            day += _td(days=1)
+        rows.append((day, day.isoweekday(), bars))
+        day += _td(days=1)
+    return rows
+
+
+@check("an outage on a steady symbol is reported")
+def _():
+    # VN30F1M prints 241 bars every session; 2026-07-27 delivered 167.
+    rows = _sessions([241] * 12 + [167] + [241] * 7)
+    with _fake_query(rows):
+        out = market_vn.data_coverage("VN30F1M")
+    assert not out["thin"], out
+    assert len(out["gaps"]) == 1, out["gaps"]
+    gap = out["gaps"][0]
+    assert gap["bars"] == 167 and gap["expected"] == 241, gap
+    assert abs(gap["missing_pct"] - (1 - 167 / 241) * 100) < 1e-9, gap
+
+
+@check("a symbol that swings by nature is not accused of losing data")
+def _():
+    # AAH ranges 29-62 bars a session with no fault anywhere. A fixed "20%
+    # below median" rule flags seven of these; the spread-aware one flags none.
+    # Thirty sessions, so every weekday clears the minimum sample.
+    rows = _sessions([54, 29, 62, 33, 58, 41, 60, 29, 51, 50,
+                      62, 35, 57, 44, 48, 31, 59, 46, 38, 55,
+                      61, 30, 52, 43, 57, 34, 49, 60, 36, 53])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("AAH")
+    assert not out["thin"], out
+    assert out["session_spread"] > 0.1, out["session_spread"]
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("a weekday seen only a few times is not used to judge anything")
+def _():
+    # Three Mondays cannot say what a normal Monday looks like. A newly listed
+    # symbol would otherwise be measured against two or three of its own
+    # sessions and flagged for ordinary variation.
+    rows = _sessions([240, 120, 241, 238, 130, 239, 241, 125, 240])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("NEW")
+    assert out["gaps"] == [], out["gaps"]
+    assert out["session_spread"] is None, out["session_spread"]
+
+
+@check("a symbol too thin for intraday says so instead of listing gaps")
+def _():
+    # A32 trades about one minute a session. Nothing is missing; there is
+    # simply almost nothing there, and that is the fact worth reporting.
+    rows = _sessions([1, 2, 0, 1, 1, 3, 1, 0, 1, 2])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("A32")
+    assert out["thin"] is True, out
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("a closed market is judged against the same weekday, not against every day")
+def _():
+    # Gold prints a full book Monday to Friday and nothing on Sunday. Sundays
+    # compared with weekdays would read as a 100% outage every week.
+    from datetime import timedelta as _td
+    rows, day = [], date(2026, 8, 3)
+    for _week in range(5):
+        for _ in range(5):
+            rows.append((day, day.isoweekday(), 1380))
+            day += _td(days=1)
+        rows.append((day, 6, 0))             # Saturday
+        rows.append((day + _td(days=1), 7, 4))  # Sunday, a handful of prints
+        day += _td(days=2)
+    with _fake_query(rows):
+        out = market_vn.data_coverage("G-XAUUSD")
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("no minute history at all is reported as nothing to judge")
+def _():
+    with _fake_query([]):
+        out = market_vn.data_coverage("VIC")
+    assert out["sessions"] == 0 and out["gaps"] == [], out
+    assert out["median_bars"] is None, out
+
+
 @check("connection errors are translated into something actionable")
 def _():
     cases = {

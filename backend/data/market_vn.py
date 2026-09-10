@@ -36,8 +36,9 @@ import logging
 import os
 import re
 import threading
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from statistics import median, quantiles
 
 import pandas as pd
 
@@ -163,6 +164,7 @@ def classify(symbol: str) -> str | None:
     if _EQUITY_TICKER_RE.match(name):
         return "equity"
     return None
+
 
 _pool = None
 _pool_lock = threading.Lock()
@@ -622,3 +624,138 @@ def coverage(symbol: str, timeframe: str) -> dict | None:
         return None
     first, last, count = rows[0]
     return {"first": _to_ms(first), "last": _to_ms(last), "count": int(count)}
+
+
+# ------------------------------------------------------------- data coverage
+
+# Below this many bars in a typical session, a symbol is too thinly traded for
+# a missing-bar count to mean anything: AAH prints six minutes of bars in a
+# whole session, so "three bars today" is its normal, not an outage.
+_THIN_SESSION_BARS = 30
+
+# A session must be at least this far below its weekday's median before it is
+# ever reported, however steady the symbol is. Without it, a symbol that
+# prints exactly the same count every session has zero spread, and every
+# session one bar short would qualify as an outage.
+_COVERAGE_MIN_DROP = 0.20
+
+# Below that floor, the threshold is Tukey's lower fence on the symbol's own
+# session-to-session spread. A fixed percentage measures the wrong thing:
+# VN30F1M prints 241 bars every session and a 30% drop is an outage, while AAH
+# swings between 29 and 62 bars normally, and one rule at "20% down" flags
+# seven ordinary AAH sessions to catch the one real fault on VN30F1M. Same
+# class of error as the K-ratio in §2.6 — the threshold has to scale with the
+# data's own spread. The fence is used rather than a multiple of the median
+# absolute deviation because the counts are not remotely normal (they pile up
+# at a full session and trail off to the left), and a quartile range measures
+# that shape without assuming one.
+_COVERAGE_FENCE = 1.5
+
+# Sessions needed on a given weekday before its median means anything.
+_MIN_SESSIONS_PER_WEEKDAY = 4
+
+
+def data_coverage(symbol: str, lookback_days: int = 45) -> dict:
+    """How complete this symbol's minute data is, judged against its own habit.
+
+    The obvious source for this looks like ``api.v_ingestion_gaps``, and it is
+    the wrong one. Measured over its 210 rows: 156 fall outside trading hours
+    and cost nothing, ``reconnect_ts IS NULL`` means "the reconnect was not
+    recorded" rather than "still down" (bars keep arriving afterwards), and
+    several long disconnects sit entirely inside the 11:30-13:00 lunch break
+    when no bars exist to lose. Counting those would raise 210 alarms for
+    three genuinely missing bars.
+
+    So this counts bars instead, and compares each session against the median
+    for that same weekday. Judging a symbol against itself is what separates
+    the three things a naive "missing %" conflates:
+
+    * an outage — the session holds far fewer bars than that weekday usually
+      brings, and typically every other symbol dips at the same moment;
+    * a thin symbol — the median is tiny to begin with, which is not a data
+      fault but does make intraday backtests on it meaningless;
+    * a closed market — gold prints nothing on Sundays, and Sundays are
+      compared with other Sundays, so the day never registers as missing.
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+
+    # One row per session: small enough to cross the VPN cheaply even for a
+    # symbol that trades around the clock.
+    rows = query(
+        """
+        SELECT ts::date AS d,
+               extract(isodow FROM ts)::int AS dow,
+               count(*) AS bars
+        FROM api.v_history_1m
+        WHERE symbol = %s AND ts >= %s AND ts < date_trunc('day', now())
+        GROUP BY d, dow
+        ORDER BY d
+        """,
+        (symbol, since),
+    )
+    if not rows:
+        return {
+            "symbol": symbol, "sessions": 0, "gaps": [], "thin": False,
+            "median_bars": None, "checked_from": int(since.timestamp() * 1000),
+        }
+
+    by_weekday: dict[int, list[int]] = {}
+    for _, dow, bars in rows:
+        by_weekday.setdefault(dow, []).append(int(bars))
+    medians = {dow: median(counts) for dow, counts in by_weekday.items()}
+
+    overall = median([int(r[2]) for r in rows])
+    thin = overall < _THIN_SESSION_BARS
+
+    # Each session as a share of what that weekday usually brings, so the
+    # spread below is measured on one scale across every symbol.
+    scored = [
+        (day, int(bars), medians[dow], int(bars) / medians[dow])
+        for day, dow, bars in rows
+        # A weekday whose own median is tiny (a half-session holiday, or a
+        # market that barely trades that day) carries no signal either.
+        if medians[dow] >= _THIN_SESSION_BARS
+        # And a weekday seen only a handful of times has a median made of
+        # noise. Splitting by weekday is what keeps a closed Sunday from
+        # reading as an outage, but it also divides the sample five to seven
+        # ways, so a newly listed symbol would otherwise be judged against
+        # two or three of its own sessions.
+        and len(by_weekday[dow]) >= _MIN_SESSIONS_PER_WEEKDAY
+    ]
+
+    gaps = []
+    spread = None
+    if not thin and len(scored) >= 4:
+        ratios = sorted(r for *_, r in scored)
+        q1, _q2, q3 = quantiles(ratios, n=4)
+        spread = q3 - q1
+        # Never stricter than the fixed floor, so a perfectly steady symbol
+        # (spread 0, fence sitting at its own median) does not report every
+        # session that came up one bar short.
+        floor = min(1.0 - _COVERAGE_MIN_DROP, q1 - _COVERAGE_FENCE * spread)
+        for day, bars, expected, ratio in scored:
+            if ratio < floor:
+                gaps.append(
+                    {
+                        "date": _to_ms(day),
+                        "bars": bars,
+                        "expected": int(expected),
+                        "missing_pct": (1 - ratio) * 100,
+                    }
+                )
+
+    return {
+        "symbol": symbol,
+        "sessions": len(rows),
+        "median_bars": int(overall),
+        # True when the symbol prints so few bars per session that intraday
+        # work on it is not meaningful, whatever the data pipeline did.
+        "thin": thin,
+        # The interquartile range of this symbol's session counts, as a share
+        # of its own weekday median. Reported because it is what makes the gap
+        # list readable: 0.02 means the count barely moves and a dip is real,
+        # 0.40 means the symbol is erratic by nature and only a collapse shows.
+        "session_spread": round(spread, 4) if spread is not None else None,
+        "gaps": sorted(gaps, key=lambda g: -g["missing_pct"]),
+        "checked_from": int(since.timestamp() * 1000),
+    }

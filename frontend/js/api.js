@@ -154,6 +154,7 @@ const API = (() => {
       }),
 
     vnSymbols: () => request('/api/markets/vn/symbols'),
+    vnCoverage: (symbol) => request(`/api/markets/vn/coverage?symbol=${encodeURIComponent(symbol)}`),
 
     // POST even though nothing is written: the holdings are the user's own
     // position data, and keeping them out of the URL keeps them out of access

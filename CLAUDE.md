@@ -164,6 +164,22 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 - `api.v_history_1m` **không có** cột `is_final` → dòng mới nhất có thể là nến
   chưa đóng. Luôn bỏ dòng cuối hoặc lọc `ts < đầu phút hiện tại`.
 - Cột `ts` là **UTC**. Phiên VN 09:00–15:00 = 02:00–08:00 UTC.
+- **Phiên KHÔNG liền mạch — có nghỉ trưa.** Đọc từ chính dữ liệu (VN30F1M,
+  mật độ nến theo từng phút):
+
+  | Khoảng | UTC | Giờ VN |
+  |---|---|---|
+  | Phiên sáng | 02:00–04:29 | 09:00–11:29 |
+  | *Nghỉ trưa — không có nến* | 04:30–05:59 | 11:30–13:29 |
+  | Phiên chiều | 06:00–07:29 | 13:00–14:29 |
+  | ATC (một phút riêng lẻ) | 07:45 | 14:45 |
+
+  Tính "số nến kỳ vọng" bằng cách lấy hiệu hai mốc thời gian sẽ **sai 90 phút
+  mỗi phiên**. Đã suýt kết luận ba lần ngắt kết nối là mất dữ liệu trong khi cả
+  ba rơi trọn vào giờ nghỉ trưa.
+
+  Mỗi mã có hồ sơ phiên riêng: cổ phiếu bắt đầu 02:15 (ATO), phái sinh 02:00,
+  nhóm `G-` chạy gần 24/5. Đừng áp hồ sơ của mã này lên mã khác.
 - Giá niêm yết theo **nghìn đồng** (VIC 256.1 = 256 100 đ).
 
 ---
@@ -171,6 +187,105 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 ## 4. Báo cáo
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
+
+### 2026-09-14 — Cảnh báo dữ liệu khuyết, và tiền đề sai của chính tôi
+
+**287 test Python** (trước 281) + toàn bộ render check, không lỗi. Sáu check mới cho `data_coverage`, cộng một probe trình duyệt thật cho phần toast mà test jsdom không chạm tới.
+
+#### Tôi đề xuất việc này dựa trên một con số đọc sai
+
+Vòng trước tôi nói: *"58 lỗ chưa vá... anh backtest xuyên qua đoạn đó mà không
+có dấu hiệu gì"*, và Nam bảo bắt đầu làm. Đo kỹ trước khi xây thì **tiền đề đó
+sai ở cả ba mặt**, ghi lại theo §2.2:
+
+| Điều tôi nói | Sự thật đo được |
+|---|---|
+| 58 lỗ "chưa vá" | `reconnect_ts IS NULL` = **không ghi nhận được lúc nối lại**, không phải đang chết — sau đó vẫn có 790 nến, tới tận phút hiện tại |
+| 210 lần ngắt là vấn đề | **156/210 rơi ngoài giờ giao dịch**, không có nến nào để mất |
+| Backtest chạy trên dữ liệu thủng | VN30F1M mất **3 nến thật** trong 33 phiên |
+
+Ba lần ngắt trông tệ nhất (id=59, 94, 96 — "mất 75–99%") hoá ra **rơi trọn vào
+giờ nghỉ trưa**. Tôi tính "số nến kỳ vọng" bằng hiệu hai mốc thời gian, mà phiên
+VN có nghỉ trưa 90 phút. Đã bổ sung lịch phiên thật vào §3.6.
+
+**`api.v_ingestion_gaps` là nguồn sai** cho câu hỏi này, dù tên của nó nghe đúng.
+Xây cảnh báo trên đó là dựng 210 báo động để bắt 3 nến.
+
+#### Nhưng có vấn đề thật, và nó lớn hơn
+
+Đo trực tiếp **số nến thực có** thay vì số lần ngắt:
+
+```
+2026-07-27:  VN30F1M −34%  ·  VIC −31%  ·  SHS −35%  ·  VNINDEX −29%
+```
+
+Cùng một ngày, mọi mã VN. Đó là sự cố hệ thống thật, và `v_ingestion_gaps`
+không hề nói ra. Nhóm `G-` có sự cố riêng ngày 2026-09-09 (vàng −55%, BTC −60%).
+
+Và thứ quan trọng hơn cả lỗ thủng: **A32 có trung vị 1 nến/phiên**. Không phải
+mất dữ liệu — mã đó gần như không giao dịch. Backtest intraday trên nó ra kết
+quả rác mà biểu đồ trông vẫn bình thường.
+
+#### `data_coverage()` — phân biệt ba thứ mà một con số "thiếu %" gộp làm một
+
+Chấm mỗi phiên theo **trung vị của chính mã đó, cùng thứ trong tuần**:
+
+| Nguyên nhân | Dấu hiệu | Ví dụ đo được |
+|---|---|---|
+| Sự cố hệ thống | phiên thấp hẳn so với thói quen của chính mã | 27/07, cả 4 mã VN |
+| Mã quá mỏng | trung vị < 30 nến/phiên → `thin`, không chấm | A32: 1 nến/phiên |
+| Thị trường đóng cửa | so theo thứ trong tuần nên Chủ nhật so với Chủ nhật | vàng cuối tuần |
+
+**Ngưỡng phải co giãn theo độ phân tán của chính mã (§2.6).** Bản đầu của tôi
+dùng hằng số "thấp hơn 20% so với trung vị" — bắt đúng VN30F1M nhưng **buộc tội
+AAH 7 phiên** trong khi mã đó vốn dao động 29–62 nến/phiên. Đo được: AAH có
+IQR **0,423**, còn VN30F1M **0,000**. Cùng một quy tắc phần trăm không thể phục
+vụ cả hai.
+
+*Lần sửa thứ hai của tôi cũng chưa đúng:* tôi chuyển sang `3 × MAD`, và nó nhạy
+đến mức fixture lệch 0,05 so với dữ liệu thật là đảo kết quả — tức là tôi đang
+chỉnh hằng số cho vừa một test. Cuối cùng dùng **hàng rào Tukey** (`q1 − 1,5 ×
+IQR`, kẹp bởi sàn 20%): không giả định phân phối, mà số nến/phiên thì không hề
+chuẩn — nó dồn ở "phiên đầy đủ" rồi kéo đuôi sang trái.
+
+Thêm một điều kiện nữa sau khi test bắt được: **một thứ trong tuần phải có ít
+nhất 4 phiên** mới đủ để nói phiên nào bất thường. Chia theo thứ là thứ giúp
+Chủ nhật của vàng không bị coi là mất dữ liệu, nhưng nó cũng chia mẫu ra 5–7
+phần, nên mã mới niêm yết sẽ bị chấm dựa trên hai ba phiên của chính nó.
+
+#### Cảnh báo chỉ hiện ở khung intraday
+
+Nến ngày đến từ `v_history_1d`, một bảng khác mà các sự cố này không đụng tới.
+Cảnh báo ở khung ngày là báo động cho một vấn đề không tồn tại.
+
+**Kiểm bằng trình duyệt thật, không phải bằng mock**, vì phần người dùng thấy là
+một cái toast:
+
+```
+[A32 @ 1m]      1 toast: "A32 chỉ khớp lệnh khoảng 1 phút mỗi phiên..."
+[VN30F1M @ 1m]  1 toast: "...nặng nhất 27/07 (155/241 nến, thiếu 36%)..."
+[A32 @ 1d]      0 toast   (đúng — nến ngày không bị ảnh hưởng)
+```
+
+*Hai lỗi chỉ probe mới bắt được:*
+
+1. **Lần chạy đầu báo 0 toast** và trông y như tính năng hỏng. Thật ra toast tự
+   xoá sau 5 giây còn probe đọc ở giây thứ 9. Đọc một lần ở cuối là cách biến
+   một cảnh báo đang chạy thành "đã hỏng" — phải theo dõi bằng `MutationObserver`.
+2. **A32 báo trùng 2 lần**, vì tôi khoá theo `mã|khung`. Nhưng đây là sự thật về
+   **dữ liệu phút của mã**, mà 5m và 15m đều dựng từ chính những nến đó — nói
+   lại ở mỗi khung là kể một sự thật như thể có nhiều. Khoá theo mã.
+
+*Và một lỗi §2.3 nữa của tôi:* script sửa probe bằng `str.replace` không khớp và
+**thất bại im lặng** (tôi không assert), nên bản probe chạy tiếp với hàm cũ đã bị
+xoá. Đúng cái bẫy §2.3 nói: sửa hàng loạt phải soát lại, không tin vào "đã chạy
+xong".
+
+#### Chưa làm
+
+`v_ingestion_gaps` **không** được đưa lên giao diện, có chủ ý — nó đo số lần
+socket rớt, không đo dữ liệu thiếu, và hai thứ đó lệch nhau hoàn toàn trên số
+liệu thật. Phần chẩn đoán hạ tầng đó thuộc về người vận hành pipeline.
 
 ### 2026-09-13 (tối) — Vàng, dầu, FX, crypto: 192 mã nữa vốn đã nằm sẵn trong database
 

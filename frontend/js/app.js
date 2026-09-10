@@ -172,6 +172,7 @@
       const last = data.candles[data.candles.length - 1];
       loadedBars = data.count;
       showLoadedBars();
+      warnIfDataIncomplete(requested);
 
       showPrice(last.close);
 
@@ -326,6 +327,60 @@
       historyExhausted = true;
       toast(`Không nạp thêm được lịch sử: ${err.message}`, 'bad');
     }
+  }
+
+  /* Say when the minute data behind this chart is not what it looks like.
+
+     A chart draws whatever bars exist and looks equally confident either way,
+     so a session the pipeline half-missed and a symbol that only trades for
+     six minutes a day both render as a normal-looking series — and a backtest
+     over either returns a number with no hint attached. Measured on the real
+     data: 2026-07-27 cost every Vietnamese symbol a quarter to a third of its
+     bars at once, and A32 prints a median of one bar per session.
+
+     Only raised for intraday frames. Daily bars come from a different table
+     that these outages never touched. */
+  const coverageSeen = new Set();
+
+  async function warnIfDataIncomplete(key) {
+    if (!INTRADAY.has(state.timeframe)) return;
+    if (!state.symbol.startsWith('VN:')) return;
+    /* Once per symbol, not once per symbol-and-timeframe. What is being
+       reported is a fact about the symbol's minute data, and 5m and 15m are
+       built from those same bars — saying it again on every intraday frame
+       repeats one truth as though it were several. */
+    if (coverageSeen.has(state.symbol)) return;
+    coverageSeen.add(state.symbol);
+
+    let report;
+    try {
+      report = await API.vnCoverage(state.symbol);
+    } catch {
+      return;   // coverage is a courtesy; never let it break a chart load
+    }
+    // The user may have moved on while this was in flight.
+    if (key !== `${state.symbol}|${state.timeframe}`) return;
+
+    if (report.thin) {
+      toast(L(`${report.symbol} chỉ khớp lệnh khoảng ${report.median_bars} phút mỗi phiên, `
+              + 'nên khung phút gần như không có gì để đọc. Dùng khung ngày sẽ đúng hơn.',
+              `${report.symbol} only trades for about ${report.median_bars} minutes a `
+              + 'session, so intraday frames have little to show. Daily is the honest frame '
+              + 'for it.'), true);
+      return;
+    }
+
+    const gaps = report.gaps || [];
+    if (!gaps.length) return;
+
+    const worst = gaps[0];
+    const when = new Date(worst.date).toLocaleDateString();
+    toast(L(`Dữ liệu phút thiếu ở ${gaps.length} phiên gần đây — nặng nhất ${when} `
+            + `(${worst.bars}/${worst.expected} nến, thiếu ${worst.missing_pct.toFixed(0)}%). `
+            + 'Backtest qua các phiên đó sẽ tính trên dữ liệu khuyết.',
+            `Minute data is short on ${gaps.length} recent session(s) — worst ${when} `
+            + `(${worst.bars}/${worst.expected} bars, ${worst.missing_pct.toFixed(0)}% missing). `
+            + 'A backtest crossing those runs on incomplete data.'), true);
   }
 
   /* Say so when the running server predates the code on disk.

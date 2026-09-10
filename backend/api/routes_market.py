@@ -27,6 +27,11 @@ _SYMBOLS_CACHE_SECONDS = 60
 _symbols_cache: dict | None = None
 _symbols_cache_at: float = 0.0
 
+# Coverage is a property of the last 45 sessions, so it barely moves within a
+# working session; cached per symbol to keep symbol-flipping cheap.
+_COVERAGE_CACHE_SECONDS = 300
+_coverage_cache: dict[str, tuple[float, dict]] = {}
+
 
 @router.get("/symbols")
 def symbols() -> dict:
@@ -73,6 +78,34 @@ def symbols() -> dict:
     }
     _symbols_cache, _symbols_cache_at = payload, now
     return payload
+
+
+@router.get("/coverage")
+def coverage(symbol: str) -> dict:
+    """Whether a symbol's minute data is complete enough to work on.
+
+    Answers three different questions that a bare "missing %" runs together:
+    was there an outage, is the symbol too thin for intraday work at all, or
+    was the market simply closed. See ``market_vn.data_coverage`` for why
+    ``api.v_ingestion_gaps`` is the wrong source despite looking like the
+    right one.
+    """
+    if not market_vn.configured():
+        raise HTTPException(503, "Chưa cấu hình MARKET_DSN.")
+
+    _, bare = sources.parse(symbol)
+    now = time.monotonic()
+    hit = _coverage_cache.get(bare)
+    if hit and now - hit[0] < _COVERAGE_CACHE_SECONDS:
+        return hit[1]
+
+    try:
+        report = market_vn.data_coverage(bare)
+    except market_vn.MarketUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    _coverage_cache[bare] = (now, report)
+    return report
 
 
 @router.get("/freshness")
