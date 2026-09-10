@@ -59,6 +59,29 @@ That is short of the original 1.9s. The remaining cost is minute_daily
 aggregating 45 days of minute bars for 389 symbols; narrowing that CTE alone
 would help, but the window is what lets prev_close survive a holiday, so it is
 left as 0009 set it.
+
+
+**A third change, additive: api.v_history_1m_recent.**
+
+Neither fix above makes an unbounded per-symbol query cheap. `WHERE symbol = X
+ORDER BY ts DESC LIMIT 600` still reads every row that symbol has — 533,344 for
+VN30F1M — and top-N sorts them, because nothing tells the planner it may stop
+early. Bounding the time range lets chunk exclusion skip ~460 of the 462 chunks.
+Measured four times alternating, on the same connection:
+
+    no bound          2.2 - 2.7 s
+    ts >= now() - 90d  169 - 194 ms
+
+A chart asking for the last few hundred candles never needs more than 90 days,
+so the bounded view is there to be used instead of remembering the predicate.
+The unbounded view stays for callers that genuinely want full history.
+
+Note on what is *not* changed here: narrowing v_quote's window further (14, 21,
+24, 30 days) and rewriting `last_minute` as a LATERAL per-symbol lookup were
+both measured and both discarded. Repeated timings of the same query ranged from
+2.9s to 13.3s depending on cache state and whether ingestion was mid-write, and
+every candidate landed inside that band. Nothing there was distinguishable from
+noise, so nothing there is shipped.
 """
 
 from alembic import op
@@ -193,6 +216,13 @@ WHERE s.is_public
 """
 
 
+RECENT_1M = """CREATE OR REPLACE VIEW api.v_history_1m_recent AS
+  SELECT symbol, ts, open, high, low, close, volume
+  FROM api.v_history_1m
+  WHERE ts >= now() - interval '90 days'
+"""
+
+
 def upgrade() -> None:
     # The two-branch form of v_history_1m is only correct while exactly one
     # public symbol is renamed. Fail the migration rather than ship a view
@@ -211,8 +241,11 @@ def upgrade() -> None:
     """)
     op.execute(HISTORY_1M_SPLIT)
     op.execute(QUOTE_PUBLIC_ONLY)
+    op.execute(RECENT_1M)
+    op.execute("GRANT SELECT ON api.v_history_1m_recent TO qp_remote")
 
 
 def downgrade() -> None:
+    op.execute("DROP VIEW IF EXISTS api.v_history_1m_recent")
     op.execute(QUOTE_ALL_SYMBOLS)
     op.execute(HISTORY_1M_JOIN)
