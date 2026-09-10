@@ -174,7 +174,7 @@ Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo đ
 
 ### 2026-09-13 — Database có thêm ~1.150 mã mới, và một view đã chậm hẳn đi
 
-**277 test Python** (trước 272; 1 flaky do DB chậm, không liên quan tới thay đổi ở đây) + toàn bộ render check.
+**278 test Python** (trước 272) + toàn bộ render check, không lỗi — DB đã nhanh trở lại nên phép kiểm live trước đó flaky cũng pass sạch.
 
 #### Chẩn đoán: `api.v_quote` chỉ là một góc của database
 
@@ -235,19 +235,28 @@ sánh), cộng siết lại phép kiểm live "danh sách mã" theo đúng con s
 | `get_candles("VN30F1M", "1m", limit=600)` | nhanh | **timeout, 30s server + ~70s round trip** |
 
 Không phải lỗi VPN — mọi truy vấn khác (daily, coverage, symbol list mới) vẫn
-trả lời được, chỉ chậm hơn hẳn trước. Khả năng cao nhất là kế hoạch truy vấn
-trên `api.v_quote` và trên `api.v_history_1m` không còn phù hợp với khối lượng
-dữ liệu mới — đúng như Nam mô tả "thêm rất nhiều dữ liệu". Đây là việc của
-người quản trị database (index, continuous aggregate, hay vacuum lại view),
-không phải việc sửa được từ phía chỉ-đọc này, nên báo lại thay vì tự tìm đường
-vòng — đúng nguyên tắc §3.5.
+trả lời được, chỉ chậm hơn hẳn trước. *Ban đầu tôi chỉ đoán* nguyên nhân là kế
+hoạch truy vấn không còn hợp với khối lượng dữ liệu mới — **Nam cho biết cơ chế
+thật**: `v_quote` tính bằng một CTE gộp **45 ngày** nến phút cho cả 389 mã, và
+45 ngày là chủ ý để `prev_close` sống sót qua một kỳ nghỉ lễ dài (Tết). Đây là
+việc của người quản trị database, không sửa được từ phía chỉ-đọc này, và theo
+đúng yêu cầu của Nam — **để nguyên cửa sổ đó, không rút ngắn**.
 
-**Việc duy nhất chặn được từ phía app:** ô chọn mã giờ có cache 60 giây ở tầng
-route (`routes_market.py`), nên một khi đã trả lời một lần, mở lại ô chọn hay
-tải lại trang trong vòng một phút không phải trả giá 20 giây đó lần nữa. Không
-đụng vào phần còn lại — nếu `VN30F1M` với `limit` lớn vẫn timeout thật trên máy
-Nam khi tải biểu đồ, đó là dấu hiệu cần báo cho người quản trị database, không
-phải dấu hiệu app hỏng.
+**Việc duy nhất chặn được từ phía app:** ô chọn mã có cache 60 giây ở tầng
+route (`routes_market.py`) — giữ nguyên. Đo lại sau khi Nam xác nhận: `v_quote`
+đã về **~3.7–4.9s** (từ ~20s lúc đo lần đầu, có lẽ trạng thái tải của DB dao
+động), vẫn chưa về được mốc gốc 1.9s nhưng đúng như Nam nói, không cần cố ép nó
+về mốc đó vì cái giá là CTE 45 ngày đang bảo vệ đúng thứ cần bảo vệ.
+
+**Đồng bộ luôn cửa sổ của `_equities_without_quote`:** hàm gộp mã mới của tôi
+đang dùng cửa sổ 15 ngày để lấy hai phiên đóng cửa gần nhất — cùng một lớp rủi
+ro Nam vừa nói (mã ít thanh khoản không giao dịch quanh một kỳ nghỉ dài sẽ mất
+`prev_close`, hoặc bị loại khỏi danh sách một cách vô cớ). Đã nâng lên **45
+ngày** để khớp đúng lý do đã được kiểm chứng cho `v_quote`, thay vì để hai cửa
+sổ lệch nhau không có lý do. Đo lại: 4.171 dòng (từ 4.122 ở cửa sổ 15 ngày),
+2.5s (từ 1.3s) — vẫn rẻ, và `list_symbols()` tổng còn **7.1s** thay vì hơn 20s
+lúc đo lần đầu, vì `v_quote` bản thân nó cũng đã nhanh hơn. Thêm 6 mã ít thanh
+khoản mà cửa sổ 15 ngày trước đó bỏ sót.
 
 ### 2026-09-12 (tối) — "unknown paper session: summary" không phải lỗi code
 

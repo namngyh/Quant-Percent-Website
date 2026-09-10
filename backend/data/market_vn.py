@@ -209,9 +209,12 @@ def _equities_without_quote(known: set[str]) -> list[dict]:
     There is no live price feed for these, so each is priced off its own two
     most recent closes instead — a quote that can lag the real feed by up to
     one session, which is the honest cost of listing a symbol the quote feed
-    itself does not carry. The 15-day window bounds the scan to roughly the
-    last two trading weeks rather than ranking the full history of 2,100
-    symbols just to keep two rows of it.
+    itself does not carry. The window bounds the scan to a recent slice
+    rather than ranking the full history of 2,100 symbols just to keep two
+    rows of it, and is set to 45 days to match the window ``api.v_quote``'s
+    own CTE uses for the same reason (per Nam): a shorter one can lose a
+    symbol's previous close across a Tet-length closure, which would either
+    drop it from the list for no real reason or silently misprice its change.
     """
     rows = query(
         """
@@ -222,7 +225,7 @@ def _equities_without_quote(known: set[str]) -> list[dict]:
                        PARTITION BY symbol ORDER BY trading_date DESC
                    ) AS rn
             FROM api.v_history_1d
-            WHERE trading_date >= current_date - interval '15 days'
+            WHERE trading_date >= current_date - interval '45 days'
         ) ranked
         WHERE rn <= 2
         ORDER BY symbol, trading_date DESC
