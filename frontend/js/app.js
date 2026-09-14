@@ -117,7 +117,7 @@
   async function loadCandles() {
     setLoading(true);
     Session.patch({ symbol: state.symbol, timeframe: state.timeframe });
-    paintLegend();
+    MultiChart.syncActive();
     const requested = `${state.symbol}|${state.timeframe}`;
     try {
       const data = await API.candles({
@@ -212,21 +212,6 @@
     // The backend tags each output with the pane it belongs in, so one call
     // handles overlays, panels, and indicators that mix the two.
     ChartManager.draw(instanceId, result, el.panes);
-  }
-
-  /* The working chart's name, for layouts where it shares the screen. Built
-     from nodes rather than a template string, so a symbol can never be read
-     as markup. */
-  function paintLegend() {
-    const node = document.getElementById('main-legend');
-    if (!node || !state.symbol) return;
-    node.innerHTML = Paper.symbolBadge(state.symbol);
-    const name = document.createElement('span');
-    name.textContent = state.symbol.replace(/^VN:/, '');
-    const frame = document.createElement('span');
-    frame.className = 'chart-legend-tf';
-    frame.textContent = state.timeframe || '';
-    node.append(name, frame);
   }
 
   // ---------- Live ----------
@@ -343,32 +328,64 @@
      symbol list the main picker shows, so there is one catalogue rather than
      two that can disagree. */
   function setupMultiChart() {
-    const host = document.getElementById('multi-charts');
-    if (!host) return;
+    const grid = document.getElementById('chart-grid');
+    if (!grid) return;
 
     MultiChart.init({
-      host,
-      timeframe: state.timeframe,
-      rowHandle: document.getElementById('resize-mc'),
+      grid,
+      workUnit: document.getElementById('work-unit'),
+      current: () => ({
+        symbol: state.symbol,
+        timeframe: state.timeframe,
+        indicators: Indicators.snapshot(),
+      }),
+      load: loadWorkspace,
+      timeframes: (symbol) => allowedTimeframes(symbol),
+      describe: (list) => Indicators.describe(list),
+      setActiveSymbol: (symbol) => {
+        el.symbol.value = symbol;
+        el.symbol.dispatchEvent(new Event('change', { bubbles: true }));
+      },
+      setActiveTimeframe: (tf) => {
+        [...el.timeframes.children].find((b) => b.textContent.trim() === tf)?.click();
+      },
       onResize: () => ChartManager.refreshSize(),
     });
 
     const markLayout = (chosen) => {
-      for (const b of document.querySelectorAll('[data-layout]')) {
+      // Buttons only: the grid itself carries `data-layout`, and matching it
+      // here gave the grid an `active` class meant for the toolbar.
+      for (const b of document.querySelectorAll('button[data-layout]')) {
         b.classList.toggle('active', Number(b.dataset.layout) === chosen);
       }
-      document.body.dataset.layout = String(chosen);
       ChartManager.refreshSize();
     };
 
-    for (const button of document.querySelectorAll('[data-layout]')) {
+    for (const button of document.querySelectorAll('button[data-layout]')) {
       button.addEventListener('click', () => {
         markLayout(MultiChart.setLayout(Number(button.dataset.layout)));
       });
     }
 
-    // The layout, its markets and the sizes they were dragged to come back.
+    // The layout, each cell's market, frame and indicators, and the sizes.
     markLayout(MultiChart.restore(Session.saved.multi));
+  }
+
+  /* Load a cell's workspace into the working chart: its series and its
+     indicators. The indicators wait for the catalogue, which the working view
+     fetches on first use. */
+  function loadWorkspace(ws) {
+    state.symbol = ws.symbol;
+    state.timeframe = ws.timeframe;
+    el.symbol.value = ws.symbol;
+    hidePrice();
+    refreshStars();
+    Paper.refreshManualButton();
+    buildTimeframeButtons();
+    Markets.refreshTimeframeNote();
+    Indicators.clearAll();
+    Promise.resolve(loadWorkingView()).then(() => Indicators.restore(ws.indicators));
+    loadCandles();
   }
 
   /* Say when the minute data behind this chart is not what it looks like.
@@ -725,6 +742,7 @@
     const mode = ChartManager.setMode(next);
     document.body.dataset.mode = mode;
     Session.patch({ mode });
+    MultiChart.setMode(mode);
     // Reflected in the URL so a working session can be bookmarked or reloaded
     // straight back into the working view instead of via the overview.
     const hash = mode === 'trading' ? '#trade' : '';
@@ -1649,8 +1667,6 @@ def signals(df, params):
         hidePrice();
         // The multi-market run follows the chart, so its note must follow too.
         Markets.refreshTimeframeNote();
-        // Comparison panes stay like-for-like with the working chart.
-        MultiChart.setTimeframe(tf);
         for (const b of el.timeframes.children) b.classList.toggle('active', b === button);
         loadCandles();
       });
@@ -1809,7 +1825,11 @@ def signals(df, params):
       onCompute: computeIndicator,
       onRemove: (instanceId) => ChartManager.remove(instanceId),
       onExplain: explain,
-      onChange: () => Session.patch({ indicators: Indicators.snapshot() }),
+      onChange: () => {
+        Session.patch({ indicators: Indicators.snapshot() });
+        MultiChart.syncActive();
+      },
+      onNotice: (message) => toast(message),
     });
 
     Strategy.init({

@@ -487,19 +487,12 @@
            of it. Hidden in overview: nothing to annotate on a quote page. -->
       <div class="draw-bar" id="draw-bar"></div>
       <div class="charts-stack">
-      <!-- Comparison panes: two or four markets at a glance. One of those is
-           the working chart below, which keeps indicators, drawings and paper
-           levels; these are candles and a picker. -->
-      <div id="multi-charts" class="multi-charts" hidden></div>
-      <!-- Drag to share height between the comparison row and the working
-           chart; double-click to reset. Hidden in the one-chart layout. -->
-      <div id="resize-mc" class="resize-handle resize-y" role="separator"
-           aria-orientation="horizontal" hidden></div>
+      <!-- One, two or four cells (multichart.js). Every cell is a full chart:
+           the working chart below lives in whichever cell is active and moves
+           there when another cell is clicked. -->
+      <div id="chart-grid" class="chart-grid" data-layout="1"></div>
+      <div id="work-unit" class="work-unit">
       <div id="chart-main" class="chart-pane chart-main">
-        <!-- Which market this is. Shown only when two or four charts share
-             the screen, where the working chart would otherwise be the one
-             pane without a name. -->
-        <div id="main-legend" class="chart-legend" aria-live="polite"></div>
         <div class="chart-tools" id="chart-tools" hidden>
           <button id="toggle-markers" class="chip" type="button"></button>
           <button id="clear-markers" class="chip chip-icon" type="button"
@@ -511,6 +504,7 @@
            role="separator" aria-orientation="horizontal"
            data-i18n-title="resize.panes"></div>
       <div id="panes"></div>
+      </div>
       </div>
       <div id="loading" class="loading" role="status" aria-label="Loading" hidden>
         <svg class="qp-loader" viewBox="0 0 100 100" aria-hidden="true">

@@ -13,6 +13,7 @@ const Indicators = (() => {
   /** instanceId -> { spec, params, error } */
   const active = new Map();
   let onChange = () => {};
+  let onNotice = () => {};
   let counter = 0;
 
   const debounceTimers = new Map();
@@ -141,6 +142,19 @@ const Indicators = (() => {
     const spec = catalog.find((s) => s.id === indicatorId);
     if (!spec) return;
 
+    /* One copy per chart (Nam, 2026-09-17). A second click on an indicator
+       that is already drawn used to stack an identical copy on top of the
+       first — two lines in the same place, twice the requests, and a legend
+       that no longer matched what the eye could separate. It says so instead;
+       a restore passing parameters is skipped silently. */
+    if ([...active.values()].some((i) => i.spec.id === spec.id)) {
+      if (!initial) {
+        onNotice(L(`${spec.name} đã bật trên biểu đồ này. Chỉnh tham số ở mục Đang bật.`,
+                   `${spec.name} is already on this chart. Adjust it under Active.`));
+      }
+      return;
+    }
+
     counter += 1;
     const instanceId = `${spec.id}#${counter}`;
     const params = {};
@@ -155,6 +169,21 @@ const Indicators = (() => {
     renderCatalog();
     compute(instanceId);
     onChange();
+  }
+
+  /** Short names for a snapshot, for captions: "RSI 14", "EMA 20". */
+  function describe(list) {
+    return (Array.isArray(list) ? list : []).map((entry) => {
+      const spec = catalog.find((s) => s.id === entry.id);
+      if (!spec) return String(entry.id || '').toUpperCase();
+      // Whole-number parameters are the lengths people name an indicator by
+      // ("RSI 14", "MACD 12,26"); a float scalar of 100 is noise in a caption.
+      const numbers = spec.params
+        .filter((p) => p.type === 'int')
+        .slice(0, 2)
+        .map((p) => entry.params?.[p.name] ?? p.default);
+      return numbers.length ? `${spec.name} ${numbers.join(',')}` : spec.name;
+    });
   }
 
   /** What is on the chart, in a form that survives a reload. */
@@ -324,6 +353,7 @@ const Indicators = (() => {
   function init(config) {
     elements = config.elements;
     onChange = config.onChange || (() => {});
+    onNotice = config.onNotice || (() => {});
     onCompute = config.onCompute;
     onRemove = config.onRemove;
     onExplain = config.onExplain || (() => {});
@@ -337,5 +367,5 @@ const Indicators = (() => {
     renderActive();
   }
 
-  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore };
+  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore, describe };
 })();

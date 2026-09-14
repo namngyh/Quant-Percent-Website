@@ -1,42 +1,48 @@
-/* Two or four markets side by side.
+/* One, two or four charts — every one of them a full chart.
 
-   Deliberately NOT a second copy of ChartManager. That module owns one chart
-   and everything hung off it — indicators, drawings, paper position lines,
-   the marker store, the history pager. Making it multi-instance would mean
-   threading an instance id through all of that, and every one of those
-   features only makes sense on the chart you are actually working in.
+   Nam's rule (2026-09-17): the second and fourth charts must do what the first
+   does — indicators, strategy tests, drawings — each with its own timeframe
+   behind a gear, and a short caption under it.
 
-   So the working chart stays where it is and keeps its whole toolset, and
-   this band adds plain candle panes above it. "4" means four markets on
-   screen: three panes here plus the working chart, not a 2x2 of equals. A
-   quadrant grid would leave the working chart outside it and the fourth
-   quadrant empty — which is exactly what it looked like, a hole rather than
-   a layout. The chart you are working in should be the big one anyway.
+   How, without four copies of ChartManager.
 
-   The panes are independent charts on purpose: two markets rarely share a
-   session calendar (BTC runs all night, HOSE does not), so a shared time
-   scale would either stretch one or crop the other. §3.3's alignment rule is
-   about indicator panes under ONE price series, which is a different problem
-   from this one. */
+   ChartManager owns one Lightweight chart and everything hung off it: indicator
+   overlays and panes kept in index sync (§3.3), drawings, trade markers, paper
+   position lines, the history pager, the live feed. Making all of that
+   multi-instance would thread an instance id through every one of those
+   features. Instead each cell holds a *workspace* — a symbol, a timeframe and
+   the indicators with their parameters — and the full chart lives in whichever
+   cell is active, the way a multi-chart layout in a charting package works: one
+   chart has the focus, and the toolbar, the panels and the drawing rail act on
+   it. Clicking another cell moves the working chart there and loads that
+   cell's workspace into it; the cell it left keeps showing its own candles and
+   indicators, drawn from the same compute endpoint.
+
+   So everything the main chart can do, any cell can do the moment it is
+   clicked, and nothing about indicators, strategies or drawings had to learn
+   that there is more than one chart.
+
+   The limit, stated rather than discovered (§2.7): only the active cell is
+   live. The others are a snapshot of their last PASSIVE_BARS bars, taken when
+   they were drawn, and are redrawn when their timeframe, symbol or indicators
+   change. A strategy runs on the active cell. */
 
 const MultiChart = (() => {
-  let host = null;
-  let layout = 1;                   // 1, 2 or 4 markets on screen
-  let symbols = [];                 // extra symbols, one per cell beside the working chart
-  let optionsHtml = '';             // the shared symbol catalogue, as <optgroup> markup
-  let timeframe = '1h';
-  const cells = new Map();          // cell index -> { chart, series, plot }
+  const PASSIVE_BARS = 600;
+  const LAYOUTS = [1, 2, 4];
 
-  /* Sizes the user dragged to. `null` height means the stylesheet's default
-     share; `fractions` are the three columns of the "4" layout. Both are
-     remembered with the rest of the session. */
-  let heightPx = null;
-  let fractions = [1, 1, 1];
-  let rowHandle = null;
-  let onResize = () => {};
+  let grid = null;
+  let workUnit = null;
+  let hooks = {};
+  let layout = 1;
+  let active = 0;
+  let mode = 'trading';
+  let cells = [];                      // [{ symbol, timeframe, indicators: [{ id, params }] }]
+  const passive = new Map();           // cell index -> { chart, token }
+  let optionsHtml = '';
+  let colFr = [1, 1];
+  let rowFr = [1, 1];
 
-  // Same axis face and greys as the working chart (charts.js), so a pane
-  // beside it reads as part of one screen rather than a second widget.
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
@@ -44,14 +50,10 @@ const MultiChart = (() => {
       fontSize: 11,
       fontFamily: "'Be Vietnam Pro', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif",
     },
-    grid: {
-      vertLines: { visible: false },
-      horzLines: { visible: false },
-    },
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
     rightPriceScale: { borderColor: '#ececee' },
     timeScale: { borderColor: '#ececee', timeVisible: true, secondsVisible: false },
     crosshair: { mode: 0 },
-    handleScale: { axisPressedMouseMove: { time: true, price: false } },
   };
 
   const CANDLES = {
@@ -63,161 +65,405 @@ const MultiChart = (() => {
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  /** How many extra cells this layout needs beside the working chart. */
-  const extraCells = () => Math.max(0, layout - 1);
+  const GEAR = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3
+      1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1
+      a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1
+      a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3
+      H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1
+      a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1
+      a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
 
-  const blankOption = () => `<option value="">${esc(t('mc.choose'))}</option>`;
+  const toChart = (t) => (typeof ChartManager !== 'undefined' ? ChartManager.toChartTime(t) : t);
 
-  /* ---------- the catalogue ----------
+  // ---------------------------------------------------------------- workspaces
 
-     Filled from the groups the main symbol picker already built, so there is
-     one list of markets rather than two that drift apart. A <select> and not
-     a prompt(): the catalogue is 1,728 entries deep and grouped by instrument
-     family, which a text box cannot show — and a modal dialog blocks the page
-     for as long as it is open, so nothing else can run while one is up. */
+  /** What the active cell holds right now, read from the app. */
+  const current = () => hooks.current();
+  const wsAt = (i) => (i === active ? current() : cells[i]);
+
+  /* A new cell opens on a market not already on screen, never on a blank.
+     An empty cell could not be clicked into — there is nothing to load into
+     the working chart — and a copy of a market already shown says nothing. */
+  function freshWorkspace() {
+    const shown = new Set(cells.map((c) => c?.symbol).concat(current().symbol));
+    const candidates = ['VN:VNINDEX', 'VN:VN30F1M', 'VN:G-XAUUSD', 'BTCUSDT', 'VN:VIC', 'VN:FPT', 'ETHUSDT'];
+    const symbol = candidates.find((s) => !shown.has(s)) || current().symbol;
+    return { symbol, timeframe: fitTimeframe(symbol, current().timeframe), indicators: [] };
+  }
+
+  function fitTimeframe(symbol, wanted) {
+    const frames = hooks.timeframes(symbol) || [];
+    if (frames.includes(wanted)) return wanted;
+    return frames.includes('1d') ? '1d' : (frames[frames.length - 1] || wanted);
+  }
+
+  // ---------------------------------------------------------------- layout
+
+  function setLayout(next) {
+    if (!LAYOUTS.includes(next) || next === layout) return layout;
+    cells[active] = current();
+
+    // The working chart keeps working: it moves to the first cell rather than
+    // disappearing with a cell that the smaller layout no longer has.
+    if (active !== 0) {
+      const [ws] = cells.splice(active, 1);
+      cells.unshift(ws);
+      active = 0;
+    }
+    cells = cells.slice(0, next);
+    while (cells.length < next) cells.push(freshWorkspace());
+    layout = next;
+    build();
+    return layout;
+  }
+
+  /** Draw the cells. The working chart's DOM is moved, never re-created. */
+  function build() {
+    if (!grid) return;
+    closeMenu();
+    for (const i of [...passive.keys()]) disposePassive(i);
+
+    // Park the working chart outside the grid while the grid is rewritten, or
+    // `innerHTML` would destroy the chart along with the cells.
+    const parking = document.createDocumentFragment();
+    parking.appendChild(workUnit);
+
+    grid.dataset.layout = String(layout);
+    grid.innerHTML = cells.map((_, i) => `
+      <div class="cell" data-cell="${i}">
+        <div class="cell-head">
+          <span class="cell-badge" data-badge="${i}"></span>
+          <select class="cell-pick" data-pick="${i}" aria-label="${esc(t('mc.choose'))}">
+            <option value=""></option>${optionsHtml}
+          </select>
+          <button type="button" class="cell-gear" data-gear="${i}" aria-haspopup="menu"
+                  aria-expanded="false" title="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}"
+                  aria-label="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}">${GEAR}</button>
+        </div>
+        <div class="cell-body" data-body="${i}"></div>
+        <div class="cell-caption" data-caption="${i}"></div>
+      </div>`).join('')
+      + (layout > 1 ? '<div class="grid-handle grid-handle-col" role="separator" aria-orientation="vertical"></div>' : '')
+      + (layout === 4 ? '<div class="grid-handle grid-handle-row" role="separator" aria-orientation="horizontal"></div>' : '');
+
+    grid.querySelector(`[data-body="${active}"]`).appendChild(workUnit);
+
+    for (const cell of grid.querySelectorAll('.cell')) {
+      const i = Number(cell.dataset.cell);
+      const select = cell.querySelector('.cell-pick');
+      select.value = wsAt(i)?.symbol || '';
+      select.addEventListener('change', () => setCellSymbol(i, select.value));
+      if (typeof SymbolPicker !== 'undefined') {
+        SymbolPicker.attach(select, { placeholder: () => t('mc.choose') });
+      }
+      cell.querySelector('.cell-gear').addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (menuFor === i) closeMenu(); else openMenu(i, event.currentTarget);
+      });
+      // Capture, so the click reaches us before the chart turns it into a pan.
+      cell.querySelector('.cell-body').addEventListener('pointerdown', () => {
+        if (i !== active) activate(i);
+      }, { capture: true });
+    }
+
+    const col = grid.querySelector('.grid-handle-col');
+    const row = grid.querySelector('.grid-handle-row');
+    if (col) bindHandle(col, 'x');
+    if (row) bindHandle(row, 'y');
+
+    cells.forEach((_, i) => { if (i !== active) mountPassive(i); });
+    paintAll();
+    applySizes();
+    persist();
+    hooks.onResize();
+  }
+
+  /* Give the working chart to cell `i`.
+
+     The workspace the chart is leaving is captured first, so the cell it
+     leaves redraws exactly what was on it — including indicators added a
+     moment ago. */
+  function activate(i) {
+    if (mode === 'overview' || i === active || !cells[i]) return;
+    closeMenu();
+    const leaving = active;
+    cells[leaving] = current();
+
+    disposePassive(i);
+    const body = grid.querySelector(`[data-body="${i}"]`);
+    body.innerHTML = '';
+    body.appendChild(workUnit);
+    active = i;
+
+    mountPassive(leaving);
+    paintAll();
+    persist();
+    hooks.load(cells[i]);
+    hooks.onResize();
+  }
+
+  function setCellSymbol(i, symbol) {
+    if (!symbol) { paint(i); return; }
+    if (i === active) {
+      if (symbol !== current().symbol) hooks.setActiveSymbol(symbol);
+      return;
+    }
+    const ws = cells[i];
+    if (ws.symbol === symbol) return;
+    ws.symbol = symbol;
+    ws.timeframe = fitTimeframe(symbol, ws.timeframe);
+    mountPassive(i);
+    paint(i);
+    persist();
+  }
+
+  function setCellTimeframe(i, timeframe) {
+    if (i === active) {
+      hooks.setActiveTimeframe(timeframe);
+      return;
+    }
+    if (cells[i].timeframe === timeframe) return;
+    cells[i].timeframe = timeframe;
+    mountPassive(i);
+    paint(i);
+    persist();
+  }
+
+  /** The app calls this whenever the working chart's series or indicators change. */
+  function syncActive() {
+    if (!grid || !cells.length) return;
+    cells[active] = current();
+    paint(active);
+    persist();
+  }
+
+  /* Overview shows the working chart alone, full screen; the other cells are
+     hidden, not torn down, so returning to the working view finds the layout
+     exactly as it was left (Nam, 2026-09-17). */
+  function setMode(next) {
+    mode = next;
+    closeMenu();
+    hooks.onResize?.();
+  }
+
+  // ---------------------------------------------------------------- passive cells
+
+  function disposePassive(i) {
+    const held = passive.get(i);
+    if (!held) return;
+    try { held.chart.remove(); } catch { /* already gone */ }
+    passive.delete(i);
+  }
+
+  async function mountPassive(i) {
+    disposePassive(i);
+    const ws = cells[i];
+    const body = grid?.querySelector(`[data-body="${i}"]`);
+    if (!body || !ws?.symbol) return;
+    body.innerHTML = '';
+
+    const plot = document.createElement('div');
+    plot.className = 'cell-plot';
+    body.appendChild(plot);
+
+    const chart = LightweightCharts.createChart(plot, { ...THEME, autoSize: true });
+    const candles = chart.addCandlestickSeries(CANDLES);
+    const token = {};
+    passive.set(i, { chart, token });
+    const stale = () => passive.get(i)?.token !== token;
+
+    try {
+      const [data, ...results] = await Promise.all([
+        API.candles({ symbol: ws.symbol, timeframe: ws.timeframe, limit: PASSIVE_BARS }),
+        // One indicator failing (a plugin that raises) must not blank the cell.
+        ...ws.indicators.map((ind) => API.compute({
+          indicatorId: ind.id, symbol: ws.symbol, timeframe: ws.timeframe,
+          params: ind.params, limit: PASSIVE_BARS,
+        }).catch(() => null)),
+      ]);
+      if (stale()) return;
+
+      const bars = data.candles || [];
+      candles.setData(bars.map((c) => ({
+        time: toChart(c.time), open: c.open, high: c.high, low: c.low, close: c.close,
+      })));
+
+      /* Indicators the way the working chart draws them, in one chart: price
+         outputs on the price scale, "separate" outputs (RSI, bandwidth…) on
+         their own scale in the bottom quarter so they cannot drag the price
+         axis toward zero. */
+      let separate = false;
+      results.forEach((result) => {
+        if (!result) return;
+        result.outputs.forEach((output) => {
+          const own = output.pane === 'separate';
+          separate = separate || own;
+          const common = {
+            color: output.color || '#1c2f5e',
+            priceLineVisible: false,
+            lastValueVisible: false,
+            ...(own ? { priceScaleId: 'sub' } : {}),
+          };
+          const series = output.plot_type === 'histogram'
+            ? chart.addHistogramSeries(common)
+            : chart.addLineSeries({ ...common, lineWidth: 1.5, crosshairMarkerVisible: false });
+          const values = result.values[output.key] || [];
+          series.setData(result.times.map((time, n) => (
+            values[n] === null || values[n] === undefined
+              ? { time: toChart(time) } : { time: toChart(time), value: values[n] })));
+        });
+      });
+      if (separate) {
+        chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.32 } });
+        chart.priceScale('sub').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
+      }
+
+      // Frame the recent end, the way the working chart opens.
+      if (bars.length) {
+        chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 3 });
+      }
+    } catch (err) {
+      if (stale()) return;
+      disposePassive(i);
+      body.innerHTML = `<p class="empty cell-error">${esc(err.message)}</p>`;
+    }
+  }
+
+  // ---------------------------------------------------------------- heads and captions
+
+  function paint(i) {
+    const cell = grid?.querySelector(`[data-cell="${i}"]`);
+    const ws = wsAt(i);
+    if (!cell || !ws) return;
+    cell.classList.toggle('active', i === active);
+
+    const badge = cell.querySelector('.cell-badge');
+    badge.innerHTML = ws.symbol ? Paper.symbolBadge(ws.symbol) : '';
+
+    const select = cell.querySelector('.cell-pick');
+    if (select.value !== ws.symbol) select.value = ws.symbol || '';
+
+    const names = hooks.describe(ws.indicators || []);
+    const parts = [String(ws.symbol || '').replace(/^VN:/, ''), ws.timeframe, ...names].filter(Boolean);
+    const caption = cell.querySelector('.cell-caption');
+    caption.textContent = parts.join('  ·  ');
+    caption.title = caption.textContent;
+  }
+
+  function paintAll() {
+    cells.forEach((_, i) => paint(i));
+  }
+
   function setOptions(groups) {
     optionsHtml = (groups || []).map((group) =>
       `<optgroup label="${esc(group.label)}">` +
       group.options.map((o) => `<option value="${esc(o.id)}">${esc(o.text)}</option>`).join('') +
       '</optgroup>').join('');
-
-    if (!host) return;
-    for (const select of host.querySelectorAll('.mc-pick')) {
-      /* The market this cell holds, not whatever the <select> shows.
-
-         A restored session mounts its panes before the Vietnamese catalogue
-         has arrived, so `select.value = 'VN:VNINDEX'` finds no such option
-         and silently stays empty. Re-reading that empty value here kept the
-         pane charting VNINDEX under a blank name after every reload. */
-      const chosen = symbols[Number(select.dataset.pick)] || select.value;
-      select.innerHTML = blankOption() + optionsHtml;
-      select.value = chosen || '';
+    if (!grid) return;
+    for (const select of grid.querySelectorAll('.cell-pick')) {
+      const i = Number(select.dataset.pick);
+      select.innerHTML = `<option value=""></option>${optionsHtml}`;
+      select.value = wsAt(i)?.symbol || '';
     }
   }
 
-  // ---------- layout ----------
+  // ---------------------------------------------------------------- gear menu
 
-  function setLayout(next) {
-    layout = [1, 2, 4].includes(next) ? next : 1;
-    // Trim the symbol list to fit. Padding it with the working chart's symbol
-    // would show the same market twice, so spare cells stay empty until
-    // something is chosen for them.
-    symbols = symbols.slice(0, extraCells());
-    build();
-    return layout;
+  const menu = document.createElement('div');
+  menu.className = 'cell-menu';
+  menu.setAttribute('role', 'menu');
+  menu.hidden = true;
+  document.body.appendChild(menu);
+  let menuFor = null;
+
+  function openMenu(i, button) {
+    closeMenu();
+    const ws = wsAt(i);
+    if (!ws) return;
+    menuFor = i;
+    const frames = hooks.timeframes(ws.symbol) || [];
+    menu.innerHTML = `
+      <div class="cell-menu-title">${esc(L('Khung thời gian', 'Timeframe'))}</div>
+      <div class="cell-menu-frames">${frames.map((tf) => `
+        <button type="button" role="menuitemradio" aria-checked="${tf === ws.timeframe}"
+                class="cell-menu-tf${tf === ws.timeframe ? ' active' : ''}" data-tf="${esc(tf)}">${esc(tf)}</button>`).join('')}
+      </div>
+      ${i === active
+        ? `<p class="cell-menu-note">${esc(L(
+          'Chỉ báo, chiến lược và hình vẽ đang áp dụng lên biểu đồ này.',
+          'Indicators, strategies and drawings apply to this chart.'))}</p>`
+        : `<button type="button" class="btn btn-sm btn-block cell-menu-work" data-work>${esc(L(
+          'Làm việc trên biểu đồ này', 'Work on this chart'))}</button>`}`;
+
+    menu.hidden = false;
+    button.setAttribute('aria-expanded', 'true');
+    const rect = button.getBoundingClientRect();
+    const width = menu.offsetWidth;
+    menu.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+    menu.style.top = `${rect.bottom + 6}px`;
   }
 
-  /** Draw the grid skeleton. Called on layout change only. */
-  function build() {
-    if (!host) return;
-    teardown();
-    host.hidden = layout === 1;
-    host.dataset.layout = String(layout);
-    if (layout === 1) {
-      host.innerHTML = '';
-      document.body.dataset.layout = '1';
-      if (rowHandle) rowHandle.hidden = true;
-      persist();
-      return;
-    }
-
-    document.body.dataset.layout = String(layout);
-    if (rowHandle) rowHandle.hidden = false;
-
-    host.innerHTML = Array.from({ length: extraCells() }, (_, i) => `
-      <div class="mc-cell" data-cell="${i}">
-        <div class="mc-head">
-          <span class="mc-badge" data-badge="${i}"></span>
-          <select class="mc-pick" data-pick="${i}"
-                  title="${esc(t('mc.choose'))}" aria-label="${esc(t('mc.choose'))}">
-            ${blankOption()}${optionsHtml}
-          </select>
-        </div>
-        <div class="mc-plot" data-plot="${i}"></div>
-      </div>`).join('');
-
-    for (const select of host.querySelectorAll('[data-pick]')) {
-      const index = Number(select.dataset.pick);
-      if (symbols[index]) select.value = symbols[index];
-      select.addEventListener('change', () => setSymbolAt(index, select.value));
-      // The same searchable list as the main picker: 1,728 markets are not
-      // something to scroll through in a cell a few hundred pixels wide.
-      if (typeof SymbolPicker !== 'undefined') {
-        SymbolPicker.attach(select, { placeholder: () => t('mc.choose') });
-      }
-    }
-
-    // Column dividers between the three panes of the "4" layout.
-    if (layout === 4) {
-      for (let i = 0; i < 2; i++) {
-        const handle = document.createElement('div');
-        handle.className = 'mc-col-handle';
-        handle.setAttribute('role', 'separator');
-        handle.setAttribute('aria-orientation', 'vertical');
-        host.appendChild(handle);
-        bindColumnHandle(handle, i);
-      }
-    }
-    applySizes();
-    persist();
-
-    // Mount whatever survived the trim, one cell at a time.
-    symbols.forEach((symbol, i) => { if (symbol) setSymbolAt(i, symbol); });
+  function closeMenu() {
+    if (menuFor === null) return;
+    grid?.querySelector(`[data-gear="${menuFor}"]`)?.setAttribute('aria-expanded', 'false');
+    menuFor = null;
+    menu.hidden = true;
   }
 
-  /* One cell changes, one cell is rebuilt.
+  menu.addEventListener('click', (event) => {
+    const i = menuFor;
+    const tf = event.target.closest('[data-tf]')?.dataset.tf;
+    if (tf) { closeMenu(); setCellTimeframe(i, tf); return; }
+    if (event.target.closest('[data-work]')) { closeMenu(); activate(i); }
+  });
+  document.addEventListener('mousedown', (event) => {
+    if (menuFor === null || menu.contains(event.target)) return;
+    if (event.target.closest?.('.cell-gear')) return;
+    closeMenu();
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 
-     Re-rendering the whole band on every pick would tear down and refetch
-     every other pane, and the in-flight loads of the panes being discarded
-     would land on detached nodes. Touching one cell leaves the others still. */
-  function setSymbolAt(index, symbol) {
-    if (index < 0 || index >= extraCells()) return;
-    const chosen = symbol ? String(symbol).trim() : '';
-    symbols[index] = chosen || undefined;
-
-    const select = host && host.querySelector(`[data-pick="${index}"]`);
-    if (select && select.value !== chosen) select.value = chosen;
-
-    const badge = host && host.querySelector(`[data-badge="${index}"]`);
-    if (badge) badge.innerHTML = chosen ? Paper.symbolBadge(chosen) : '';
-
-    dropCell(index);
-    if (chosen) mount(index, chosen);
-    persist();
-  }
-
-  // ---------- sizes ----------
+  // ---------------------------------------------------------------- sizes
 
   function applySizes() {
-    if (!host) return;
-    host.style.flexBasis = heightPx ? `${heightPx}px` : '';
-    host.style.gridTemplateColumns = layout === 4
-      ? fractions.map((f) => `${f.toFixed(4)}fr`).join(' ') : '';
-    requestAnimationFrame(placeColumnHandles);
+    if (!grid) return;
+    grid.style.gridTemplateColumns = layout > 1 ? colFr.map((f) => `${f.toFixed(4)}fr`).join(' ') : '';
+    grid.style.gridTemplateRows = layout === 4 ? rowFr.map((f) => `${f.toFixed(4)}fr`).join(' ') : '';
+    requestAnimationFrame(placeHandles);
   }
 
-  function placeColumnHandles() {
-    if (!host) return;
-    const cellNodes = host.querySelectorAll('.mc-cell');
-    host.querySelectorAll('.mc-col-handle').forEach((handle, i) => {
-      const cell = cellNodes[i];
-      if (cell) handle.style.left = `${cell.offsetLeft + cell.offsetWidth - 5}px`;
-    });
+  function placeHandles() {
+    const first = grid?.querySelector('[data-cell="0"]');
+    if (!first) return;
+    const col = grid.querySelector('.grid-handle-col');
+    const row = grid.querySelector('.grid-handle-row');
+    if (col) col.style.left = `${first.offsetLeft + first.offsetWidth}px`;
+    if (row) row.style.top = `${first.offsetTop + first.offsetHeight}px`;
   }
 
-  /* Shared drag plumbing: pointer capture on the document, a body class that
-     pins the cursor for the whole gesture, and a save when the drag ends. */
-  function drag(handle, axis, onMove, onReset) {
+  /* Drag a divider. Both neighbours keep at least 20% of their pair, and the
+     cursor is pinned for the whole gesture. Double-click puts the default back. */
+  function bindHandle(handle, axis) {
     handle.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       const start = axis === 'x' ? event.clientX : event.clientY;
-      const context = onMove.begin();
+      const rect = grid.getBoundingClientRect();
+      const size = axis === 'x' ? rect.width : rect.height;
+      const fr = axis === 'x' ? colFr : rowFr;
+      const from = fr.slice();
+      const total = from[0] + from[1];
       document.body.classList.add('resizing', axis === 'x' ? 'resizing-x' : 'resizing-y');
       handle.classList.add('active');
+
       const move = (e) => {
-        onMove.step(context, (axis === 'x' ? e.clientX : e.clientY) - start);
+        const delta = ((axis === 'x' ? e.clientX : e.clientY) - start) / size * total;
+        const left = Math.max(total * 0.2, Math.min(total * 0.8, from[0] + delta));
+        fr[0] = left;
+        fr[1] = total - left;
         applySizes();
-        onResize();
       };
       const end = () => {
         document.removeEventListener('pointermove', move);
@@ -225,139 +471,68 @@ const MultiChart = (() => {
         document.body.classList.remove('resizing', 'resizing-x', 'resizing-y');
         handle.classList.remove('active');
         persist();
-        onResize();
+        hooks.onResize();
       };
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', end);
     });
-    // Double-click puts the default back, so a mis-drag is one gesture to undo.
-    handle.addEventListener('dblclick', () => { onReset(); applySizes(); persist(); onResize(); });
-  }
-
-  function bindRowHandle() {
-    if (!rowHandle) return;
-    drag(rowHandle, 'y', {
-      begin: () => ({
-        height: host.getBoundingClientRect().height,
-        room: host.parentElement.getBoundingClientRect().height,
-      }),
-      // The working chart keeps at least 220px: it is the one with the tools.
-      step: (c, dy) => { heightPx = Math.round(Math.max(120, Math.min(c.room - 220, c.height + dy))); },
-    }, () => { heightPx = null; });
-  }
-
-  function bindColumnHandle(handle, i) {
-    drag(handle, 'x', {
-      begin: () => ({
-        width: host.getBoundingClientRect().width,
-        start: fractions.slice(),
-        sum: fractions.reduce((a, b) => a + b, 0),
-      }),
-      step: (c, dx) => {
-        const pair = c.start[i] + c.start[i + 1];
-        // Neither neighbour may shrink below 15% of the pair's width.
-        const left = Math.max(pair * 0.15, Math.min(pair * 0.85, c.start[i] + (dx / c.width) * c.sum));
-        fractions[i] = left;
-        fractions[i + 1] = pair - left;
-      },
-    }, () => { fractions = [1, 1, 1]; });
-  }
-
-  // ---------- session ----------
-
-  function persist() {
-    if (typeof Session === 'undefined') return;
-    Session.patch({
-      multi: { layout, symbols: symbols.map((s) => s || null), height: heightPx, cols: fractions },
+    handle.addEventListener('dblclick', () => {
+      if (axis === 'x') colFr = [1, 1]; else rowFr = [1, 1];
+      applySizes();
+      persist();
+      hooks.onResize();
     });
   }
 
-  /** Put a remembered layout back: sizes first, then panes, then markets. */
+  // ---------------------------------------------------------------- session
+
+  function persist() {
+    if (typeof Session === 'undefined' || !cells.length) return;
+    Session.patch({ multi: { v: 2, layout, active, cells, cols: colFr, rows: rowFr } });
+  }
+
+  /* Put a remembered layout back. The active cell's own series and indicators
+     are restored by the app from the session's top-level fields, so its entry
+     here is refreshed from the app rather than trusted. */
   function restore(snap) {
-    if (!snap || ![1, 2, 4].includes(snap.layout)) return layout;
-    heightPx = Number.isFinite(snap.height) ? snap.height : null;
-    if (Array.isArray(snap.cols) && snap.cols.length === 3 && snap.cols.every((f) => f > 0)) {
-      fractions = snap.cols.slice();
+    if (!snap || snap.v !== 2 || !LAYOUTS.includes(snap.layout) || !Array.isArray(snap.cells)) {
+      return layout;
     }
-    setLayout(snap.layout);
-    (snap.symbols || []).forEach((symbol, i) => { if (symbol) setSymbolAt(i, symbol); });
+    const valid = snap.cells
+      .filter((c) => c && typeof c.symbol === 'string' && typeof c.timeframe === 'string')
+      .map((c) => ({ symbol: c.symbol, timeframe: c.timeframe,
+                     indicators: Array.isArray(c.indicators) ? c.indicators : [] }));
+    if (valid.length !== snap.layout) return layout;
+
+    const okFr = (f) => Array.isArray(f) && f.length === 2 && f.every((x) => x > 0);
+    if (okFr(snap.cols)) colFr = snap.cols.slice();
+    if (okFr(snap.rows)) rowFr = snap.rows.slice();
+    layout = snap.layout;
+    cells = valid;
+    active = Math.min(Math.max(0, snap.active | 0), layout - 1);
+    const saved = cells[active];
+    cells[active] = { ...current(), indicators: saved.indicators };
+    build();
     return layout;
   }
 
-  function dropCell(index) {
-    const held = cells.get(index);
-    if (!held) return;
-    try { held.chart.remove(); } catch { /* already gone */ }
-    cells.delete(index);
-  }
-
-  function teardown() {
-    for (const index of [...cells.keys()]) dropCell(index);
-  }
-
-  async function mount(index, symbol) {
-    const plot = host.querySelector(`[data-plot="${index}"]`);
-    if (!plot) return;
-    plot.innerHTML = '';
-
-    /* `autoSize`, not a width read once.
-
-       The first version passed `plot.clientWidth` at creation. A pane created
-       while the band was still being laid out got whatever width the cell had
-       in that instant and kept it: picking a market in the "2" layout drew a
-       chart about 1,060px wide inside a 1,750px cell, and nothing but a window
-       resize ever corrected it. The library's own ResizeObserver tracks the
-       cell for its whole life. */
-    const chart = LightweightCharts.createChart(plot, { ...THEME, autoSize: true });
-    const series = chart.addCandlestickSeries(CANDLES);
-    cells.set(index, { chart, series, plot });
-
-    // Comparison panes are a glance, not a workspace: a few hundred bars is
-    // enough to see shape and costs a fraction of the main chart's request.
-    const wanted = timeframe;
-    try {
-      const data = await API.candles({ symbol, timeframe: wanted, limit: 400 });
-      // The user may have picked again, or changed timeframe, while this was
-      // in the air. Anything but the current occupant of this cell is stale.
-      if (cells.get(index)?.chart !== chart) return;
-      if (symbols[index] !== symbol || timeframe !== wanted) return;
-      series.setData((data.candles || []).map((c) => ({
-        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
-      })));
-      chart.timeScale().fitContent();
-    } catch (err) {
-      if (cells.get(index)?.chart !== chart) return;
-      dropCell(index);
-      plot.innerHTML = `<p class="empty">${esc(err.message)}</p>`;
-    }
-  }
-
-  /* The timeframe follows the working chart, so a comparison is always
-     like-for-like rather than a daily pane beside a minute one. */
-  function setTimeframe(next) {
-    if (timeframe === next) return;
-    timeframe = next;
-    symbols.forEach((symbol, i) => {
-      dropCell(i);
-      if (symbol) mount(i, symbol);
-    });
-  }
-
-  // Kept for callers; `autoSize` already follows every resize on its own.
-  function refreshSize() {}
+  // ---------------------------------------------------------------- wiring
 
   function init(config) {
-    host = config.host;
-    timeframe = config.timeframe || '1h';
-    rowHandle = config.rowHandle || null;
-    onResize = config.onResize || (() => {});
-    bindRowHandle();
-    if ('ResizeObserver' in window) new ResizeObserver(placeColumnHandles).observe(host);
+    grid = config.grid;
+    workUnit = config.workUnit;
+    hooks = config;
+    cells = [current()];
+    active = 0;
+    layout = 1;
+    build();
+    if ('ResizeObserver' in window) new ResizeObserver(placeHandles).observe(grid);
   }
 
   return {
-    init, setOptions, setLayout, setSymbolAt, setTimeframe, refreshSize, restore,
+    init, setLayout, setOptions, setMode, syncActive, restore, activate,
     get layout() { return layout; },
-    get symbols() { return symbols.filter(Boolean); },
+    get active() { return active; },
+    get cells() { return cells.map((c, i) => (i === active ? current() : c)); },
   };
 })();

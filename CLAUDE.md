@@ -210,6 +210,54 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-18 — Mọi ô trong bố cục 2/4 là một biểu đồ đầy đủ
+
+**326 test Python** + **160 render check**, không lỗi. Probe `multichart`, `resize`, `persist` viết lại cho lưới mới; `switching`, `picker`, `markets`, `boot` chạy lại, không hồi quy.
+
+#### Cách làm, và vì sao không nhân bốn `ChartManager`
+
+`ChartManager` ôm một biểu đồ cùng mọi thứ treo trên nó: overlay và pane chỉ báo
+đồng bộ theo chỉ số (§3.3), hình vẽ, dấu lệnh, đường SL/TP của Paper, bộ nạp lịch
+sử, luồng live. Nhân bản nó là phải luồn một mã biểu đồ qua tất cả những thứ đó.
+
+Thay vào đó mỗi ô giữ một **không gian làm việc** — mã, khung thời gian, danh sách
+chỉ báo kèm tham số — và **biểu đồ đầy đủ nằm ở ô đang chọn** (viền đen), như bố
+cục nhiều biểu đồ của các phần mềm charting. Bấm ô khác: DOM của biểu đồ được
+**dời** (không dựng lại) sang ô đó và nạp không gian của ô đó; ô vừa rời vẽ lại
+nến **và chỉ báo của chính nó** từ cùng endpoint compute. Chỉ báo, chiến lược, hình
+vẽ, Paper không phải biết có nhiều biểu đồ.
+
+**Giới hạn, nói trước (§2.7):** chỉ ô đang chọn là live. Các ô khác là ảnh chụp
+600 nến gần nhất lúc vẽ, vẽ lại khi đổi mã/khung/chỉ báo. Backtest chạy trên ô
+đang chọn.
+
+#### Đo được
+
+| Việc | Kết quả |
+|---|---|
+| Bố cục 4 | lưới 2×2 đều: **640×422** mỗi ô (trước: một hàng ba ô nhỏ trên một biểu đồ lớn) |
+| Ô không chọn có nến | 4 123 / 6 485 / 4 099 điểm ảnh màu nến |
+| Bấm ô 2 | biểu đồ chính sang ô 2, series `VN:G-XAUUSD|1h`, chỉ báo của ô đó (0) |
+| Ô vừa rời | vẫn vẽ nến + RSI, chú thích "BTCUSDT · 1h · RSI 14" |
+| Backtest | chạy trên ô đang chọn: 12 chỉ số, series G-XAUUSD |
+| Bánh răng ô 1 → 1d | chỉ ô 1 đổi ("VNINDEX · 1d"), ô đang chọn vẫn 1h |
+| Bật RSI 3 lần | **1** bản trên biểu đồ, **2** thông báo "RSI đã bật trên biểu đồ này…" |
+| Tổng quan khi đang 4 ô | 1 ô hiện, biểu đồ rộng bằng cả lưới (1 384px) |
+| Giao dịch lại | 4 ô, đúng 4 mã như trước |
+| Kéo cột +200 / hàng −120 | 640→839/440 rộng; 422→302/541 cao; nhấp đúp về mặc định |
+| Tải lại trang | VIC 15m + RSI, `fast=5`, layout 2, ô 1 "VNINDEX · 1d" — **giữ nguyên toàn bộ** |
+
+Ô mới mở ra trên một thị trường **chưa có trên màn hình** (VNINDEX, VN30F1M, vàng,
+BTC…), không để trống: một ô trống không bấm vào làm việc được, còn một bản sao mã
+đang hiện thì không nói thêm gì.
+
+*Một lỗi lộ ra từ DOM, không từ ảnh:* chính lưới mang thuộc tính `data-layout`, và
+hàm đánh dấu nút layout chọn theo `[data-layout]` nên gắn nhầm `active` lên lưới.
+Giờ chỉ chọn `button[data-layout]`.
+
+*Chú thích:* bản đầu in "RSI 14,100" — 100 là hệ số `scalar` kiểu float. Chú thích
+giờ chỉ lấy tham số nguyên (chu kỳ), đúng cách người ta gọi tên chỉ báo.
+
 ### 2026-09-17 (tối) — Thiết kế lại giao diện, và 12 mục Nam giao
 
 **326 test Python** + **160 render check**, không lỗi. Chín nhóm probe trình duyệt mới trong `frontend/_probe.html` (`?only=<nhóm>`).

@@ -2839,49 +2839,6 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .field-group.foldable > summary::after { margin-left: auto; }
 .field-group.foldable[open] > summary { margin-bottom: 10px; }
 
-/* ==================== Comparison panes ==================== */
-
-/* A row of comparison panes above the working chart. "2" is one pane, "4" is
-   three: the count is markets on screen, and the working chart is one of
-   them. It keeps the space below rather than taking a cell, because it is the
-   one with the tools attached and the one being worked in. */
-.multi-charts {
-  display: grid;
-  gap: 1px;
-  background: var(--border-soft);
-  border-bottom: 1px solid var(--border);
-  /* `flex: 0 0 38%` rather than `height: 38%`: the parent is a flex column
-     whose height comes from its own flex context, so a percentage height
-     resolves against nothing and the grid collapses to zero. */
-  flex: 0 0 38%;
-  min-height: 140px;
-}
-/* One column per pane, no empty slots. A 2x2 with three panes leaves a hole
-   where the fourth would be, and a hole reads as something broken rather than
-   as a layout. */
-.multi-charts[data-layout="2"] { grid-template-columns: 1fr; }
-.multi-charts[data-layout="4"] { grid-template-columns: 1fr 1fr 1fr; }
-
-.mc-cell { display: flex; flex-direction: column; background: var(--surface); min-width: 0; }
-.mc-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-}
-.mc-badge:empty { display: none; }
-.mc-pick {
-  flex: 1;
-  min-width: 0;
-  border-radius: var(--radius-xs);
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 4px 26px 4px 9px;
-  background-position: right 9px center;
-}
-.mc-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.mc-plot { flex: 1; min-height: 0; }
-
 /* ==================== Symbol picker ====================
 
    A searchable list in front of the native <select> (symbol-picker.js). The
@@ -2915,7 +2872,6 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .sp-button.empty { color: var(--text-faint); font-weight: 500; }
 .sp-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #symbol + .sp-button { width: 220px; flex-shrink: 0; }
-.mc-pick + .sp-button { flex: 1; height: 30px; font-size: 12.5px; padding-left: 9px; }
 #mm-add + .sp-button { flex: 1 1 auto; }
 
 .sp-pop {
@@ -2956,50 +2912,153 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .sp-name { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-empty { padding: 16px 10px; font-size: 12.5px; color: var(--text-faint); }
 
-/* ==================== Multi-chart sizing and names ==================== */
+/* ==================== Chart grid ====================
 
-.multi-charts { position: relative; }
-#resize-mc { margin-top: -3px; }
+   One, two or four cells (multichart.js). The working chart lives in the
+   active cell and is outlined; the others show their own market and
+   indicators and become the working chart when clicked. */
 
-.mc-col-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  z-index: 5;
-  cursor: col-resize;
+.charts-stack { position: relative; }
+.chart-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  position: relative;
+  background: var(--border);
 }
-.mc-col-handle::after {
+.chart-grid[data-layout="2"] { grid-template-columns: 1fr 1fr; gap: 1px; }
+.chart-grid[data-layout="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; }
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+}
+.cell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.cell-plot { flex: 1; min-height: 0; }
+.work-unit { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.cell-error { padding: 14px; }
+
+/* One chart: no cell chrome, it is simply the chart. */
+.chart-grid[data-layout="1"] .cell-head,
+.chart-grid[data-layout="1"] .cell-caption { display: none; }
+
+.cell-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cell-badge:empty { display: none; }
+.cell-badge .sym-badge { width: 24px; height: 24px; font-size: 9.5px; }
+.cell-pick + .sp-button { flex: 1; height: 30px; font-size: 12.5px; padding-left: 9px; }
+
+.cell-gear {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+              transform var(--t) var(--ease);
+}
+.cell-gear svg { width: 17px; height: 17px; }
+.cell-gear:hover { background: var(--surface-2); color: var(--text); }
+.cell-gear[aria-expanded="true"] { background: var(--accent); color: #fff; transform: rotate(45deg); }
+
+/* The caption under a chart: market, frame, and what is drawn on it. */
+.cell-caption {
+  padding: 4px 10px 5px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The working chart is outlined in ink; clicking any other cell moves it. */
+.chart-grid:not([data-layout="1"]) .cell.active::after {
   content: '';
   position: absolute;
-  top: 0; bottom: 0; left: 4px;
-  width: 2px;
+  inset: 0;
+  border: 1.5px solid var(--accent);
+  pointer-events: none;
+  z-index: 6;
+}
+.chart-grid:not([data-layout="1"]) .cell:not(.active) .cell-body { cursor: pointer; }
+.chart-grid:not([data-layout="1"]) .cell.active .cell-caption { color: var(--text); }
+
+.grid-handle { position: absolute; z-index: 7; }
+.grid-handle-col { top: 0; bottom: 0; width: 10px; margin-left: -5px; cursor: col-resize; }
+.grid-handle-row { left: 0; right: 0; height: 10px; margin-top: -5px; cursor: row-resize; }
+.grid-handle::after {
+  content: '';
+  position: absolute;
   background: transparent;
   transition: background var(--t-fast) var(--ease);
 }
-.mc-col-handle:hover::after, .mc-col-handle.active::after { background: var(--accent); }
+.grid-handle-col::after { top: 0; bottom: 0; left: 4px; width: 2px; }
+.grid-handle-row::after { left: 0; right: 0; top: 4px; height: 2px; }
+.grid-handle:hover::after, .grid-handle.active::after { background: var(--accent); }
 
-/* The working chart's name, shown when it shares the screen with others. */
-.chart-legend {
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  z-index: 4;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 12px 3px 4px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow-sm);
-  font-size: 13px;
-  font-weight: 600;
-  pointer-events: none;
+/* Overview is the working chart alone, full screen. The other cells are
+   hidden, not removed, so the working view comes back exactly as it was. */
+body[data-mode="overview"] .chart-grid {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  gap: 0;
+  background: var(--surface);
 }
-body[data-layout="2"] .chart-legend,
-body[data-layout="4"] .chart-legend { display: inline-flex; }
-.chart-legend .sym-badge { width: 22px; height: 22px; font-size: 9.5px; }
-.chart-legend-tf { color: var(--text-faint); font-weight: 500; }
+body[data-mode="overview"] .cell:not(.active),
+body[data-mode="overview"] .grid-handle,
+body[data-mode="overview"] .cell-head,
+body[data-mode="overview"] .cell-caption { display: none; }
+body[data-mode="overview"] .cell.active::after { display: none; }
+
+/* The gear's menu. */
+.cell-menu {
+  position: fixed;
+  z-index: 95;
+  width: 232px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: popIn 0.16s var(--ease);
+}
+.cell-menu-title { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 2px 8px; }
+.cell-menu-frames { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.cell-menu-tf {
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.cell-menu-tf:hover { background: var(--surface-3); color: var(--text); }
+.cell-menu-tf.active { background: var(--accent); color: #fff; font-weight: 600; }
+.cell-menu-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--text-faint); line-height: 1.5; }
+.cell-menu-work { margin-top: 10px; }
 
 /* Everything above that moves, stops. Placed last so no later rule can win. */
 @media (prefers-reduced-motion: reduce) {

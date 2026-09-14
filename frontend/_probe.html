@@ -402,62 +402,86 @@ async function pick(doc, symbol, timeframe) {
 
   if (wants('multichart')) {
   log('');
-  log('=== multichart ===');
+  log('=== multichart (luoi bieu do day du) ===');
   try {
-    // Measure what is drawn, not the attribute. `hidden` on an element whose
-    // class sets `display: grid` is true and still takes 38% of the column:
-    // the first version of this group read `.hidden` and reported a band that
-    // was on screen as gone.
-    const band = doc.getElementById('multi-charts');
-    const bandHeight = () => Math.round(band.getBoundingClientRect().height);
-    const mainHeight = () => Math.round(doc.getElementById('chart-main').getBoundingClientRect().height);
-    log(`  luc mo, 1 khung: dai so sanh ${bandHeight()}px (mong doi 0), bieu do chinh ${mainHeight()}px`);
-
-    // A <select> cannot hold a value whose <option> does not exist yet, and
-    // assigning one is a silent no-op. The VN catalogue takes seconds.
-    await until('the symbol catalogue',
-      () => doc.getElementById('symbol').options.length > 1000);
+    const cm = () => w.eval('ChartManager');
+    const cells = () => [...doc.querySelectorAll('#chart-grid .cell')];
+    const cellOf = (node) => node?.closest('.cell')?.dataset.cell;
+    const caption = (i) => doc.querySelector(`[data-caption="${i}"]`)?.textContent.trim();
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    const grid = doc.getElementById('chart-grid');
 
     doc.querySelector('[data-layout="4"]').click();
-    await until('the panes', () => doc.querySelectorAll('.mc-cell').length === 3);
+    await until('four cells', () => cells().length === 4);
+    log(`  4 o, bieu do chinh o o ${cellOf(doc.getElementById('chart-main'))}, o dang lam viec ${doc.querySelector('.cell.active')?.dataset.cell}`);
 
-    ['VN:VNINDEX', 'VN:G-XAUUSD', 'VN:VIC'].forEach((symbol, i) => {
-      const sel = doc.querySelector('[data-pick="' + i + '"]');
+    for (const [i, symbol] of [[1, 'VN:VNINDEX'], [2, 'VN:G-XAUUSD'], [3, 'VN:VIC']]) {
+      const sel = doc.querySelector(`[data-pick="${i}"]`);
+      await until('option ' + symbol, () => [...sel.options].some((o) => o.value === symbol));
       sel.value = symbol;
-      if (sel.value !== symbol) throw new Error('no option for ' + symbol);
-      sel.dispatchEvent(new w.Event('change'));
-    });
-    await until('candles in every pane',
-      () => [...doc.querySelectorAll('.mc-cell')].every((c) => candlePixels(c) > 0));
-
-    for (const [i, cell] of [...doc.querySelectorAll('.mc-cell')].entries()) {
-      const plot = cell.querySelector('.mc-plot');
-      log(`  o ${i}  ${cell.querySelector('.mc-pick').value.padEnd(12)}`
-        + ` ${String(candlePixels(cell)).padStart(5)} diem nen`
-        + ` ${plot.clientWidth}x${plot.clientHeight}`
-        + (plot.querySelector('.empty') ? '  LOI: ' + plot.textContent.trim() : ''));
+      sel.dispatchEvent(new w.Event('change', { bubbles: true }));
     }
+    await until('candles in the three other cells',
+      () => [1, 2, 3].every((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`)) > 0));
+    const box = (i) => { const r = doc.querySelector(`[data-cell="${i}"]`).getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; };
+    log(`  kich thuoc o: ${[0, 1, 2, 3].map(box).join(' / ')}`);
+    log(`  diem nen o 1-3: ${[1, 2, 3].map((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`))).join(', ')}`);
 
-    // The strip the secondary indicators live in shares this column with the
-    // band, so opening the band must not cost it.
-    const panes = doc.getElementById('panes');
-    const main = doc.getElementById('chart-main');
-    log(`  truoc chi bao: dai ${panes.clientHeight}px, bieu do chinh ${main.clientWidth}x${main.clientHeight}`);
-    (await until('RSI in the catalogue',
-      () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
-    await until('the indicator strip', () => panes.clientHeight > 40);
-    log(`  sau chi bao:   dai ${panes.clientHeight}px (${panes.children.length} pane),`
-      + ` bieu do chinh ${main.clientWidth}x${main.clientHeight}`);
-    log(`  cac o van ve:  ${[...doc.querySelectorAll('.mc-cell')].map(candlePixels).join(', ')}`);
+    // Indicators on the working chart, then twice more to test the guard.
+    const seen = watchToasts(doc);
+    const rsi = await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'));
+    rsi.click();
+    await until('RSI on', () => doc.querySelectorAll('#active .active-item').length === 1);
+    rsi.click();
+    await sleep(300);
+    rsi.click();
+    await sleep(300);
+    log(`  bam RSI 3 lan: dang bat ${doc.querySelectorAll('#active .active-item').length}, thong bao ${seen.length}: "${(seen[0] || '').slice(0, 60)}"`);
+    await until('caption 0 names RSI', () => /RSI/.test(caption(0) || ''));
+    log(`  chu thich o 0: ${caption(0)}`);
+
+    // Click cell 2: the working chart and the tools move there.
+    doc.querySelector('[data-body="2"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    await until('working chart in cell 2', () => cellOf(doc.getElementById('chart-main')) === '2');
+    await until('G-XAUUSD loaded', () => (cm().seriesKey || '').startsWith('VN:G-XAUUSD|'));
+    await sleep(1500);
+    log(`  bam o 2 -> bieu do chinh o o ${cellOf(doc.getElementById('chart-main'))}, series ${cm().seriesKey}, chi bao dang bat ${doc.querySelectorAll('#active .active-item').length}`);
+    await until('cell 0 redrawn with RSI', () => candlePixels(doc.querySelector('[data-body="0"]')) > 0);
+    log(`  o 0 (vua roi): ${candlePixels(doc.querySelector('[data-body="0"]'))} diem nen, chu thich "${caption(0)}"`);
+
+    // A strategy test runs on the active cell.
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    doc.getElementById('run-backtest').click();
+    await until('backtest metrics', () => doc.querySelectorAll('#metrics .metric').length > 0, 400);
+    log(`  backtest tren o dang lam viec: ${doc.querySelectorAll('#metrics .metric').length} chi so, series ${cm().seriesKey}`);
+
+    // The gear of cell 1 changes only cell 1's timeframe.
+    doc.querySelector('[data-gear="1"]').click();
+    await sleep(150);
+    const frames = [...doc.querySelectorAll('.cell-menu [data-tf]')].map((b) => b.dataset.tf);
+    doc.querySelector('.cell-menu [data-tf="1d"]')?.click();
+    await until('cell 1 caption 1d', () => /1d/.test(caption(1) || ''));
+    log(`  banh rang o 1: khung ${frames.join(' ')}, chon 1d -> "${caption(1)}", o dang lam viec van ${cm().seriesKey}`);
+
+    // Overview and back.
+    const before = cells().map((c) => doc.querySelector(`[data-pick="${c.dataset.cell}"]`).value).join(', ');
+    doc.getElementById('mode-toggle').click();
+    await sleep(600);
+    const shown = cells().filter((c) => c.getBoundingClientRect().width > 0).length;
+    const mainWidth = Math.round(doc.getElementById('chart-main').getBoundingClientRect().width);
+    log(`  Tong quan: ${doc.body.dataset.mode}, o hien ${shown}, bieu do rong ${mainWidth}px / grid ${Math.round(grid.getBoundingClientRect().width)}px`);
+    doc.getElementById('mode-toggle').click();
+    await sleep(800);
+    const after = cells().map((c) => doc.querySelector(`[data-pick="${c.dataset.cell}"]`).value).join(', ');
+    log(`  Giao dich lai: ${doc.body.dataset.mode}, ${cells().filter((c) => c.getBoundingClientRect().width > 0).length} o, giong luc truoc: ${before === after} (${after})`);
 
     doc.querySelector('[data-layout="1"]').click();
-    await sleep(300);
-    log(`  ve 1 khung:    ${doc.querySelectorAll('.mc-cell').length} o,`
-      + ` dai so sanh ${bandHeight()}px (mong doi 0), bieu do chinh ${mainHeight()}px`);
+    await sleep(400);
+    log(`  ve 1 khung: ${cells().length} o, bieu do chinh rong ${Math.round(doc.getElementById('chart-main').getBoundingClientRect().width)}px, series ${cm().seriesKey}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }
-
   }
 
   if (wants('switching')) {
@@ -640,7 +664,6 @@ async function pick(doc, symbol, timeframe) {
     const cmOf = (fw) => fw.eval('ChartManager');
     await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
 
-    // Build up a session the way a person would.
     const sel = doc.getElementById('symbol');
     sel.value = 'VN:VIC';
     sel.dispatchEvent(new w.Event('change', { bubbles: true }));
@@ -659,14 +682,16 @@ async function pick(doc, symbol, timeframe) {
     await until('RSI active', () => doc.querySelectorAll('#active .active-item').length === 1);
 
     doc.querySelector('[data-layout="2"]').click();
-    const pick = await until('pane picker', () => doc.querySelector('[data-pick="0"]'));
-    await until('pane options', () => [...pick.options].some((o) => o.value === 'VN:VNINDEX'));
+    const pick = await until('cell 1 picker', () => doc.querySelector('[data-pick="1"]'));
+    await until('cell 1 options', () => [...pick.options].some((o) => o.value === 'VN:VNINDEX'));
     pick.value = 'VN:VNINDEX';
     pick.dispatchEvent(new w.Event('change', { bubbles: true }));
-    await sleep(900);                       // the session writes after 300ms
-    log(`  truoc khi tai lai: VIC 15m, panel strategy, ${tuned.name}=${tuned.value}, RSI, 2 khung + VNINDEX`);
+    doc.querySelector('[data-gear="1"]').click();
+    await sleep(150);
+    doc.querySelector('.cell-menu [data-tf="1d"]')?.click();
+    await sleep(900);
+    log(`  truoc khi tai lai: VIC 15m + RSI (o 0), ${tuned.name}=${tuned.value}, o 1 VNINDEX 1d`);
 
-    // Reload the app frame.
     w.location.reload();
     await until('the old document to go', () => frame.contentDocument !== doc);
     const d2 = await appDocument(frame);
@@ -678,11 +703,12 @@ async function pick(doc, symbol, timeframe) {
     const panel = d2.querySelector('.rail-btn.active')?.dataset.panel || '(dong)';
     const indicators = [...d2.querySelectorAll('#active .active-item')].map((n) => n.dataset.instance);
     const param = d2.querySelector(`#strategy-params [data-sparam="${tuned.name}"]`)?.value;
-    const layout = d2.body.dataset.layout;
-    const pane = d2.querySelector('[data-pick="0"]')?.value;
-    log(`  sau khi tai lai:   ${key}, panel ${panel}, ${tuned.name}=${param}, chi bao [${indicators.join(', ')}], layout ${layout} + ${pane}`);
+    const layout = d2.getElementById('chart-grid')?.dataset.layout;
+    const cell1 = d2.querySelector('[data-caption="1"]')?.textContent.trim();
+    log(`  sau khi tai lai:   ${key}, panel ${panel}, ${tuned.name}=${param}, chi bao [${indicators.join(', ')}], layout ${layout}, o 1 "${cell1}"`);
     const ok = key === 'VN:VIC|15m' && panel === 'strategy' && String(param) === tuned.value
-      && indicators.length === 1 && indicators[0].startsWith('rsi#') && layout === '2' && pane === 'VN:VNINDEX';
+      && indicators.length === 1 && indicators[0].startsWith('rsi#') && layout === '2'
+      && /VNINDEX/.test(cell1 || '') && /1d/.test(cell1 || '');
     log(`  ${ok ? 'GIU NGUYEN TOAN BO' : 'CO THU BI MAT'}`);
   } catch (e) {
     log('  LOI: ' + e.message);
@@ -691,10 +717,7 @@ async function pick(doc, symbol, timeframe) {
 
   if (wants('resize')) {
   log('');
-  log('=== resize (keo gian khung 2 va 4) ===');
-  /* The dividers listen to pointer events on the document, which synthetic
-     events reach the same way real ones do, so a drag here is the real code
-     path rather than a call into the module. */
+  log('=== resize (keo gian luoi 2 va 4) ===');
   const drag = async (handle, dx, dy) => {
     const r = handle.getBoundingClientRect();
     const x = r.left + r.width / 2, y = r.top + r.height / 2;
@@ -705,37 +728,28 @@ async function pick(doc, symbol, timeframe) {
     await sleep(300);
   };
   try {
-    const band = doc.getElementById('multi-charts');
-    const main = doc.getElementById('chart-main');
     doc.querySelector('[data-layout="4"]').click();
-    await until('three panes', () => doc.querySelectorAll('.mc-cell').length === 3);
-    await sleep(400);
-    const widths = () => [...doc.querySelectorAll('.mc-cell')].map((c) => Math.round(c.getBoundingClientRect().width)).join(' / ');
-    const h0 = Math.round(band.getBoundingClientRect().height), m0 = Math.round(main.getBoundingClientRect().height);
-    log(`  truoc:        dai so sanh ${h0}px, bieu do chinh ${m0}px, cot ${widths()}`);
-
-    const row = doc.getElementById('resize-mc');
-    log(`  tay keo ngang hien: ${!row.hidden}`);
-    await drag(row, 0, 120);
-    const h1 = Math.round(band.getBoundingClientRect().height), m1 = Math.round(main.getBoundingClientRect().height);
-    log(`  keo xuong 120: dai so sanh ${h1}px (${h1 - h0 >= 0 ? '+' : ''}${h1 - h0}), bieu do chinh ${m1}px (${m1 - m0})`);
-
-    const handles = doc.querySelectorAll('.mc-col-handle');
-    log(`  tay keo doc: ${handles.length}`);
-    const before = widths();
-    await drag(handles[0], 200, 0);
-    log(`  keo cot 1 sang phai 200: ${before}  ->  ${widths()}`);
-    const lefts = [...handles].map((h) => Math.round(h.getBoundingClientRect().left));
-    const edges = [...doc.querySelectorAll('.mc-cell')].slice(0, 2).map((c) => Math.round(c.getBoundingClientRect().right));
-    log(`  tay keo nam o mep o: ${lefts.join(', ')} vs mep ${edges.join(', ')}`);
-
-    handles[0].dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
-    row.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    await until('four cells', () => doc.querySelectorAll('#chart-grid .cell').length === 4);
+    await sleep(500);
+    const sizes = () => [0, 1, 2, 3].map((i) => {
+      const r = doc.querySelector(`[data-cell="${i}"]`).getBoundingClientRect();
+      return `${Math.round(r.width)}x${Math.round(r.height)}`;
+    }).join(' / ');
+    log(`  truoc:            ${sizes()}`);
+    await drag(doc.querySelector('.grid-handle-col'), 200, 0);
+    log(`  keo cot +200:     ${sizes()}`);
+    await drag(doc.querySelector('.grid-handle-row'), 0, -120);
+    log(`  keo hang -120:    ${sizes()}`);
+    const col = doc.querySelector('.grid-handle-col').getBoundingClientRect();
+    const edge = doc.querySelector('[data-cell="0"]').getBoundingClientRect().right;
+    log(`  tay keo cot o x=${Math.round(col.left + col.width / 2)}, mep o 0 x=${Math.round(edge)}`);
+    doc.querySelector('.grid-handle-col').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    doc.querySelector('.grid-handle-row').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
     await sleep(300);
-    log(`  nhap dup ve mac dinh: dai ${Math.round(band.getBoundingClientRect().height)}px, cot ${widths()}`);
+    log(`  nhap dup:         ${sizes()}`);
     doc.querySelector('[data-layout="1"]').click();
     await sleep(200);
-    log(`  ve 1 khung: tay keo ngang an ${row.hidden}`);
+    log(`  ve 1 khung: tay keo con ${doc.querySelectorAll('.grid-handle').length}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }

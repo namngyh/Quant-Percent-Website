@@ -10,7 +10,8 @@
     /static/_shot.html?panel=paper
     /static/_shot.html?panel=indicators&add=rsi
     /static/_shot.html?layout=2&pick0=VN:VIC
-    /static/_shot.html?layout=4&pick0=VN:VIC&pick1=VN:G-XAUUSD&pick2=VN:VNINDEX
+    /static/_shot.html?layout=4&pick1=VN:VIC&pick2=VN:G-XAUUSD&pick3=VN:VNINDEX&gear=1
+    /static/_shot.html?...&add=rsi&work=2&add2=bbands   (indicator, move to cell 2, another)
     /static/_shot.html?search=vin        (opens the symbol picker and types)
     /static/_shot.html?fresh=1           (clears the saved session first)
 -->
@@ -42,7 +43,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (q.get('layout')) {
     d.querySelector(`[data-layout="${q.get('layout')}"]`)?.click();
     await sleep(400);
-    for (const i of [0, 1, 2]) {
+    for (const i of [0, 1, 2, 3]) {
       const want = q.get('pick' + i);
       const sel = d.querySelector(`[data-pick="${i}"]`);
       if (!want || !sel) continue;
@@ -52,8 +53,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     await sleep(4000);
   }
+  if (q.get('work')) {
+    d.querySelector(`[data-body="${q.get('work')}"]`)?.dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true }));
+    await sleep(3000);
+  }
+  if (q.get('add2')) {
+    for (let i = 0; i < 40 && !d.querySelector(`.cat-item[data-id="${q.get('add2')}"]`); i++) await sleep(250);
+    d.querySelector(`.cat-item[data-id="${q.get('add2')}"]`)?.click();
+    await sleep(2500);
+  }
   if (q.get('subtab')) d.querySelector(`[data-subtab="${q.get('subtab')}"]`)?.click();
   if (q.get('click')) d.querySelector(q.get('click'))?.click();
+  if (q.get('gear')) { d.querySelector(`[data-gear="${q.get('gear')}"]`)?.click(); await sleep(300); }
   if (q.get('search') !== null && q.get('search') !== '') {
     const button = d.querySelector('#symbol + .sp-button');
     button?.click();
