@@ -162,3 +162,78 @@ def import_plugin(request: ImportRequest) -> dict:
         "path": f"plugins/{FOLDER[kind]}/{name}",
         "spec": summary,
     }
+
+
+# --------------------------------------------------- writing code in the app
+
+def _kind_dir(kind: str) -> Path:
+    """The folder for a kind, refusing anything that is not one of the two."""
+    if kind not in FOLDER:
+        raise HTTPException(422, f"Loại `{kind}` không hợp lệ (indicator hoặc strategy).")
+    return settings.plugin_indicator_dir if kind == "indicator" else strategy_dir()
+
+
+@router.get("/files")
+def list_files() -> dict:
+    """Every user-written plugin file, so the editor can offer them for editing.
+
+    Files beginning with `_` are skipped for the same reason the loaders skip
+    them: they are not plugins, and offering one for editing would imply it is.
+    """
+    out: dict[str, list[dict]] = {}
+    for kind, folder in FOLDER.items():
+        directory = _kind_dir(kind)
+        entries = []
+        if directory.exists():
+            for path in sorted(directory.glob("*.py")):
+                if path.name.startswith("_"):
+                    continue
+                try:
+                    entries.append({"filename": path.name, "bytes": path.stat().st_size})
+                except OSError:
+                    continue                  # deleted mid-listing; not worth failing on
+        out[kind] = entries
+    return {"files": out, "folders": {k: f"plugins/{v}" for k, v in FOLDER.items()}}
+
+
+@router.get("/files/{kind}/{filename}")
+def read_file(kind: str, filename: str) -> dict:
+    """The source of one plugin file, for editing in place.
+
+    Goes through the same `_safe_stem` check as writing does. A read is the
+    easier direction to get wrong — `../../.env` is a perfectly good filename
+    to a careless handler, and this machine has a real one.
+    """
+    name = _safe_stem(filename)
+    path = _kind_dir(kind) / name
+    if not path.exists():
+        raise HTTPException(404, f"Không có file `{name}` trong `plugins/{FOLDER[kind]}/`.")
+
+    try:
+        content = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(422, f"File không đọc được bằng UTF-8: {exc}") from exc
+
+    return {"kind": kind, "filename": name, "content": content,
+            "path": f"plugins/{FOLDER[kind]}/{name}"}
+
+
+class CheckRequest(BaseModel):
+    content: str = Field(..., max_length=MAX_SOURCE_BYTES)
+
+
+@router.post("/check")
+def check_source(request: CheckRequest) -> dict:
+    """Parse and classify source without writing or importing it.
+
+    Deliberately stops at `ast.parse`: it answers "is this syntactically
+    Python, and does it declare what a plugin must declare" without executing
+    anything. The editor calls it while typing, and running half-written code
+    on every keystroke would be a genuinely bad idea. Executing happens only on
+    save, through the same validated path an imported file takes.
+    """
+    try:
+        kind = _classify(request.content)
+    except HTTPException as exc:
+        return {"ok": False, "detail": exc.detail}
+    return {"ok": True, "kind": kind}

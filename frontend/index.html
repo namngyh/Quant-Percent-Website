@@ -486,11 +486,14 @@
 
     <!-- ============ Charts ============ -->
     <section class="charts">
+      <!-- Drawing tools get their own column rather than floating over the
+           chart. Absolutely positioned inside the pane, the bar covered the
+           leftmost candles — the data it exists to annotate — and every
+           charting package worth copying puts it beside the plot, not on top
+           of it. Hidden in overview: nothing to annotate on a quote page. -->
+      <div class="draw-bar" id="draw-bar"></div>
+      <div class="charts-stack">
       <div id="chart-main" class="chart-pane chart-main">
-        <!-- Drawing tools, down the left edge of the chart the way every
-             charting package puts them. Hidden in overview: there is nothing
-             to annotate on a quote page. -->
-        <div class="draw-bar" id="draw-bar"></div>
         <div class="chart-tools" id="chart-tools" hidden>
           <button id="toggle-markers" class="chip" type="button"></button>
           <button id="clear-markers" class="chip chip-icon" type="button"
@@ -502,6 +505,7 @@
            role="separator" aria-orientation="horizontal"
            data-i18n-title="resize.panes"></div>
       <div id="panes"></div>
+      </div>
       <div id="loading" class="loading" hidden><div class="spinner"></div></div>
     </section>
   </main>
