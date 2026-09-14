@@ -35,12 +35,12 @@ global.document = window.document;
 /* One eval for all four files plus the stub: each file declares its module
    with `const`, and separate evals do not share a lexical scope. */
 const sources = ['i18n.js', 'explain.js', 'api.js', 'validation.js', 'strategy.js',
-  'paper.js', 'report.js']
+  'paper.js', 'report.js', 'portfolio.js']
   .map((f) => fs.readFileSync(path.join(ROOT, 'frontend/js', f), 'utf8'));
 let nextPayload = null;
 window.eval(sources.join(String.fromCharCode(10, 59, 10)) + `
   ;window.I18n = I18n; window.Explain = Explain; window.Validation = Validation;
-  window.Strategy = Strategy; window.Paper = Paper; window.Report = Report;
+  window.Strategy = Strategy; window.Paper = Paper; window.Report = Report; window.Portfolio = Portfolio;
   window.API = API;
   // Only the network is stubbed; everything downstream is the real module.
   API.walkForward = (a) => window.__wf(a);
@@ -379,9 +379,14 @@ async function render(label, kind, payload) {
   for (const lang of ['vi', 'en']) {
     window.I18n.set(lang);
     for (const [id] of window.Report.tabs) {
+      // The ML tab only has content for a strategy that scores probabilities,
+      // so it is rendered from the report that has one. Reading it out of the
+      // plain report would check the "no model here" notice instead of the
+      // several dozen numbers this loop exists to check.
+      const payload = id === 'ml' ? payloads.report_ml : payloads.report;
       let html;
       try {
-        html = window.Report.renderTab(id, payloads.report);
+        html = window.Report.renderTab(id, payload);
       } catch (err) {
         console.log(`  FAIL  report ${id} [${lang}] threw: ${err.message}`);
         failures++; continue;
@@ -406,8 +411,89 @@ async function render(label, kind, payload) {
     }
   }
 
-  // The AmiBroker rows and the risk-management tab specifically.
+  /* The ML tab belongs to ML strategies only.
+     Nam asked for that, and the reason it matters is that the previous
+     behaviour did not look broken: a moving-average cross got a full tab of
+     dashes and repeated Overview numbers, which reads as a result. */
   window.I18n.set('en');
+  {
+    const withMl = payloads.report_ml;
+    const noMl = payloads.report;
+
+    const shown = window.Report.tabsFor(withMl);
+    const hidden = window.Report.tabsFor(noMl);
+
+    if (shown.includes('ml')) console.log('  PASS  ML tab offered when the strategy scores probabilities');
+    else { console.log('  FAIL  ML tab missing for an ML strategy'); failures++; }
+
+    if (!hidden.includes('ml')) console.log('  PASS  ML tab withheld when there is no probability');
+    else { console.log('  FAIL  ML tab still offered without a probability'); failures++; }
+
+    // The other tabs must not disappear with it: gating one tab is not a
+    // reason to lose the report.
+    const lost = shown.filter((id) => id !== 'ml' && !hidden.includes(id));
+    if (!lost.length) console.log(`  PASS  the other ${hidden.length} tabs survive the gating`);
+    else { console.log(`  FAIL  gating the ML tab also dropped: ${lost.join(', ')}`); failures++; }
+
+    // And rendering it anyway says why it is empty rather than throwing.
+    try {
+      const text = window.Report.renderTab('ml', noMl);
+      if (/machine-learning/i.test(text)) console.log('  PASS  rendering the ML tab without a model explains itself');
+      else { console.log('  FAIL  ML tab without a model gave no explanation'); failures++; }
+    } catch (err) {
+      console.log(`  FAIL  ML tab without a model threw: ${err.message}`);
+      failures++;
+    }
+  }
+
+  /* Portfolio performance tab: the 16 metrics Nam listed reach the screen,
+     and every refusal is printed as its reason rather than a bare dash. */
+  for (const lang of ['vi', 'en']) {
+    window.I18n.set(lang);
+    for (const [label, payload] of [['numbers', payloads.portfolio],
+                                    ['refusals', payloads.portfolio_refusals]]) {
+      let html;
+      try { html = window.Portfolio.renderTab('performance', payload); } catch (err) {
+        console.log(`  FAIL  portfolio performance ${label} [${lang}] threw: ${err.message}`);
+        failures++; continue;
+      }
+      const holder = window.document.createElement('div');
+      holder.innerHTML = html;
+      const hits = BAD.filter(([, re]) => re.test(holder.textContent)).map(([n]) => n);
+      if (hits.length) {
+        console.log(`  FAIL  portfolio performance ${label} [${lang}] printed: ${hits.join(', ')}`);
+        failures++;
+      } else console.log(`  PASS  portfolio performance ${label} [${lang}]  ${holder.textContent.length} chars`);
+    }
+  }
+  window.I18n.set('en');
+  {
+    const text = (payload) => {
+      const holder = window.document.createElement('div');
+      holder.innerHTML = window.Portfolio.renderTab('performance', payload);
+      return holder.textContent;
+    };
+    const full = text(payloads.portfolio);
+    for (const needle of ['CAGR', 'Sharpe', 'Sortino', 'Calmar', 'Information ratio',
+      'Alpha', 'Beta', 'Upside capture', 'Downside capture', 'Skewness',
+      'Excess kurtosis', 'Rolling Sharpe', 'Rolling volatility']) {
+      if (full.includes(needle)) console.log(`  PASS  portfolio metric shown: ${needle}`);
+      else { console.log(`  FAIL  portfolio metric missing: ${needle}`); failures++; }
+    }
+    const refused = text(payloads.portfolio_refusals);
+    for (const [what, needle] of [
+      ['Sortino refusal names its reason', 'no losing session in this window'],
+      ['Calmar refusal names its reason', 'no real drawdown to divide by yet'],
+      ['absent benchmark is said, not zeroed', 'not enough sessions shared with VN-Index'],
+      ['short sample refuses the rolling window', 'A rolling window needs at least'],
+      ['a series that never moves refuses the moments', 'the series does not move'],
+    ]) {
+      if (refused.includes(needle)) console.log(`  PASS  portfolio: ${what}`);
+      else { console.log(`  FAIL  portfolio: ${what}`); failures++; }
+    }
+  }
+
+  // The AmiBroker rows and the risk-management tab specifically.
   const ami = window.Report.renderTab('trades', payloads.report);
   for (const [what, needle] of [
     ['longest hold row', 'Longest hold'],
@@ -587,7 +673,8 @@ async function render(label, kind, payload) {
 
   window.I18n.set('en');
   for (const [id] of window.Report.tabs) {
-    pure(`report/${id}`, window.Report.renderTab(id, payloads.report));
+    pure(`report/${id}`,
+         window.Report.renderTab(id, id === 'ml' ? payloads.report_ml : payloads.report));
   }
   pure('paper ticket', window.Paper.ticket(fakeSession({ position: 1 })));
 

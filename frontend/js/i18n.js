@@ -169,6 +169,7 @@ const I18n = (() => {
     'paper.title':        { vi: 'Paper trading', en: 'Paper trading' },
     'paper.refresh':      { vi: 'Làm mới', en: 'Refresh' },
     'paper.lead':         { vi: 'Chạy chiến lược tiến về phía trước trên dữ liệu thật, tiền ảo. Dùng đúng luật khớp lệnh của backtest: tín hiệu ở nến đóng, khớp ở giá mở nến kế tiếp. Phiên vẫn chạy khi bạn đóng trình duyệt.', en: 'Run a strategy forward on live data with imaginary money. Same fill rules as the backtest: the signal comes from a closed bar and fills at the next bar’s open. Sessions keep running when you close the browser.' },
+    'tg.short':           { vi: 'Thông báo', en: 'Alerts' },
     'tg.title':           { vi: 'Thông báo Telegram', en: 'Telegram notifications' },
     'tg.help':            { vi: 'Cách lấy token và chat id', en: 'How to get a token and chat id' },
     'tg.token':           { vi: 'Bot token', en: 'Bot token' },
@@ -275,6 +276,8 @@ const I18n = (() => {
     'ed.okIndicator':     { vi: '✓ Chỉ báo hợp lệ', en: '✓ Valid indicator' },
     'ed.okStrategy':      { vi: '✓ Chiến lược hợp lệ', en: '✓ Valid strategy' },
     'ed.discard':         { vi: 'Bỏ các thay đổi chưa lưu?', en: 'Discard unsaved changes?' },
+    'mc.layout':          { vi: 'Số khung biểu đồ', en: 'Chart panes' },
+    'mc.choose':          { vi: 'Chọn mã cho khung này', en: 'Pick a market for this pane' },
     'mm.title':           { vi: 'Nhiều thị trường', en: 'Many markets' },
     'mm.tab':             { vi: 'Thị trường', en: 'Markets' },
     'mm.add':             { vi: 'Thêm một thị trường', en: 'Add a market' },
@@ -297,6 +300,7 @@ const I18n = (() => {
 
     // ---------------- portfolio result window
     'pfr.overview':       { vi: 'Tổng quan', en: 'Overview' },
+    'pfr.performance':    { vi: 'Hiệu suất', en: 'Performance' },
     'pfr.positions':      { vi: 'Từng mã', en: 'Positions' },
     'pfr.diversification':{ vi: 'Đa dạng hoá', en: 'Diversification' },
     'pfr.forward':        { vi: 'Dự phóng', en: 'Projection' },

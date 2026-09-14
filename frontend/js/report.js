@@ -874,6 +874,15 @@ const Report = (() => {
 
   function mlTab(r) {
     const m = r.ml;
+    // No block at all means the strategy publishes no probability, so there
+    // is no model to evaluate. `visibleTabs` hides the tab in that case, but
+    // this is a public entry point and reading `.error` off null is a crash
+    // rather than a blank tab.
+    if (!m) {
+      return `<p class="empty">${esc(L(
+        'Chiến lược này không xuất ra xác suất, nên không có mô hình để chấm. Tab này dành cho chiến lược học máy.',
+        'This strategy publishes no probability, so there is no model to score. This tab is for machine-learning strategies.'))}</p>`;
+    }
     if (m.error) {
       return `<div class="callout warn">${esc(tp(m.error) || m.error)}</div>
         <p class="table-note">${esc(L(
@@ -1266,10 +1275,22 @@ const Report = (() => {
 
   // ---------- window ----------
 
+  /* A tab whose payload is absent is not shown at all.
+
+     The ML tab is built around a model's calibration, and a strategy that
+     publishes no probability has none — the tab would be a page of dashes
+     next to numbers the Overview already gives. Hiding it is more honest
+     than rendering it empty. */
+  function visibleTabs() {
+    return TABS.filter(([id]) => id !== 'ml' || data?.ml);
+  }
+
   function paint() {
     if (!host || !data) return;
     const body = host.querySelector('.rp-body');
-    const tab = TABS.find(([id]) => id === activeTab) || TABS[0];
+    const available = visibleTabs();
+    if (!available.some(([id]) => id === activeTab)) activeTab = available[0][0];
+    const tab = available.find(([id]) => id === activeTab) || available[0];
     try {
       body.innerHTML = tab[2](data);
     } catch (err) {
@@ -1293,7 +1314,7 @@ const Report = (() => {
     }
   }
 
-  const tabMarkup = () => TABS.map(([id, key]) =>
+  const tabMarkup = () => visibleTabs().map(([id, key]) =>
     `<button class="rp-tab" data-tab="${id}" role="tab">${esc(t(key))}</button>`).join('');
 
   function close() {
@@ -1381,6 +1402,13 @@ const Report = (() => {
     // drops reaches the screen as "undefined" with no error anywhere, which is
     // exactly the failure this project has already shipped once.
     get tabs() { return TABS.map(([id, key]) => [id, key]); },
+    // The tab strip is payload-dependent now, so the test needs to see what a
+    // given report would actually offer rather than the full list.
+    tabsFor(payload) {
+      const held = data;
+      data = payload;
+      try { return visibleTabs().map(([id]) => id); } finally { data = held; }
+    },
     renderTab(id, payload) {
       const entry = TABS.find(([tabId]) => tabId === id);
       if (!entry) throw new Error(`no such report tab: ${id}`);

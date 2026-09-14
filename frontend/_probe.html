@@ -4,9 +4,10 @@
 <!--
   Checks that only a real browser can make: they need a live chart, a live API
   and real layout, which jsdom does not provide and the Python tests cannot
-  reach. Three groups, run in order:
+  reach. Groups, run in order:
 
     coverage   the data-completeness toasts fire on the right symbols
+    multichart the comparison panes draw candles, not just a chart frame
     charttype  the chart-type menu is actually reachable by the pointer
     timing     where a page load spends its time
 
@@ -17,7 +18,7 @@
 
   Then read the <pre id="out"> block out of the dumped DOM.
 
-  Two traps this file exists to remember:
+  Three traps this file exists to remember:
 
   * Toasts delete themselves after 5s. Reading them once at the end finds none
     and reports a working warning as broken, so they are watched with a
@@ -25,6 +26,9 @@
   * A fresh iframe begins on about:blank, which already reports readyState
     "complete", and its load event may fire before this script runs. Neither
     is a reliable signal, so the frame is polled for a known element instead.
+  * Every module here is a top-level `const`, which makes no window property.
+    Reaching in for `w.MultiChart` gets `undefined` and the probe dies on the
+    first line that uses it, so these groups drive the real controls.
 -->
 <pre id="out">running…</pre>
 <iframe id="app" src="/#trade" style="width:1400px;height:900px"></iframe>
@@ -61,6 +65,40 @@ function watchToasts(doc) {
   });
   obs.observe(doc.body, { childList: true });
   return seen;
+}
+
+/* A mounted chart and a chart holding candles look identical from the DOM:
+   both are a <div> of canvases. Counting pixels painted in the up/down candle
+   colours is the only way to tell them apart from out here. */
+function candlePixels(cell) {
+  let best = null;
+  for (const c of cell.querySelectorAll('canvas')) {
+    if (!best || c.width * c.height > best.width * best.height) best = c;
+  }
+  if (!best) return -1;
+  const px = best.getContext('2d').getImageData(0, 0, best.width, best.height).data;
+  let hits = 0;
+  for (let p = 0; p < px.length; p += 4) {
+    if ((px[p] === 8 && px[p + 1] === 153 && px[p + 2] === 129)
+        || (px[p] === 242 && px[p + 1] === 54 && px[p + 2] === 69)) hits++;
+  }
+  return hits;
+}
+
+/* Wait for the thing being measured, never for a clock.
+
+   The first version of this slept 7s after picking three markets and reported
+   whichever panes had finished. Each pane fetches over the VPN and they do not
+   finish together, so the same code scored 3, then 2, then 1 pane across three
+   runs — it was measuring the probe's patience, not the feature. */
+async function until(label, test, tries = 200) {
+  for (let i = 0; i < tries; i++) {
+    let got = null;
+    try { got = test(); } catch (e) { got = null; }
+    if (got) return got;
+    await sleep(250);
+  }
+  throw new Error('timed out waiting for ' + label);
 }
 
 async function pick(doc, symbol, timeframe) {
@@ -310,6 +348,56 @@ async function pick(doc, symbol, timeframe) {
     const cs = w.getComputedStyle(btn0);
     log(`  #chart-type border=${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`);
     log(`  #chart-type background=${cs.backgroundColor}`);
+  }
+
+  }
+
+  if (wants('multichart')) {
+  log('');
+  log('=== multichart ===');
+  try {
+    // A <select> cannot hold a value whose <option> does not exist yet, and
+    // assigning one is a silent no-op. The VN catalogue takes seconds.
+    await until('the symbol catalogue',
+      () => doc.getElementById('symbol').options.length > 1000);
+
+    doc.querySelector('[data-layout="4"]').click();
+    await until('the panes', () => doc.querySelectorAll('.mc-cell').length === 3);
+
+    ['VN:VNINDEX', 'VN:G-XAUUSD', 'VN:VIC'].forEach((symbol, i) => {
+      const sel = doc.querySelector('[data-pick="' + i + '"]');
+      sel.value = symbol;
+      if (sel.value !== symbol) throw new Error('no option for ' + symbol);
+      sel.dispatchEvent(new w.Event('change'));
+    });
+    await until('candles in every pane',
+      () => [...doc.querySelectorAll('.mc-cell')].every((c) => candlePixels(c) > 0));
+
+    for (const [i, cell] of [...doc.querySelectorAll('.mc-cell')].entries()) {
+      const plot = cell.querySelector('.mc-plot');
+      log(`  o ${i}  ${cell.querySelector('.mc-pick').value.padEnd(12)}`
+        + ` ${String(candlePixels(cell)).padStart(5)} diem nen`
+        + ` ${plot.clientWidth}x${plot.clientHeight}`
+        + (plot.querySelector('.empty') ? '  LOI: ' + plot.textContent.trim() : ''));
+    }
+
+    // The strip the secondary indicators live in shares this column with the
+    // band, so opening the band must not cost it.
+    const panes = doc.getElementById('panes');
+    const main = doc.getElementById('chart-main');
+    log(`  truoc chi bao: dai ${panes.clientHeight}px, bieu do chinh ${main.clientWidth}x${main.clientHeight}`);
+    (await until('RSI in the catalogue',
+      () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
+    await until('the indicator strip', () => panes.clientHeight > 40);
+    log(`  sau chi bao:   dai ${panes.clientHeight}px (${panes.children.length} pane),`
+      + ` bieu do chinh ${main.clientWidth}x${main.clientHeight}`);
+    log(`  cac o van ve:  ${[...doc.querySelectorAll('.mc-cell')].map(candlePixels).join(', ')}`);
+
+    doc.querySelector('[data-layout="1"]').click();
+    log(`  ve 1 khung:    ${doc.querySelectorAll('.mc-cell').length} o`
+      + ` (mong doi 0), hidden=${doc.getElementById('multi-charts').hidden}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
   }
 
   }

@@ -67,7 +67,51 @@ print("opt          combos=%d robust=%s deflated=%s" % (
 # The full backtest report, so every tab can be rendered.
 from backend.analysis.report import build_report
 out['report'] = build_report(bt, df, "1h")
-print("report       tabs ready; risk_tools=%s" % sorted(out['report']['risk_tools']))
+# Print the shape, never the contents: the ml block carries bilingual prose and
+# this console is cp1252, so dumping it raises UnicodeEncodeError and kills the
+# script after it has written nothing. That failure is invisible if the output
+# is being filtered — the stale fixture is still on disk and the next test run
+# passes against it.
+print("report       tabs ready; risk_tools=%s  ml=%s" % (
+    sorted(out['report']['risk_tools']),
+    'absent' if out['report']['ml'] is None else 'present'))
+
+# A second report from a strategy that publishes a probability, because the ML
+# tab is now shown only for those. A hand-written `ml` block in the test would
+# be a fixture of my own expectations; this one comes out of the same code the
+# app calls. The probability is a squashed EMA spread — not a real model, but
+# a real array of the right shape, correlated with the signal the way a model's
+# output would be.
+import numpy as np
+spread = (df["close"].ewm(span=20).mean() - df["close"].ewm(span=50).mean())
+prob = 1.0 / (1.0 + np.exp(-spread.to_numpy() / max(spread.std(), 1e-9)))
+out['report_ml'] = build_report(bt, df, "1h", probability=prob)
+print("report_ml    ml=%s" % (
+    out['report_ml']['ml'].get('error') or
+    "accuracy=%.3f baseline=%.3f" % (out['report_ml']['ml']['accuracy'],
+                                     out['report_ml']['ml']['baseline_accuracy'])))
+
+# The portfolio performance tab. Two payloads, because the tab has two kinds
+# of content that break differently: numbers, and refusals printed as reasons.
+# A calm random portfolio against a benchmark exercises every ratio; a
+# never-losing series with no benchmark exercises the refusal paths
+# (no_downside_observed, no_drawdown_yet, no benchmark, too short to roll).
+from backend.portfolio import metrics as pm
+rng = np.random.default_rng(21)
+bench_r = rng.normal(0.0003, 0.011, 400)
+port_r = 1.1 * bench_r + rng.normal(0.0002, 0.005, 400)
+eq = np.exp(np.cumsum(port_r))
+mdd = float((eq / np.maximum.accumulate(eq) - 1).min())
+out['portfolio'] = {"observations": 400, "beta": 1.1, "max_drawdown_pct": mdd * 100,
+                    "performance": pm.performance(port_r, bench_r, 1.1, mdd)}
+flat_up = np.full(40, np.log1p(0.001))
+out['portfolio_refusals'] = {"observations": 40, "beta": None, "max_drawdown_pct": 0.0,
+                             "performance": pm.performance(flat_up, None, None, 0.0)}
+print("portfolio    sharpe=%s  refusals: sortino=%s calmar=%s rolling=%s" % (
+    out['portfolio']['performance']['sharpe']['code'],
+    out['portfolio_refusals']['performance']['sortino']['code'],
+    out['portfolio_refusals']['performance']['calmar']['code'],
+    out['portfolio_refusals']['performance']['rolling']['code']))
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     'render_payloads.json')

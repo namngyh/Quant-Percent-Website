@@ -621,7 +621,10 @@ const ChartManager = (() => {
   let onLevelDragged = null;
 
   const LEVEL_STYLE = {
-    entry: { color: '#2962ff', style: 0, title: '' },
+    // Ink, matching the interface accent: the entry line marks a fact
+    // about your own position, not a market direction, so it must not
+    // borrow green or red. Two pixels keeps it apart from the grid.
+    entry: { color: '#131722', style: 0, title: '' },
     // Stop and target keep the market colours deliberately: a stop is the
     // losing side of the trade and a target the winning one, whichever way
     // the position points.

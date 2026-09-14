@@ -1105,7 +1105,17 @@ def build_report(
             [t.as_dict() for t in result.trades],
         ),
         "periodic": periodic,
-        "ml": ml_evaluation(df, result.position, probability),
+        # Only for strategies that actually publish a probability.
+        #
+        # The evaluation itself applies to any strategy — see its docstring,
+        # and that generality is genuinely useful. But the tab it feeds is
+        # built around a model's calibration, and for a moving-average cross
+        # most of it renders empty while the rest repeats what the Overview
+        # already says. Nam asked for it to be an ML tab, so a strategy with
+        # no `ml_probability` column gets no ml block and the tab hides
+        # itself rather than showing a page of dashes.
+        "ml": ml_evaluation(df, result.position, probability)
+        if probability is not None else None,
         "charts": {
             "equity": _downsample(result.equity, result.times),
             "buy_hold": _downsample(buy_hold_curve[: len(result.times)], result.times),

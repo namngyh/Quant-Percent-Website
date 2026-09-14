@@ -69,6 +69,12 @@
                 data-i18n-title="chart.type"></button>
         <div id="chart-type-menu" class="ct-menu" role="menu" hidden></div>
       </div>
+      <!-- How many markets on screen. One is the working chart alone. -->
+      <div class="tf-group" role="group" data-i18n-aria="mc.layout">
+        <button class="tf-btn active" data-layout="1" type="button">1</button>
+        <button class="tf-btn" data-layout="2" type="button">2</button>
+        <button class="tf-btn" data-layout="4" type="button">4</button>
+      </div>
     </div>
 
     <div class="topbar-right">
@@ -181,8 +187,8 @@
               <div id="strategy-params" class="params"></div>
             </div>
 
-            <div class="field-group">
-              <div class="field-group-title" data-i18n="st.period">Khoảng thời gian</div>
+            <details class="field-group foldable">
+              <summary class="field-group-title" data-i18n="st.period">Khoảng thời gian</summary>
               <p class="hint" data-i18n="st.periodHint">Bỏ trống là dùng số nến gần nhất.</p>
               <div class="params">
                 <label class="param-row"><span data-i18n="st.from">Từ ngày</span>
@@ -202,10 +208,10 @@
                   </select></label>
               </div>
               <div id="bt-period-note" class="hint"></div>
-            </div>
+            </details>
 
-            <div class="field-group">
-              <div class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</div>
+            <details class="field-group foldable">
+              <summary class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</summary>
               <div class="params">
                 <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <button type="button" class="info-btn" data-explain="exec.capital" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-capital" type="number" value="10000" min="100" step="100" /></label>
@@ -218,7 +224,7 @@
                 <label class="param-row"><span><span data-i18n="st.slippage">Trượt giá (%)</span> <button type="button" class="info-btn" data-explain="exec.slippage" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
                   <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
               </div>
-            </div>
+            </details>
 
             <button id="run-backtest" class="btn btn-primary btn-block" data-i18n="st.runBacktest">Chạy backtest</button>
             <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy paper trading</button>
@@ -443,6 +449,8 @@
           <div class="panel-head-actions">
             <button id="paper-dash" class="btn btn-quiet btn-sm"
                     data-i18n="paper.account">Tài khoản</button>
+            <button id="notify-open" class="btn btn-quiet btn-sm"
+                    data-i18n-title="tg.title" data-i18n="tg.short">Thông báo</button>
             <button id="refresh-paper" class="btn btn-quiet btn-sm" data-i18n="paper.refresh">Làm mới</button>
           </div>
         </div>
@@ -456,7 +464,60 @@
           <button id="start-manual" class="btn btn-primary btn-block"></button>
           <div id="paper-sessions" class="paper-list"></div>
 
-          <div class="field-group" style="margin-top:14px">
+        </div>
+      </section>
+    </aside>
+
+    <div id="resize-panel" class="resize-handle resize-x"
+         role="separator" aria-orientation="vertical"
+         data-i18n-title="resize.panel"></div>
+
+    <!-- ============ Charts ============ -->
+    <section class="charts">
+      <!-- Drawing tools get their own column rather than floating over the
+           chart. Absolutely positioned inside the pane, the bar covered the
+           leftmost candles — the data it exists to annotate — and every
+           charting package worth copying puts it beside the plot, not on top
+           of it. Hidden in overview: nothing to annotate on a quote page. -->
+      <div class="draw-bar" id="draw-bar"></div>
+      <div class="charts-stack">
+      <!-- Comparison panes: two or four markets at a glance. One of those is
+           the working chart below, which keeps indicators, drawings and paper
+           levels; these are candles and a picker. -->
+      <div id="multi-charts" class="multi-charts" hidden></div>
+      <div id="chart-main" class="chart-pane chart-main">
+        <div class="chart-tools" id="chart-tools" hidden>
+          <button id="toggle-markers" class="chip" type="button"></button>
+          <button id="clear-markers" class="chip chip-icon" type="button"
+                  data-i18n-title="chart.clearMarkers"
+                  data-i18n-aria="chart.clearMarkers">✕</button>
+        </div>
+      </div>
+      <div id="resize-panes" class="resize-handle resize-y"
+           role="separator" aria-orientation="horizontal"
+           data-i18n-title="resize.panes"></div>
+      <div id="panes"></div>
+      </div>
+      <div id="loading" class="loading" hidden><div class="spinner"></div></div>
+    </section>
+  </main>
+
+
+
+  <!-- Telegram notifications.
+
+       Lived inside the Paper trading panel until 2026-09-16, which was the
+       wrong home twice over: it is a global notification setting rather than
+       anything to do with one paper session, and it was most of the 397px
+       that panel had to scroll. A setting you touch once belongs behind a
+       button, not above the sessions you read every day. -->
+  <div id="notify-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="notify-title">
+      <div class="dialog-head">
+        <h2 id="notify-title" data-i18n="tg.title">Thông báo Telegram</h2>
+        <button id="notify-close" class="btn btn-quiet btn-sm">✕</button>
+      </div>
+      <div class="dialog-body">
             <div class="field-group-title">
               <span data-i18n="tg.title">Thông báo Telegram</span>
               <button type="button" class="info-btn" data-explain="notify.telegram"
@@ -477,41 +538,9 @@
               <button id="notify-clear" class="btn btn-quiet" data-i18n-title="tg.clearTitle" data-i18n="tg.clear">Xoá</button>
             </div>
             <p class="hint tiny" data-i18n="tg.privacy"></p>
-          </div>
-        </div>
-      </section>
-    </aside>
-
-    <div id="resize-panel" class="resize-handle resize-x"
-         role="separator" aria-orientation="vertical"
-         data-i18n-title="resize.panel"></div>
-
-    <!-- ============ Charts ============ -->
-    <section class="charts">
-      <!-- Drawing tools get their own column rather than floating over the
-           chart. Absolutely positioned inside the pane, the bar covered the
-           leftmost candles — the data it exists to annotate — and every
-           charting package worth copying puts it beside the plot, not on top
-           of it. Hidden in overview: nothing to annotate on a quote page. -->
-      <div class="draw-bar" id="draw-bar"></div>
-      <div class="charts-stack">
-      <div id="chart-main" class="chart-pane chart-main">
-        <div class="chart-tools" id="chart-tools" hidden>
-          <button id="toggle-markers" class="chip" type="button"></button>
-          <button id="clear-markers" class="chip chip-icon" type="button"
-                  data-i18n-title="chart.clearMarkers"
-                  data-i18n-aria="chart.clearMarkers">✕</button>
-        </div>
       </div>
-      <div id="resize-panes" class="resize-handle resize-y"
-           role="separator" aria-orientation="horizontal"
-           data-i18n-title="resize.panes"></div>
-      <div id="panes"></div>
-      </div>
-      <div id="loading" class="loading" hidden><div class="spinner"></div></div>
-    </section>
-  </main>
-
+    </div>
+  </div>
 
   <!-- Plugin format help -->
   <div id="format-dialog" class="dialog-backdrop" hidden>
@@ -603,6 +632,7 @@
   <script src="/static/js/paper-dash.js"></script>
   <script src="/static/js/report.js"></script>
   <script src="/static/js/editor.js"></script>
+  <script src="/static/js/multichart.js"></script>
   <script src="/static/js/markets.js"></script>
   <script src="/static/js/portfolio.js"></script>
   <script src="/static/js/validation.js"></script>

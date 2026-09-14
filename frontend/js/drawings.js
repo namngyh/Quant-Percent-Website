@@ -24,7 +24,11 @@
 
 const Drawings = (() => {
   const STORE_KEY = 'qp.drawings';
-  const COLOUR = '#2962ff';
+  /* Ink, like the rest of the chrome. A drawing is the user's own annotation,
+     not market data, so it must not borrow the green and red that mean
+     direction — and on a white ground with green and red candles, black is
+     the one colour that reads clearly over both. */
+  const COLOUR = '#131722';
   const HIT_PX = 7;          // how close the pointer must be to grab a shape
 
   /* The toolbar. `id` is the stored tool name; `points` is how many clicks a

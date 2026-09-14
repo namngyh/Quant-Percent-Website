@@ -503,6 +503,227 @@ const Portfolio = (() => {
     return html;
   }
 
+  /* ---------- performance ----------
+
+     Every ratio here comes back as `{value, code}` rather than a bare number,
+     because each one divides by something that can legitimately be near zero
+     (§2.6). A refusal is printed as the reason, not as a dash: "no drawdown
+     yet" and "the benchmark data did not overlap" are different facts, and a
+     dash tells the reader neither. */
+
+  const REFUSALS = {
+    no_drawdown_yet: () => L('chưa có sụt giảm đáng kể để chia',
+                             'no real drawdown to divide by yet'),
+    no_downside_observed: () => L('chưa có phiên lỗ nào trong cửa sổ này',
+                                  'no losing session in this window'),
+    tracks_the_benchmark: () => L('danh mục đi gần như trùng VN-Index',
+                                  'the portfolio tracks VN-Index almost exactly'),
+    denominator_too_small: () => L('mẫu số quá nhỏ so với thang dữ liệu',
+                                   'the denominator is noise at this scale'),
+    too_few_observations: () => L('quá ít phiên để đo', 'too few sessions to measure'),
+    missing_beta: () => L('chưa đo được beta', 'beta could not be measured'),
+    missing_input: () => L('thiếu đầu vào', 'an input is missing'),
+    no_variation: () => L('chuỗi không biến động', 'the series does not move'),
+    not_finite: () => L('kết quả không hữu hạn', 'the result is not finite'),
+  };
+
+  const why = (code) => (REFUSALS[code] ? REFUSALS[code]() : code);
+
+  /** A `{value, code}` metric: the number when there is one, the reason when
+      there is not. */
+  function ratio(label, box, explain, format = nf, extra = '') {
+    if (!box) return metric(label, '—', explain, '', why('missing_input'));
+    if (box.value === null || box.value === undefined) {
+      return metric(label, '—', explain, '', why(box.code));
+    }
+    return metric(label, format(box.value), explain, cls(box.value), extra);
+  }
+
+  function performanceTab(d) {
+    const p = d.performance;
+    if (!p) {
+      return `<p class="empty">${esc(L(
+        'Chưa đo được hiệu suất cho danh mục này.',
+        'Performance could not be measured for this portfolio.'))}</p>`;
+    }
+
+    const bench = p.benchmark || { available: false };
+    let html = '';
+
+    html += `<div class="field-group-title">${esc(L('Lợi nhuận', 'Return'))}</div>`;
+    html += '<div class="metrics">';
+    html += metric('CAGR', pct(p.cagr_pct), Explain.inline({
+      title: 'CAGR',
+      what: L('Tốc độ tăng trưởng kép quy về một năm, tính từ tổng lợi suất log của cửa sổ.',
+              'Compound growth rate annualised, taken from the total log return over the window.'),
+      rows: [[L('Số phiên', 'Sessions'), String(d.observations)],
+             [L('Phiên mỗi năm', 'Sessions per year'), nf(p.trading_days_per_year, 0)]],
+      how: L('Là tốc độ, không phải lợi nhuận đã kiếm được: nó quy một cửa sổ vài tháng thành một năm.',
+             'It is a rate, not money earned: it stretches a window of a few months out to a year.'),
+      watch: L('Quy năm từ một cửa sổ ngắn phóng đại cả may lẫn rủi. Sáu tháng tốt thành một CAGR không ai giữ được cả năm.',
+               'Annualising a short window magnifies luck. Six good months become a CAGR nobody holds for a year.'),
+    }), pct, L(`${d.observations} phiên`, `${d.observations} sessions`));
+
+    html += ratio('Sharpe', p.sharpe, 'm.sharpe', nf,
+      L(`lãi suất phi rủi ro ${upct(p.risk_free_pct)}`,
+        `risk-free rate ${upct(p.risk_free_pct)}`));
+    html += ratio('Sortino', p.sortino, Explain.inline({
+      title: 'Sortino',
+      what: L('Như Sharpe nhưng chỉ phạt phần biến động đi xuống.',
+              'Sharpe, but only the downside part of the volatility is penalised.'),
+      how: L('Cao hơn Sharpe nghĩa là phần lớn biến động của danh mục là biến động đi lên.',
+             'Higher than Sharpe means most of the movement was upward movement.'),
+      watch: L('Độ lệch xuống chia cho toàn bộ số phiên, không chia cho số phiên lỗ — nếu chia cho số phiên lỗ thì càng ít lỗ lại càng trông rủi ro.',
+               'The downside deviation divides by every session, not by the losing ones: dividing by the losses would make fewer losses look riskier.'),
+    }));
+    html += ratio('Calmar', p.calmar, Explain.inline({
+      title: 'Calmar',
+      what: L('CAGR chia cho sụt giảm sâu nhất đã xảy ra.',
+              'CAGR divided by the deepest drawdown on record.'),
+      rows: [[L('Sụt giảm tối đa', 'Max drawdown'), upct(d.max_drawdown_pct)]],
+      how: L('Trả lời "mỗi phần trăm đau đớn đổi được bao nhiêu phần trăm tăng trưởng".',
+             'It answers how much growth each percent of pain bought.'),
+      watch: L('Một danh mục chưa từng sụt giảm không cho ra Calmar lớn — nó không cho ra Calmar nào, vì mẫu số chưa được kiểm chứng.',
+               'A portfolio that has never drawn down does not earn a huge Calmar: it earns none, because the denominator has not been tested.'),
+    }));
+    html += '</div>';
+
+    html += `<div class="field-group-title" style="margin-top:18px">${esc(L(
+      'So với VN-Index', 'Against VN-Index'))}</div>`;
+    if (!bench.available) {
+      html += `<p class="hint">${esc(L(
+        'Không có đủ phiên trùng nhau giữa danh mục và VN-Index để so sánh.',
+        'There are not enough sessions shared with VN-Index to compare against it.'))}</p>`;
+    } else {
+      html += '<div class="metrics">';
+      html += ratio(L('Hệ số thông tin', 'Information ratio'), bench.information_ratio,
+        Explain.inline({
+          title: L('Hệ số thông tin', 'Information ratio'),
+          what: L('Phần lợi suất vượt VN-Index, chia cho độ lệch theo dõi.',
+                  'Return above VN-Index per unit of tracking error.'),
+          rows: [[L('Độ lệch theo dõi', 'Tracking error'),
+                  upct(bench.information_ratio?.tracking_error_pct)]],
+          how: L('Đo phần thưởng cho việc đi chệch khỏi chỉ số, chứ không đo lợi nhuận tổng.',
+                 'It prices the reward for departing from the index, not the total return.'),
+          watch: L('Độ lệch theo dõi gần 0 nghĩa là không có cược chủ động nào để chấm — lúc đó tỷ số vô nghĩa chứ không phải vô cùng.',
+                   'Tracking error near zero means there is no active bet to judge; the ratio is then meaningless, not infinite.'),
+        }), nf,
+        L(`độ lệch theo dõi ${upct(bench.information_ratio?.tracking_error_pct)}`,
+          `tracking error ${upct(bench.information_ratio?.tracking_error_pct)}`));
+
+      html += ratio('Alpha', bench.alpha, Explain.inline({
+        title: 'Alpha',
+        what: L('Phần lợi suất mà mức phơi nhiễm thị trường (beta) không giải thích được, quy về năm.',
+                'The annualised return that market exposure (beta) does not explain.'),
+        rows: [['Beta', d.beta === null ? '—' : nf(d.beta)]],
+        how: L('Dương nghĩa là danh mục kiếm được nhiều hơn phần beta của nó đáng ra mang lại.',
+               'Positive means the portfolio earned more than its beta alone would have given.'),
+        watch: L('Alpha chỉ có nghĩa khi beta đo được. Beta sai thì alpha hấp thụ hết sai số đó.',
+                 'Alpha only means anything when beta is measured. A wrong beta is absorbed whole into alpha.'),
+      }), (v) => pct(v * 100));
+
+      html += metric('Beta', d.beta === null ? '—' : nf(d.beta), 'p.beta', '',
+        d.beta === null ? why('too_few_observations')
+          : L('so với VN-Index', 'against VN-Index'));
+
+      const cap = bench.capture || {};
+      html += metric(L('Bắt nhịp tăng', 'Upside capture'),
+        cap.up === null || cap.up === undefined ? '—' : upct(cap.up),
+        Explain.inline({
+          title: L('Bắt nhịp tăng / giảm', 'Upside / downside capture'),
+          what: L('Trong những phiên VN-Index tăng, danh mục đi được bao nhiêu phần trăm của mức tăng đó — và tương tự cho phiên giảm.',
+                  'On sessions where VN-Index rose, how much of that rise the portfolio took — and likewise on falls.'),
+          rows: [[L('Phiên tăng', 'Up sessions'), String(cap.up_sessions ?? 0)],
+                 [L('Phiên giảm', 'Down sessions'), String(cap.down_sessions ?? 0)]],
+          how: L('Bắt nhịp tăng trên 100% và bắt nhịp giảm dưới 100% là hình dạng mong muốn.',
+                 'Above 100% on the upside and below 100% on the downside is the shape you want.'),
+          watch: L('Hai chiều được chấm riêng: một cửa sổ chỉ có ba phiên giảm không nói được gì về chiều giảm, kể cả khi chiều tăng đo rất chắc.',
+                   'Each side is judged separately: a window with three down sessions says nothing about the downside, however well measured the upside is.'),
+        }),
+        cap.up > 100 ? 'pos' : '',
+        cap.up === null || cap.up === undefined
+          ? L(`chỉ ${cap.up_sessions ?? 0} phiên tăng`, `only ${cap.up_sessions ?? 0} up sessions`)
+          : L(`${cap.up_sessions} phiên tăng`, `${cap.up_sessions} up sessions`));
+
+      html += metric(L('Bắt nhịp giảm', 'Downside capture'),
+        cap.down === null || cap.down === undefined ? '—' : upct(cap.down), '',
+        cap.down > 100 ? 'neg' : '',
+        cap.down === null || cap.down === undefined
+          ? L(`chỉ ${cap.down_sessions ?? 0} phiên giảm`, `only ${cap.down_sessions ?? 0} down sessions`)
+          : L(`${cap.down_sessions} phiên giảm`, `${cap.down_sessions} down sessions`));
+      html += '</div>';
+    }
+
+    html += `<div class="field-group-title" style="margin-top:18px">${esc(L(
+      'Hình dạng phân phối', 'Shape of the distribution'))}</div>`;
+    const dist = p.distribution || {};
+    if (dist.skewness === null || dist.skewness === undefined) {
+      html += `<p class="hint">${esc(why(dist.code))} — ${esc(L(
+        `${dist.observations ?? 0} phiên`, `${dist.observations ?? 0} sessions`))}</p>`;
+    } else {
+      html += '<div class="metrics">';
+      html += metric(L('Độ lệch', 'Skewness'), nf(dist.skewness), Explain.inline({
+        title: L('Độ lệch', 'Skewness'),
+        what: L('Phân phối lợi suất nghiêng về bên nào.',
+                'Which side the return distribution leans to.'),
+        rows: [[L('Số quan sát', 'Observations'), String(dist.observations)]],
+        how: L('Âm nghĩa là đuôi trái dài: nhiều phiên nhỏ có lãi, thỉnh thoảng một phiên lỗ lớn.',
+               'Negative means a long left tail: many small gains and the occasional large loss.'),
+        watch: L('Mô men bậc ba kém ổn định nhất đúng lúc nó trông kịch tính nhất, nên số phiên đi kèm là phần phải đọc trước.',
+                 'Third moments are least stable exactly when they look most dramatic, so read the session count first.'),
+      }), cls(dist.skewness));
+      html += metric(L('Độ nhọn vượt', 'Excess kurtosis'), nf(dist.excess_kurtosis),
+        Explain.inline({
+          title: L('Độ nhọn vượt', 'Excess kurtosis'),
+          what: L('Đuôi dày hơn phân phối chuẩn bao nhiêu. Chuẩn là 0.',
+                  'How much fatter the tails are than a normal distribution. Normal is 0.'),
+          rows: [[L('Số quan sát', 'Observations'), String(dist.observations)]],
+          how: L('Cao nghĩa là những phiên cực đoan xảy ra thường hơn nhiều so với biến động gợi ý.',
+                 'High means extreme sessions happen far more often than the volatility suggests.'),
+          watch: L('Một con số rất lớn thường không phải rủi ro mà là một nến sai: giá chưa điều chỉnh chia tách sinh ra độ nhọn hàng trăm.',
+                   'A very large reading is usually not risk but one bad bar: an unadjusted split produces kurtosis in the hundreds.'),
+        }),
+        dist.excess_kurtosis > 10 ? 'neg' : '',
+        dist.excess_kurtosis > 10
+          ? L('rất cao — kiểm tra xem có nến giá chưa điều chỉnh không',
+              'very high — check for an unadjusted price bar')
+          : L(`${dist.observations} phiên`, `${dist.observations} sessions`));
+      html += '</div>';
+    }
+
+    html += `<div class="field-group-title" style="margin-top:18px">${esc(L(
+      'Ổn định theo thời gian', 'Stability over time'))}</div>`;
+    const roll = p.rolling || {};
+    if (!roll.available) {
+      html += `<p class="hint">${esc(L(
+        `Cần ít nhất ${roll.window ?? 60} phiên cho cửa sổ trượt; hiện có ${roll.observations ?? 0}.`,
+        `A rolling window needs at least ${roll.window ?? 60} sessions; there are ${roll.observations ?? 0}.`))}</p>`;
+    } else {
+      html += '<div class="metrics">';
+      html += metric(L('Sharpe trượt', 'Rolling Sharpe'),
+        `${nf(roll.sharpe_min)} … ${nf(roll.sharpe_max)}`, Explain.inline({
+          title: L('Sharpe trượt', 'Rolling Sharpe'),
+          what: L(`Sharpe đo lại trên từng cửa sổ ${roll.window} phiên liên tiếp.`,
+                  `Sharpe recomputed over every rolling ${roll.window}-session window.`),
+          rows: [[L('Biên độ', 'Spread'), nf(roll.sharpe_spread)]],
+          how: L('Khoảng hẹp nghĩa là kết quả đến đều; khoảng rộng nghĩa là nó đến trong vài đoạn ngắn.',
+                 'A narrow range means the result came steadily; a wide one means it came in a few short stretches.'),
+          watch: L('Một Sharpe tổng 1,2 chạy từ −0,4 tới 3,1 là một tuyên bố khác hẳn một Sharpe 1,2 luôn quanh 1,2 — con số tổng không phân biệt được hai thứ đó.',
+                   'An overall Sharpe of 1.2 that ranged from -0.4 to 3.1 is a different claim from one that stayed near 1.2, and the headline cannot tell them apart.'),
+        }), '',
+        L(`cửa sổ ${roll.window} phiên`, `${roll.window}-session window`));
+      html += metric(L('Biến động trượt', 'Rolling volatility'),
+        `${upct(roll.volatility_min_pct)} … ${upct(roll.volatility_max_pct)}`, '', '',
+        L(`cửa sổ ${roll.window} phiên`, `${roll.window}-session window`));
+      html += '</div>';
+    }
+
+    html += `<p class="table-note">${esc(L(
+      `Mọi con số quy năm theo ${nf(p.trading_days_per_year, 0)} phiên. Lãi suất phi rủi ro dùng ở đây là ${upct(p.risk_free_pct)} — một lựa chọn, không phải một phép bỏ qua.`,
+      `Everything is annualised on ${nf(p.trading_days_per_year, 0)} sessions. The risk-free rate used is ${upct(p.risk_free_pct)}, which is a choice rather than an omission.`))}</p>`;
+    return html;
+  }
+
   function positionsTab(d) {
     return `<div class="pf-visual-card">
       <div class="field-group-title" style="margin-bottom:12px">${esc(L('Chi tiết từng vị thế trong danh mục', 'Holdings Breakdown'))}</div>
@@ -653,6 +874,7 @@ const Portfolio = (() => {
 
   const TABS = [
     ['overview', 'pfr.overview', overviewTab],
+    ['performance', 'pfr.performance', performanceTab],
     ['positions', 'pfr.positions', positionsTab],
     ['diversification', 'pfr.diversification', diversificationTab],
     ['forward', 'pfr.forward', forwardTab],
@@ -867,5 +1089,15 @@ const Portfolio = (() => {
     paint();
   }
 
-  return { init, show, close, rerender, get last() { return lastResult; } };
+  return {
+    init, show, close, rerender, get last() { return lastResult; },
+    // Exported for tests/test_render.js: the performance tab reads a dozen
+    // nested `{value, code}` boxes by name, and a renamed key reaches the
+    // screen as a dash with no error anywhere.
+    renderTab(id, payload) {
+      const entry = TABS.find(([tabId]) => tabId === id);
+      if (!entry) throw new Error(`no such portfolio tab: ${id}`);
+      return entry[2](payload);
+    },
+  };
 })();

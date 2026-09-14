@@ -34,12 +34,23 @@
   --text-dim:    #5d606b;
   --text-faint:  #9598a1;
 
-  /* One accent, TradingView blue. */
-  --accent:      #2962ff;
-  --accent-hover:#1e53e5;
-  --accent-soft: rgba(41, 98, 255, 0.10);
-  --accent-tint: rgba(41, 98, 255, 0.05);
-  --focus:       #2962ff;
+  /* The accent is ink, not a colour.
+
+     Blue was doing the job of "this is the primary action" and, being a
+     colour, it competed with the only two colours this interface is allowed
+     to mean something by: green for up and red for down. On a screen where
+     ten panels all matter, a coloured accent is one more thing asking for
+     attention it has not earned. Black asks once and is unmistakable.
+
+     Colour survives in exactly two places, both of them data rather than
+     chrome: market direction (--up / --down) and the indicator palette. A
+     P&L figure and a candle carry meaning in their colour; a Save button
+     does not. */
+  --accent:      #131722;
+  --accent-hover:#000000;
+  --accent-soft: rgba(19, 23, 34, 0.07);
+  --accent-tint: rgba(19, 23, 34, 0.04);
+  --focus:       #131722;
 
   /* Market colours. Reserved for direction and P&L. */
   --up:          #089981;
@@ -2593,3 +2604,76 @@ body[data-mode="overview"] .draw-layer { display: none; }
   font-family: var(--mono);
   font-size: 11px;
 }
+
+/* Settings groups that fold.
+
+   Parameters change every run; costs and the date window are set once and
+   then read occasionally. Leaving all three open made the Strategy panel
+   scroll 236px on a 787px pane — the run button, which is the point of the
+   tab, sat below the fold. Folding what is rarely touched puts it back. */
+.field-group.foldable > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.field-group.foldable > summary::-webkit-details-marker { display: none; }
+.field-group.foldable > summary::after {
+  content: '';
+  float: right;
+  border: 4px solid transparent;
+  border-top-color: var(--text-faint);
+  margin-top: 5px;
+  transition: transform 0.15s ease;
+}
+.field-group.foldable[open] > summary::after {
+  transform: rotate(180deg);
+  transform-origin: 4px 2px;
+}
+
+/* ==================== Comparison panes ==================== */
+
+/* A row of comparison panes above the working chart. "2" is one pane, "4" is
+   three: the count is markets on screen, and the working chart is one of
+   them. It keeps the space below rather than taking a cell, because it is the
+   one with the tools attached and the one being worked in. */
+.multi-charts {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+  /* `flex: 0 0 38%` rather than `height: 38%`: the parent is a flex column
+     whose height comes from its own flex context, so a percentage height
+     resolves against nothing and the grid collapses to zero. */
+  flex: 0 0 38%;
+  min-height: 140px;
+}
+/* One column per pane, no empty slots. A 2x2 with three panes leaves a hole
+   where the fourth would be, and a hole reads as something broken rather than
+   as a layout. */
+.multi-charts[data-layout="2"] { grid-template-columns: 1fr; }
+.multi-charts[data-layout="4"] { grid-template-columns: 1fr 1fr 1fr; }
+
+.mc-cell { display: flex; flex-direction: column; background: var(--surface); min-width: 0; }
+.mc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.mc-badge:empty { display: none; }
+.mc-pick {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.mc-pick:hover { border-color: var(--text-faint); }
+.mc-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mc-plot { flex: 1; min-height: 0; }

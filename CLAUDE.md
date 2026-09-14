@@ -210,6 +210,127 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-17 — Bốn việc: đen trắng, Paper, đa khung, tab Học máy; và 16 chỉ số lên giao diện
+
+**326 test Python** (trước 291) + **160 render check** (trước 109), không lỗi.
+
+#### 1. Đen và trắng
+
+Nam chọn "chỉ đen và trắng". Mọi thứ thuộc **khung giao diện** giờ là mực
+`#131722` trên trắng: nút chính, tab đang chọn, viền focus, đường giá vào lệnh.
+
+**Giữ lại màu ở đúng hai chỗ, và đây là giả định của tôi — Nam phủ quyết được:**
+xanh/đỏ cho **hướng giá và lãi/lỗ** (nến, số dương/âm), và bảng màu **đường chỉ
+báo**. Cả hai là dữ liệu chứ không phải trang trí: nến đen trắng thì không đọc
+được hướng, còn ba đường EMA cùng màu đen thì không phân biệt được. Nếu Nam
+muốn cả hai thứ này cũng thành đơn sắc thì đó là một thay đổi token trong
+`:root` của `styles.css`.
+
+#### 2. Panel Paper trading
+
+Phần cài Telegram (bot token, chat id, ba nút) chiếm **phần lớn 397px** mà
+panel phải cuộn, trong khi nó là cài đặt toàn cục chạm một lần, không liên
+quan tới phiên nào. Chuyển ra hộp thoại sau nút **Thông báo** ở đầu panel.
+Panel giờ chỉ còn: thanh hành động → nút giao dịch tay → danh sách phiên.
+
+Panel Chiến lược: hai nhóm ít đổi (**Khoảng thời gian**, **Chi phí & vốn**) gập
+thành `<details>`.
+
+#### 3. Đa khung biểu đồ
+
+Nút **1 / 2 / 4** trên thanh trên = số thị trường trên màn hình. Biểu đồ đang
+làm việc (có chỉ báo, hình vẽ, đường SL/TP) luôn là một trong số đó và giữ chỗ
+lớn phía dưới; các ô so sánh là nến + ô chọn mã, nằm thành **một hàng** phía
+trên. Dải chỉ báo phụ nằm dưới cùng như trước.
+
+*Bố cục đầu tiên sai và ảnh chụp cho thấy:* "4" dựng lưới 2×2 cho **ba** ô so
+sánh, nên ô thứ tư trống trơn — trông như hỏng chứ không như một bố cục. Đổi
+thành một hàng ba ô.
+
+Đo bằng trình duyệt thật (`_probe.html?only=multichart`, chạy 3 lần liền, cả 3
+giống hệt):
+
+| | |
+|---|---|
+| VNINDEX / G-XAUUSD / VIC | **2 511 / 2 811 / 2 536** điểm ảnh màu nến mỗi ô |
+| Dải chỉ báo phụ, trước → sau khi thêm RSI | 0px → **128px** |
+| Biểu đồ chính khi dải mở | 520px → 392px, ba ô so sánh vẫn vẽ |
+| Về lại "1" | 0 ô, band ẩn |
+
+Đếm **điểm ảnh màu nến** chứ không đếm canvas: một biểu đồ đã mount và một
+biểu đồ có nến trông y hệt nhau từ DOM.
+
+*Ba lần phép đo của tôi sai trước khi ra được bảng trên, ghi theo §2.2:*
+
+1. Probe gọi `w.MultiChart.setSymbolAt(...)` và **chết ngay dòng đó** — mọi
+   module ở đây là `const` top-level, không tạo thuộc tính trên `window`. Đúng
+   cái bẫy `window.Live.enabled` đã ghi ở mục 2026-09-16. Ảnh chụp ra một dải
+   xám rỗng, trông như tính năng hỏng. Giờ probe chỉ điều khiển bằng control thật.
+2. Chọn mã bằng `window.prompt()`: không chọn được từ 1 728 mã theo nhóm, và
+   hộp thoại modal **chặn trang** nên headless Chrome treo. Thay bằng `<select>`
+   lấy từ **cùng catalog** của ô chọn mã chính.
+3. Sau khi sửa, ba lần chạy liên tiếp ra **3, rồi 2, rồi 1** ô có nến. Không
+   phải tính năng chập chờn: ô trống luôn có canvas rộng **288px** (thang giá
+   chưa có nhãn = chưa `setData`), còn ô có nến 280/286px. Probe ngủ 7 giây cố
+   định trong khi mỗi ô tải qua VPN mất 1,1–1,8s và không xong cùng lúc — tôi
+   đang đo **độ kiên nhẫn của probe**. Giờ probe chờ đúng điều kiện ("mọi ô có
+   điểm ảnh nến"), không chờ đồng hồ.
+
+Mỗi lần đổi mã chỉ dựng lại **đúng ô đó**, và kết quả tải về muộn của một ô đã
+đổi mã bị bỏ — bản đầu dựng lại cả band mỗi lần chọn, nên lần tải của các ô cũ
+đáp xuống node đã bị gỡ.
+
+#### 4. Tab Học máy chỉ cho chiến lược ML
+
+Backend không tính khối `ml` khi chiến lược không xuất `ml_probability`; tab
+tự ẩn khi khối đó vắng. Trước đây EMA cross nhận nguyên một tab gạch ngang cộng
+những con số Tổng quan đã có — **trông như một kết quả**.
+
+Test mới kiểm cả hai nửa, và **đã xác nhận nó bắt được lỗi**: bỏ phần chặn ở
+backend → 2 check đỏ; bỏ phần ẩn ở frontend → 1 check đỏ.
+
+*Lần kiểm đầu của tôi cho kết quả sai, §2.3:* bỏ phần chặn backend mà test vẫn
+xanh. Nguyên nhân: `render_payloads.py` in nguyên khối `ml` (có văn xuôi tiếng
+Việt) ra console cp1252 → `UnicodeEncodeError` → script chết **trước khi ghi
+fixture**, và tôi đã lọc output bằng `grep` nên không thấy traceback. Test chạy
+trên fixture cũ. Đã sửa dòng in, và fixture ML giờ sinh từ chính `build_report`
+với một mảng xác suất thật chứ không viết tay.
+
+#### 16 chỉ số danh mục lên giao diện — tab **Hiệu suất**
+
+Mục 2026-09-16 để chúng chỉ nằm trong payload. Giờ có tab riêng, bốn nhóm: Lợi
+nhuận (CAGR, Sharpe, Sortino, Calmar), So với VN-Index (Information ratio,
+Alpha, Beta, Upside/Downside capture), Hình dạng phân phối (Skew, Excess
+kurtosis), Ổn định theo thời gian (Sharpe và biến động cuộn). VaR/CVaR, sụt
+giảm tối đa và HHI đã có ở tab Tổng quan và Đa dạng hoá.
+
+**Một tỷ số bị từ chối in ra lý do, không in dấu gạch** — "chưa có phiên lỗ nào
+trong cửa sổ này" và "không đủ phiên trùng với VN-Index" là hai sự thật khác
+nhau, còn một dấu gạch không nói cái nào. Test kiểm từng lý do; bỏ bảng lý do
+đi thì 3 check đỏ.
+
+Đo trên danh mục thật VIC/VNM/FPT/HPG, 252 phiên:
+
+| | |
+|---|---|
+| CAGR / Sharpe / Sortino / Calmar | +34,85% / 0,58 / 0,67 / 0,83 |
+| Information ratio / Alpha / Beta | 0,47 / +18,94% / 1,25 |
+| Upside / Downside capture | 119,4% / 102,5% |
+| Skew / Excess kurtosis | **−6,74 / 77,45** |
+| Sharpe cuộn / biến động cuộn | −2,15 … 5,92 / 24,6% … 89,5% |
+
+Kurtosis 77 là **cú chia tách chưa điều chỉnh của VIC ngày 2025-12-05** nằm
+trong cửa sổ (§3.6), không phải rủi ro. Thẻ kurtosis tự ghi "rất cao — kiểm tra
+xem có nến giá chưa điều chỉnh không" khi vượt 10. Sharpe, alpha và capture của
+danh mục này cũng bị cú nhảy đó kéo lệch — **đừng tin bảng trên cho tới khi
+dữ liệu được điều chỉnh**.
+
+#### Cần Nam làm
+
+**Khởi động lại `run.py`.** `/api/health` đang báo `stale: true`: phần chặn
+tab Học máy nằm ở backend (`report.py`), nên server hiện tại vẫn trả khối `ml`
+cho mọi chiến lược cho tới khi restart. Phần frontend không cần.
+
 ### 2026-09-16 (tiếp) — Chỉ số danh mục, và bốn việc Nam vừa giao
 
 #### Đã xong trong vòng này
@@ -256,8 +377,9 @@ kiểm trước khi tin bảng này.**
 
 #### Trạng thái kỹ thuật
 
-`metrics.py` chưa có test riêng và chưa lên giao diện — bảng chỉ số mới hiện
-chỉ có trong payload `/api/portfolio/analyze`.
+~~`metrics.py` chưa có test riêng và chưa lên giao diện~~ — **đã xong ở mục
+2026-09-17**: `tests/test_portfolio_metrics.py` (16 check) và tab **Hiệu suất**.
+Nghi vấn chia tách ở trên **đã xác nhận**, ghi ở §3.6.
 
 ### 2026-09-16 — Nút bị cắt, bỏ điều khiển thừa, gập catalog, và giới hạn của dữ liệu VN
 

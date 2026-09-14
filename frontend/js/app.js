@@ -319,6 +319,29 @@
     }
   }
 
+  /* Two or four markets at once.
+
+     The working chart stays where it is with all its tools; the extra panes
+     are candles for comparison. Picking a market for a pane reuses the same
+     symbol list the main picker shows, so there is one catalogue rather than
+     two that can disagree. */
+  function setupMultiChart() {
+    const host = document.getElementById('multi-charts');
+    if (!host) return;
+
+    MultiChart.init({ host, timeframe: state.timeframe });
+
+    for (const button of document.querySelectorAll('[data-layout]')) {
+      button.addEventListener('click', () => {
+        const chosen = MultiChart.setLayout(Number(button.dataset.layout));
+        for (const b of document.querySelectorAll('[data-layout]')) {
+          b.classList.toggle('active', Number(b.dataset.layout) === chosen);
+        }
+        ChartManager.refreshSize();
+      });
+    }
+  }
+
   /* Say when the minute data behind this chart is not what it looks like.
 
      A chart draws whatever bars exist and looks equally confident either way,
@@ -863,9 +886,11 @@
 
     symbolGroups = groups;
     rebuildSymbolOptions();
-    // The multi-market picker offers the same catalogue as the chart's, so it
-    // is filled from the same groups rather than fetching its own copy.
+    // The multi-market picker and the comparison panes offer the same
+    // catalogue as the chart's, filled from the same groups rather than each
+    // fetching its own copy that can disagree with the others.
     Markets.setOptions(symbolGroups);
+    MultiChart.setOptions(symbolGroups);
     // The picker may have been rebuilt from a favourite in the meantime.
     if (el.symbol.value !== state.symbol) el.symbol.value = state.symbol;
   }
@@ -1558,6 +1583,8 @@ def signals(df, params):
         hidePrice();
         // The multi-market run follows the chart, so its note must follow too.
         Markets.refreshTimeframeNote();
+        // Comparison panes stay like-for-like with the working chart.
+        MultiChart.setTimeframe(tf);
         for (const b of el.timeframes.children) b.classList.toggle('active', b === button);
         loadCandles();
       });
@@ -1663,6 +1690,18 @@ def signals(df, params):
     setupFormatHelp();
     setupStars();
     setupNotify();
+    /* Telegram settings open as a dialog now (see index.html): they are a
+       global notification setting, not part of a paper session. */
+    const notifyDialog = document.getElementById('notify-dialog');
+    document.getElementById('notify-open')?.addEventListener('click', () => {
+      notifyDialog.hidden = false;
+    });
+    document.getElementById('notify-close')?.addEventListener('click', () => {
+      notifyDialog.hidden = true;
+    });
+    notifyDialog?.addEventListener('click', (event) => {
+      if (event.target === notifyDialog) notifyDialog.hidden = true;
+    });
 
     Portfolio.init({
       elements: {
@@ -1849,6 +1888,7 @@ def signals(df, params):
     setupChartType();
     setupDrawings();
     bindLevelDrag();
+    setupMultiChart();
     el.modeToggle?.addEventListener('click', () => {
       setViewMode(ChartManager.mode === 'overview' ? 'trading' : 'overview');
     });
