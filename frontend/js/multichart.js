@@ -23,12 +23,15 @@
    that there is more than one chart.
 
    The limit, stated rather than discovered (§2.7): only the active cell is
-   live. The others are a snapshot of their last PASSIVE_BARS bars, taken when
-   they were drawn, and are redrawn when their timeframe, symbol or indicators
-   change. A strategy runs on the active cell. */
+   live. The others are a snapshot taken when they were drawn — as far back as
+   they have been panned, a page at a time — and are redrawn when their
+   timeframe, symbol or indicators change. A strategy runs on the active cell. */
 
 const MultiChart = (() => {
   const PASSIVE_BARS = 600;
+  // Older bars arrive a page at a time as a cell is panned left; there is no
+  // ceiling on how far back it can go other than the data itself.
+  const PAGE_BARS = 1000;
   const LAYOUTS = [1, 2, 4];
 
   let grid = null;
@@ -42,6 +45,7 @@ const MultiChart = (() => {
   let optionsHtml = '';
   let colFr = [1, 1];
   let rowFr = [1, 1];
+  let pendingSwitch = null;
 
   const THEME = {
     layout: {
@@ -125,6 +129,8 @@ const MultiChart = (() => {
     if (!grid) return;
     closeMenu();
     for (const i of [...passive.keys()]) disposePassive(i);
+    workUnit.classList.remove('pending');
+    pendingSwitch = null;
 
     // Park the working chart outside the grid while the grid is rewritten, or
     // `innerHTML` would destroy the chart along with the cells.
@@ -174,35 +180,55 @@ const MultiChart = (() => {
     if (col) bindHandle(col, 'x');
     if (row) bindHandle(row, 'y');
 
-    cells.forEach((_, i) => { if (i !== active) mountPassive(i); });
+    /* Every cell gets its snapshot now, the active one included (it sits
+       under the working chart). Mounting it lazily made the first click away
+       from the starting cell fetch that cell's candles, measured as one extra
+       request on the first switch and none after. */
+    cells.forEach((_, i) => mountPassive(i));
     paintAll();
     applySizes();
     persist();
     hooks.onResize();
   }
 
-  /* Give the working chart to cell `i`.
+  /* Give the working chart to cell `i` — without reloading anything else.
 
-     The workspace the chart is leaving is captured first, so the cell it
-     leaves redraws exactly what was on it — including indicators added a
-     moment ago. */
+     Two things used to flash on every click. The cell being left refetched
+     and redrew its chart, and the cell being entered went blank while the
+     working chart loaded into it. Now:
+
+     * every cell keeps its own snapshot chart underneath, including the active
+       one. The cell being left simply shows it again, and it is redrawn only
+       if what the cell holds changed while it was the working chart (another
+       symbol, frame or indicator);
+     * the cell being entered keeps showing its snapshot until the working
+       chart has the new series, and only then does the working chart appear
+       over it. */
   function activate(i) {
     if (mode === 'overview' || i === active || !cells[i]) return;
     closeMenu();
     const leaving = active;
-    cells[leaving] = current();
+    const ws = current();
+    cells[leaving] = ws;
 
-    disposePassive(i);
-    const body = grid.querySelector(`[data-body="${i}"]`);
-    body.innerHTML = '';
-    body.appendChild(workUnit);
+    const kept = passive.get(leaving);
+    if (!kept || kept.signature !== signature(ws)) mountPassive(leaving);
+
+    workUnit.classList.add('pending');
+    grid.querySelector(`[data-body="${i}"]`).appendChild(workUnit);
     active = i;
-
-    mountPassive(leaving);
+    const token = {};
+    pendingSwitch = token;
     paintAll();
     persist();
-    hooks.load(cells[i]);
     hooks.onResize();
+
+    Promise.resolve(hooks.load(cells[i])).catch(() => {}).finally(() => {
+      if (pendingSwitch !== token) return;
+      pendingSwitch = null;
+      workUnit.classList.remove('pending');
+      hooks.onResize();
+    });
   }
 
   function setCellSymbol(i, symbol) {
@@ -255,80 +281,140 @@ const MultiChart = (() => {
     const held = passive.get(i);
     if (!held) return;
     try { held.chart.remove(); } catch { /* already gone */ }
+    held.plot.remove();
     passive.delete(i);
   }
 
+  /** What a snapshot was drawn from; a different signature means redraw. */
+  const signature = (ws) => JSON.stringify([ws?.symbol, ws?.timeframe, ws?.indicators || []]);
+
   async function mountPassive(i) {
     disposePassive(i);
-    const ws = cells[i];
+    const ws = cells[i] ? { ...cells[i], indicators: [...(cells[i].indicators || [])] } : null;
     const body = grid?.querySelector(`[data-body="${i}"]`);
     if (!body || !ws?.symbol) return;
-    body.innerHTML = '';
+    body.querySelector('.cell-error')?.remove();
 
+    // First in the cell, so the working chart (when it is here) sits on top.
     const plot = document.createElement('div');
     plot.className = 'cell-plot';
-    body.appendChild(plot);
+    body.prepend(plot);
 
     const chart = LightweightCharts.createChart(plot, { ...THEME, autoSize: true });
-    const candles = chart.addCandlestickSeries(CANDLES);
-    const token = {};
-    passive.set(i, { chart, token });
-    const stale = () => passive.get(i)?.token !== token;
+    const entry = {
+      chart, plot, ws,
+      candles: chart.addCandlestickSeries(CANDLES),
+      lines: [],
+      bars: [],
+      signature: signature(ws),
+      paging: false,
+      exhausted: false,
+    };
+    passive.set(i, entry);
+    const stale = () => passive.get(i) !== entry;
 
     try {
-      const [data, ...results] = await Promise.all([
-        API.candles({ symbol: ws.symbol, timeframe: ws.timeframe, limit: PASSIVE_BARS }),
-        // One indicator failing (a plugin that raises) must not blank the cell.
-        ...ws.indicators.map((ind) => API.compute({
-          indicatorId: ind.id, symbol: ws.symbol, timeframe: ws.timeframe,
-          params: ind.params, limit: PASSIVE_BARS,
-        }).catch(() => null)),
-      ]);
+      const data = await API.candles({ symbol: ws.symbol, timeframe: ws.timeframe, limit: PASSIVE_BARS });
+      if (stale()) return;
+      entry.bars = data.candles || [];
+      paintCandles(entry);
+      await paintIndicators(entry);
       if (stale()) return;
 
-      const bars = data.candles || [];
-      candles.setData(bars.map((c) => ({
-        time: toChart(c.time), open: c.open, high: c.high, low: c.low, close: c.close,
-      })));
+      const n = entry.bars.length;
+      if (n) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 160), to: n + 3 });
 
-      /* Indicators the way the working chart draws them, in one chart: price
-         outputs on the price scale, "separate" outputs (RSI, bandwidth…) on
-         their own scale in the bottom quarter so they cannot drag the price
-         axis toward zero. */
-      let separate = false;
-      results.forEach((result) => {
-        if (!result) return;
-        result.outputs.forEach((output) => {
-          const own = output.pane === 'separate';
-          separate = separate || own;
-          const common = {
-            color: output.color || '#1c2f5e',
-            priceLineVisible: false,
-            lastValueVisible: false,
-            ...(own ? { priceScaleId: 'sub' } : {}),
-          };
-          const series = output.plot_type === 'histogram'
-            ? chart.addHistogramSeries(common)
-            : chart.addLineSeries({ ...common, lineWidth: 1.5, crosshairMarkerVisible: false });
-          const values = result.values[output.key] || [];
-          series.setData(result.times.map((time, n) => (
-            values[n] === null || values[n] === undefined
-              ? { time: toChart(time) } : { time: toChart(time), value: values[n] })));
-        });
+      // Pan toward the oldest bar and the page before it loads, as on the
+      // working chart.
+      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (!range || range.from > 40 || entry.paging || entry.exhausted || stale()) return;
+        pageBack(entry, stale);
       });
-      if (separate) {
-        chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.32 } });
-        chart.priceScale('sub').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
-      }
-
-      // Frame the recent end, the way the working chart opens.
-      if (bars.length) {
-        chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 3 });
-      }
     } catch (err) {
       if (stale()) return;
       disposePassive(i);
-      body.innerHTML = `<p class="empty cell-error">${esc(err.message)}</p>`;
+      body.insertAdjacentHTML('afterbegin', `<p class="empty cell-error">${esc(err.message)}</p>`);
+    }
+  }
+
+  function paintCandles(entry) {
+    entry.candles.setData(entry.bars.map((c) => ({
+      time: toChart(c.time), open: c.open, high: c.high, low: c.low, close: c.close,
+    })));
+  }
+
+  /* Indicators the way the working chart draws them, in one chart: price
+     outputs on the price scale, "separate" outputs (RSI, bandwidth…) on their
+     own scale in the bottom quarter so they cannot drag the price axis toward
+     zero. Computed over every bar the cell holds, so paging back extends them. */
+  async function paintIndicators(entry) {
+    const { chart, ws } = entry;
+    const limit = Math.max(PASSIVE_BARS, entry.bars.length);
+    const results = await Promise.all(ws.indicators.map((ind) => API.compute({
+      indicatorId: ind.id, symbol: ws.symbol, timeframe: ws.timeframe, params: ind.params, limit,
+    }).catch(() => null)));   // one plugin that raises must not blank the cell
+
+    for (const series of entry.lines) {
+      try { chart.removeSeries(series); } catch { /* chart gone */ }
+    }
+    entry.lines = [];
+
+    let separate = false;
+    results.forEach((result) => {
+      if (!result) return;
+      result.outputs.forEach((output) => {
+        const own = output.pane === 'separate';
+        separate = separate || own;
+        const common = {
+          color: output.color || '#1c2f5e',
+          priceLineVisible: false,
+          lastValueVisible: false,
+          ...(own ? { priceScaleId: 'sub' } : {}),
+        };
+        const series = output.plot_type === 'histogram'
+          ? chart.addHistogramSeries(common)
+          : chart.addLineSeries({ ...common, lineWidth: 1.5, crosshairMarkerVisible: false });
+        const values = result.values[output.key] || [];
+        series.setData(result.times.map((time, n) => (
+          values[n] === null || values[n] === undefined
+            ? { time: toChart(time) } : { time: toChart(time), value: values[n] })));
+        entry.lines.push(series);
+      });
+    });
+    if (separate) {
+      chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.32 } });
+      chart.priceScale('sub').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
+    }
+  }
+
+  async function pageBack(entry, stale) {
+    const oldest = entry.bars[0]?.time;
+    if (oldest === undefined) return;
+    entry.paging = true;
+    try {
+      const data = await API.candlesBefore({
+        symbol: entry.ws.symbol, timeframe: entry.ws.timeframe, before: oldest, limit: PAGE_BARS,
+      });
+      if (stale()) return;
+      const older = (data.candles || []).filter((c) => c.time < oldest);
+      if (!older.length) {
+        entry.exhausted = true;          // nothing older: stop asking on every pan
+        return;
+      }
+      const range = entry.chart.timeScale().getVisibleLogicalRange();
+      entry.bars = [...older, ...entry.bars];
+      paintCandles(entry);
+      // Everything moved right by the bars added; keep the same bars in view.
+      if (range) {
+        entry.chart.timeScale().setVisibleLogicalRange({
+          from: range.from + older.length, to: range.to + older.length,
+        });
+      }
+      await paintIndicators(entry);
+    } catch {
+      entry.exhausted = true;
+    } finally {
+      entry.paging = false;
     }
   }
 

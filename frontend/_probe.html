@@ -15,6 +15,10 @@
     boot       the opening screen leaves only after the data has arrived
     persist    a reload keeps symbol, frame, panel, indicators, strategy, layout
     resize     the 2/4-chart dividers change the sizes they claim to
+    history    panning left keeps loading older pages, on every chart
+    switchload clicking a cell fetches only that cell's series
+    pickerflip a picker near the bottom opens upward, inside the window
+    tools      Optimise, Monte Carlo and Statistics run from their own panels
     charttype  the chart-type menu is actually reachable by the pointer
     timing     where a page load spends its time
 
@@ -750,6 +754,176 @@ async function pick(doc, symbol, timeframe) {
     doc.querySelector('[data-layout="1"]').click();
     await sleep(200);
     log(`  ve 1 khung: tay keo con ${doc.querySelectorAll('.grid-handle').length}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('history')) {
+  log('');
+  log('=== history (khong gioi han nen, keo ve sau la nap) ===');
+  /* Requests are counted from the browser's own Resource Timing, so what is
+     measured is what went over the wire, not what the code meant to send. */
+  const pages = () => w.performance.getEntriesByType('resource')
+    .filter((r) => r.name.includes('/api/candles') && r.name.includes('end=')).length;
+  try {
+    const cm = () => w.eval('ChartManager');
+    const toasts = watchToasts(doc);
+    await until('the chart', () => cm().seriesKey && cm().oldestTime);
+    const start = cm().oldestTime;
+    const fmt = (t) => new Date(t * 1000).toISOString().slice(0, 10);
+    log(`  bieu do chinh luc dau: nen cu nhat ${fmt(start)}`);
+    const lastPage = () => {
+      const list = w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/api/candles') && r.name.includes('end='));
+      const url = list.length ? decodeURIComponent(list[list.length - 1].name.split('end=')[1] || '') : '-';
+      return url.slice(0, 19);
+    };
+    /* Scrolled the way a person does it, with the wheel, rather than by
+       setting the visible range from here. The first version set the range
+       directly; headless Chrome did not repaint in between, the setting never
+       took effect, and the second page was reported as "not loaded" while the
+       app had simply never been asked. */
+    const mainCanvas = () => [...doc.querySelectorAll('#chart-main canvas')]
+      .filter((c) => !c.classList.contains('draw-layer'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    for (let round = 1; round <= 4; round++) {
+      const before = cm().oldestTime;
+      const sent = pages();
+      const canvas = mainCanvas();
+      const r = canvas.getBoundingClientRect();
+      let wheels = 0;
+      for (; wheels < 400 && cm().oldestTime >= before; wheels++) {
+        canvas.dispatchEvent(new w.WheelEvent('wheel', {
+          bubbles: true, cancelable: true, deltaX: -800, deltaY: 0,
+          clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+        }));
+        await sleep(40);
+      }
+      const ok = cm().oldestTime < before;
+      log(`  cuon lan ${round}: ${ok ? 'nap duoc' : 'KHONG nap'} sau ${wheels} lan cuon | nen cu nhat ${fmt(cm().oldestTime)} | request moi ${pages() - sent}`);
+      if (!ok) {
+        log(`  toast: ${toasts.length ? toasts.map((t) => '"' + t.slice(0, 90) + '"').join(' | ') : '(khong co)'}`);
+        break;
+      }
+    }
+
+    // A second cell pages back too.
+    doc.querySelector('button[data-layout="2"]').click();
+    await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
+    const body = doc.querySelector('[data-body="1"]');
+    await until('cell 1 candles', () => candlePixels(body) > 0, 200);
+    const canvas = [...body.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const r = canvas.getBoundingClientRect();
+    const before = pages();
+    for (let i = 0; i < 60 && pages() === before; i++) {
+      canvas.dispatchEvent(new w.WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaX: -600, deltaY: 0,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+      }));
+      await sleep(60);
+    }
+    log(`  o phu: sau khi cuon trai, trang lich su moi: ${pages() - before}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('switchload')) {
+  log('');
+  log('=== switchload (doi o khong tai lai cac o khac) ===');
+  const candleCalls = () => w.performance.getEntriesByType('resource')
+    .filter((r) => r.name.includes('/api/candles') && !r.name.includes('end='))
+    .map((r) => decodeURIComponent(r.name.split('symbol=')[1]?.split('&')[0] || ''));
+  try {
+    const cm = () => w.eval('ChartManager');
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('button[data-layout="4"]').click();
+    await until('four cells', () => doc.querySelectorAll('#chart-grid .cell').length === 4);
+    await until('cells drawn', () => [1, 2, 3].every((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`)) > 0), 200);
+    const symbols = [0, 1, 2, 3].map((i) => doc.querySelector(`[data-pick="${i}"]`).value);
+    log(`  4 o: ${symbols.join(', ')}`);
+
+    const click = async (i) => {
+      const calls = candleCalls().length;
+      const frame = doc.querySelector(`.cell[data-cell="${i}"]`);
+      frame.querySelector('.cell-body').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      await until('series of cell ' + i, () => (cm().seriesKey || '').startsWith(symbols[i] + '|'), 200);
+      await sleep(1500);
+      const fresh = candleCalls().slice(calls);
+      const pending = doc.getElementById('work-unit').classList.contains('pending');
+      const outlined = getComputedStyle(frame, '::after').borderTopWidth;
+      log(`  bam o ${i}: request nen moi [${fresh.join(', ')}], dang cho ${pending}, vien o ${outlined || '0px'}`);
+    };
+    await click(2);
+    await click(0);
+    await click(2);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('pickerflip')) {
+  log('');
+  log('=== pickerflip (o chon thi truong khong bi che) ===');
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    const button = await until('the multi-market picker', () => doc.querySelector('#mm-add + .sp-button'));
+    button.scrollIntoView({ block: 'end' });
+    await sleep(300);
+    button.click();
+    await sleep(300);
+    const pop = doc.querySelector('.sp-pop');
+    const b = button.getBoundingClientRect();
+    const r = pop.getBoundingClientRect();
+    const rows = [...doc.querySelectorAll('.sp-item')].filter((n) => {
+      const q = n.getBoundingClientRect();
+      return q.top >= r.top && q.bottom <= r.bottom;
+    }).length;
+    log(`  cua so cao ${w.innerHeight}px; nut o y=${Math.round(b.top)}..${Math.round(b.bottom)}`);
+    log(`  popup y=${Math.round(r.top)}..${Math.round(r.bottom)} (${r.top < b.top ? 'mo len tren' : 'mo xuong duoi'}), nam trong cua so: ${r.top >= 0 && r.bottom <= w.innerHeight}`);
+    log(`  so dong nhin thay trong popup: ${rows}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('tools')) {
+  log('');
+  log('=== tools (Toi uu, Monte Carlo, Thong ke co nut rieng) ===');
+  const openAndRun = async (panel, button, output, ready) => {
+    doc.querySelector(`.rail-btn[data-panel="${panel}"]`).click();
+    await sleep(300);
+    doc.getElementById(button).click();
+    await until(`${panel} output`, () => ready(doc.getElementById(output)), 400);
+    const active = doc.querySelector('.panel.active')?.dataset.panel;
+    const out = doc.getElementById(output);
+    log(`  ${panel.padEnd(10)} panel mo: ${active}, ket qua trong panel: ${out.closest('.panel')?.dataset.panel}, ${out.textContent.trim().length} ky tu`);
+  };
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    log(`  ten chien luoc tren panel cong cu: "${doc.querySelector('[data-strategy-name]')?.textContent}"`);
+    await openAndRun('montecarlo', 'run-montecarlo', 'mc-output', (n) => n.querySelector('table, .metric, svg'));
+    await openAndRun('stats', 'run-stats-series', 'stats-output', (n) => n.querySelector('table, .metric'));
+    // The optimiser refuses to run with nothing ticked ("tick at least one
+    // parameter"), which is correct; tick one, over a small range.
+    doc.querySelector('.rail-btn[data-panel="optimize"]').click();
+    await sleep(300);
+    const box = await until('a sweep checkbox', () => doc.querySelector('[data-sweep-on]'));
+    box.checked = true;
+    box.dispatchEvent(new w.Event('change', { bubbles: true }));
+    const name = box.dataset.sweepOn;
+    for (const [key, value] of [['start', 10], ['stop', 30], ['step', 10]]) {
+      const input = doc.querySelector(`[data-sweep="${name}"][data-key="${key}"]`);
+      input.value = String(value);
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+      input.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    await openAndRun('optimize', 'run-optimize', 'optimize-results', (n) => n.querySelector('table'));
+    const tabs = [...doc.querySelectorAll('[data-restab]')].map((b) => b.dataset.restab).join(', ');
+    log(`  tab con lai o Ket qua: ${tabs}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }

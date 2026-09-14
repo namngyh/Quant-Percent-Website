@@ -207,7 +207,10 @@
       symbol: state.symbol,
       timeframe: state.timeframe,
       params: instance.params,
-      limit: state.limit,
+      /* As many bars as the chart holds, not the load size. After panning
+         left the chart holds more than `state.limit`, and an indicator
+         computed over the original 2 000 left the older stretch bare. */
+      limit: Math.max(state.limit, loadedBars),
     });
     // The backend tags each output with the pane it belongs in, so one call
     // handles overlays, panels, and indicators that mix the two.
@@ -385,7 +388,9 @@
     Markets.refreshTimeframeNote();
     Indicators.clearAll();
     Promise.resolve(loadWorkingView()).then(() => Indicators.restore(ws.indicators));
-    loadCandles();
+    // Returned so the grid can keep showing the cell's snapshot until the
+    // working chart actually has the new series.
+    return loadCandles();
   }
 
   /* Say when the minute data behind this chart is not what it looks like.
@@ -1836,6 +1841,11 @@ def signals(df, params):
       onChange: () => {
         const snap = Strategy.snapshot();
         if (snap) Session.patch({ strategy: snap });
+        // The Optimise, Monte Carlo and Statistics panels name the strategy
+        // they will run, since it is chosen in a different panel.
+        for (const node of document.querySelectorAll('[data-strategy-name]')) {
+          node.textContent = Strategy.selected?.name || '—';
+        }
       },
       elements: {
         select: document.getElementById('strategy-select'),
@@ -1911,7 +1921,7 @@ def signals(df, params):
         purgeBars: document.getElementById('wf-purge'),
         foldMode: document.getElementById('wf-fold-mode'),
         simulations: document.getElementById('mc-sims'),
-        output: document.getElementById('validation-output'),
+        output: document.getElementById('validation-output'), mcOutput: document.getElementById('mc-output'),
         stats: document.getElementById('stats-output'),
       },
       context: () => ({ ...state }),
@@ -2045,7 +2055,7 @@ def signals(df, params):
     el.runMonteCarlo.addEventListener('click', () =>
       withButton(el.runMonteCarlo, 'Đang mô phỏng…', async () => {
         await Validation.runMonteCarlo(Strategy.currentParams());
-        showResults('validation');
+        openPanel('montecarlo');
       }));
 
     el.runCompare.addEventListener('click', () =>
@@ -2063,13 +2073,13 @@ def signals(df, params):
     document.getElementById('run-stats-series').addEventListener('click', (e) =>
       withButton(e.currentTarget, 'Đang tính…', async () => {
         await Validation.runSeriesStats();
-        showResults('stats');
+        openPanel('stats');
       }));
 
     document.getElementById('run-stats-strategy').addEventListener('click', (e) =>
       withButton(e.currentTarget, 'Đang tính…', async () => {
         await Validation.runStrategyStats(Strategy.currentParams());
-        showResults('stats');
+        openPanel('stats');
       }));
 
     // The report is fetched on demand rather than with every backtest: it is
@@ -2096,7 +2106,7 @@ def signals(df, params):
     el.runOptimize.addEventListener('click', () =>
       withButton(el.runOptimize, 'Đang quét…', async () => {
         const result = await Strategy.runOptimize();
-        if (result) showResults('optimize');
+        if (result) openPanel('optimize');
       }));
 
     el.startPaper.addEventListener('click', () =>

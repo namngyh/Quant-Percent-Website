@@ -210,6 +210,48 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-18 (chiều) — Lịch sử không giới hạn, công cụ có nút riêng, đổi ô không tải lại
+
+**326 test Python** + **160 render check**, không lỗi. Bốn nhóm probe mới: `history`, `switchload`, `pickerflip`, `tools`.
+
+| Việc | Đo được |
+|---|---|
+| 1. Không giới hạn nến, kéo về sau là nạp | Biểu đồ chính, cuộn bằng bánh xe 4 lần: nến cũ nhất **23/06 → 12/05 → 31/03 → 18/02 → 07/01**, mỗi lần đúng 1 trang. Ô phụ cũng nạp trang cũ hơn khi cuộn (trước đây cố định 600 nến) |
+| 2. Thống kê, Monte Carlo, Tối ưu có nút riêng | Ba nút mới dưới cùng rail. Bấm chạy → mở đúng panel đó, kết quả nằm trong chính panel (1 792 / 3 300 / 740 ký tự). Panel Kết quả còn 4 tab: tổng quan, lệnh, thị trường, kiểm định |
+| 3. Đổi ô không tải lại ô khác, bỏ khung đen | Mỗi lần bấm chỉ **1 request nến** — của ô vừa chọn. Ô vừa rời hiện lại ảnh chụp sẵn, không tải lại (trừ khi đã đổi mã/khung/chỉ báo). Ô được chọn giữ ảnh chụp tới khi biểu đồ chính nạp xong, không nháy trắng. Không còn viền; ô đang làm việc có chấm navy ở chú thích |
+| 4. Ô chọn thị trường bị che | Nút gần đáy panel giờ mở popup **lên trên**, nằm trọn trong cửa sổ, thấy 11 dòng |
+
+#### Hai lỗi thật tìm thấy trong lúc làm việc 1
+
+- **Trang lịch sử gửi giờ biểu đồ (+7h) thay vì UTC.** Mỗi trang xin một đoạn kết
+  thúc muộn hơn nến cũ nhất 7 tiếng; phần trùng bị lọc nên trông vô hại, nhưng
+  mọi trang đều tải lại những nến đã có.
+- **Chỉ báo luôn tính trên `state.limit` (2 000 nến)** dù biểu đồ đã nạp thêm lịch
+  sử, nên đoạn cũ hơn không có chỉ báo. Giờ tính trên số nến biểu đồ đang giữ.
+
+#### Ba lần phép đo của tôi sai, ghi theo §2.2
+
+1. Probe lịch sử đặt khoảng hiển thị trực tiếp bằng `setVisibleLogicalRange`; lần
+   hai báo "KHÔNG nạp". Headless không vẽ lại giữa hai lệnh nên khoảng đó **chưa
+   bao giờ có hiệu lực** — app chưa từng được hỏi. Đọc lại khoảng ngay sau khi đặt
+   vẫn ra giá trị cũ, đó là manh mối. Chuyển sang cuộn bánh xe như người dùng: 4/4
+   trang về. Trước khi tìm ra, đã loại trừ hai giả thuyết bằng số đo: không phải
+   hết dữ liệu (kho BTC có nến 1h tới 2025-01-01), không phải đường lỗi (không có
+   toast nào).
+2. Probe công cụ báo Tối ưu "hết thời gian". Tối ưu **đúng là từ chối chạy** khi
+   chưa tích tham số nào để quét; probe chờ một bảng không bao giờ đến. Tích một
+   tham số dải 10–30 thì chạy.
+3. Lần đo đổi ô đầu tiên còn 1 request thừa ở lần rời ô ban đầu — ảnh chụp của ô
+   đang làm việc được dựng muộn. Giờ dựng sẵn cho mọi ô khi vẽ lưới; đo lại: đúng
+   1 request mỗi lần bấm.
+
+#### Giới hạn
+
+- Kéo lịch sử dừng ở nơi dữ liệu dừng. Chỉ đo một mã: VIC 1h trước 01/06/2025
+  trả **0 nến**, nên nến phút VN có điểm bắt đầu gần hơn nhiều so với nến ngày;
+  điểm bắt đầu của từng mã chưa đo.
+- Ảnh chụp của ô không làm việc không cập nhật live; chỉ ô đang làm việc là live.
+
 ### 2026-09-18 — Mọi ô trong bố cục 2/4 là một biểu đồ đầy đủ
 
 **326 test Python** + **160 render check**, không lỗi. Probe `multichart`, `resize`, `persist` viết lại cho lưới mới; `switching`, `picker`, `markets`, `boot` chạy lại, không hồi quy.

@@ -152,8 +152,20 @@ const SymbolPicker = (() => {
     const left = Math.min(rect.left, window.innerWidth - width - 8);
     pop.style.width = `${width}px`;
     pop.style.left = `${Math.max(8, left)}px`;
-    pop.style.top = `${rect.bottom + 6}px`;
-    pop.style.maxHeight = `${Math.max(220, window.innerHeight - rect.bottom - 24)}px`;
+    /* Open toward the side with room. A picker near the bottom of a panel
+       (the multi-market one) opened downward into 90px of window and showed
+       its search box and one group heading, with the list cut off below. */
+    const below = window.innerHeight - rect.bottom - 16;
+    const above = rect.top - 16;
+    const upward = below < 320 && above > below;
+    pop.style.maxHeight = `${Math.min(520, Math.max(200, upward ? above : below))}px`;
+    if (upward) {
+      pop.style.top = '';
+      pop.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+    } else {
+      pop.style.bottom = '';
+      pop.style.top = `${rect.bottom + 6}px`;
+    }
     entry.button.setAttribute('aria-expanded', 'true');
 
     render();

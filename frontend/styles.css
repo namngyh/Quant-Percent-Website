@@ -2912,6 +2912,13 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .sp-name { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-empty { padding: 16px 10px; font-size: 12.5px; color: var(--text-faint); }
 
+/* ==================== Tool panels ==================== */
+
+.rail-sep { width: 28px; height: 1px; margin: 4px auto; background: var(--border); flex-shrink: 0; }
+.tool-strategy { margin-bottom: 14px; }
+.tool-strategy strong { color: var(--text); font-weight: 600; }
+#mc-output, #stats-output, #optimize-results { margin-top: 4px; }
+
 /* ==================== Chart grid ====================
 
    One, two or four cells (multichart.js). The working chart lives in the
@@ -2941,8 +2948,17 @@ body[data-mode="overview"] .draw-layer { display: none; }
   background: var(--surface);
 }
 .cell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
-.cell-plot { flex: 1; min-height: 0; }
-.work-unit { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+/* A cell's own snapshot chart fills the cell underneath; the working chart,
+   when it is in this cell, sits on top of it. Switching cells then never
+   blanks one: see `activate` in multichart.js. */
+.cell-plot { position: absolute; inset: 0; z-index: 0; }
+.work-unit {
+  flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column;
+  position: relative; z-index: 1; background: var(--surface);
+}
+/* Loading into a newly clicked cell: invisible but still sized, so the chart
+   lays out correctly and the cell's snapshot shows through until it is ready. */
+.work-unit.pending { visibility: hidden; }
 .cell-error { padding: 14px; }
 
 /* One chart: no cell chrome, it is simply the chart. */
@@ -2990,17 +3006,20 @@ body[data-mode="overview"] .draw-layer { display: none; }
   font-variant-numeric: tabular-nums;
 }
 
-/* The working chart is outlined in ink; clicking any other cell moves it. */
-.chart-grid:not([data-layout="1"]) .cell.active::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid var(--accent);
-  pointer-events: none;
-  z-index: 6;
-}
-.chart-grid:not([data-layout="1"]) .cell:not(.active) .cell-body { cursor: pointer; }
+/* The working chart is marked by a navy dot in its caption, not a frame.
+   The ink outline read as a selection box around a chart that had just been
+   clicked (Nam, 2026-09-18). */
 .chart-grid:not([data-layout="1"]) .cell.active .cell-caption { color: var(--text); }
+.chart-grid:not([data-layout="1"]) .cell.active .cell-caption::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--note);
+  vertical-align: 1px;
+}
 
 .grid-handle { position: absolute; z-index: 7; }
 .grid-handle-col { top: 0; bottom: 0; width: 10px; margin-left: -5px; cursor: col-resize; }
@@ -3027,7 +3046,7 @@ body[data-mode="overview"] .cell:not(.active),
 body[data-mode="overview"] .grid-handle,
 body[data-mode="overview"] .cell-head,
 body[data-mode="overview"] .cell-caption { display: none; }
-body[data-mode="overview"] .cell.active::after { display: none; }
+
 
 /* The gear's menu. */
 .cell-menu {

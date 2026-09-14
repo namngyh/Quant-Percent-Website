@@ -125,6 +125,19 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
         <span data-i18n="rail.paper">Paper</span>
       </button>
+      <span class="rail-sep" aria-hidden="true"></span>
+      <button class="rail-btn" data-panel="optimize" role="tab" data-i18n-title="rail.optimize">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>
+        <span data-i18n="rail.optimize">Tối ưu</span>
+      </button>
+      <button class="rail-btn" data-panel="montecarlo" role="tab" data-i18n-title="rail.montecarlo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20c3-1 4-5 6-9s4-7 7-7"/><path d="M3 20c4-2 6-4 8-8s5-4 10-4"/><path d="M3 20c5-3 9-3 12-6s4-5 6-9"/></svg>
+        <span data-i18n="rail.montecarlo">Monte Carlo</span>
+      </button>
+      <button class="rail-btn" data-panel="stats" role="tab" data-i18n-title="rail.stats">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 19c2 0 3-2 4.5-6S11 4 12 4s2 5 3.5 9 2.5 6 4.5 6"/></svg>
+        <span data-i18n="rail.stats">Thống kê</span>
+      </button>
     </nav>
 
     <!-- ============ The one open panel ============ -->
@@ -183,7 +196,6 @@
 
           <div class="subtabs" role="tablist">
             <button class="subtab active" data-subtab="run" role="tab" data-i18n="st.tabRun">Chạy</button>
-            <button class="subtab" data-subtab="opt" role="tab" data-i18n="st.tabOpt">Tối ưu</button>
             <button class="subtab" data-subtab="check" role="tab" data-i18n="st.tabCheck">Kiểm định</button>
           </div>
 
@@ -260,26 +272,6 @@
             </div>
           </div>
 
-          <div class="subpanel" data-subpanel="opt">
-            <p class="hint" data-i18n="st.sweepHint">Tích tham số cần quét và đặt dải giá trị.</p>
-            <div id="sweep-ranges" class="sweep-list"></div>
-
-            <div class="field-group">
-              <label class="param-row"><span data-i18n="st.sweepMode">Cách quét</span>
-                <select id="opt-mode">
-                  <option value="grid" data-i18n="st.sweepGrid">Quét cạn</option>
-                  <option value="random" data-i18n="st.sweepRandom">Ngẫu nhiên</option>
-                </select></label>
-              <label class="param-row" id="opt-samples-row" hidden><span data-i18n="st.samples">Số mẫu</span>
-                <input id="opt-samples" type="number" value="500" min="10" max="5000" step="50" /></label>
-              <label class="param-row"><span data-i18n="st.rankBy">Xếp hạng theo</span>
-                <select id="opt-metric"></select></label>
-            </div>
-
-            <div id="sweep-size" class="sweep-size"></div>
-            <button id="run-optimize" class="btn btn-primary btn-block" data-i18n="st.runOptimize">Chạy tối ưu</button>
-          </div>
-
           <!-- Validation -->
           <div class="subpanel" data-subpanel="check">
             <div class="field-group">
@@ -305,21 +297,6 @@
             </div>
 
             <div class="field-group">
-              <div class="field-group-title" data-i18n="mc.title">Monte Carlo</div>
-              <p class="hint" data-i18n="mc.hint"></p>
-              <label class="param-row"><span data-i18n="mc.sims">Số mô phỏng</span>
-                <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
-              <button id="run-montecarlo" class="btn btn-block" data-i18n="mc.run">Chạy Monte Carlo</button>
-            </div>
-
-            <div class="field-group">
-              <div class="field-group-title" data-i18n="stat.title">Kiểm định thống kê</div>
-              <p class="hint" data-i18n="stats.hint"></p>
-              <button id="run-stats-series" class="btn btn-block" data-i18n="stat.series">Phân tích chuỗi giá</button>
-              <button id="run-stats-strategy" class="btn btn-block" data-i18n="stat.strategy">Kiểm định chiến lược</button>
-            </div>
-
-            <div class="field-group">
               <div class="field-group-title" data-i18n="cmp.title">So sánh chiến lược</div>
               <p class="hint" data-i18n="cmp.hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
               <div id="compare-list" class="compare-list"></div>
@@ -338,9 +315,7 @@
             <button class="subtab active" data-restab="summary" role="tab" data-i18n="res.summary">Tổng quan</button>
             <button class="subtab" data-restab="trades" role="tab" data-i18n="res.trades">Lệnh</button>
             <button class="subtab" data-restab="markets" role="tab" data-i18n="mm.tab">Thị trường</button>
-            <button class="subtab" data-restab="optimize" role="tab" data-i18n="res.optimize">Tối ưu</button>
             <button class="subtab" data-restab="validation" role="tab" data-i18n="res.validation">Kiểm định</button>
-            <button class="subtab" data-restab="stats" role="tab" data-i18n="res.stats">Thống kê</button>
           </div>
         </div>
         <div class="panel-body">
@@ -371,19 +346,102 @@
               <p class="empty" data-i18n="mm.none">Chọn vài thị trường ở tab Chiến lược → Chạy, rồi bấm chạy.</p>
             </div>
           </div>
-          <div class="subpanel" data-respanel="optimize">
-            <div id="optimize-results" class="scroll-area"><p class="empty" data-i18n="res.noOpt">Chưa chạy tối ưu.</p></div>
-          </div>
           <div class="subpanel" data-respanel="validation">
             <div id="validation-output" class="scroll-area">
               <p class="empty" data-i18n="res.noValidation">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
             </div>
           </div>
-          <div class="subpanel" data-respanel="stats">
-            <div id="stats-output" class="scroll-area">
+        </div>
+      </section>
+
+      <!-- ---------- Optimise ---------- -->
+      <section class="panel" data-panel="optimize">
+        <div class="panel-head">
+          <h2 data-i18n="rail.optimize">Tối ưu</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+
+            <p class="hint" data-i18n="st.sweepHint">Tích tham số cần quét và đặt dải giá trị.</p>
+            <div id="sweep-ranges" class="sweep-list"></div>
+
+            <div class="field-group">
+              <label class="param-row"><span data-i18n="st.sweepMode">Cách quét</span>
+                <select id="opt-mode">
+                  <option value="grid" data-i18n="st.sweepGrid">Quét cạn</option>
+                  <option value="random" data-i18n="st.sweepRandom">Ngẫu nhiên</option>
+                </select></label>
+              <label class="param-row" id="opt-samples-row" hidden><span data-i18n="st.samples">Số mẫu</span>
+                <input id="opt-samples" type="number" value="500" min="10" max="5000" step="50" /></label>
+              <label class="param-row"><span data-i18n="st.rankBy">Xếp hạng theo</span>
+                <select id="opt-metric"></select></label>
+            </div>
+
+            <div id="sweep-size" class="sweep-size"></div>
+            <button id="run-optimize" class="btn btn-primary btn-block" data-i18n="st.runOptimize">Chạy tối ưu</button>
+          
+          <div class="field-group">
+            <div class="field-group-title" data-i18n="res.optimize">Tối ưu</div>
+            <div id="optimize-results" class="scroll-area"><p class="empty" data-i18n="res.noOpt">Chưa chạy tối ưu.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Monte Carlo ---------- -->
+      <section class="panel" data-panel="montecarlo">
+        <div class="panel-head">
+          <h2 data-i18n="rail.montecarlo">Monte Carlo</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="mc.title">Monte Carlo</div>
+              <p class="hint" data-i18n="mc.hint"></p>
+              <label class="param-row"><span data-i18n="mc.sims">Số mô phỏng</span>
+                <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
+              <button id="run-montecarlo" class="btn btn-block" data-i18n="mc.run">Chạy Monte Carlo</button>
+            </div>
+
+
+          <div id="mc-output">
+            <p class="empty" data-i18n="mc.none">Chưa chạy Monte Carlo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Statistics ---------- -->
+      <section class="panel" data-panel="stats">
+        <div class="panel-head">
+          <h2 data-i18n="rail.stats">Thống kê</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="stat.title">Kiểm định thống kê</div>
+              <p class="hint" data-i18n="stats.hint"></p>
+              <button id="run-stats-series" class="btn btn-block" data-i18n="stat.series">Phân tích chuỗi giá</button>
+              <button id="run-stats-strategy" class="btn btn-block" data-i18n="stat.strategy">Kiểm định chiến lược</button>
+            </div>
+
+
+          <div id="stats-output" class="scroll-area">
               <p class="empty" data-i18n="res.noStats">Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.</p>
             </div>
-          </div>
         </div>
       </section>
 

@@ -285,6 +285,9 @@ const Validation = (() => {
 
   // ---------- Monte Carlo ----------
 
+  /* Monte Carlo has its own panel (2026-09-18) and writes there when one is
+     wired; otherwise it shares the validation output, as the render test
+     drives it. */
   async function runMonteCarlo(params) {
     const ctx = context();
     const result = await API.monteCarlo({
@@ -442,7 +445,7 @@ const Validation = (() => {
       `Lấy lại chính các lệnh của chiến lược, ${r.simulations.toLocaleString(I18n.locale())} lần, trên ${r.trades_resampled} lệnh. Cái thay đổi là may rủi, cái giữ nguyên là lợi thế của chiến lược. Đại lượng được lấy mẫu là phần thay đổi vốn thực tế của từng lệnh, nên cộng dồn tái tạo đúng đường vốn mà engine đã chạy.`,
       `The strategy's own trades, resampled ${r.simulations.toLocaleString(I18n.locale())} times over ${r.trades_resampled} trades. What varies is luck; what stays fixed is the edge. The quantity resampled is each trade's actual change in equity, so compounding reproduces exactly the curve the engine ran.`))}</p>`;
 
-    elements.output.innerHTML = html;
+    (elements.mcOutput || elements.output).innerHTML = html;
   }
 
   const percentileExplain = (r) => Explain.inline({

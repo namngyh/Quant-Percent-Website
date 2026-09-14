@@ -58,6 +58,12 @@ const I18n = (() => {
     'rail.results':       { vi: 'Kết quả', en: 'Results' },
     'rail.portfolio':     { vi: 'Danh mục', en: 'Portfolio' },
     'rail.paper':         { vi: 'Paper', en: 'Paper' },
+    'rail.optimize':      { vi: 'Tối ưu', en: 'Optimise' },
+    'rail.montecarlo':    { vi: 'Monte Carlo', en: 'Monte Carlo' },
+    'rail.stats':         { vi: 'Thống kê', en: 'Statistics' },
+    'tool.strategy':      { vi: 'Chiến lược đang chọn', en: 'Selected strategy' },
+    'tool.strategyHint':  { vi: 'Đổi chiến lược và tham số ở mục Chiến lược.', en: 'Change the strategy and its parameters under Strategies.' },
+    'mc.none':            { vi: 'Chưa chạy Monte Carlo.', en: 'No Monte Carlo run yet.' },
     'rail.panels':        { vi: 'Bảng điều khiển', en: 'Panels' },
 
     // ---------------- chart tools
@@ -136,8 +142,8 @@ const I18n = (() => {
     'res.runFirst':       { vi: 'Chạy một backtest để xem kết quả.', en: 'Run a backtest to see results.' },
     'res.noTrades':       { vi: 'Chưa có lệnh nào.', en: 'No trades yet.' },
     'res.noOpt':          { vi: 'Chưa chạy tối ưu.', en: 'No optimisation run yet.' },
-    'res.noValidation':   { vi: 'Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.', en: 'Run walk-forward, Monte Carlo or a comparison from Strategies → Validate.' },
-    'res.noStats':        { vi: 'Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.', en: 'Run the statistical tests from Strategies → Validate.' },
+    'res.noValidation':   { vi: 'Chạy walk-forward hoặc so sánh ở tab Chiến lược → Kiểm định.', en: 'Run walk-forward or a comparison from Strategies → Validate.' },
+    'res.noStats':        { vi: 'Chưa chạy kiểm định thống kê.', en: 'No statistical test run yet.' },
 
     // ---------------- portfolio panel
     'pf.title':           { vi: 'Danh mục', en: 'Portfolio' },

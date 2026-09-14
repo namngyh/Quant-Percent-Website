@@ -264,7 +264,12 @@ const ChartManager = (() => {
       const oldest = candleData.length ? candleData[0].time : null;
       if (oldest === null) return;
       historyPending = true;
-      Promise.resolve(onNeedHistory(oldest)).finally(() => { historyPending = false; });
+      /* Chart time is shifted +7h for display (`toChart`); the API speaks UTC.
+         Sending the shifted value asked for a page ending seven hours after the
+         oldest bar actually held. The overlap was filtered out, so it looked
+         harmless, but every page re-fetched bars the chart already had. */
+      Promise.resolve(onNeedHistory(oldest - TZ_OFFSET_SECONDS))
+        .finally(() => { historyPending = false; });
     });
 
     // A window resize always reaches us, even when the observer does not.
