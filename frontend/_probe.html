@@ -8,8 +8,18 @@
 
     coverage   the data-completeness toasts fire on the right symbols
     multichart the comparison panes draw candles, not just a chart frame
+    switching  candle pixels after quick and slow symbol/timeframe switches
+    autoscale  whether a drag freezes the price scale across instruments
+    markets    a multi-market run lands on screen, in the Results panel
+    picker     the searchable symbol list finds and loads markets
+    boot       the opening screen leaves only after the data has arrived
+    persist    a reload keeps symbol, frame, panel, indicators, strategy, layout
+    resize     the 2/4-chart dividers change the sizes they claim to
     charttype  the chart-type menu is actually reachable by the pointer
     timing     where a page load spends its time
+
+  Timings under --virtual-time-budget are virtual: the order of events is
+  real, the millisecond counts are not.
 
   Run (the server must be up):
     chrome --headless --disable-gpu --window-size=1400,900 \
@@ -43,6 +53,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ONLY = new URLSearchParams(location.search).get('only');
 const wants = (group) => !ONLY || ONLY === group;
 
+/* Boot timing, watched from the first moment the frame exists.
+
+   The groups below only start after the app is up and six seconds have
+   passed, which is too late to see when the opening screen left relative to
+   the data it is meant to wait for. This runs from script start instead. */
+const bootT0 = performance.now();
+const bootMarks = {};
+(function watchBoot() {
+  const frame = document.getElementById('app');
+  const tick = () => {
+    try {
+      const d = frame.contentDocument;
+      const fw = frame.contentWindow;
+      if (d && d.getElementById('symbol')) {
+        const now = Math.round(performance.now() - bootT0);
+        const splash = d.getElementById('splash');
+        if (!bootMarks.splashGone && (!splash || splash.classList.contains('done'))) bootMarks.splashGone = now;
+        if (!bootMarks.vnList && d.getElementById('symbol').options.length > 1000) bootMarks.vnList = now;
+        if (!bootMarks.chart) {
+          try { if (fw.eval('ChartManager').seriesKey) bootMarks.chart = now; } catch (e) { /* not yet */ }
+        }
+      }
+    } catch (e) { /* frame still on about:blank */ }
+    const done = bootMarks.splashGone && bootMarks.vnList && bootMarks.chart;
+    if (!done && performance.now() - bootT0 < 90000) setTimeout(tick, 50);
+  };
+  tick();
+})();
+
 /** Wait for the app frame to hold a real document (see the note above). */
 async function appDocument(frame) {
   for (let i = 0; i < 160; i++) {
@@ -71,18 +110,27 @@ function watchToasts(doc) {
    both are a <div> of canvases. Counting pixels painted in the up/down candle
    colours is the only way to tell them apart from out here. */
 function candlePixels(cell) {
-  let best = null;
+  /* Every chart canvas, and the most candle pixels any one of them holds.
+
+     The first version took "the largest canvas", which in a pane is the price
+     plot — but #chart-main also carries the drawing overlay (.draw-layer), a
+     transparent canvas of exactly the chart's size. It won the size contest
+     and reported 0 candle pixels on a chart full of candles, eight times in a
+     row. The overlay is excluded, and no single canvas is assumed to be the
+     plot. */
+  let best = -1;
   for (const c of cell.querySelectorAll('canvas')) {
-    if (!best || c.width * c.height > best.width * best.height) best = c;
+    if (c.closest('.draw-layer') || c.classList.contains('draw-layer') || !c.width || !c.height) continue;
+    let px;
+    try { px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; } catch (e) { continue; }
+    let hits = 0;
+    for (let p = 0; p < px.length; p += 4) {
+      if ((px[p] === 8 && px[p + 1] === 153 && px[p + 2] === 129)
+          || (px[p] === 242 && px[p + 1] === 54 && px[p + 2] === 69)) hits++;
+    }
+    if (hits > best) best = hits;
   }
-  if (!best) return -1;
-  const px = best.getContext('2d').getImageData(0, 0, best.width, best.height).data;
-  let hits = 0;
-  for (let p = 0; p < px.length; p += 4) {
-    if ((px[p] === 8 && px[p + 1] === 153 && px[p + 2] === 129)
-        || (px[p] === 242 && px[p + 1] === 54 && px[p + 2] === 69)) hits++;
-  }
-  return hits;
+  return best;
 }
 
 /* Wait for the thing being measured, never for a clock.
@@ -356,6 +404,15 @@ async function pick(doc, symbol, timeframe) {
   log('');
   log('=== multichart ===');
   try {
+    // Measure what is drawn, not the attribute. `hidden` on an element whose
+    // class sets `display: grid` is true and still takes 38% of the column:
+    // the first version of this group read `.hidden` and reported a band that
+    // was on screen as gone.
+    const band = doc.getElementById('multi-charts');
+    const bandHeight = () => Math.round(band.getBoundingClientRect().height);
+    const mainHeight = () => Math.round(doc.getElementById('chart-main').getBoundingClientRect().height);
+    log(`  luc mo, 1 khung: dai so sanh ${bandHeight()}px (mong doi 0), bieu do chinh ${mainHeight()}px`);
+
     // A <select> cannot hold a value whose <option> does not exist yet, and
     // assigning one is a silent no-op. The VN catalogue takes seconds.
     await until('the symbol catalogue',
@@ -394,12 +451,294 @@ async function pick(doc, symbol, timeframe) {
     log(`  cac o van ve:  ${[...doc.querySelectorAll('.mc-cell')].map(candlePixels).join(', ')}`);
 
     doc.querySelector('[data-layout="1"]').click();
-    log(`  ve 1 khung:    ${doc.querySelectorAll('.mc-cell').length} o`
-      + ` (mong doi 0), hidden=${doc.getElementById('multi-charts').hidden}`);
+    await sleep(300);
+    log(`  ve 1 khung:    ${doc.querySelectorAll('.mc-cell').length} o,`
+      + ` dai so sanh ${bandHeight()}px (mong doi 0), bieu do chinh ${mainHeight()}px`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }
 
+  }
+
+  if (wants('switching')) {
+  log('');
+  log('=== switching ===');
+  // Nam's report: switching symbol or timeframe back and forth leaves the
+  // volume bars and an empty price area. Candle pixels on the main chart are
+  // counted after every switch, quick and slow, because the failure shows up
+  // only between the two requests of a fast switch if it is a race.
+  const main = doc.getElementById('chart-main');
+  const pick1 = async (symbol, tf, wait) => {
+    const sel = doc.getElementById('symbol');
+    if (symbol && sel.value !== symbol) {
+      sel.value = symbol;
+      sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    if (tf) {
+      await sleep(80);
+      const b = [...doc.querySelectorAll('#timeframes .tf-btn')].find((x) => x.textContent.trim() === tf);
+      b?.click();
+    }
+    await sleep(wait);
+  };
+  const report = (label) => log(`  ${label.padEnd(34)} ${String(candlePixels(main)).padStart(6)} diem nen`);
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('[data-layout="1"]')?.click();
+    await pick1('BTCUSDT', '1h', 3000); report('BTCUSDT 1h (cham)');
+    await pick1(null, '15m', 3000);     report('BTCUSDT 15m (cham)');
+    await pick1(null, '1h', 3000);      report('BTCUSDT 1h (cham)');
+    await pick1('VN:VIC', null, 5000);  report('VN:VIC (cham)');
+    await pick1('BTCUSDT', null, 3000); report('BTCUSDT (cham)');
+    // Fast: the next change starts before the previous load finished.
+    await pick1(null, '4h', 150); await pick1(null, '1h', 150); await pick1(null, '15m', 3500);
+    report('4h->1h->15m nhanh');
+    await pick1('VN:VIC', null, 200); await pick1('BTCUSDT', null, 3500);
+    report('VIC->BTC nhanh');
+    await pick1(null, '1d', 200); await pick1(null, '1h', 3500);
+    report('1d->1h nhanh');
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('autoscale')) {
+  log('');
+  log('=== autoscale ===');
+  /* Hypothesis for "candles vanish when switching": a vertical drag turns the
+     price scale's autoScale off, the frozen range carries over to the next
+     instrument, and its candles sit entirely outside the visible prices.
+     Measured directly rather than by pixels: `ChartManager` is a global
+     lexical binding, which indirect eval in the frame can read. */
+  const cm = () => w.eval('ChartManager');
+  const scaleState = () => {
+    const c = cm();
+    const series = c.priceSeries;
+    const h = doc.getElementById('chart-main').clientHeight;
+    const top = series.coordinateToPrice(10);
+    const bottom = series.coordinateToPrice(h - 40);
+    const data = series.data?.() || [];
+    const last = data.length ? (data[data.length - 1].close ?? data[data.length - 1].value) : null;
+    const auto = c.chart.priceScale('right').options().autoScale;
+    const inside = last !== null && top !== null && bottom !== null && last <= top && last >= bottom;
+    return `autoScale=${auto} range=${bottom?.toFixed(2)}..${top?.toFixed(2)} last=${last} ${inside ? 'NEN TRONG KHUNG' : 'NEN NGOAI KHUNG'}`;
+  };
+  const choose = async (symbol) => {
+    const sel = doc.getElementById('symbol');
+    sel.value = symbol;
+    sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await until('candles for ' + symbol, () => cm().seriesKey && cm().seriesKey.startsWith(symbol + '|'));
+    await sleep(1500);
+  };
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    await choose('BTCUSDT');
+    log('  BTC, chua keo:      ' + scaleState());
+
+    // A vertical drag in the plot area, the way a pan that drifts up does.
+    const plot = [...doc.querySelectorAll('#chart-main canvas')]
+      .filter((c) => !c.classList.contains('draw-layer'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const r = plot.getBoundingClientRect();
+    const x = r.left + r.width * 0.5, y = r.top + r.height * 0.5;
+    const fire = (type, dy) => plot.dispatchEvent(new w.MouseEvent(type, {
+      bubbles: true, cancelable: true, clientX: x, clientY: y + dy, button: 0, buttons: 1, view: w,
+    }));
+    fire('mousedown', 0);
+    for (let i = 1; i <= 12; i++) { doc.dispatchEvent(new w.MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y + i * 15, buttons: 1, view: w })); fire('mousemove', i * 15); await sleep(16); }
+    fire('mouseup', 180);
+    doc.dispatchEvent(new w.MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y + 180, view: w }));
+    await sleep(500);
+    log('  BTC, sau khi keo:   ' + scaleState());
+
+    await choose('VN:VIC');
+    log('  doi sang VIC:       ' + scaleState());
+    await choose('BTCUSDT');
+    log('  doi lai BTC:        ' + scaleState());
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('markets')) {
+  log('');
+  log('=== markets (chay nhieu thi truong) ===');
+  // Nam: "run across markets shows nothing". The endpoint answered 200 in 3s
+  // with every market; the table was written into the Results panel while the
+  // button lives in the Strategy panel. Checked here as the user sees it:
+  // which panel is open after the run, and whether its table has rows.
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    const add = doc.getElementById('mm-add');
+    for (const symbol of ['BTCUSDT', 'VN:VIC', 'VN:VNINDEX']) {
+      await until('option ' + symbol, () => [...add.options].some((o) => o.value === symbol));
+      add.value = symbol;
+      add.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    log(`  da chon: ${doc.querySelectorAll('#mm-chosen .mm-chip').length} thi truong`);
+    doc.getElementById('run-markets').click();
+    await until('the markets table', () => doc.querySelectorAll('#markets-output tbody tr').length > 0, 240);
+    const panel = doc.querySelector('.panel.active')?.dataset.panel;
+    const tab = doc.querySelector('[data-respanel].active')?.dataset.respanel;
+    const visible = doc.getElementById('markets-output').getBoundingClientRect().width > 0;
+    log(`  panel dang mo: ${panel}, tab: ${tab}, bang hien tren man hinh: ${visible}`);
+    log(`  so dong: ${doc.querySelectorAll('#markets-output tbody tr').length}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('picker')) {
+  log('');
+  log('=== picker (tim ma) ===');
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    const button = await until('the picker button', () => doc.querySelector('#symbol + .sp-button'));
+    log(`  nut: "${button.textContent.trim()}"  select an: ${getComputedStyle(doc.getElementById('symbol')).display}`);
+    button.click();
+    await sleep(200);
+    const pop = doc.querySelector('.sp-pop');
+    log(`  popup mo: ${!pop.hidden}  so muc khi chua go: ${doc.querySelectorAll('.sp-item').length}`);
+    const input = doc.querySelector('.sp-search');
+    for (const query of ['vic', 'vingroup', 'VN30F', 'vang', 'btc']) {
+      input.value = query;
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+      await sleep(80);
+      const first = [...doc.querySelectorAll('.sp-item')].slice(0, 3)
+        .map((n) => n.querySelector('.sp-code').textContent).join(', ');
+      log(`  "${query}" -> ${doc.querySelectorAll('.sp-item').length} ket qua, dau: ${first || '(khong co)'}`);
+    }
+    input.value = 'vic';
+    input.dispatchEvent(new w.Event('input', { bubbles: true }));
+    await sleep(80);
+    input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await until('the chart to load VIC', () => w.eval('ChartManager').seriesKey?.startsWith('VN:VIC|'));
+    log(`  Enter -> select=${doc.getElementById('symbol').value}, bieu do=${w.eval('ChartManager').seriesKey}, popup dong: ${pop.hidden}`);
+    log(`  nhan nut sau khi chon: "${button.textContent.trim()}"`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('boot')) {
+  log('');
+  log('=== boot (man hinh mo dau cho du lieu) ===');
+  await until('boot marks', () => bootMarks.splashGone && bootMarks.vnList && bootMarks.chart, 400);
+  const dataReady = Math.max(bootMarks.chart, bootMarks.vnList);
+  log(`  bieu do co du lieu:   ${bootMarks.chart} ms`);
+  log(`  danh sach ma VN ve:   ${bootMarks.vnList} ms`);
+  log(`  man hinh mo dau roi:  ${bootMarks.splashGone} ms`);
+  log(`  roi SAU khi du lieu da ve: ${bootMarks.splashGone >= dataReady} (chenh ${bootMarks.splashGone - dataReady} ms)`);
+  }
+
+  if (wants('persist')) {
+  log('');
+  log('=== persist (tai lai trang khong mat viec dang lam) ===');
+  try {
+    const cmOf = (fw) => fw.eval('ChartManager');
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+
+    // Build up a session the way a person would.
+    const sel = doc.getElementById('symbol');
+    sel.value = 'VN:VIC';
+    sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await until('VIC', () => cmOf(w).seriesKey?.startsWith('VN:VIC|'));
+    const tf = await until('15m button', () => [...doc.querySelectorAll('#timeframes .tf-btn')].find((b) => b.textContent.trim() === '15m'));
+    tf.click();
+    await until('VIC 15m', () => cmOf(w).seriesKey === 'VN:VIC|15m');
+
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    const range = await until('a strategy parameter', () => doc.querySelector('#strategy-params input[type="range"]'));
+    range.value = String(Number(range.min) + 3);
+    range.dispatchEvent(new w.Event('input', { bubbles: true }));
+    const tuned = { name: range.dataset.sparam, value: range.value };
+
+    (await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
+    await until('RSI active', () => doc.querySelectorAll('#active .active-item').length === 1);
+
+    doc.querySelector('[data-layout="2"]').click();
+    const pick = await until('pane picker', () => doc.querySelector('[data-pick="0"]'));
+    await until('pane options', () => [...pick.options].some((o) => o.value === 'VN:VNINDEX'));
+    pick.value = 'VN:VNINDEX';
+    pick.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await sleep(900);                       // the session writes after 300ms
+    log(`  truoc khi tai lai: VIC 15m, panel strategy, ${tuned.name}=${tuned.value}, RSI, 2 khung + VNINDEX`);
+
+    // Reload the app frame.
+    w.location.reload();
+    await until('the old document to go', () => frame.contentDocument !== doc);
+    const d2 = await appDocument(frame);
+    const w2 = frame.contentWindow;
+    await until('restored chart', () => { try { return cmOf(w2).seriesKey; } catch (e) { return null; } }, 400);
+    await sleep(6000);
+
+    const key = cmOf(w2).seriesKey;
+    const panel = d2.querySelector('.rail-btn.active')?.dataset.panel || '(dong)';
+    const indicators = [...d2.querySelectorAll('#active .active-item')].map((n) => n.dataset.instance);
+    const param = d2.querySelector(`#strategy-params [data-sparam="${tuned.name}"]`)?.value;
+    const layout = d2.body.dataset.layout;
+    const pane = d2.querySelector('[data-pick="0"]')?.value;
+    log(`  sau khi tai lai:   ${key}, panel ${panel}, ${tuned.name}=${param}, chi bao [${indicators.join(', ')}], layout ${layout} + ${pane}`);
+    const ok = key === 'VN:VIC|15m' && panel === 'strategy' && String(param) === tuned.value
+      && indicators.length === 1 && indicators[0].startsWith('rsi#') && layout === '2' && pane === 'VN:VNINDEX';
+    log(`  ${ok ? 'GIU NGUYEN TOAN BO' : 'CO THU BI MAT'}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('resize')) {
+  log('');
+  log('=== resize (keo gian khung 2 va 4) ===');
+  /* The dividers listen to pointer events on the document, which synthetic
+     events reach the same way real ones do, so a drag here is the real code
+     path rather than a call into the module. */
+  const drag = async (handle, dx, dy) => {
+    const r = handle.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const ev = (type, px, py) => new w.PointerEvent(type, { bubbles: true, cancelable: true, clientX: px, clientY: py, pointerId: 1, button: 0, buttons: 1 });
+    handle.dispatchEvent(ev('pointerdown', x, y));
+    for (let i = 1; i <= 10; i++) { doc.dispatchEvent(ev('pointermove', x + dx * i / 10, y + dy * i / 10)); await sleep(16); }
+    doc.dispatchEvent(ev('pointerup', x + dx, y + dy));
+    await sleep(300);
+  };
+  try {
+    const band = doc.getElementById('multi-charts');
+    const main = doc.getElementById('chart-main');
+    doc.querySelector('[data-layout="4"]').click();
+    await until('three panes', () => doc.querySelectorAll('.mc-cell').length === 3);
+    await sleep(400);
+    const widths = () => [...doc.querySelectorAll('.mc-cell')].map((c) => Math.round(c.getBoundingClientRect().width)).join(' / ');
+    const h0 = Math.round(band.getBoundingClientRect().height), m0 = Math.round(main.getBoundingClientRect().height);
+    log(`  truoc:        dai so sanh ${h0}px, bieu do chinh ${m0}px, cot ${widths()}`);
+
+    const row = doc.getElementById('resize-mc');
+    log(`  tay keo ngang hien: ${!row.hidden}`);
+    await drag(row, 0, 120);
+    const h1 = Math.round(band.getBoundingClientRect().height), m1 = Math.round(main.getBoundingClientRect().height);
+    log(`  keo xuong 120: dai so sanh ${h1}px (${h1 - h0 >= 0 ? '+' : ''}${h1 - h0}), bieu do chinh ${m1}px (${m1 - m0})`);
+
+    const handles = doc.querySelectorAll('.mc-col-handle');
+    log(`  tay keo doc: ${handles.length}`);
+    const before = widths();
+    await drag(handles[0], 200, 0);
+    log(`  keo cot 1 sang phai 200: ${before}  ->  ${widths()}`);
+    const lefts = [...handles].map((h) => Math.round(h.getBoundingClientRect().left));
+    const edges = [...doc.querySelectorAll('.mc-cell')].slice(0, 2).map((c) => Math.round(c.getBoundingClientRect().right));
+    log(`  tay keo nam o mep o: ${lefts.join(', ')} vs mep ${edges.join(', ')}`);
+
+    handles[0].dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    row.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    await sleep(300);
+    log(`  nhap dup ve mac dinh: dai ${Math.round(band.getBoundingClientRect().height)}px, cot ${widths()}`);
+    doc.querySelector('[data-layout="1"]').click();
+    await sleep(200);
+    log(`  ve 1 khung: tay keo ngang an ${row.hidden}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
   }
 
   if (wants('charttype')) {

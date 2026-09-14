@@ -64,9 +64,11 @@ const Paper = (() => {
   // anything close to them. This stylesheet's first rule is that green and red
   // mean direction and P&L and nothing else; a green badge beside a red P&L
   // figure is exactly the decorative use that rule exists to prevent.
+  // Navy shades only, all dark enough for white text: a badge is a label, and
+  // labels are navy on this platform.
   const BADGE_COLOURS = [
-    '#2962ff', '#7b1fa2', '#0277bd', '#5e35b1', '#00838f',
-    '#6d4c41', '#455a64', '#ad1457', '#283593', '#4e342e',
+    '#1c2f5e', '#23396f', '#2b4580', '#162750', '#304f91',
+    '#1f3466', '#0f1d3d', '#27407a', '#34569c', '#1a2c58',
   ];
 
   function symbolBadge(symbol) {
@@ -175,6 +177,9 @@ const Paper = (() => {
       ? [...sessions].sort((a, b) => (b.symbol === watching) - (a.symbol === watching))
       : sessions;
 
+    /* The state pill sits under the name, not beside the buttons. Beside them,
+       pill, stop and remove took so much of the head row that the session name
+       and its market were both cut to a few letters in the 344px panel. */
     elements.list.innerHTML = ordered
       .map((s) => {
         const pnl = s.equity - s.config.initial_capital;
@@ -189,12 +194,13 @@ const Paper = (() => {
                 ? L('Giao dịch tay', 'Manual trading') : s.strategy_id)}${
                 s.manual_override
                   ? ` <span class="pill warn">${esc(L('CAN THIỆP TAY', 'MANUAL'))}</span>` : ''}</div>
-              <div class="paper-series">${esc(s.symbol)} · ${esc(s.timeframe)} · ${
+              <div class="paper-series">
+                <span class="pill ${s.active ? 'running' : 'stopped'}">${
+                  esc(s.active ? L('ĐANG CHẠY', 'RUNNING') : L('ĐÃ DỪNG', 'STOPPED'))}</span>
+                ${esc(s.symbol)} · ${esc(s.timeframe)} · ${
                 L(`${s.bars_seen} nến`, `${s.bars_seen} bars`)}</div>
             </div>
             <div class="paper-actions">
-              <span class="pill ${s.active ? 'running' : 'stopped'}">${
-                esc(s.active ? L('ĐANG CHẠY', 'RUNNING') : L('ĐÃ DỪNG', 'STOPPED'))}</span>
               <button class="btn btn-quiet btn-sm" data-paper-toggle="${esc(s.id)}">${
                 esc(s.active ? L('Dừng', 'Stop') : L('Chạy lại', 'Resume'))}</button>
               <button class="btn btn-quiet btn-sm btn-danger" data-paper-delete="${esc(s.id)}">✕</button>

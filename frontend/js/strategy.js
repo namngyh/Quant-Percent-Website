@@ -7,6 +7,7 @@
 
 const Strategy = (() => {
   let catalog = [];
+  let onChange = () => {};
   let elements = {};
   let context = () => ({});
   let onResult = () => {};
@@ -63,14 +64,18 @@ const Strategy = (() => {
       .join('');
   }
 
-  function select(strategyId) {
+  function select(strategyId, initial = null) {
     current = catalog.find((s) => s.id === strategyId) || null;
     if (!current) return;
 
     params = {};
     sweep = {};
     for (const p of current.params) {
-      params[p.name] = p.default;
+      // A restored session brings its tuned values back; anything the
+      // strategy no longer declares is left behind.
+      const kept = initial && Object.prototype.hasOwnProperty.call(initial, p.name)
+        ? initial[p.name] : undefined;
+      params[p.name] = kept === undefined ? p.default : kept;
       if (p.type !== 'bool') {
         sweep[p.name] = {
           enabled: false,
@@ -84,6 +89,18 @@ const Strategy = (() => {
     elements.desc.textContent = current.description || '';
     renderParams();
     renderSweep();
+    onChange();
+  }
+
+  /** The chosen strategy and its parameters, for a reload to put back. */
+  function snapshot() {
+    return current ? { id: current.id, params: { ...params } } : null;
+  }
+
+  function restore(snap) {
+    if (!snap || !catalog.some((s) => s.id === snap.id)) return;
+    elements.select.value = snap.id;
+    select(snap.id, snap.params);
   }
 
   function renderParams() {
@@ -120,6 +137,7 @@ const Strategy = (() => {
         params[name] = value;
         const readout = elements.params.querySelector(`[data-svalue="${name}"]`);
         if (readout) readout.textContent = String(value);
+        onChange();
       });
     }
   }
@@ -629,6 +647,7 @@ const Strategy = (() => {
     elements = config.elements;
     context = config.context;
     onResult = config.onResult;
+    onChange = config.onChange || (() => {});
 
     elements.select.addEventListener('change', () => {
       select(elements.select.value);
@@ -643,7 +662,7 @@ const Strategy = (() => {
   }
 
   return {
-    init, load, runBacktest, runOptimize, startPaper,
+    init, load, runBacktest, runOptimize, startPaper, snapshot, restore,
     // Exported so tests/test_render.js can drive the optimiser panel without
     // standing up a server: the panel is where the sweep's two most important
     // verdicts are shown, and nothing else checks that they render.

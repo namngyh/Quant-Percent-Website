@@ -55,15 +55,19 @@ PlotType = Literal["line", "histogram", "area"]
 #   * **Separable without hue alone.** No red/green pair, so the set survives
 #     the common colour vision deficiencies; the brown and the blue-grey are
 #     also separated by chroma, not just by hue.
+# Superseded 2026-09-14 by Nam's colour rule: black and white are the ground,
+# green and red belong to candles and P&L, and every annotation — which an
+# indicator line is — is navy. The eight entries below are navy at alternating
+# depths, so neighbouring lines still separate by lightness when hue cannot.
 PALETTE = [
-    "#2962ff",  # blue
-    "#ef6c00",  # orange
-    "#7b1fa2",  # purple
-    "#0097a7",  # cyan
-    "#f9a825",  # amber
-    "#c2185b",  # magenta
-    "#5d4037",  # brown
-    "#455a64",  # blue grey
+    "#1c2f5e",  # navy
+    "#5b7fc4",  # light navy
+    "#0b1633",  # deep navy
+    "#8ea8dc",  # pale navy
+    "#2f4a8a",  # mid navy
+    "#b3c4e8",  # mist navy
+    "#15244a",  # ink navy
+    "#46659f",  # slate navy
 ]
 
 

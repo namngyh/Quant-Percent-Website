@@ -9,7 +9,9 @@ const Resizer = (() => {
   const KEY = 'qp.layout.v1';
 
   const LIMITS = {
-    panel: { min: 260, max: 640, fallback: 344 },
+    // 300, not 260: below that the paper ticket's two prices and the stop and
+    // target fields no longer fit side by side and started wrapping mid-number.
+    panel: { min: 300, max: 640, fallback: 344 },
     panes: { min: 90, max: 420, fallback: 128 },
   };
 
@@ -63,7 +65,7 @@ const Resizer = (() => {
     const end = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', end);
-      document.body.classList.remove('resizing');
+      document.body.classList.remove('resizing', 'resizing-x', 'resizing-y');
       handle.classList.remove('active');
       save();
     };
@@ -74,7 +76,10 @@ const Resizer = (() => {
       startValue = layout[key];
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', end);
-      document.body.classList.add('resizing');
+      // The axis class pins one cursor for the whole drag. Without it the
+      // pointer flickered between a text caret, an arrow and the resize arrow
+      // as it crossed labels, buttons and the chart during the gesture.
+      document.body.classList.add('resizing', axis === 'x' ? 'resizing-x' : 'resizing-y');
       handle.classList.add('active');
     });
 

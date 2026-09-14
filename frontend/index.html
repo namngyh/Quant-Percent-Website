@@ -4,15 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quant Percent</title>
-  <!-- No web font is fetched. Roboto was the face this design was originally
-       drawn for, but the type was moved to Segoe UI in 2026-09-09 (Trebuchet
-       and Roboto both cover Vietnamese badly enough that stacked diacritics
-       fall through to a second typeface mid-word), and the Google Fonts link
-       was left behind. Measured in the browser afterwards: it was the single
-       slowest resource on the load path at 319ms, for a face nothing renders
-       in — and on a machine with no internet it is a request that has to time
-       out before the page settles. The stacks in styles.css are all system
-       faces now. -->
+  <!-- One typeface, served from this machine.
+
+       Be Vietnam Pro was drawn for Vietnamese: its stacked marks (ế, ộ, ữ) are
+       designed into the face rather than composed from a Latin one, which is
+       exactly where Trebuchet, Roboto and even Segoe UI fell short. It is
+       vendored under /static/fonts rather than linked from Google Fonts —
+       that link was measured at 319ms on the load path in 2026-09-15, and on
+       a machine with no internet it is a request that has to time out.
+       The two faces the first screen actually draws are preloaded so the
+       chart axis is not measured with a fallback. -->
+  <link rel="preload" href="/static/fonts/be-vietnam-pro-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/static/fonts/be-vietnam-pro-600-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 </head>
@@ -102,7 +105,7 @@
   <main class="layout" id="layout">
     <!-- ============ Rail: exactly one panel open at a time ============ -->
     <nav class="rail" role="tablist" data-i18n-aria="rail.panels">
-      <button class="rail-btn active" data-panel="indicators" role="tab" data-i18n-title="rail.indicators">
+      <button class="rail-btn" data-panel="indicators" role="tab" data-i18n-title="rail.indicators">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 4 3-4 6 6"/><path d="M3 21h18"/></svg>
         <span data-i18n="rail.indicators">Chỉ báo</span>
       </button>
@@ -125,7 +128,10 @@
     </nav>
 
     <!-- ============ The one open panel ============ -->
-    <aside class="panel-host" id="panel-host">
+    <!-- Starts closed: the chart is what a session opens for, and a panel is
+         something you reach for. The last open panel comes back on reload
+         (session.js) when there was one. -->
+    <aside class="panel-host collapsed" id="panel-host">
 
       <!-- ---------- Indicators ---------- -->
       <section class="panel active" data-panel="indicators">
@@ -485,7 +491,15 @@
            the working chart below, which keeps indicators, drawings and paper
            levels; these are candles and a picker. -->
       <div id="multi-charts" class="multi-charts" hidden></div>
+      <!-- Drag to share height between the comparison row and the working
+           chart; double-click to reset. Hidden in the one-chart layout. -->
+      <div id="resize-mc" class="resize-handle resize-y" role="separator"
+           aria-orientation="horizontal" hidden></div>
       <div id="chart-main" class="chart-pane chart-main">
+        <!-- Which market this is. Shown only when two or four charts share
+             the screen, where the working chart would otherwise be the one
+             pane without a name. -->
+        <div id="main-legend" class="chart-legend" aria-live="polite"></div>
         <div class="chart-tools" id="chart-tools" hidden>
           <button id="toggle-markers" class="chip" type="button"></button>
           <button id="clear-markers" class="chip chip-icon" type="button"
@@ -498,7 +512,13 @@
            data-i18n-title="resize.panes"></div>
       <div id="panes"></div>
       </div>
-      <div id="loading" class="loading" hidden><div class="spinner"></div></div>
+      <div id="loading" class="loading" role="status" aria-label="Loading" hidden>
+        <svg class="qp-loader" viewBox="0 0 100 100" aria-hidden="true">
+          <rect x="17" y="13" width="25" height="25" />
+          <rect x="58" y="62" width="25" height="25" />
+          <path d="M19 81 L81 19" />
+        </svg>
+      </div>
     </section>
   </main>
 
@@ -618,6 +638,7 @@
   </div>
 
   <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/session.js"></script>
   <script src="/static/js/i18n.js"></script>
   <script src="/static/js/explain.js"></script>
   <script src="/static/js/favourites.js"></script>
@@ -636,6 +657,8 @@
   <script src="/static/js/markets.js"></script>
   <script src="/static/js/portfolio.js"></script>
   <script src="/static/js/validation.js"></script>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/symbol-picker.js"></script>
   <script src="/static/js/live.js"></script>
   <script src="/static/js/app.js"></script>
 </body>

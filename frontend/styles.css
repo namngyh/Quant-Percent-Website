@@ -1,97 +1,198 @@
-/* Quant Percent: a TradingView-flavoured research terminal
+/* Quant Percent — ink on paper
  *
- * The shape and colour language follow TradingView's: white ground, cards
- * defined by a hairline border rather than by shadow, 8px controls inside 16px
- * cards, and a type ramp where the *number* is the largest thing on screen.
+ * A research instrument, drawn the way a good printed chart is: white paper,
+ * black ink, and grey only where something is secondary. Nam asked for black
+ * and white; the interface keeps exactly two exceptions, both of them data
+ * rather than decoration:
  *
- * Three choices worth naming, because they are what makes it read as a
- * trading tool rather than a generic dashboard:
+ *   - green and red mean market direction and P&L, nothing else;
+ *   - indicator lines keep their own palette, because three black EMAs on one
+ *     chart cannot be told apart.
  *
- * 1. **Green and red are never decorative.** They mean market direction and
- *    P&L, nothing else. A failed request is amber, a confirmation is blue.
- *    TradingView's own #089981 / #f23645 are used rather than the usual web
- *    green and red: they are darker and less saturated, which matters when a
- *    screen holds two hundred of them at once.
- * 2. **Borders, not shadows.** Elevation reads as importance. On a screen
- *    where a dozen panels are all equally important, shadow just adds noise,
- *    so structure comes from 1px lines and shadow is reserved for things that
- *    genuinely float — popovers, dialogs, the settings sheet.
- * 3. **Tabular numerals everywhere a number changes.** A price that reflows
- *    its own width on every tick is unreadable, and this screen updates live.
+ * What made the previous version read as "plastic" was not its colours but
+ * its edges: every control was a bordered box, every group a bordered box
+ * inside a bordered panel, all at slightly different radii. Structure now
+ * comes from space and from filled washes. Borders survive where they carry
+ * information — around a chart, under a table header.
+ *
+ * Motion is reserved for answering an action: a thumb that slides to the
+ * timeframe just chosen, a panel that settles in when it is opened, a dialog
+ * that rises. Nothing moves on its own. `prefers-reduced-motion` turns all of
+ * it off.
+ *
+ * One typeface, Be Vietnam Pro, vendored under /static/fonts. It was drawn
+ * for Vietnamese, so stacked marks (ế, ộ, ữ) sit where they should instead of
+ * falling through to a second face mid-word.
  */
 
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* `hidden` must always win.
+
+   The attribute's default `display: none` has the specificity of a type
+   selector, so any class that sets `display` beats it: `.multi-charts` sets
+   `display: grid`, and the comparison band stayed on screen at 321px in the
+   one-chart layout while `el.hidden` read true. Six components had grown
+   their own `[hidden]` rule one bug at a time; this closes the class. */
+[hidden] { display: none !important; }
+
 :root {
-  /* Ground and structure. TradingView builds on white and separates with a
-     single hairline; the greys below are its own ramp. */
+  /* Paper and ink. */
   --bg:          #ffffff;
   --surface:     #ffffff;
-  --surface-2:   #f8f9fd;
-  --surface-3:   #f0f3fa;
-  --border:      #e0e3eb;
-  --border-soft: #f0f3fa;
+  --surface-2:   #f5f5f6;   /* wash: fields, hover, quiet cards */
+  --surface-3:   #ebebed;   /* pressed, a track on a wash */
+  --surface-alt: #f5f5f6;
+  --border:      #e4e4e7;
+  --border-soft: #efeff1;
 
-  --text:        #131722;   /* TradingView ink: near-black with a blue cast */
-  --text-dim:    #5d606b;
-  --text-faint:  #9598a1;
+  --text:        #000000;
+  --text-dim:    #55555d;
+  --text-faint:  #9d9da5;
 
-  /* The accent is ink, not a colour.
-
-     Blue was doing the job of "this is the primary action" and, being a
-     colour, it competed with the only two colours this interface is allowed
-     to mean something by: green for up and red for down. On a screen where
-     ten panels all matter, a coloured accent is one more thing asking for
-     attention it has not earned. Black asks once and is unmistakable.
-
-     Colour survives in exactly two places, both of them data rather than
-     chrome: market direction (--up / --down) and the indicator palette. A
-     P&L figure and a candle carry meaning in their colour; a Save button
-     does not. */
-  --accent:      #131722;
-  --accent-hover:#000000;
-  --accent-soft: rgba(19, 23, 34, 0.07);
-  --accent-tint: rgba(19, 23, 34, 0.04);
-  --focus:       #131722;
+  /* The accent is the ink itself. */
+  --accent:      #000000;
+  --accent-hover:#2a2a2e;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+  --accent-tint: rgba(0, 0, 0, 0.035);
+  --focus:       #000000;
 
   /* Market colours. Reserved for direction and P&L. */
   --up:          #089981;
   --up-soft:     rgba(8, 153, 129, 0.10);
   --down:        #f23645;
   --down-soft:   rgba(242, 54, 69, 0.10);
-  --warn:        #ff9800;
-  --warn-soft:   rgba(255, 152, 0, 0.12);
+  /* Navy is the one colour for notes, cautions and highlights. Nam's rule:
+     black and white are the ground, green and red belong to candles and P&L,
+     and everything that annotates is navy. Amber is gone. `--warn` keeps its
+     name so every caution already in the codebase turns navy in one place. */
+  --note:        #1c2f5e;
+  --note-soft:   rgba(28, 47, 94, 0.08);
+  --warn:        var(--note);
+  --warn-soft:   var(--note-soft);
 
-  /* Controls are 8px, cards 16px: the contrast between the two is most of
-     what makes a TradingView panel look like one. */
-  --radius-xs:   4px;
-  --radius-sm:   6px;
-  --radius:      8px;
-  --radius-md:   10px;
+  /* Radii grow with the size of the thing: a 6px chip, an 8px control, a 12px
+     card, a 16px window. One radius on everything is what makes a kit look
+     like a kit. */
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius:      10px;
+  --radius-md:   12px;
   --radius-lg:   16px;
   --radius-pill: 999px;
   --topbar-h:    56px;
-  --rail-w:      76px;
+  --rail-w:      72px;
   --panel-w:     344px;
 
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-
-  /* Trebuchet MS is TradingView's own first choice and it is the wrong one
-     here. Its Vietnamese coverage is poor: on Windows, ế ộ ữ ậ fall through to
-     a fallback face, so a Vietnamese sentence renders in two typefaces at
-     once and the stacked diacritics sit at the wrong height. That is the
-     "cứng" — the text is not badly designed, it is two fonts pretending to be
-     one.
-     Segoe UI ships with Windows, carries the full Vietnamese range including
-     the doubled marks, and has the open apertures that keep ơ and ư legible
-     at 14px. It leads; Trebuchet is gone rather than demoted, because a
-     partial match is worse than no match at all. */
-  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system,
-          BlinkMacSystemFont, Roboto, "Noto Sans", "Helvetica Neue", Arial,
-          sans-serif;
+  --mono: "Cascadia Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Be Vietnam Pro", "Segoe UI Variable Text", "Segoe UI", system-ui,
+          -apple-system, Roboto, Arial, sans-serif;
 
   /* Shadow only for things that genuinely float. */
-  --shadow-sm: 0 1px 2px rgba(19, 23, 34, 0.04);
-  --shadow:    0 2px 8px rgba(19, 23, 34, 0.08);
-  --shadow-lg: 0 12px 32px rgba(19, 23, 34, 0.16), 0 2px 8px rgba(19, 23, 34, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow:    0 6px 18px -6px rgba(0, 0, 0, 0.14);
+  --shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  /* One curve for everything that responds. Fast out, soft landing. */
+  --ease:   cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --t-fast: 120ms;
+  --t:      220ms;
 }
 
 * { box-sizing: border-box; }
@@ -102,22 +203,23 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 15px;
-  /* 1.6 rather than 1.5: Vietnamese stacks a tone mark on top of a vowel mark
-     (ế, ộ, ữ), which needs more room above the x-height than Latin text. At
-     1.5 the marks of one line very nearly touch the descenders of the one
-     above. */
+  font-size: 14px;
+  /* Vietnamese stacks a tone mark on a vowel mark; 1.6 keeps the marks of one
+     line clear of the descenders above. */
   line-height: 1.6;
-  /* Trebuchet is already fairly open; Material's tracking loosens it too far. */
-  letter-spacing: 0;
+  letter-spacing: -0.005em;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Every figure that updates in place (prices, metrics, table cells) uses
-   tabular numerals, so a digit changing does not shift the ones beside it. */
-.metric-value, .data-table, .price-ticker, .status, .xp-table, .badge {
+::selection { background: #000; color: #fff; }
+
+/* Every figure that updates in place uses tabular numerals, so a digit
+   changing does not shift the ones beside it. */
+.metric-value, .data-table, .price-ticker, .price-change, .status, .xp-table,
+.badge, .param-value, .paper-stat-value, .cat-count {
   font-variant-numeric: tabular-nums;
 }
 
@@ -129,136 +231,163 @@ html, body {
   height: var(--topbar-h);
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 16px;
+  gap: 16px;
+  padding: 0 16px 0 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--border-soft);
+  position: relative;
   z-index: 10;
 }
 
-.brand { display: flex; align-items: center; gap: 9px; user-select: none; }
-.brand-mark { width: 22px; height: 22px; flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 10px; user-select: none; }
+.brand-mark { width: 20px; height: 20px; flex-shrink: 0; }
 .brand-mark rect { fill: var(--accent); }
 .brand-mark path { stroke: var(--accent); }
 .brand-name {
-  font-size: 17px;
-  letter-spacing: 0;
-  color: var(--text-dim);
-  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  font-weight: 500;
   white-space: nowrap;
 }
-.brand-name strong { color: var(--text); font-weight: 500; }
+.brand-name strong { color: var(--text); font-weight: 700; }
 
-.topbar-controls { display: flex; align-items: center; gap: 10px; }
+.topbar-controls { display: flex; align-items: center; gap: 8px; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
-/* The status line carries sentences, sometimes Vietnamese ones. */
-.status { font-size: 12px; color: var(--text-dim); white-space: nowrap;
-          font-variant-numeric: tabular-nums; }
+.status { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 .status.error { color: var(--down); }
 .status.busy  { color: var(--warn); }
 
 /* ==================== Controls ==================== */
 
+/* Fields are washes, not boxes. A resting field needs to be findable, not
+   outlined; the outline appears when it has something to say — focus. */
 select, input[type="search"], input[type="number"],
-input[type="text"], input[type="password"] {
-  background: var(--surface);
+input[type="text"], input[type="password"], input[type="date"] {
+  background-color: var(--surface-2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: 7px 10px;
+  padding: 7px 11px;
   font-family: inherit;
   font-size: 13px;
+  line-height: 1.4;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
 }
-select:hover, input:hover { border-color: var(--text-faint); }
-/* Material's focused text field thickens its outline rather than glowing; the
-   inset shadow fakes a 2px border without the 1px layout shift. */
+select:hover, input:hover { background-color: var(--surface-3); }
 select:focus, input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background-color: var(--surface);
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
 }
-select { cursor: pointer; }
+select {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355555d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 6px;
+}
+input::placeholder { color: var(--text-faint); }
 
-/* A segmented button, the Material 3 control for one-of-several. Pill-shaped
-   as a group, with the ends rounded and the middles square. */
-.tf-group {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--surface);
-}
-.tf-btn {
+/* Segmented control: a wash track with one black thumb.
+
+   The thumb is a real element (ui.js) that slides to whichever child carries
+   `.active`. Without the script the active button still fills itself, so the
+   control never loses its state. */
+.tf-group, .lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
   border: 0;
-  border-left: 1px solid var(--border);
+  border-radius: var(--radius);
+  isolation: isolate;
+}
+.tf-btn, .lang-btn {
+  position: relative;
+  z-index: 1;
+  border: 0;
   background: transparent;
   color: var(--text-dim);
-  padding: 6px 13px;
+  padding: 4px 10px;
+  border-radius: 7px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: color var(--t) var(--ease), background var(--t-fast) var(--ease);
 }
-.tf-btn:first-child { border-left: 0; }
-.tf-btn:hover { color: var(--text); background: var(--accent-tint); }
-.tf-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.tf-btn:hover, .lang-btn:hover { color: var(--text); }
+.tf-btn.active, .lang-btn.active { color: #fff; background: var(--accent); font-weight: 600; }
+.has-thumb > .tf-btn.active, .has-thumb > .lang-btn.active { background: transparent; }
 
-/* Buttons: 8px rectangles with an ink label. The outlined variant is the
-   default rather than the filled one, because a panel with six filled blue
-   buttons has no hierarchy left to spend.
+.seg-thumb {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.seg-ready > .seg-thumb {
+  transition: transform var(--t) var(--ease), width var(--t) var(--ease),
+              opacity var(--t-fast) linear;
+}
 
-   The label is ink rather than blue: on a screen where blue also means "the
-   one primary action", a dozen blue labels dilute it to nothing. */
+/* Buttons. Default is quiet; the primary is solid ink and there is only ever
+   one per panel. A press sinks the button by a hair, which is what makes a
+   click feel received rather than merely registered. */
 .btn {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  /* 36px tall rather than 30px. Small targets are a real cost on a screen
-     someone uses for hours, and this interface has a lot of them. */
-  padding: 8px 16px;
+  padding: 7px 14px;
   min-height: 36px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
 }
-.btn:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border); }
-.btn:active:not(:disabled) { background: var(--accent-soft); }
-.btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.btn:hover:not(:disabled) { background: var(--surface-2); border-color: #d4d4d8; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* The one action on a panel that should be obvious. Flat: this interface
-   separates by colour and border, and a floating button on a screen with no
-   other shadows reads as a mistake rather than as emphasis. */
 .btn-primary {
   background: var(--accent);
-  border-color: transparent;
+  border-color: var(--accent);
   color: #fff;
   font-weight: 600;
 }
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: transparent;
-}
-.btn-primary:active:not(:disabled) { background: var(--accent-hover); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .btn-quiet { background: transparent; border-color: transparent; color: var(--text-dim); }
-.btn-quiet:hover:not(:disabled) {
-  background: var(--surface-2); color: var(--text); border-color: transparent;
-}
+.btn-quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
 
-.btn-sm { padding: 5px 12px; min-height: 30px; font-size: 13px; }
-/* The one button that starts a whole mode change. */
-.btn-lg { padding: 9px 22px; min-height: 40px; font-size: 15px; font-weight: 600; }
+.btn-sm { padding: 4px 10px; min-height: 30px; font-size: 12.5px; border-radius: 7px; }
+/* The one button that changes the whole mode. */
+.btn-lg { padding: 8px 18px; min-height: 38px; font-size: 13.5px; font-weight: 600; }
 .btn-block { width: 100%; margin-top: 8px; }
 .btn-danger { color: var(--down); }
-.btn-danger:hover:not(:disabled) { background: var(--down-soft); border-color: var(--down); }
+.btn-danger:hover:not(:disabled) { background: var(--down-soft); border-color: transparent; }
 
 /* ==================== Layout ==================== */
 
@@ -273,18 +402,17 @@ select { cursor: pointer; }
   border-right: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
-  padding: 10px 6px;
-  gap: 4px;
+  padding: 12px 6px;
+  gap: 6px;
 }
 
-/* Material 3 navigation rail: the icon sits in its own pill, which is what
-   carries the selected state, and the label stays put underneath. Highlighting
-   the whole button instead makes the selection look like a hover. */
+/* The icon carries the state in a filled tile; the label stays put beneath
+   it. The tile goes solid black when its panel is open. */
 .rail-btn {
   border: 0;
-  background: transparent;
+  background: none;
   color: var(--text-dim);
-  padding: 0;
+  padding: 0 0 2px;
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
@@ -294,20 +422,23 @@ select { cursor: pointer; }
   align-items: center;
   gap: 4px;
   line-height: 1.2;
-  background: none;
+  transition: color var(--t-fast) var(--ease);
 }
 .rail-btn svg {
   width: 20px; height: 20px;
   fill: none; stroke: currentColor;
-  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-  padding: 4px 18px;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  padding: 8px 13px;
   box-sizing: content-box;
-  border-radius: var(--radius-pill);
-  transition: background 0.15s, color 0.15s;
+  border-radius: var(--radius-sm);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease),
+              transform var(--t-fast) var(--ease);
 }
+.rail-btn:hover { color: var(--text); }
 .rail-btn:hover svg { background: var(--surface-2); }
-.rail-btn.active { color: var(--accent); }
-.rail-btn.active svg { background: var(--accent-soft); }
+.rail-btn:active svg { transform: scale(0.94); }
+.rail-btn.active { color: var(--text); }
+.rail-btn.active svg { background: var(--accent); color: #fff; }
 .rail-btn:focus-visible { outline: none; }
 .rail-btn:focus-visible svg { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -317,166 +448,195 @@ select { cursor: pointer; }
   width: var(--panel-w);
   flex-shrink: 0;
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-soft);
   overflow: hidden;
 }
 .panel-host.collapsed { width: 0; border-right: 0; }
 
 .panel { display: none; height: 100%; flex-direction: column; width: var(--panel-w); }
-.panel.active { display: flex; }
+/* Opening a panel settles it in by a few pixels: enough to show which panel
+   just replaced which, too little to wait for. */
+.panel.active { display: flex; animation: panelIn var(--t) var(--ease); }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
 
 .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* When the title and its actions do not fit on one line, the actions move
+     to their own line as a group. Before, the row split the buttons themselves
+     ("Tài khoản  Thông báo" above, "Làm mới" alone below). */
+  flex-wrap: wrap;
+  row-gap: 6px;
   gap: 8px;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--border-soft);
+  padding: 16px 16px 10px 18px;
   flex-shrink: 0;
 }
 .panel-head h2 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
-.panel-head-actions { display: flex; align-items: center; gap: 6px; }
+.panel-head-actions { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; margin-left: -8px; }
 
-.panel-body { flex: 1; overflow-y: auto; padding: 12px 14px; min-height: 0; }
+.panel-body { flex: 1; overflow-y: auto; padding: 6px 16px 16px 18px; min-height: 0; }
 .panel-foot {
-  border-top: 1px solid var(--border);
-  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border-soft);
+  padding: 12px 16px 14px 18px;
   flex: 0 1 auto;
   min-height: 120px;
   max-height: 45%;
   display: flex;
   flex-direction: column;
-  background: var(--surface-2);
+  background: var(--surface);
 }
 .panel-foot-head {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--text-faint); font-weight: 700; margin-bottom: 7px;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 8px;
 }
 
 .badge {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--text-dim);
   background: var(--surface-2);
   border: 0;
-  padding: 3px 9px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
-.hint { color: var(--text-dim); font-size: 12px; margin: 0 0 10px; line-height: 1.5; }
-.empty { color: var(--text-faint); font-size: 12px; line-height: 1.5; margin: 6px 0; }
+.hint { color: var(--text-dim); font-size: 12.5px; margin: 0 0 10px; line-height: 1.55; }
+.empty { color: var(--text-faint); font-size: 12.5px; line-height: 1.55; margin: 6px 0; }
 
-/* ---- Sub tabs ---- */
+/* ---- Sub tabs ----
+
+   In-panel tabs are a wash track with a raised white tab, not black: the
+   panel already has one solid-black thing (its primary action), and a second
+   would split the attention it is meant to hold. */
 
 .subtabs {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border-soft);
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
   margin-bottom: 14px;
 }
-.subtabs.compact { margin-bottom: 0; border-bottom: 0; }
+.subtabs.compact { margin-bottom: 0; }
 .subtab {
   flex: 1;
   border: 0;
-  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--text-dim);
-  padding: 9px 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
-  margin-bottom: -1px;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
 }
-.subtab:hover { color: var(--text); background: var(--accent-tint); }
-.subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.subtab:hover { color: var(--text); }
+.subtab.active { color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); font-weight: 600; }
 
 .subpanel { display: none; }
 
-/* Actions that belong to one tab's content, not to the panel as a whole.
-   Right-aligned above the list they act on. */
 .subpanel-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-bottom: 10px;
 }
-.subpanel.active { display: block; }
+.subpanel.active { display: block; animation: fadeIn var(--t) var(--ease); }
 [data-respanel] { height: 100%; }
 [data-respanel].active { display: flex; flex-direction: column; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ==================== Catalog ==================== */
 
-#search { width: 100%; margin-bottom: 10px; }
+#search { width: 100%; margin-bottom: 8px; }
 
-.catalog { }
-.cat-group { margin-bottom: 12px; }
-/* The group header is a <summary>: it must look like the row it replaced,
-   minus the default disclosure triangle, plus one that matches the app. */
+.cat-group { margin-bottom: 1px; }
 .cat-group > summary { cursor: pointer; list-style: none; user-select: none; }
 .cat-group > summary::-webkit-details-marker { display: none; }
-.cat-group > summary::after {
-  content: '';
-  float: right;
-  border: 4px solid transparent;
-  border-top-color: var(--text-faint);
-  margin-top: 6px;
-  transition: transform 0.15s ease;
-}
-.cat-group[open] > summary::after { transform: rotate(180deg); transform-origin: 4px 2px; }
 
+/* A group header is a row, not a label: sentence case, the count set apart,
+   and a chevron that turns when the group opens. The old uppercase tracked
+   label was slower to read and louder than the items under it. */
 .cat-group-name {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.9px;
-  color: var(--text-faint);
-  padding: 5px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 7px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
   position: sticky;
   top: 0;
   background: var(--surface);
-  font-weight: 700;
   z-index: 1;
+  transition: background var(--t-fast) var(--ease);
 }
+.cat-group-name:hover { background: var(--surface-2); }
+/* Raise the first letter only. `text-transform: capitalize` raises every word,
+   which turned the Vietnamese "Của bạn" into "Của Bạn" — wrong in a language
+   that capitalises only the start of a phrase. */
+.cat-group-name > span:first-child { display: inline-block; }
+.cat-group-name > span:first-child::first-letter { text-transform: uppercase; }
+.cat-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-faint); }
+.cat-group > summary::after, .field-group.foldable > summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin: 0 2px 3px 4px;
+  border-right: 1.6px solid var(--text-faint);
+  border-bottom: 1.6px solid var(--text-faint);
+  transform: rotate(45deg);
+  transition: transform var(--t) var(--ease);
+  flex-shrink: 0;
+}
+.cat-group[open] > summary::after, .field-group.foldable[open] > summary::after {
+  transform: translateY(3px) rotate(-135deg);
+}
+.cat-group[open] { padding-bottom: 6px; }
 
 .cat-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
-  border-radius: 4px;
+  padding: 5px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
+  transition: background var(--t-fast) var(--ease);
 }
 .cat-item:hover { background: var(--surface-2); }
 .cat-item.on { background: var(--accent-soft); }
-/* Names, not code: these carry Vietnamese and must use the text face. */
-.cat-item-name { font-size: 13px; font-weight: 600; }
-.cat-item-kind {
-  margin-left: auto;
-  font-size: 11px;
-  letter-spacing: 0.4px;
-  color: var(--text-faint);
-  text-transform: uppercase;
-}
+.cat-item.on .cat-item-name { font-weight: 600; }
+.cat-item-name { font-size: 13px; font-weight: 500; }
+.cat-item-kind { margin-left: auto; font-size: 11.5px; color: var(--text-faint); }
 .cat-item.plugin .cat-item-name::after {
-  content: "PY";
+  content: "py";
   margin-left: 6px;
-  font-size: 11px;
-  color: var(--surface);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
   background: var(--accent);
   border-radius: 4px;
-  padding: 1px 3px;
-  vertical-align: middle;
-  letter-spacing: 0.4px;
+  padding: 1px 4px;
+  vertical-align: 1px;
 }
 
 /* ==================== Active indicators ==================== */
@@ -484,60 +644,56 @@ select { cursor: pointer; }
 .active-list { overflow-y: auto; flex: 1; margin: 0 -4px; padding: 0 4px; }
 
 .active-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 7px;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
   overflow: hidden;
+  animation: fadeIn var(--t) var(--ease);
 }
-.active-head {
-  display: flex; align-items: center; gap: 7px;
-  padding: 6px 9px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.active-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px 12px; }
+.swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .active-name { font-size: 13px; font-weight: 600; }
-.active-kind { font-size: 11px; color: var(--text-faint); text-transform: uppercase; }
+.active-kind { font-size: 11.5px; color: var(--text-faint); }
 .active-remove { margin-left: auto; }
 
 .params { display: grid; gap: 9px; }
-.active-item .params { padding: 9px; }
-.param { display: grid; grid-template-columns: 76px 1fr 44px; align-items: center; gap: 9px; }
+.active-item .params { padding: 6px 12px 12px; }
+.param { display: grid; grid-template-columns: 76px 1fr 44px; align-items: center; gap: 10px; }
 .param-label {
   font-size: 12px; color: var(--text-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* A number, so tabular figures rather than a whole monospace face. */
-.param-value { font-size: 13px; text-align: right; font-weight: 600;
-               font-variant-numeric: tabular-nums; }
+.param-value { font-size: 13px; text-align: right; font-weight: 600; }
 
 input[type="range"] {
   -webkit-appearance: none; appearance: none;
-  height: 3px; background: var(--border); border-radius: 2px; outline: none;
+  height: 3px; background: var(--border); border-radius: 2px; outline: none; padding: 0;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 13px; height: 13px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   background: var(--accent); cursor: pointer;
-  border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border);
+  border: 2px solid var(--surface); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform var(--t-fast) var(--ease);
 }
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
 input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .active-error {
-  padding: 6px 9px;
-  font-size: 11px;
+  padding: 7px 12px;
+  font-size: 11.5px;
   color: var(--down);
   background: var(--down-soft);
-  border-top: 1px solid rgba(200, 55, 45, 0.2);
   font-family: var(--mono);
   word-break: break-word;
 }
 
 .load-errors {
   background: var(--warn-soft);
-  border: 1px solid rgba(154, 106, 6, 0.25);
-  border-radius: var(--radius);
-  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
   margin-bottom: 10px;
   font-size: 12px;
   color: var(--warn);
@@ -545,33 +701,39 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   word-break: break-word;
 }
 
-/* ==================== Field groups ==================== */
+/* ==================== Field groups ====================
+
+   A group is a titled stretch of the panel separated from the next by a rule,
+   not a grey box. Boxes inside a panel inside a window was the nesting that
+   made the old panels feel like stacked plastic trays. */
 
 .field-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 11px;
-  background: var(--surface-2);
-  margin-bottom: 12px;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0;
+  padding: 14px 0 12px;
+  background: transparent;
+  margin: 0;
 }
+.panel-body > .field-group:first-child,
+.subpanel > .field-group:first-child { border-top: 0; padding-top: 4px; }
 .field-group-title {
-  font-size: 11px;
-  text-transform: none;
-  color: var(--text-dim);
-  font-weight: 500;
-  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .param-row {
   display: grid;
-  grid-template-columns: 1fr 92px;
+  grid-template-columns: 1fr 104px;
   align-items: center;
-  gap: 9px;
-  margin-bottom: 7px;
-  font-size: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
   color: var(--text-dim);
 }
 .param-row:last-child { margin-bottom: 0; }
@@ -588,10 +750,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   align-items: center;
   gap: 5px;
 }
-.sweep-head {
-  font-size: 11px; color: var(--text-faint);
-  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
-}
+.sweep-head { font-size: 11.5px; color: var(--text-faint); font-weight: 500; }
 .sweep-head span:nth-child(n+3) { text-align: center; }
 .sweep-item { font-size: 12px; }
 .sweep-item > span { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -619,24 +778,19 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   gap: 8px;
   margin-bottom: 14px;
 }
+/* A metric is a wash tile, not an outlined card: the number is what should
+   stand out, and a border around every number competes with it. */
 .metric {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 13px 15px;
-  transition: border-color 0.15s;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 12px 14px 13px;
 }
-/* Hover darkens the line rather than lifting the card: nothing else on this
-   screen floats, so one card that does reads as a glitch. */
-.metric:hover { border-color: var(--text-faint); }
-/* Sentence case, not all-caps: Material dropped small-caps labels because they
-   are slower to read, and a metric label is read far more often than a heading. */
 .metric-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
   margin-bottom: 4px;
   font-weight: 500;
-  text-transform: none;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -644,29 +798,26 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .metric-value {
   font-family: var(--sans);
   font-size: 22px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0;
+  letter-spacing: -0.025em;
   color: var(--text);
 }
 .metric-value.pos { color: var(--up); }
 .metric-value.neg { color: var(--down); }
-.metric-sub {
-  font-size: 11px; color: var(--text-faint); margin-top: 3px;
-  font-family: var(--sans);
-}
+.metric-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
 
 .callout {
-  border-radius: var(--radius);
-  border-left: 4px solid var(--border);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--text);
   background: var(--surface-2);
   color: var(--text-dim);
-  padding: 11px 13px;
-  font-size: 12px;
+  padding: 11px 14px;
+  font-size: 12.5px;
   line-height: 1.6;
   margin-bottom: 10px;
 }
-.callout strong { color: var(--text); font-weight: 500; }
+.callout strong { color: var(--text); font-weight: 600; }
 .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
 .callout.warn strong { color: var(--warn); }
 .callout.bad  { background: var(--down-soft); border-left-color: var(--down); }
@@ -677,14 +828,11 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 /* ==================== Equity chart ==================== */
 
 .equity-wrap { display: flex; flex-direction: column; flex: 1; min-height: 170px; }
-.equity-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--text-faint); font-weight: 700; margin-bottom: 6px;
-}
+.equity-label { font-size: 13px; color: var(--text); font-weight: 600; margin-bottom: 8px; }
 .equity-chart {
   flex: 1; min-height: 150px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -692,144 +840,209 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .scroll-area { flex: 1; overflow: auto; min-height: 0; }
 
-.data-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12px; }
+.data-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12.5px; }
 .data-table th {
   position: sticky; top: 0;
   background: var(--surface);
-  color: var(--text-dim);
-  font-size: 11px; text-transform: none; letter-spacing: 0.0178571429em;
+  color: var(--text-faint);
+  font-size: 11.5px;
   font-weight: 500;
-  text-align: right; padding: 9px 8px;
+  text-align: right; padding: 8px 8px;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap; font-weight: 700;
+  white-space: nowrap;
 }
 .data-table th:first-child, .data-table td:first-child { text-align: left; }
 .data-table td {
-  padding: 4px 6px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border-soft);
   text-align: right; white-space: nowrap;
 }
+.data-table tbody tr { transition: background var(--t-fast) var(--ease); }
 .data-table tbody tr:hover { background: var(--surface-2); }
 .data-table .pos { color: var(--up); }
 .data-table .neg { color: var(--down); }
 .data-table .muted { color: var(--text-faint); }
 .data-table tbody tr.best { background: var(--accent-soft); }
 
-.table-note { font-size: 11px; color: var(--text-faint); margin: 9px 0 0; line-height: 1.5; }
+.table-note { font-size: 11.5px; color: var(--text-faint); margin: 10px 0 0; line-height: 1.55; }
 
 /* ==================== Paper trading ==================== */
 
 .paper-list { display: grid; gap: 10px; }
 
 .paper-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t) var(--ease);
 }
-.paper-card:hover { border-color: var(--text-faint); }
-.paper-card.stopped { opacity: 0.72; }
+.paper-card:hover { border-color: var(--border); box-shadow: var(--shadow); }
+.paper-card.stopped { opacity: 0.66; }
 
 .paper-card-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
   border-bottom: 1px solid var(--border-soft);
 }
-.paper-name { font-size: 13px; font-weight: 600; }
-.paper-series { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
-.paper-actions { margin-left: auto; display: flex; gap: 4px; }
+.paper-card-head > div:nth-child(2) { min-width: 0; }
+.paper-card .sym-badge { width: 30px; height: 30px; font-size: 10.5px; }
+.paper-name { font-size: 13.5px; font-weight: 600; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; }
+.paper-series { font-size: 12px; color: var(--text-faint); margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paper-series .pill { margin-right: 4px; font-size: 10.5px; padding: 1px 7px; vertical-align: 1px; }
+.paper-actions { display: flex; align-items: center; gap: 2px; }
 
 .pill {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-  font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  white-space: nowrap;
 }
-.pill.running { background: var(--up-soft); color: var(--up); }
+/* Running is a state, not a direction: navy, like every other annotation.
+   Green stays for long positions and gains. */
+.pill.running { background: var(--note-soft); color: var(--note); }
 .pill.stopped { background: var(--surface-2); color: var(--text-faint); }
 .pill.long    { background: var(--up-soft); color: var(--up); }
 .pill.short   { background: var(--down-soft); color: var(--down); }
-.pill.flat    { background: var(--surface-2); color: var(--text-faint); }
+.pill.flat    { background: var(--surface-2); color: var(--text-dim); }
 
-.paper-body { padding: 12px 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; }
-.paper-stat-label { font-size: 11px; color: var(--text-faint); font-weight: 400; }
-/* The number, not its label, is the thing being read. */
-.paper-stat-value {
-  font-size: 15px; font-weight: 600; margin-top: 2px;
-  font-variant-numeric: tabular-nums;
+.paper-body {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
 }
+.paper-stat { min-width: 0; }
+.paper-stat-label { font-size: 11.5px; color: var(--text-faint); font-weight: 400; line-height: 1.3; }
+.paper-stat-value { font-size: 15px; font-weight: 600; margin-top: 3px; letter-spacing: -0.01em;
+  line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .paper-stat-value.pos { color: var(--up); }
 .paper-stat-value.neg { color: var(--down); }
-.paper-note {
-  grid-column: 1 / -1; font-size: 12px; color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
+.paper-note { grid-column: 1 / -1; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+/* The order pad sits inside the two-column stats grid, and without a span it
+   took one column: buy and sell squeezed into half the card, and the stop and
+   target fields cut their own placeholder text off. */
+.paper-body > .ticket { grid-column: 1 / -1; }
+.paper-name { white-space: nowrap; }
 
 /* ==================== Charts ==================== */
 
-/* Row: the drawing rail, then the stack of chart panes beside it. */
 .charts { flex: 1; display: flex; position: relative; min-width: 0; background: var(--surface); }
 .charts-stack { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.chart-pane { position: relative; border-bottom: 1px solid var(--border); }
+.chart-pane { position: relative; border-bottom: 1px solid var(--border-soft); }
 .chart-main { flex: 1; min-height: 200px; }
 #panes { display: flex; flex-direction: column; flex-shrink: 0; }
 #panes .chart-pane { height: 128px; }
 
 .pane-label {
-  position: absolute; top: 6px; left: 12px; z-index: 3;
-  font-family: var(--mono); font-size: 11px; font-weight: 700;
-  color: var(--text-dim); pointer-events: none;
-  background: rgba(255, 255, 255, 0.82);
-  padding: 1px 5px; border-radius: 4px;
+  position: absolute; top: 8px; left: 12px; z-index: 3;
+  font-family: var(--sans); font-size: 11.5px; font-weight: 600;
+  color: var(--text); pointer-events: none;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 7px; border-radius: var(--radius-xs);
 }
 
 .loading {
   position: absolute; inset: 0;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.5);
   display: grid; place-items: center;
   z-index: 20;
+  animation: fadeIn var(--t) var(--ease);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
-.loading[hidden] { display: none; }
+
+/* The wait is the Quant Percent mark, not a sentence.
+
+   "Đang bù 1 234 nến còn thiếu…" in the status line told the reader about the
+   plumbing — how many bars a backfill was fetching — at the moment they only
+   wanted to see a chart. The mark breathes and its diagonal redraws; nothing
+   to read, nothing that implies something is wrong. */
+.qp-loader { width: 46px; height: 46px; overflow: visible; }
+.qp-loader rect {
+  fill: var(--accent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: loaderPulse 1.2s var(--ease) infinite;
+}
+.qp-loader rect:nth-of-type(2) { animation-delay: 0.2s; }
+.qp-loader path {
+  stroke: var(--accent);
+  stroke-width: 16;
+  fill: none;
+  stroke-dasharray: 124;
+  animation: loaderSlash 1.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes loaderPulse {
+  0%, 100% { transform: scale(0.7); opacity: 0.3; }
+  45%      { transform: scale(1);   opacity: 1; }
+}
+@keyframes loaderSlash {
+  0%   { stroke-dashoffset: 124; }
+  55%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -124; }
+}
 .spinner {
-  width: 26px; height: 26px;
-  border: 2px solid var(--border);
+  width: 22px; height: 22px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ==================== Live indicator ==================== */
-
-
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-/* ==================== Toast ==================== */
+/* ==================== Toast ====================
+
+   Always ink. A failure is marked by a red dot rather than by turning the
+   whole message red: a red slab is an alarm, and most of what this says —
+   "restart the server", "data is thin for this symbol" — is advice. */
 
 .toast {
-  position: fixed; bottom: 20px; left: 50%;
+  position: fixed; bottom: 24px; left: 50%;
   transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
   background: var(--accent);
   color: #fff;
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  font-size: 12px;
+  border-radius: var(--radius-md);
+  padding: 11px 18px 11px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
   z-index: 60;
-  box-shadow: 0 8px 24px rgba(22, 25, 29, 0.22);
-  animation: rise 0.18s ease-out;
-  max-width: 70vw;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.34s var(--spring);
+  max-width: min(640px, 80vw);
 }
-.toast.bad { background: var(--down); }
-@keyframes rise {
-  from { opacity: 0; transform: translate(-50%, 8px); }
+.toast::before {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+.toast.bad { background: var(--accent); }
+.toast.bad::before { background: var(--down); box-shadow: 0 0 0 3px rgba(242, 54, 69, 0.3); }
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 14px) scale(0.97); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* ==================== Scrollbars ==================== */
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
+* { scrollbar-width: thin; scrollbar-color: #d6d6da transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d8dce2; border-radius: 4px; border: 2px solid var(--surface); }
-::-webkit-scrollbar-thumb:hover { background: #c3c9d1; }
+::-webkit-scrollbar-thumb {
+  background: #d6d6da; border-radius: 8px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #b9b9bf; background-clip: content-box; }
 
 /* ==================== Top bar fitting ====================
  *
@@ -861,7 +1074,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 /* Compact: the strip is a row of short labels, and the padding was doing more
    work than the text. Narrower buttons also mean fewer symbols need the strip
    to scroll at all. */
-.tf-btn { padding: 3px 7px; font-size: 12px; letter-spacing: 0.1px; }
+.tf-btn { padding: 4px 9px; }
 
 .status {
   overflow: hidden;
@@ -872,14 +1085,10 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 }
 
 .tz-badge {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--text-faint);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 4px;
   flex-shrink: 0;
   cursor: help;
 }
@@ -897,34 +1106,35 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .dialog-backdrop {
   position: fixed; inset: 0;
-  background: rgba(22, 25, 29, 0.34);
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid; place-items: center;
   z-index: 80;
   padding: 24px;
-  animation: fade 0.14s ease-out;
+  animation: fade var(--t) var(--ease);
 }
 .dialog-backdrop[hidden] { display: none; }
 
 .dialog {
   background: var(--surface);
-  border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(22, 25, 29, 0.22);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   width: min(720px, 100%);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  animation: liftIn 0.16s ease-out;
+  animation: liftIn 0.28s var(--spring);
 }
 .dialog-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
+  padding: 18px 22px 12px;
 }
-.dialog-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
-.dialog-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.dialog-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.dialog-body { padding: 6px 22px 18px; overflow-y: auto; flex: 1; }
 .dialog-foot {
-  padding: 12px 18px;
-  border-top: 1px solid var(--border);
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-soft);
   display: flex; gap: 8px; justify-content: flex-end;
 }
 
@@ -950,7 +1160,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes liftIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -1067,7 +1277,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   flex-shrink: 0;
 }
 .star:hover { color: var(--warn); background: var(--surface-2); }
-.star.on { color: #e0a000; }
+.star.on { color: var(--note); }
 .star-sm { font-size: 13px; padding: 1px 2px; }
 .star-lg { font-size: 17px; }
 
@@ -1082,8 +1292,8 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .info-btn {
   border: 0;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text-dim);
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -1091,13 +1301,13 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   font-family: var(--sans);
   font-size: 12px;
   font-weight: 600;
-  font-style: italic;
+  font-style: normal;
   line-height: 1;
   padding: 0;
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
 .info-btn:hover,
 .info-btn[aria-expanded="true"] {
@@ -1125,10 +1335,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .help-section { margin-bottom: 14px; }
 .help-section:last-child { margin-bottom: 0; }
-.help-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--text-faint); font-weight: 700; margin-bottom: 4px;
-}
+.help-label { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
 .help-text { font-size: 13px; line-height: 1.6; margin: 0; }
 .help-section.watch .help-text {
   background: var(--warn-soft);
@@ -1174,7 +1381,9 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .resize-handle:focus-visible { outline: none; }
 
 /* While dragging, stop text selection and pointer events fighting the drag. */
-body.resizing { user-select: none; cursor: col-resize; }
+body.resizing { user-select: none; }
+body.resizing-x, body.resizing-x * { cursor: col-resize !important; }
+body.resizing-y, body.resizing-y * { cursor: row-resize !important; }
 body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 
 /* Pane height comes from the variable the resizer writes. */
@@ -1196,9 +1405,14 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
+  animation: popIn 0.18s var(--ease);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
 
 .xp-head {
@@ -1221,17 +1435,14 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 
 .xp-section { margin-bottom: 11px; }
 .xp-section:last-child { margin-bottom: 0; }
-.xp-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--text-faint); font-weight: 700; margin-bottom: 3px;
-}
+.xp-label { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 3px; }
 .xp-text { font-size: 12px; line-height: 1.6; margin: 0; }
 
 /* Assumptions and caveats are the parts people skip, so they are the parts
    that get a coloured edge rather than the definition at the top. */
 .xp-section.assume .xp-text {
   background: var(--surface-2);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--text);
   padding: 8px 10px;
   border-radius: 0 var(--radius) var(--radius) 0;
   color: var(--text-dim);
@@ -1303,9 +1514,10 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   position: fixed;
   inset: 0;
   z-index: 500;
-  background: rgba(18, 18, 20, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade var(--t) var(--ease);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -1317,10 +1529,11 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: 20px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: liftIn 0.32s var(--spring);
 }
 
 .rp-head {
@@ -1331,15 +1544,15 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   padding: 16px 22px 14px;
   border-bottom: 1px solid var(--border-soft);
 }
-.rp-head h2 { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -0.2px; }
+.rp-head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
 .rp-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 
 .rp-tabs {
   display: flex;
-  gap: 6px;
-  padding: 8px 18px;
+  gap: 4px;
+  padding: 0 22px 12px;
   border-bottom: 1px solid var(--border-soft);
-  background: var(--surface-2);
+  background: var(--surface);
   overflow-x: auto;
   flex-shrink: 0;
 }
@@ -1349,20 +1562,18 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   color: var(--text-dim);
   font-size: 13px;
   font-weight: 500;
-  padding: 7px 16px;
-  border-radius: var(--radius-pill);
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  font-family: inherit;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
-.rp-tab:hover { color: var(--text); background: rgba(0, 0, 0, 0.04); }
-.rp-tab.active {
-  color: #ffffff;
-  background: var(--accent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
+.rp-tab:hover { color: var(--text); background: var(--surface-2); }
+.rp-tab.active { color: #fff; background: var(--accent); }
 
-.rp-body { flex: 1; overflow-y: auto; padding: 16px 18px 22px; }
+.rp-body { flex: 1; overflow-y: auto; padding: 18px 22px 26px; }
+.rp-body > * { animation: fadeIn var(--t) var(--ease); }
 .rp-body .field-group-title { margin-top: 18px; }
 .rp-body .field-group-title:first-child { margin-top: 0; }
 .rp-body .metrics { margin-bottom: 4px; }
@@ -1383,8 +1594,8 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   height: 190px;
   display: block;
   background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: var(--radius-md);
 }
 .rp-svg.tall { height: 260px; }
 /* The fan chart draws two nested percentile bands and two markers on one
@@ -1492,10 +1703,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 
 .pf-row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .pf-row-fields label { display: grid; gap: 3px; min-width: 0; }
-.pf-row-fields span {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-  color: var(--text-faint); font-weight: 600;
-}
+.pf-row-fields span { font-size: 11.5px; color: var(--text-faint); font-weight: 500; }
 /* Softer than the 6px controls elsewhere. The panel's own shape language is
    now a 16px card holding rounded rows; a sharp 6px box inside that reads as
    a leftover from a different design. They also sit on a tinted ground rather
@@ -1730,16 +1938,28 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
  * shuffle sideways on every tick. */
 
 .price-ticker {
-  font-variant-numeric: tabular-nums;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.03em;
   color: var(--text);
   white-space: nowrap;
-  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
-.price-ticker.up   { color: var(--up); }
-.price-ticker.down { color: var(--down); }
+/* The number stays ink. Colouring the whole price by the last tick painted it
+   red beside a green session change on the same screen, which reads as a
+   contradiction. The tick's direction is a small arrow instead. */
+.price-ticker::before {
+  content: '';
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  opacity: 0;
+  transition: opacity var(--t-fast) linear;
+}
+.price-ticker.up::before   { border-bottom: 6px solid var(--up); opacity: 1; }
+.price-ticker.down::before { border-top: 6px solid var(--down); opacity: 1; }
 .price-ticker[hidden] { display: none; }
 
 /* ==================== Chart controls ====================
@@ -1753,7 +1973,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 .chart-tools {
   position: absolute;
   top: 8px;
-  right: 12px;
+  right: 84px;
   z-index: 6;
   display: flex;
   gap: 4px;
@@ -1762,16 +1982,18 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 
 .chip {
   font: inherit;
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
   line-height: 1;
-  padding: 5px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--text-dim);
   cursor: pointer;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   white-space: nowrap;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
 .chip:hover { color: var(--text); border-color: var(--text-faint); }
 .chip.off { color: var(--text-faint); text-decoration: line-through; }
@@ -1784,28 +2006,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
  * Two languages fit as visible options; a dropdown would hide the alternative
  * behind a click for no gain. */
 
-.lang-switch {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.lang-btn {
-  border: 0;
-  border-left: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 10px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.lang-btn:first-child { border-left: 0; }
-.lang-btn:hover { background: var(--accent-tint); color: var(--text); }
-.lang-btn.active { background: var(--accent-soft); color: var(--accent); }
+.lang-switch { flex-shrink: 0; }
 
 /* The annual chart labels one bar per year, so the axis has to wrap rather
    than push the ends off the card. */
@@ -1819,45 +2020,50 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
    fills at that price immediately, so the number on the button is the number
    that matters. Impossible actions are disabled rather than removed, so the
    pad does not reshuffle under the pointer between two clicks. */
+/* One rhythm for the whole pad: 10px between rows, 8px between neighbours,
+   and boxes of matching height. The previous pad mixed 12px-radius buttons,
+   8px inputs and 30px quiet buttons that touched each other, which is what
+   made it look loose. */
 .ticket {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
-.ticket-row { display: flex; gap: 8px; align-items: center; }
+.ticket-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .ticket-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: grid;
-  gap: 2px;
+  justify-items: start;
+  gap: 1px;
   padding: 9px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
   color: #fff;
-  transition: filter 0.15s ease, opacity 0.15s ease;
+  transition: filter var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease);
 }
 .ticket-btn:hover:not(:disabled) { filter: brightness(1.08); }
-.ticket-btn:disabled { cursor: default; opacity: 0.5; }
+.ticket-btn:active:not(:disabled) { transform: scale(0.98); }
+.ticket-btn:disabled { cursor: default; opacity: 0.45; }
 .ticket-btn.buy  { background: var(--up); }
 .ticket-btn.sell { background: var(--down); }
-.ticket-btn.held { opacity: 0.9; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55); }
-.ticket-verb {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; opacity: 0.9;
-}
-.ticket-price { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.ticket-controls { flex-wrap: wrap; }
-.ticket-size { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
-               color: var(--text-dim); }
+.ticket-btn.held { opacity: 1; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.ticket-verb { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.92; line-height: 1.3; }
+.ticket-price { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
+  line-height: 1.3; white-space: nowrap; }
+.ticket-controls { justify-content: space-between; flex-wrap: wrap; row-gap: 8px; }
+.ticket-size { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px;
+               color: var(--text-dim); white-space: nowrap; }
 .ticket-size input {
-  width: 62px; padding: 5px 7px; text-align: right;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text); font: inherit;
+  width: 64px; height: 32px; padding: 0 9px; text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.ticket-note { font-size: 12px; color: var(--text-faint); }
+.ticket-note { font-size: 12px; color: var(--text-faint); line-height: 1.5; }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 
 
@@ -1866,16 +2072,19 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
    A quote reads as one object: the number, then how far it has moved. The
    number is the largest thing in the bar because it is the thing being looked
    at, and it is tabular so it does not reflow its own width on every tick. */
-.price-block { display: inline-flex; align-items: baseline; gap: 8px; }
+.price-block { display: inline-flex; align-items: center; gap: 10px; }
 .price-block[hidden] { display: none; }
 .price-change {
   font-size: 12px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-faint);
+  color: var(--text-dim);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
-.price-change.up   { color: var(--up); }
-.price-change.down { color: var(--down); }
+.price-change.up   { color: var(--up); background: var(--up-soft); }
+.price-change.down { color: var(--down); background: var(--down-soft); }
 
 /* ---------- Symbol badge ----------
 
@@ -1910,6 +2119,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
  * measures its container: a 0-width panel still participates in layout and the
  * chart would keep a gap where it used to be.
  */
+body[data-mode="overview"] #resize-panel,
 body[data-mode="overview"] .rail,
 body[data-mode="overview"] .panel-host,
 body[data-mode="overview"] .chart-tools,
@@ -1919,12 +2129,9 @@ body[data-mode="overview"] #backfill {
 
 /* Overview gives the chart the whole width and a bit of breathing room, the
    way a quote page does. */
-body[data-mode="overview"] .charts {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  margin: 16px;
-  overflow: hidden;
-}
+/* The chart is the page, edge to edge. It used to sit in a bordered card with
+   a margin, which is the frame-around-a-widget look. */
+body[data-mode="overview"] .charts { padding: 6px 6px 0 10px; }
 body[data-mode="overview"] .chart-pane { border-bottom: 0; }
 
 /* The overview needs the symbol and the quote, not the depth controls. */
@@ -1936,7 +2143,7 @@ body[data-mode="overview"] .tz-badge {
 /* A quieter separator between the two halves of the top bar in overview:
    there is much less in it, so the group reads better spaced out. */
 body[data-mode="overview"] .topbar { gap: 24px; }
-body[data-mode="overview"] .price-ticker { font-size: 26px; letter-spacing: -0.6px; }
+body[data-mode="overview"] .price-ticker { font-size: 28px; letter-spacing: -0.04em; }
 body[data-mode="overview"] .price-change { font-size: 13px; }
 
 /* ==================== Top bar at narrow widths ====================
@@ -2226,9 +2433,16 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 .ct-button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 8px 9px;
+  gap: 6px;
+  padding: 0 10px;
+  min-height: 32px;
+  background: var(--surface-2);
+  border-color: transparent;
+  border-radius: var(--radius);
 }
+.ct-button:hover:not(:disabled) { background: var(--surface-3); border-color: transparent; }
+.ct-button[aria-expanded="true"] { background: var(--accent); color: #fff; }
+.ct-button[aria-expanded="true"] .ct-icon { color: #fff; }
 .ct-button::after {
   content: '';
   border: 4px solid transparent;
@@ -2252,11 +2466,12 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   min-width: 232px;
   padding: 6px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   display: grid;
   gap: 1px;
+  animation: popIn 0.18s var(--ease);
   max-height: 70vh;
   overflow-y: auto;
 }
@@ -2277,7 +2492,7 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   text-align: left;
   cursor: pointer;
 }
-.ct-item:hover { background: var(--surface-3); }
+.ct-item:hover { background: var(--surface-2); }
 .ct-item.active { background: var(--accent); color: #fff; }
 .ct-item.active .ct-icon { border-color: currentColor; }
 
@@ -2353,9 +2568,9 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   display: grid;
   align-content: start;
   gap: 6px;
-  padding: 6px 5px;
-  background: var(--surface-2);
-  border-right: 1px solid var(--border);
+  padding: 8px 6px;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -2374,9 +2589,10 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
   color: var(--text-dim);
   cursor: pointer;
   padding: 0;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
 .draw-btn svg { width: 18px; height: 18px; }
-.draw-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+.draw-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .draw-btn.active { background: var(--accent); color: #fff; }
 .draw-btn.on { background: var(--accent-soft); color: var(--accent); }
 .draw-btn.danger:hover:not(:disabled) { background: var(--down-soft); color: var(--down); }
@@ -2390,15 +2606,14 @@ body[data-mode="overview"] .draw-layer { display: none; }
 /* Stop and target sit above the size box, because they are decided before the
    order is sent rather than after — and a position that is already open shows
    the levels it is carrying rather than an empty pair of boxes. */
-.ticket-exits { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ticket-field { display: grid; gap: 3px; font-size: 11px; color: var(--text-dim); }
+.ticket-exits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ticket-field { display: grid; gap: 4px; font-size: 11.5px; color: var(--text-dim); min-width: 0; }
 .ticket-field input {
   width: 100%;
+  min-width: 0;
+  height: 34px;
   text-align: right;
-  padding: 6px 9px;
-  border-radius: var(--radius-md);
-  border-color: transparent;
-  background: var(--surface-2);
+  padding: 0 10px;
   font-variant-numeric: tabular-nums;
 }
 .ticket-field input:focus {
@@ -2429,7 +2644,9 @@ body[data-mode="overview"] .draw-layer { display: none; }
   position: fixed;
   inset: 0;
   z-index: 120;
-  background: rgba(19, 23, 34, 0.34);
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -2440,10 +2657,11 @@ body[data-mode="overview"] .draw-layer { display: none; }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: 20px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: liftIn 0.32s var(--spring);
 }
 .pd-head {
   display: flex;
@@ -2617,18 +2835,9 @@ body[data-mode="overview"] .draw-layer { display: none; }
   user-select: none;
 }
 .field-group.foldable > summary::-webkit-details-marker { display: none; }
-.field-group.foldable > summary::after {
-  content: '';
-  float: right;
-  border: 4px solid transparent;
-  border-top-color: var(--text-faint);
-  margin-top: 5px;
-  transition: transform 0.15s ease;
-}
-.field-group.foldable[open] > summary::after {
-  transform: rotate(180deg);
-  transform-origin: 4px 2px;
-}
+.field-group.foldable > summary { margin-bottom: 0; }
+.field-group.foldable > summary::after { margin-left: auto; }
+.field-group.foldable[open] > summary { margin-bottom: 10px; }
 
 /* ==================== Comparison panes ==================== */
 
@@ -2639,7 +2848,7 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .multi-charts {
   display: grid;
   gap: 1px;
-  background: var(--border);
+  background: var(--border-soft);
   border-bottom: 1px solid var(--border);
   /* `flex: 0 0 38%` rather than `height: 38%`: the parent is a flex column
      whose height comes from its own flex context, so a percentage height
@@ -2657,23 +2866,146 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .mc-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border-soft);
+  gap: 8px;
+  padding: 6px 8px;
 }
 .mc-badge:empty { display: none; }
 .mc-pick {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
   border-radius: var(--radius-xs);
-  color: var(--text);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-  padding: 2px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 26px 4px 9px;
+  background-position: right 9px center;
 }
-.mc-pick:hover { border-color: var(--text-faint); }
 .mc-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mc-plot { flex: 1; min-height: 0; }
+
+/* ==================== Symbol picker ====================
+
+   A searchable list in front of the native <select> (symbol-picker.js). The
+   select stays in the page, hidden, as the source of truth. */
+
+.sp-native { display: none !important; }
+
+.sp-button {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 34px;
+  padding: 0 30px 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355555d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.sp-button:hover { background-color: var(--surface-3); }
+.sp-button[aria-expanded="true"] { background-color: var(--surface); border-color: var(--text); }
+.sp-button.empty { color: var(--text-faint); font-weight: 500; }
+.sp-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#symbol + .sp-button { width: 220px; flex-shrink: 0; }
+.mc-pick + .sp-button { flex: 1; height: 30px; font-size: 12.5px; padding-left: 9px; }
+#mm-add + .sp-button { flex: 1 1 auto; }
+
+.sp-pop {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: popIn 0.16s var(--ease);
+}
+.sp-search { margin: 8px; width: calc(100% - 16px); }
+.sp-list { overflow-y: auto; padding: 0 6px 6px; min-height: 0; }
+.sp-group {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
+  padding: 8px 8px 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-faint);
+}
+.sp-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 0;
+}
+.sp-item.active { background: var(--surface-2); }
+.sp-item[aria-selected="true"] .sp-code::after {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px;
+  border-radius: 50%; background: var(--note); vertical-align: 2px;
+}
+.sp-code { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.sp-name { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-empty { padding: 16px 10px; font-size: 12.5px; color: var(--text-faint); }
+
+/* ==================== Multi-chart sizing and names ==================== */
+
+.multi-charts { position: relative; }
+#resize-mc { margin-top: -3px; }
+
+.mc-col-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  z-index: 5;
+  cursor: col-resize;
+}
+.mc-col-handle::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 4px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--t-fast) var(--ease);
+}
+.mc-col-handle:hover::after, .mc-col-handle.active::after { background: var(--accent); }
+
+/* The working chart's name, shown when it shares the screen with others. */
+.chart-legend {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 4;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px 3px 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+body[data-layout="2"] .chart-legend,
+body[data-layout="4"] .chart-legend { display: inline-flex; }
+.chart-legend .sym-badge { width: 22px; height: 22px; font-size: 9.5px; }
+.chart-legend-tf { color: var(--text-faint); font-weight: 500; }
+
+/* Everything above that moves, stops. Placed last so no later rule can win. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

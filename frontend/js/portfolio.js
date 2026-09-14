@@ -217,9 +217,11 @@ const Portfolio = (() => {
 
   // ---------- result window & visual charts ----------
 
+  // Ink, navy and grey. The allocation is not a direction or a P&L, so it may
+  // not borrow green or red, and it is not decoration, so nothing else either.
   const DONUT_PALETTE = [
-    '#18181b', '#2563eb', '#10b981', '#f59e0b', '#8b5cf6',
-    '#ec4899', '#06b6d4', '#6366f1', '#64748b', '#84cc16'
+    '#000000', '#1c2f5e', '#5b7fc4', '#8ea8dc', '#55555d',
+    '#2f4a8a', '#b3c4e8', '#9d9da5', '#0b1633', '#d4d4d8',
   ];
 
   function polarToCartesian(centerX, centerY, radius, angleInDegrees) {

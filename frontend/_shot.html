@@ -1,0 +1,69 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>screenshot driver</title>
+<!--
+  Opens the app in a frame, puts it in a given state, and leaves it there for
+  a headless screenshot. Only the real controls are clicked: every module is
+  a top-level const, so nothing is reachable as window.X from this frame.
+
+    /static/_shot.html?panel=strategy
+    /static/_shot.html?panel=paper
+    /static/_shot.html?panel=indicators&add=rsi
+    /static/_shot.html?layout=2&pick0=VN:VIC
+    /static/_shot.html?layout=4&pick0=VN:VIC&pick1=VN:G-XAUUSD&pick2=VN:VNINDEX
+    /static/_shot.html?search=vin        (opens the symbol picker and types)
+    /static/_shot.html?fresh=1           (clears the saved session first)
+-->
+<style>html,body{margin:0;overflow:hidden}iframe{border:0;width:100vw;height:100vh;display:block}</style>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get('fresh')) { try { localStorage.removeItem('qp.session.v1'); } catch (e) {} }
+</script>
+<iframe id="app" src="/#trade"></iframe>
+<script>
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const f = document.getElementById('app');
+  let d = null;
+  for (let i = 0; i < 200; i++) {
+    d = f.contentDocument;
+    if (d && d.getElementById('chart-type') && !d.getElementById('splash')) break;
+    await sleep(250);
+  }
+  await sleep(800);
+  const w = f.contentWindow;
+  if (q.get('panel')) d.querySelector(`.rail-btn[data-panel="${q.get('panel')}"]`)?.click();
+  await sleep(500);
+  if (q.get('add')) {
+    for (let i = 0; i < 40 && !d.querySelector(`.cat-item[data-id="${q.get('add')}"]`); i++) await sleep(250);
+    d.querySelector(`.cat-item[data-id="${q.get('add')}"]`)?.click();
+    await sleep(1500);
+  }
+  if (q.get('layout')) {
+    d.querySelector(`[data-layout="${q.get('layout')}"]`)?.click();
+    await sleep(400);
+    for (const i of [0, 1, 2]) {
+      const want = q.get('pick' + i);
+      const sel = d.querySelector(`[data-pick="${i}"]`);
+      if (!want || !sel) continue;
+      for (let k = 0; k < 60 && ![...sel.options].some((o) => o.value === want); k++) await sleep(250);
+      sel.value = want;
+      sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    await sleep(4000);
+  }
+  if (q.get('subtab')) d.querySelector(`[data-subtab="${q.get('subtab')}"]`)?.click();
+  if (q.get('click')) d.querySelector(q.get('click'))?.click();
+  if (q.get('search') !== null && q.get('search') !== '') {
+    const button = d.querySelector('#symbol + .sp-button');
+    button?.click();
+    await sleep(200);
+    const input = d.querySelector('.sp-search');
+    if (input) {
+      input.value = q.get('search');
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+    }
+  }
+  await sleep(900);
+})();
+</script>

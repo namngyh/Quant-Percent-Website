@@ -12,6 +12,7 @@ const Indicators = (() => {
 
   /** instanceId -> { spec, params, error } */
   const active = new Map();
+  let onChange = () => {};
   let counter = 0;
 
   const debounceTimers = new Map();
@@ -91,7 +92,8 @@ const Indicators = (() => {
       const holdsActive = specs.some((spec) => activeIds.has(spec.id));
       const open = query || holdsActive || group.startsWith('★') || openGroups.has(group);
       html += `<details class="cat-group"${open ? ' open' : ''} data-group="${escapeHtml(group)}">`
-        + `<summary class="cat-group-name">${escapeHtml(group)} · ${specs.length}</summary>`;
+        + `<summary class="cat-group-name"><span>${escapeHtml(group)}</span>`
+        + `<span class="cat-count">${specs.length}</span></summary>`;
       for (const spec of specs) {
         const on = activeIds.has(spec.id) ? ' on' : '';
         const plugin = spec.source === 'plugin' ? ' plugin' : '';
@@ -131,19 +133,41 @@ const Indicators = (() => {
 
   // ---------- Active instances ----------
 
-  function add(indicatorId) {
+  /* `initial` carries tuned parameters back in when a session is restored.
+     Only names the spec still declares are taken: a stored value for a
+     parameter the plugin has since dropped would be sent to code that no
+     longer expects it. */
+  function add(indicatorId, initial = null) {
     const spec = catalog.find((s) => s.id === indicatorId);
     if (!spec) return;
 
     counter += 1;
     const instanceId = `${spec.id}#${counter}`;
     const params = {};
-    for (const p of spec.params) params[p.name] = p.default;
+    for (const p of spec.params) {
+      const kept = initial && Object.prototype.hasOwnProperty.call(initial, p.name)
+        ? initial[p.name] : undefined;
+      params[p.name] = kept === undefined ? p.default : kept;
+    }
 
     active.set(instanceId, { spec, params, error: null });
     renderActive();
     renderCatalog();
     compute(instanceId);
+    onChange();
+  }
+
+  /** What is on the chart, in a form that survives a reload. */
+  function snapshot() {
+    return [...active.values()].map((i) => ({ id: i.spec.id, params: { ...i.params } }));
+  }
+
+  /** Put a snapshot back. Entries the catalogue no longer has are skipped. */
+  function restore(list) {
+    if (!Array.isArray(list)) return;
+    for (const entry of list) {
+      if (entry && catalog.some((s) => s.id === entry.id)) add(entry.id, entry.params);
+    }
   }
 
   function remove(instanceId) {
@@ -151,6 +175,7 @@ const Indicators = (() => {
     onRemove(instanceId);
     renderActive();
     renderCatalog();
+    onChange();
   }
 
   function clearAll() {
@@ -158,6 +183,7 @@ const Indicators = (() => {
     active.clear();
     renderActive();
     renderCatalog();
+    onChange();
   }
 
   async function compute(instanceId) {
@@ -217,7 +243,7 @@ const Indicators = (() => {
 
     let html = '';
     for (const [instanceId, { spec, params, error }] of active) {
-      const color = spec.outputs?.[0]?.color || '#2962ff';
+      const color = spec.outputs?.[0]?.color || '#1c2f5e';
       html += `<div class="active-item" data-instance="${escapeHtml(instanceId)}">`;
       html += `<div class="active-head">
           <span class="swatch" style="background:${escapeHtml(color)}"></span>
@@ -283,6 +309,7 @@ const Indicators = (() => {
         if (readout) readout.textContent = String(value);
 
         debounce(instanceId, () => compute(instanceId));
+        onChange();
       });
     }
   }
@@ -296,6 +323,7 @@ const Indicators = (() => {
 
   function init(config) {
     elements = config.elements;
+    onChange = config.onChange || (() => {});
     onCompute = config.onCompute;
     onRemove = config.onRemove;
     onExplain = config.onExplain || (() => {});
@@ -309,5 +337,5 @@ const Indicators = (() => {
     renderActive();
   }
 
-  return { init, setCatalog, recomputeAll, clearAll, active, rerender };
+  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore };
 })();

@@ -208,7 +208,7 @@ def _():
 # Telegram setup notes. Recording the number here rather than skipping the file
 # keeps the debt visible, stops it growing, and shrinks to nothing by lowering
 # this line. Set it to 0 and delete the entry when app.js is finished.
-BUDGET = {'app.js': 70}
+BUDGET = {'app.js': 68}
 
 
 @check("no file gains an untranslated string, and the remaining debt does not grow")

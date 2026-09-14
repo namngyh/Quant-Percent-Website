@@ -17,6 +17,7 @@ const Markets = (() => {
   let onToast = () => {};
   let chosen = [];            // symbol ids, in the order they were added
   let lastResult = null;
+  let showOutput = () => {};
 
   const esc = (value) =>
     String(value ?? '').replace(/[&<>"']/g, (c) => (
@@ -90,6 +91,16 @@ const Markets = (() => {
   async function run() {
     if (chosen.length < 2) return;
     const { timeframe } = context();
+
+    /* Show where the answer will appear before asking for it.
+
+       The run button lives in the Strategy panel and the table is drawn into
+       the Results panel. Nothing switched between them, so a run that
+       succeeded in three seconds looked exactly like a button that did
+       nothing — the output was being written into a panel nobody could see.
+       Measured: the endpoint returned 200 with all three markets while the
+       screen stayed unchanged. */
+    showOutput();
 
     elements.output.innerHTML = `<p class="empty">${esc(
       t('mm.running', { n: chosen.length }))}</p>`;
@@ -213,6 +224,7 @@ const Markets = (() => {
   function init(config) {
     elements = config.elements || {};
     onToast = config.onToast || (() => {});
+    showOutput = config.onShowOutput || (() => {});
     elements.context = config.context;
 
     elements.add?.addEventListener('change', () => {

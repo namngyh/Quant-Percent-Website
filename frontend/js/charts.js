@@ -18,23 +18,34 @@ const ChartManager = (() => {
 
   const toChart = (epochSeconds) => epochSeconds + TZ_OFFSET_SECONDS;
 
+  /* The axis speaks the interface's typeface, not a monospace one.
+
+     A code face on the price scale made every label look like a debug
+     readout, and it was a third family on a screen that otherwise has one.
+     Be Vietnam Pro's figures are tabular when asked, so the scale's digits
+     still line up column by column. Grid and borders are the same greys the
+     stylesheet uses, so the plot does not read as a pasted-in widget. */
+  const FONT = "'Be Vietnam Pro', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif";
+
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
-      textColor: '#5b646e',
+      textColor: '#72727a',
       fontSize: 11,
-      fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+      fontFamily: FONT,
     },
+    // No grid behind the candles (Nam, 2026-09-14). The price axis and the
+    // crosshair already say where a value is; the lattice was only noise.
     grid: {
-      vertLines: { color: '#f0f2f5' },
-      horzLines: { color: '#f0f2f5' },
+      vertLines: { visible: false },
+      horzLines: { visible: false },
     },
-    rightPriceScale: { borderColor: '#e2e5ea' },
-    timeScale: { borderColor: '#e2e5ea' },
+    rightPriceScale: { borderColor: '#ececee' },
+    timeScale: { borderColor: '#ececee' },
     crosshair: {
       mode: 0, // free-moving crosshair
-      vertLine: { color: '#a8b0ba', width: 1, style: 3, labelBackgroundColor: '#16191d' },
-      horzLine: { color: '#a8b0ba', width: 1, style: 3, labelBackgroundColor: '#16191d' },
+      vertLine: { color: '#9a9aa2', width: 1, style: 2, labelBackgroundColor: '#000000' },
+      horzLine: { color: '#9a9aa2', width: 1, style: 2, labelBackgroundColor: '#000000' },
     },
   };
 
@@ -197,6 +208,17 @@ const ChartManager = (() => {
 
   function init(container) {
     mainChart = LightweightCharts.createChart(container, { ...THEME });
+
+    /* Canvas text is measured with whatever face is loaded at the moment it
+       is first drawn. The font is served locally and usually wins that race,
+       but when it does not, the axis would keep the fallback's metrics for
+       the whole session; re-applying the family once fonts settle re-measures
+       it. */
+    document.fonts?.ready.then(() => {
+      for (const chart of allCharts()) {
+        chart.applyOptions({ layout: { fontFamily: FONT } });
+      }
+    });
     trackSize(mainChart, container);
 
     buildPriceSeries(priceType);
@@ -285,9 +307,12 @@ const ChartManager = (() => {
 
      Kept in a Map keyed by instance so redrawing one (a parameter change,
      a recompute) does not renumber the others under it. */
+  /* Navy only, alternating dark and light so neighbours still separate.
+     Indicator lines are annotations on the price, and annotations are navy
+     (Nam, 2026-09-14): no orange, purple or teal competing with the candles. */
   const PALETTE = [
-    '#2962ff', '#ef6c00', '#7b1fa2', '#0097a7',
-    '#f9a825', '#c2185b', '#5d4037', '#455a64',
+    '#1c2f5e', '#5b7fc4', '#0b1633', '#8ea8dc',
+    '#2f4a8a', '#b3c4e8', '#15244a', '#46659f',
   ];
   const instanceOffset = new Map();
   let nextOffset = 0;
@@ -390,6 +415,16 @@ const ChartManager = (() => {
        you back to two thousand candles a few pixels wide, so the zoom had to
        be redone on every switch. The mode already knows which framing it
        wants; loading data should not override it. */
+    /* A new series always starts with the price scale following its data.
+
+       Dragging the plot vertically switches the scale to a manual range, and
+       that range survived loading a different instrument: a scale frozen at
+       75 000–80 000 from Bitcoin leaves a Vietnamese stock at 250 entirely
+       off-screen, with only its volume (on its own scale) still visible —
+       which is what "the candles disappeared after switching" looks like.
+       A manual range is a choice about one series and ends with it. */
+    mainChart.priceScale('right').applyOptions({ autoScale: true });
+
     if (mode === 'overview') mainChart.timeScale().fitContent();
     else focusRecent();
   }
@@ -1022,13 +1057,13 @@ const EquityChart = (() => {
     chart = LightweightCharts.createChart(container, {
       layout: {
         background: { color: '#ffffff' },
-        textColor: '#949ca6',
+        textColor: '#9a9aa2',
         fontSize: 10,
-        fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+        fontFamily: FONT,
       },
       grid: {
-        vertLines: { color: '#f4f6f8' },
-        horzLines: { color: '#f4f6f8' },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
       rightPriceScale: { borderColor: '#e2e5ea' },
       timeScale: { borderColor: '#e2e5ea', timeVisible: true, secondsVisible: false },

@@ -116,6 +116,8 @@
 
   async function loadCandles() {
     setLoading(true);
+    Session.patch({ symbol: state.symbol, timeframe: state.timeframe });
+    paintLegend();
     const requested = `${state.symbol}|${state.timeframe}`;
     try {
       const data = await API.candles({
@@ -210,6 +212,21 @@
     // The backend tags each output with the pane it belongs in, so one call
     // handles overlays, panels, and indicators that mix the two.
     ChartManager.draw(instanceId, result, el.panes);
+  }
+
+  /* The working chart's name, for layouts where it shares the screen. Built
+     from nodes rather than a template string, so a symbol can never be read
+     as markup. */
+  function paintLegend() {
+    const node = document.getElementById('main-legend');
+    if (!node || !state.symbol) return;
+    node.innerHTML = Paper.symbolBadge(state.symbol);
+    const name = document.createElement('span');
+    name.textContent = state.symbol.replace(/^VN:/, '');
+    const frame = document.createElement('span');
+    frame.className = 'chart-legend-tf';
+    frame.textContent = state.timeframe || '';
+    node.append(name, frame);
   }
 
   // ---------- Live ----------
@@ -329,17 +346,29 @@
     const host = document.getElementById('multi-charts');
     if (!host) return;
 
-    MultiChart.init({ host, timeframe: state.timeframe });
+    MultiChart.init({
+      host,
+      timeframe: state.timeframe,
+      rowHandle: document.getElementById('resize-mc'),
+      onResize: () => ChartManager.refreshSize(),
+    });
+
+    const markLayout = (chosen) => {
+      for (const b of document.querySelectorAll('[data-layout]')) {
+        b.classList.toggle('active', Number(b.dataset.layout) === chosen);
+      }
+      document.body.dataset.layout = String(chosen);
+      ChartManager.refreshSize();
+    };
 
     for (const button of document.querySelectorAll('[data-layout]')) {
       button.addEventListener('click', () => {
-        const chosen = MultiChart.setLayout(Number(button.dataset.layout));
-        for (const b of document.querySelectorAll('[data-layout]')) {
-          b.classList.toggle('active', Number(b.dataset.layout) === chosen);
-        }
-        ChartManager.refreshSize();
+        markLayout(MultiChart.setLayout(Number(button.dataset.layout)));
       });
     }
+
+    // The layout, its markets and the sizes they were dragged to come back.
+    markLayout(MultiChart.restore(Session.saved.multi));
   }
 
   /* Say when the minute data behind this chart is not what it looks like.
@@ -670,6 +699,7 @@
       const [catalog] = await Promise.all([API.catalog(), Strategy.load()]);
       Indicators.setCatalog(catalog);
       renderComparePicker();
+      restoreWorkingState();
     })().catch((err) => {
       // Let the next attempt try again rather than leaving the panels empty
       // for the rest of the session.
@@ -679,9 +709,22 @@
     return workingViewLoaded;
   }
 
+  /* Indicators and the strategy come back once, the first time their
+     catalogues exist. Later openings of the working view find them already on
+     the chart; restoring again would stack a second copy of every indicator. */
+  let workingStateRestored = false;
+
+  function restoreWorkingState() {
+    if (workingStateRestored) return;
+    workingStateRestored = true;
+    if (!Indicators.active.size) Indicators.restore(Session.saved.indicators);
+    Strategy.restore(Session.saved.strategy);
+  }
+
   function setViewMode(next) {
     const mode = ChartManager.setMode(next);
     document.body.dataset.mode = mode;
+    Session.patch({ mode });
     // Reflected in the URL so a working session can be bookmarked or reloaded
     // straight back into the working view instead of via the overview.
     const hash = mode === 'trading' ? '#trade' : '';
@@ -833,6 +876,13 @@
         timeframes: vn.timeframes,
         index: new Map(vn.symbols.map((s) => [s.id, s])),
       };
+      // Now the real frames for a VN symbol are known; if the one on screen is
+      // not among them after all, switch and reload rather than chart nothing.
+      if (isVN(state.symbol)) {
+        const before = state.timeframe;
+        buildTimeframeButtons();
+        if (state.timeframe !== before) loadCandles();
+      }
 
       const label = (s) => `${s.symbol}${s.name && s.name !== s.symbol ? ' · ' + s.name : ''}`;
 
@@ -943,22 +993,26 @@
     if (catchingUp || !data.can_backfill || !data.bars_behind) return false;
 
     catchingUp = true;
+    /* The wait is shown as the loading mark, not as a sentence.
+
+       "Đang bù 1 234 nến còn thiếu…" followed by "Đã tự bù 1 234 nến" narrated
+       the plumbing to someone who only wanted the chart. Nam called it
+       unprofessional, and it is: how many rows a backfill fetched is not a
+       thing a reader acts on. The mark says "wait" and nothing else. */
+    setLoading(true);
     try {
-      setStatus(t('status.catchUp', { n: data.bars_behind.toLocaleString() }), 'busy');
       const report = await API.backfill({
         symbols: [state.symbol],
         timeframes: [state.timeframe],
       });
-      if (report.total_rows > 0) {
-        toast(`Đã tự bù ${report.total_rows.toLocaleString('vi-VN')} nến`);
-        return true;
-      }
-      return false;
+      return report.total_rows > 0;
     } catch (err) {
-      setStatus(`Không bù được dữ liệu: ${err.message}`, 'error');
+      setStatus(L(`Không bù được dữ liệu: ${err.message}`,
+                  `Could not fill the missing bars: ${err.message}`), 'error');
       return false;
     } finally {
       catchingUp = false;
+      setLoading(false);
     }
   }
 
@@ -1469,9 +1523,12 @@ def signals(df, params):
 
     if (toggle && current === name && !host.classList.contains('collapsed')) {
       host.classList.add('collapsed');      // clicking the open one closes it
+      for (const btn of document.querySelectorAll('.rail-btn')) btn.classList.remove('active');
       ChartManager.refreshSize();           // the chart just gained the space
+      Session.patch({ panel: null });
       return;
     }
+    Session.patch({ panel: name });
 
     host.classList.remove('collapsed');
     for (const btn of document.querySelectorAll('.rail-btn')) {
@@ -1563,7 +1620,16 @@ def signals(df, params):
   // ---------- Controls ----------
 
   function buildTimeframeButtons() {
-    const allowed = allowedTimeframes(state.symbol);
+    let allowed = allowedTimeframes(state.symbol);
+
+    /* Before the Vietnamese catalogue arrives every VN symbol looks daily-only
+       (`timeframesFor` has nothing else to offer yet). Clamping then threw a
+       restored session's 15m back to 1d on every reload. Until the catalogue
+       says otherwise, the chosen frame is trusted; `loadVnSymbols` rebuilds
+       these buttons when it lands and corrects a frame that truly is absent. */
+    if (isVN(state.symbol) && !markets.vn && state.timeframe && !allowed.includes(state.timeframe)) {
+      allowed = [...allowed, state.timeframe];
+    }
 
     // Keep the current timeframe if this symbol has it; otherwise fall back to
     // one it does, rather than charting a frame that will come back empty.
@@ -1642,6 +1708,16 @@ def signals(df, params):
     }, wait);
   }
 
+  /* Resolves when the Vietnamese catalogue has arrived or failed. The splash
+     waits on it (see the end of `start`). */
+  let vnReady = Promise.resolve();
+
+  /* How long the opening screen will wait for data before letting the user in
+     anyway. The VN database sits behind a VPN; when the VPN is off its request
+     can take the backend's full timeout to fail, and a splash that never
+     leaves is worse than an app that opens and says what is missing. */
+  const SPLASH_CAP_MS = 20000;
+
   async function start() {
     // Language first: everything below reads from the dictionary, and a panel
     // built before the language is known would render in the wrong one and
@@ -1678,6 +1754,7 @@ def signals(df, params):
       context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
       withButton,
       onToast: toast,
+      onShowOutput: () => showResults('markets'),
     });
     setupMarkerControls();
     ChartManager.init(el.chartMain);
@@ -1732,9 +1809,14 @@ def signals(df, params):
       onCompute: computeIndicator,
       onRemove: (instanceId) => ChartManager.remove(instanceId),
       onExplain: explain,
+      onChange: () => Session.patch({ indicators: Indicators.snapshot() }),
     });
 
     Strategy.init({
+      onChange: () => {
+        const snap = Strategy.snapshot();
+        if (snap) Session.patch({ strategy: snap });
+      },
       elements: {
         select: document.getElementById('strategy-select'),
         desc: document.getElementById('strategy-desc'),
@@ -1843,12 +1925,21 @@ def signals(df, params):
     try {
       splashSay('Đang đọc cấu hình…');
       const config = await API.config();
-      state.symbol = config.default_symbol;
-      state.timeframe = config.default_timeframe;
+      // The last session's series, when there was one.
+      state.symbol = Session.saved.symbol || config.default_symbol;
+      state.timeframe = Session.saved.timeframe || config.default_timeframe;
       state.limit = Number(el.limit.value);
 
       loadCryptoSymbols(config);
       el.symbol.value = state.symbol;
+      SymbolPicker.attach(el.symbol);
+      // The manual-trading button names the market on screen. It was only
+      // refreshed on a symbol *change*, so at start-up it sat disabled reading
+      // "pick a market first" with BTCUSDT already on the chart.
+      Paper.refreshManualButton();
+      SymbolPicker.attach(document.getElementById('mm-add'), {
+        placeholder: () => L('Thêm thị trường…', 'Add a market…'),
+      });
       buildTimeframeButtons();
 
       /* Everything below this line used to be awaited one after another before
@@ -1860,7 +1951,7 @@ def signals(df, params):
          sequence, and the VN names and paper sessions arrive whenever they
          arrive — each one merges into a screen that is already usable. */
       refreshStars();
-      loadVnSymbols();
+      vnReady = loadVnSymbols();
       // An open position has to appear on the chart at start-up, not only
       // after someone opens the Paper panel.
       Paper.refresh().then(drawPositionLines);
@@ -2008,7 +2099,10 @@ def signals(df, params):
     // Overview first: the chart is the only thing that had to be fetched to
     // get here, and it is the only thing on screen until the user asks for
     // more.
-    setViewMode(window.location.hash === '#trade' ? 'trading' : 'overview');
+    const reopenTrading = window.location.hash === '#trade' || Session.saved.mode === 'trading';
+    setViewMode(reopenTrading ? 'trading' : 'overview');
+    // The panel that was open comes back open; none means the rail stays shut.
+    if (reopenTrading && Session.saved.panel) openPanel(Session.saved.panel);
 
     /* Realtime is on from the start, for whatever symbol is open.
 
@@ -2018,7 +2112,21 @@ def signals(df, params):
        one that is, is worse than no chart. Both markets are covered: Binance
        pushes, the HOSE database is polled. */
     Live.setEnabled(true);
-    await loadCandles();
+
+    /* The opening screen leaves when the data is in, not when a timer says.
+
+       It used to leave as soon as the first chart had drawn, while the
+       Vietnamese catalogue, the indicator and strategy catalogues and a
+       restored session were still arriving — so the app appeared, then
+       reshuffled itself as each of those landed. Nam asked for the splash to
+       stay until the database has loaded. Capped, because a VPN that is off
+       must not keep the door shut forever. */
+    const ready = Promise.allSettled([
+      loadCandles(),
+      vnReady,
+      ChartManager.mode === 'trading' ? loadWorkingView() : null,
+    ]);
+    await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, SPLASH_CAP_MS))]);
     dismissSplash();
   }
 

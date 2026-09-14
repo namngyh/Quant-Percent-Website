@@ -210,6 +210,111 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-17 (tối) — Thiết kế lại giao diện, và 12 mục Nam giao
+
+**326 test Python** + **160 render check**, không lỗi. Chín nhóm probe trình duyệt mới trong `frontend/_probe.html` (`?only=<nhóm>`).
+
+#### Thiết kế lại: "mực trên giấy"
+
+Cái "nhựa" không nằm ở màu mà ở **cạnh**: mọi điều khiển là một hộp có viền,
+mọi nhóm là hộp có viền trong một panel có viền, bo góc lệch nhau từng chút.
+Giờ cấu trúc đến từ khoảng trống và nền xám nhạt; viền chỉ còn ở chỗ mang
+thông tin (quanh biểu đồ, dưới tiêu đề bảng).
+
+- **Một font: Be Vietnam Pro**, vẽ riêng cho tiếng Việt (dấu chồng ế/ộ/ữ nằm
+  đúng chỗ). Để **local** ở `frontend/fonts/` (12 file, **185KB**), không gọi
+  Google Fonts — link đó từng đo 319ms trên đường tải (mục 2026-09-15). Trục giá
+  của biểu đồ cũng dùng font này thay cho font code.
+- **Chuyển động chỉ để trả lời thao tác**: thanh chọn khung thời gian có một
+  "viên" đen trượt tới lựa chọn mới (`frontend/js/ui.js`), panel mở thì trượt
+  vào, hộp thoại nổi lên. Không có gì tự chuyển động. `prefers-reduced-motion`
+  tắt hết.
+- Giá trên thanh trên luôn màu mực; hướng tick là một mũi tên nhỏ. Trước đây giá
+  đỏ đứng cạnh phần trăm xanh trên cùng một màn hình.
+
+*Ba lỗi chỉ ảnh chụp mới bắt được:* `text-transform: capitalize` biến "Của bạn"
+thành "Của **B**ạn" (sai tiếng Việt → chỉ viết hoa chữ đầu); bảng đặt lệnh Paper
+nằm trong lưới 2 cột nên chỉ chiếm **nửa thẻ**, ô cắt lỗ/chốt lời cắt mất chữ
+gợi ý; tiêu đề panel xuống dòng làm tách đôi cụm nút.
+
+#### Lỗi "1 biểu đồ mà không full màn hình"
+
+`.multi-charts { display: grid }` **đè lên thuộc tính `hidden`** (thuộc tính đó
+chỉ có độ ưu tiên của selector thẻ). Ở chế độ 1 khung, dải so sánh vẫn chiếm chỗ:
+
+| | Trước | Sau |
+|---|---|---|
+| Dải so sánh ở chế độ 1 | **321px** | **0px** |
+| Biểu đồ chính | 521px | **842px** |
+
+Sáu thành phần đã tự thêm rule `[hidden]` riêng sau từng lần gặp lỗi; giờ có
+**một** rule `[hidden] { display: none !important }` đóng cả lớp lỗi này.
+*Probe cũ của tôi báo "đã ẩn"* vì nó đọc `el.hidden` chứ không đo chiều cao —
+đo sai đại lượng (§2.1).
+
+#### 12 mục
+
+| # | Mục | Kết quả đo |
+|---|---|---|
+| 1 | "Chạy nhiều thị trường không ra gì" | API **luôn chạy đúng** (200, 3,1s, đủ mã). Bảng được ghi vào panel **Kết quả** trong khi nút nằm ở panel **Chiến lược** → màn hình không đổi. Giờ tự mở đúng tab: probe thấy `panel=results, tab=markets`, 4 dòng |
+| 2 | Chỉ vào khi database đã tải | Splash chờ nến + danh sách mã VN (+ catalog nếu mở chế độ Giao dịch), **trần 20s** để VPN tắt không khoá cửa mãi. Probe: splash rời **sau** khi dữ liệu về |
+| 3 | Tìm mã | `symbol-picker.js`: bỏ dấu, bỏ `VN:`, mã khớp chính xác xếp trước. "vic"→VIC đầu, "VN30F"→4 hợp đồng, Enter nạp VIC. Dùng cho cả ô chọn mã chính, ô so sánh và ô thêm thị trường |
+| 4 | Bỏ "Đang bù n nến…" | Thay bằng logo Quant Percent đang tải; bỏ luôn toast "Đã tự bù n nến" |
+| 5 | Mặc định không mở panel trái | Đã đóng; panel mở lần trước thì mở lại |
+| 6 | Paper trading | Nhịp đều 10/8px, ô cao bằng nhau, số không xuống dòng, trạng thái chuyển xuống dưới tên; con trỏ **cố định** trong suốt lúc kéo panel; bề rộng tối thiểu 260→300px |
+| 7 | Chỉ đen/trắng, xanh-đỏ cho nến, navy cho chú thích | `--warn` giờ trỏ về `--note` (navy `#1c2f5e`); bỏ vàng/cam; bảng màu chỉ báo (cả `backend/indicators/base.py`), huy hiệu mã, biểu đồ tròn danh mục đều thành sắc navy |
+| 8 | Mất nến khi đổi mã/khung | **CHƯA tái hiện được** — xem dưới |
+| 9 | Khung thứ 2 không full | Ô được tạo lấy bề rộng **một lần** lúc dựng → giờ `autoSize`. Probe: 3 ô 426px ở cửa sổ 1500px |
+| 10 | Reload không mất việc | `session.js`. Probe dựng phiên VIC 15m + panel Chiến lược + `fast=5` + RSI + 2 khung VNINDEX, reload → **giữ nguyên toàn bộ** |
+| 11 | Bỏ ô li sau nến | Tắt lưới ở biểu đồ chính, ô so sánh, đường vốn |
+| 12 | Kéo giãn khung 2/4, tên mã mỗi khung | Kéo xuống 120px → dải +120 / biểu đồ −120; kéo cột 200px → 426/426/426 thành **626/226/426**; nhấp đúp về mặc định. Khung chính có nhãn tên mã + khung thời gian |
+
+**Mục 10, lần đo đầu mất hai thứ** và cả hai đã sửa: khung 15m quay về 1d (trước
+khi danh sách VN về, mọi mã VN trông như chỉ có nến ngày nên bị ép về 1d), và ô so
+sánh mất tên (gán giá trị trước khi `<select>` có option, rồi giữ nguyên giá trị
+rỗng đó khi dựng lại).
+
+**Phạm vi thật của mục 10** (§2.7): giữ mã, khung, chế độ, panel đang mở, chỉ báo +
+tham số, chiến lược + tham số, bố cục 1/2/4 + mã + kích thước (cộng các thứ vốn đã
+nhớ: kiểu biểu đồ, hình vẽ, dấu sao, bề rộng panel, ngôn ngữ). **Chưa giữ**: các ô
+nhập của Danh mục, khoảng ngày/chi phí backtest, code đang soạn dở trong trình
+viết code, cửa sổ báo cáo đang mở.
+
+#### Mục 8 — chưa tái hiện được, không nhận là đã sửa
+
+Theo §2.2, cả ba lần đo đều **không** ra lỗi:
+
+1. Đổi mã/khung nhanh và chậm, đếm điểm ảnh màu nến: có nến sau mọi lần đổi.
+   *Lần đầu probe báo 0 ở cả 8 bước* — sai của probe: nó chọn "canvas lớn nhất",
+   mà `#chart-main` có lớp vẽ hình (`.draw-layer`) trong suốt cùng kích thước.
+   Hai cặp số trùng khít (13 533, 10 708) cũng cho thấy headless chưa chắc đã vẽ
+   lại kịp, nên phép đo này không đủ để kết luận "không có lỗi".
+2. Giả thuyết từ ảnh của Nam: trục giá đứng ở 75,5k–79,75k trong khi khung nhìn
+   là tháng 6 (BTC ~60k) → **thang giá đã thôi tự co giãn** (kéo dọc biểu đồ làm
+   Lightweight Charts tắt autoscale), nến vẫn còn nhưng nằm ngoài khung. Đo trực
+   tiếp `priceScale().options().autoScale` qua `w.eval('ChartManager')`: sau khi
+   kéo dọc rồi đổi mã, autoscale **vẫn bật**, nến **trong khung**. Có thể sự kiện
+   chuột giả không kích hoạt được cơ chế đó — chưa loại trừ.
+
+Đã thêm một chốt chặn đúng về nguyên tắc dù chưa chứng minh được là nguyên nhân:
+**mỗi lần nạp chuỗi mới đều bật lại autoscale** — một thang giá chỉnh tay là lựa
+chọn cho một chuỗi, không được mang sang mã khác. **Cần Nam cho các bước chính xác**
+(kéo/cuộn biểu đồ trước khi đổi không, đang ở kiểu biểu đồ nào, đổi bằng ô chọn
+hay sao).
+
+#### Giới hạn dữ liệu lộ ra khi làm ô tìm mã
+
+Gõ "vingroup" không ra VIC — **không phải lỗi ô tìm**: `v_quote` trả `name = "VIC"`
+cho VIC, và chỉ **357/1 726** mã có tên công ty thật. Tìm theo tên công ty chỉ tốt
+tới mức database có tên.
+
+#### Còn tồn
+
+- Dòng mô tả dưới tên phiên Paper vẫn cắt tên thị trường ("BTCUS…") khi có nhãn
+  trạng thái và nút Dừng ở bên phải.
+- Hai file probe `frontend/_probe.html` và `frontend/_shot.html` (điều khiển ảnh
+  chụp) được giữ lại có chủ ý.
+
 ### 2026-09-17 — Bốn việc: đen trắng, Paper, đa khung, tab Học máy; và 16 chỉ số lên giao diện
 
 **326 test Python** (trước 291) + **160 render check** (trước 109), không lỗi.
