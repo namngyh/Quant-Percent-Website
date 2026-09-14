@@ -181,12 +181,83 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
   Mỗi mã có hồ sơ phiên riêng: cổ phiếu bắt đầu 02:15 (ATO), phái sinh 02:00,
   nhóm `G-` chạy gần 24/5. Đừng áp hồ sơ của mã này lên mã khác.
 - Giá niêm yết theo **nghìn đồng** (VIC 256.1 = 256 100 đ).
+- **GIÁ KHÔNG ĐIỀU CHỈNH CHIA TÁCH / CỔ TỨC CỔ PHIẾU.** `api.v_history_1d` trả
+  giá thô. Biên độ trần là 7% (HOSE), 10% (HNX), 15% (UPCOM), nên **mọi bước
+  nhảy quá 20% trong một phiên là một sự kiện doanh nghiệp, không phải biến
+  động thị trường**:
+
+  | Mã | Phiên | Giá | Tỷ lệ |
+  |---|---|---|---|
+  | VNX | 2026-04-13 | 13,30 → 0,30 (−97,7%) | 44,33:1 |
+  | CMN | 2026-06-11 | 82,10 → 28,70 (−65,0%) | 2,86:1 |
+  | VIC | 2025-12-05 | 267,00 → 142,80 (−46,5%) | 1,87:1 |
+
+  Đo được: **540 lần trên 320/1 533 mã (21%) chỉ trong 400 ngày gần nhất.**
+
+  Hậu quả, theo thứ tự tốn tiền: một backtest đi qua ngày chia tách nhìn thấy
+  một cú sập −46% **không có thật** và sẽ bán, dừng lỗ, hoặc bị thanh lý nếu có
+  đòn bẩy; các chỉ số mô men bậc cao (skew, kurtosis) của danh mục mô tả chính
+  cú nhảy giả đó chứ không mô tả rủi ro; và biến động cuộn vọt lên những mức
+  không có nghĩa (đo được 104,5%/năm trên một danh mục bốn mã lớn).
+
+  **Chưa có bản sửa.** Điều chỉnh lại đòi hỏi lịch sử sự kiện doanh nghiệp mà
+  schema `api` không có. Trước khi tin bất kỳ kết quả nào trên cổ phiếu VN dài
+  hơn vài tháng, phải kiểm mã đó có bước nhảy quá biên độ trần hay không.
 
 ---
 
 ## 4. Báo cáo
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
+
+### 2026-09-16 (tiếp) — Chỉ số danh mục, và bốn việc Nam vừa giao
+
+#### Đã xong trong vòng này
+
+`backend/portfolio/metrics.py` — 11 chỉ số còn thiếu so với bảng Nam đưa, nối
+vào `analyse()` dưới khoá `performance`. Đo trên danh mục thật (VIC/VNM/FPT/HPG,
+500 phiên, benchmark VNINDEX):
+
+| | |
+|---|---|
+| CAGR | 79,08% |
+| Sharpe / Sortino / Calmar | 1,228 / 1,498 / 1,755 |
+| Information Ratio | 0,978 (tracking error 41,44%) |
+| Alpha | 36,97% |
+| Upside / Downside capture | 133,2% / 96,8% (274 phiên tăng, 225 giảm) |
+| Rolling Sharpe spread | 8,402 — biến động cuộn 9,5%–104,5% |
+| Skew / Excess kurtosis | **−7,044 / 105,418** |
+
+**Không chỉ số nào trả về một con số trần.** Mỗi tỷ số đi kèm một `code`, và từ
+chối chia khi mẫu số là nhiễu thay vì in ra một con số lớn bịa từ 1e-17 — đúng
+lớp lỗi K-ratio ở §2.6. Ví dụ: Calmar từ chối khi chưa có sụt giảm thật
+(`no_drawdown_yet`); Information Ratio trả `tracks_the_benchmark` khi tracking
+error gần 0; capture tách hai phía và mỗi phía cần tối thiểu 10 phiên riêng.
+
+**Một dấu hiệu phải nói ra theo §2.7, chưa điều tra:** skew −7,04 và excess
+kurtosis **105,4** là cực đoan đến mức gần như chắc chắn không phải rủi ro
+thật — cộng với biến động cuộn chạm **104,5%/năm**, nhiều khả năng có một phiên
+nhảy giá do **chia tách cổ phiếu chưa điều chỉnh** trong `v_history_1d`. Nếu
+đúng thì mọi chỉ số dựa trên mô men bậc cao đang mô tả một lỗi dữ liệu. **Cần
+kiểm trước khi tin bảng này.**
+
+#### Còn lại — bốn việc Nam giao, chưa bắt đầu
+
+1. **Giao diện toàn nền tảng**: tông trắng/đen/xanh lá/xanh dương/đỏ. Lưu ý
+   ràng buộc đang có: xanh lá và đỏ hiện **chỉ dành cho hướng giá và lãi/lỗ**
+   (quy tắc số một của `styles.css`); dùng chúng làm màu chủ đạo sẽ phá quy tắc
+   đó, nên cần thống nhất lại với Nam ranh giới mới.
+2. **Panel Paper trading**: dựng lại cấu trúc và trình bày theo tông trên.
+3. **Đa khung biểu đồ**: chia 2 hoặc 4 ô nến cho 2–4 mã (tối đa 4), cộng một
+   dải ngang nhỏ phía dưới cho chỉ báo phụ. Lưu ý §3.3: các pane đồng bộ theo
+   **chỉ số**, nên mỗi chuỗi phải có đúng một điểm mỗi nến.
+4. **Báo cáo → tab Học máy**: chỉ chạy cho chiến lược ML; chiến lược thường
+   không cần tính lại phần đó.
+
+#### Trạng thái kỹ thuật
+
+`metrics.py` chưa có test riêng và chưa lên giao diện — bảng chỉ số mới hiện
+chỉ có trong payload `/api/portfolio/analyze`.
 
 ### 2026-09-16 — Nút bị cắt, bỏ điều khiển thừa, gập catalog, và giới hạn của dữ liệu VN
 

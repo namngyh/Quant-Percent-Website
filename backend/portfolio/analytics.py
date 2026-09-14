@@ -44,6 +44,7 @@ from datetime import date
 import numpy as np
 
 from backend.i18n import bi
+from backend.portfolio import metrics
 
 TRADING_DAYS = 252
 BENCHMARK = "VNINDEX"
@@ -438,6 +439,14 @@ def analyse(
             np.cov(portfolio_returns[rows], benchmark, ddof=1)[0, 1] / benchmark_var
         )
 
+    # Các chỉ số so với chỉ số tham chiếu chỉ dùng đúng những phiên cả hai
+    # cùng có. So trên hai chuỗi lệch phiên là so hai quãng thời gian khác
+    # nhau rồi gọi đó là chênh lệch hiệu suất.
+    aligned_portfolio = (
+        portfolio_returns[np.array(shared)] if len(shared) >= MIN_OBSERVATIONS else None
+    )
+    aligned_benchmark = benchmark if aligned_portfolio is not None else None
+
     # Đóng góp rủi ro: tỷ trọng nhân đóng góp biên, chuẩn hoá về tổng bằng 1.
     marginal = cov @ weights
     contributions = weights * marginal
@@ -512,6 +521,17 @@ def analyse(
         "var_95_pct": var_95 * 100,
         "cvar_95_pct": cvar_95 * 100,
         "risk_state": _risk_state(volatility, max_dd),
+        # Return, risk-adjusted return, drawdown-adjusted return, distribution
+        # shape, stability over time, and the benchmark-relative set. Each one
+        # carries a code rather than a bare number, because every ratio here
+        # has a denominator that can legitimately be near zero (§2.6).
+        "performance": metrics.performance(
+            portfolio_returns,
+            aligned_benchmark,
+            beta,
+            max_dd,
+        ),
+        "benchmark_symbol": BENCHMARK,
         "shrinkage_intensity": shrinkage,
         "positions": positions,
         "concentration": _concentration(priced, weights, cov),
