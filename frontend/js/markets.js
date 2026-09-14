@@ -193,7 +193,7 @@ const Markets = (() => {
   function deflatedBlock(r) {
     const d = r.deflated || {};
     if (!d.available) {
-      return d.reason ? `<div class="callout">${esc(tp(d.reason))}</div>` : '';
+      return d.reason ? `<div class="callout">${emph(esc(tp(d.reason)))}</div>` : '';
     }
     const tests = d.tests || {};
     const dsr = tests.deflated_sharpe_ratio;
@@ -202,14 +202,14 @@ const Markets = (() => {
       <strong>${esc(L('Sharpe khử phồng', 'Deflated Sharpe'))}:</strong>
       ${typeof dsr === 'number' ? `${(dsr * 100).toFixed(1)}%` : '—'}
       ${passed ? '' : ` — ${esc(L('chưa đạt ngưỡng', 'below the threshold'))}`}
-      <br>${esc(tp(d.note))}
+      <br>${emph(esc(tp(d.note)))}
     </div>`;
   }
 
   function comparabilityBlock(r) {
     const c = r.comparability || {};
     if (c.comparable || !c.note) return '';
-    return `<div class="callout warn">${esc(tp(c.note))}</div>`;
+    return `<div class="callout warn">${emph(esc(tp(c.note)))}</div>`;
   }
 
   function failedList(r) {

@@ -211,8 +211,18 @@ const MultiChart = (() => {
     const ws = current();
     cells[leaving] = ws;
 
+    /* The same stretch of time stays on screen through a switch.
+
+       The snapshot a cell falls back to was framed when it was drawn — the
+       last 160 bars — while the working chart it replaces had been zoomed and
+       panned since. Swapping one for the other jumped the view, and a chart
+       that jumps looks like a chart that reloaded. The window the person was
+       looking at is carried across in both directions. */
+    const leavingView = visibleRange(workingChart());
     const kept = passive.get(leaving);
-    if (!kept || kept.signature !== signature(ws)) mountPassive(leaving);
+    if (!kept || kept.signature !== signature(ws)) mountPassive(leaving, leavingView);
+    else applyRange(kept.chart, leavingView);
+    const enteringView = visibleRange(passive.get(i)?.chart);
 
     workUnit.classList.add('pending');
     grid.querySelector(`[data-body="${i}"]`).appendChild(workUnit);
@@ -226,8 +236,22 @@ const MultiChart = (() => {
     Promise.resolve(hooks.load(cells[i])).catch(() => {}).finally(() => {
       if (pendingSwitch !== token) return;
       pendingSwitch = null;
-      workUnit.classList.remove('pending');
-      hooks.onResize();
+      applyRange(workingChart(), enteringView);
+      // Reveal one frame later, after the chart has painted the carried-over
+      // window, so the frame in between (the fresh series at its default
+      // framing) is never the one on screen.
+      // A timer backs the frame: a tab that is not painting (in the
+      // background, or headless) never runs the frame callback, and the
+      // working chart would stay invisible until it did.
+      let shown = false;
+      const reveal = () => {
+        if (shown || pendingSwitch !== null) return;
+        shown = true;
+        workUnit.classList.remove('pending');
+        hooks.onResize();
+      };
+      requestAnimationFrame(reveal);
+      setTimeout(reveal, 80);
     });
   }
 
@@ -285,10 +309,21 @@ const MultiChart = (() => {
     passive.delete(i);
   }
 
+  const workingChart = () => (typeof ChartManager !== 'undefined' ? ChartManager.chart : null);
+
+  function visibleRange(chart) {
+    try { return chart?.timeScale().getVisibleRange() || null; } catch { return null; }
+  }
+
+  function applyRange(chart, range) {
+    if (!chart || !range) return;
+    try { chart.timeScale().setVisibleRange(range); } catch { /* outside the data held */ }
+  }
+
   /** What a snapshot was drawn from; a different signature means redraw. */
   const signature = (ws) => JSON.stringify([ws?.symbol, ws?.timeframe, ws?.indicators || []]);
 
-  async function mountPassive(i) {
+  async function mountPassive(i, view = null) {
     disposePassive(i);
     const ws = cells[i] ? { ...cells[i], indicators: [...(cells[i].indicators || [])] } : null;
     const body = grid?.querySelector(`[data-body="${i}"]`);
@@ -322,7 +357,8 @@ const MultiChart = (() => {
       if (stale()) return;
 
       const n = entry.bars.length;
-      if (n) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 160), to: n + 3 });
+      if (view) applyRange(chart, view);
+      else if (n) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 160), to: n + 3 });
 
       // Pan toward the oldest bar and the page before it loads, as on the
       // working chart.
@@ -617,6 +653,8 @@ const MultiChart = (() => {
 
   return {
     init, setLayout, setOptions, setMode, syncActive, restore, activate,
+    // For probes: the time window a cell's snapshot is showing.
+    viewOf: (i) => visibleRange(passive.get(i)?.chart),
     get layout() { return layout; },
     get active() { return active; },
     get cells() { return cells.map((c, i) => (i === active ? current() : c)); },

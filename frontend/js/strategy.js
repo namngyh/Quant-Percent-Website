@@ -578,7 +578,7 @@ const Strategy = (() => {
     for (const block of [rb, dfl]) {
       if (!block.available || !block.verdict) continue;
       const tone = (block.code === 'plateau' || block.code === 'survives') ? 'good' : 'warn';
-      html += `<div class="callout ${tone}">${esc(tp(block.verdict))}</div>`;
+      html += `<div class="callout ${tone}">${emph(esc(tp(block.verdict)))}</div>`;
     }
 
     const paramNames = Object.keys(rows[0].params);

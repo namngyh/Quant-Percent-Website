@@ -421,3 +421,12 @@ const tp = (value) => I18n.pick(value);
  * together and cannot change one without seeing the other.
  */
 const L = (vi, en) => (I18n.lang === 'en' ? en : vi);
+
+/* Emphasis in backend prose, rendered rather than shown.
+
+   The analysis modules write `**never**`, `**biased high**`, `**measured**`
+   into their notes, the way a person marks the word that carries the caveat.
+   Every panel escaped that text and printed the asterisks as they were. This
+   runs AFTER escaping, so it only ever turns already-safe text into
+   `<strong>`: it cannot open a hole for markup coming from the payload. */
+const emph = (html) => String(html ?? '').replace(/\*\*([^*<>]+?)\*\*/g, '<strong>$1</strong>');

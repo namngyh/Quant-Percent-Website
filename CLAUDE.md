@@ -210,6 +210,67 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-18 (tối) — Các ô kết quả đè nhau, và "reload" khi đổi biểu đồ
+
+**326 test Python** + **160 render check**, không lỗi. Probe mới `switchview`.
+
+*Lưu ý khi đọc ảnh Nam gửi:* panel Kết quả trong ảnh vẫn còn tab "Tối ưu" và "Thống kê" — hai tab đã gỡ ở commit `d4e1f3c`. Trang trong ảnh chưa được tải lại sau commit đó.
+
+#### 1. Ô đè nhau — một class không có CSS
+
+Liệt kê mọi class mà JS/HTML sinh ra nhưng stylesheet không nhắc tới: 11 cái,
+phần lớn là móc cho JS (`pf-cost`, `rp-close`…). Cái mang bố cục là
+**`.stat-cards`** — khung chứa thẻ tóm tắt của tab Thị trường và cửa sổ Báo cáo.
+Không có rule nào nên các thẻ rơi về block: một cột, thẻ này chạm thẻ kia.
+
+| | Trước | Sau |
+|---|---|---|
+| Tab Thị trường | 4 thẻ một cột, sát nhau | lưới 2×2, cách 8px |
+| Thẻ ở Monte Carlo / Thống kê | **1 cột** | **2 cột** |
+| Hộp ghi chú | vạch trái 3px đè lên góc bo | vạch vẽ bên trong hộp |
+| Tab con của Kết quả | "Thị trường" gãy thành 2 dòng | không xuống dòng, cuộn ngang nếu thiếu chỗ |
+| Bảng rộng trong panel 344px | cột cuối bị cắt | cuộn ngang |
+
+*Thẻ một cột ở Monte Carlo không phải do thiếu CSS:* `.metrics` đòi mỗi thẻ tối
+thiểu 150px; hai thẻ cộng khe 8px là 308px, còn nội dung panel chỉ ~300px — nên
+lưới tự rơi về 1 cột. Hạ xuống 132px.
+
+*Và một lỗi hiển thị lộ ra cùng lúc:* ghi chú backend dùng `**…**` để nhấn mạnh
+(`risk.py`, `stats.py`, `multi.py`) và **35 chỗ** trong 6 file frontend in nguyên
+dấu sao ("được \*\*đo\*\*"). Thêm `emph()` cạnh `tp()`/`L()`, chạy **sau** khi
+escape nên chỉ biến văn bản đã an toàn thành `<strong>`, không mở lỗ cho markup từ
+payload.
+
+#### 2. "Mỗi lần bấm, biểu đồ còn lại reload"
+
+Có **hai** nguyên nhân, và nguyên nhân chính không nằm ở chỗ tôi đã sửa lần trước:
+
+1. **Lớp phủ đang tải phủ cả khu biểu đồ**, không phải riêng ô đang làm việc.
+   Mỗi lần bấm ô khác, biểu đồ chính nạp mã mới → logo tải + nền trắng mờ trùm
+   lên **mọi ô**, trông y như tất cả cùng tải lại. Đã chuyển lớp phủ vào trong
+   biểu đồ chính. Probe dò điểm giữa ô kia mỗi 30ms suốt lúc chuyển: **0 lần** bị
+   lớp phủ che.
+2. **Khung nhìn nhảy.** Ảnh chụp của một ô được đóng khung lúc vẽ (160 nến cuối),
+   còn biểu đồ chính thì người dùng đã zoom/cuộn — đổi qua lại là khung nhìn nhảy,
+   và biểu đồ nhảy thì đọc như biểu đồ vừa tải lại. Giờ khoảng thời gian đang xem
+   được mang theo cả hai chiều:
+
+| | Đo được |
+|---|---|
+| Ô vừa rời, trước khi rời | 25/08 11:00 – 31/08 04:00 |
+| Ảnh chụp ô đó sau khi rời | 25/08 11:00 – 31/08 04:00 — **giữ nguyên** |
+| Ảnh chụp ô được chọn | 28/07 09:00 – 14/09 14:00 |
+| Biểu đồ chính ở ô đó sau khi nạp | 28/07 09:00 – 14/09 14:00 — **giữ nguyên** |
+| Request mỗi lần bấm | đúng **1** (nến của ô được chọn) |
+
+*Theo §2.2, hai lần đọc sai của tôi:* lần đầu biểu đồ chính "sau khi vào" đọc ra
+23/04–05/06 và tôi suýt đi tìm lỗi ánh xạ thời gian. Ghi vết mỗi 30ms thì thấy đó
+là giá trị ở mili giây thứ 30 — **trước khi vẽ lại**; mili giây 120 đã đúng. Vì
+khung hình trung gian đó có thật trong một khoảnh khắc, biểu đồ giờ chỉ hiện ra
+sau một nhịp vẽ. Lần hai, headless không chạy `requestAnimationFrame` nên biểu đồ
+đứng ở trạng thái "đang chờ" mãi — đúng thứ sẽ xảy ra ở tab chạy nền của trình duyệt
+thật; thêm hẹn giờ 80ms làm dự phòng.
+
 ### 2026-09-18 (chiều) — Lịch sử không giới hạn, công cụ có nút riêng, đổi ô không tải lại
 
 **326 test Python** + **160 render check**, không lỗi. Bốn nhóm probe mới: `history`, `switchload`, `pickerflip`, `tools`.

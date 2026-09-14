@@ -132,7 +132,7 @@ const Explain = (() => {
     if (!text) return '';
     return `<div class="xp-section ${cls}">
       <div class="xp-label">${esc(label)}</div>
-      <p class="xp-text">${esc(text)}</p></div>`;
+      <p class="xp-text">${emph(esc(text))}</p></div>`;
   }
 
   function render(entry) {

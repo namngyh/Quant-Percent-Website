@@ -379,7 +379,8 @@ input::placeholder { color: var(--text-faint); }
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-.btn-quiet { background: transparent; border-color: transparent; color: var(--text-dim); }
+.btn-quiet, .btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+.btn-ghost:hover:not(:disabled) { background: var(--surface-3); color: var(--text); border-color: transparent; }
 .btn-quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
 
 .btn-sm { padding: 4px 10px; min-height: 30px; font-size: 12.5px; border-radius: 7px; }
@@ -530,9 +531,11 @@ input::placeholder { color: var(--text-faint); }
   border-radius: var(--radius);
   margin-bottom: 14px;
 }
-.subtabs.compact { margin-bottom: 0; }
+.subtabs.compact { margin-bottom: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.subtabs.compact::-webkit-scrollbar { display: none; }
 .subtab {
-  flex: 1;
+  flex: 1 0 auto;
+  white-space: nowrap;
   border: 0;
   background: transparent;
   color: var(--text-dim);
@@ -774,10 +777,27 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* 132px, not 150px: two 150px tiles and their 8px gap need 308px, and the
+     panel's content box is about 300px — so every metric in a side panel fell
+     to a single full-width column, one number per screen row. */
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 8px;
   margin-bottom: 14px;
 }
+/* `.stat-cards` had no rule at all until 2026-09-18. The multi-market summary
+   and the report's headline row used it, so their tiles fell back to block
+   flow: one full-width column, each tile touching the next, their rounded
+   corners butting into each other. Found by listing every class the scripts
+   emit that the stylesheet never mentions — `.stat-cards` was the one that
+   carried layout. It now lays out exactly like `.metrics`. */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-cards .metric-value { font-size: 20px; }
+
 /* A metric is a wash tile, not an outlined card: the number is what should
    stand out, and a border around every number competes with it. */
 .metric {
@@ -809,7 +829,8 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .callout {
   border-radius: var(--radius-sm);
-  border-left: 3px solid var(--text);
+  border-left: 0;
+  box-shadow: inset 3px 0 0 var(--callout-rule, var(--text));
   background: var(--surface-2);
   color: var(--text-dim);
   padding: 11px 14px;
@@ -818,11 +839,11 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   margin-bottom: 10px;
 }
 .callout strong { color: var(--text); font-weight: 600; }
-.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout.warn { background: var(--warn-soft); --callout-rule: var(--warn); }
 .callout.warn strong { color: var(--warn); }
-.callout.bad  { background: var(--down-soft); border-left-color: var(--down); }
+.callout.bad  { background: var(--down-soft); --callout-rule: var(--down); }
 .callout.bad strong { color: var(--down); }
-.callout.good { background: var(--up-soft);   border-left-color: var(--up); }
+.callout.good { background: var(--up-soft);   --callout-rule: var(--up); }
 .callout.good strong { color: var(--up); }
 
 /* ==================== Equity chart ==================== */
@@ -839,6 +860,10 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 /* ==================== Tables ==================== */
 
 .scroll-area { flex: 1; overflow: auto; min-height: 0; }
+/* Wide result tables scroll sideways inside a 344px panel rather than
+   squeezing or cutting their last columns. */
+#markets-output .data-table, #validation-output .data-table, #stats-output .data-table,
+#optimize-results .data-table, #mc-output .data-table { min-width: max-content; }
 
 .data-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12.5px; }
 .data-table th {

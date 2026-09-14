@@ -118,7 +118,7 @@ const PaperDash = (() => {
     html += '</div>';
 
     html += equityChart(d.equity_curve, d.starting_capital);
-    html += `<p class="table-note">${esc(tp(d.curve_note))}</p>`;
+    html += `<p class="table-note">${emph(esc(tp(d.curve_note)))}</p>`;
 
     if (d.open_positions.length) {
       html += `<div class="field-group-title">${esc(L(
@@ -228,7 +228,7 @@ const PaperDash = (() => {
     if (!host || !data) return;
     if (!data.sessions) {
       host.querySelector('.pd-body').innerHTML =
-        `<p class="empty">${esc(tp(data.note))}</p>`;
+        `<p class="empty">${emph(esc(tp(data.note)))}</p>`;
       return;
     }
     const tab = TABS.find(([id]) => id === activeTab) || TABS[0];

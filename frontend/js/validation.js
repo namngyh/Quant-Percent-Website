@@ -80,7 +80,7 @@ const Validation = (() => {
     return `<div class="pf-bars">
       ${row(L('Trong mẫu', 'In sample'), s.is_mean_normalised_pct, 'weight')}
       ${row(L('Ngoài mẫu', 'Out of sample'), s.oos_mean_normalised_pct, 'risk')}
-      <p class="table-note">${esc(tp(s.measured_on))}</p>
+      <p class="table-note">${emph(esc(tp(s.measured_on)))}</p>
     </div>`;
   }
 
@@ -175,7 +175,7 @@ const Validation = (() => {
           <td class="muted">${p.distinct_values} / ${p.folds}</td>
         </tr>`).join('') + '</tbody></table>';
       if (stability.note) {
-        html += `<div class="callout warn">${esc(tp(stability.note))}</div>`;
+        html += `<div class="callout warn">${emph(esc(tp(stability.note)))}</div>`;
       }
     }
 
@@ -374,7 +374,7 @@ const Validation = (() => {
     let html = '';
 
     for (const note of r.notes || []) {
-      html += `<div class="callout">${esc(tp(note))}</div>`;
+      html += `<div class="callout">${emph(esc(tp(note)))}</div>`;
     }
 
     if (r.probability_of_loss_pct > 45) {
@@ -575,8 +575,8 @@ const Validation = (() => {
   function testRow(test) {
     if (!test) return '';
     if (test.unavailable) {
-      return `<tr class="muted"><td>${esc(tp(test.name))}</td>
-        <td colspan="3">${esc(tp(test.unavailable))}</td>
+      return `<tr class="muted"><td>${emph(esc(tp(test.name)))}</td>
+        <td colspan="3">${emph(esc(tp(test.unavailable)))}</td>
         <td class="muted">${esc(L('không chạy được', 'could not run'))}</td></tr>`;
     }
     if (test.p_value === null || test.p_value === undefined) return '';
@@ -593,7 +593,7 @@ const Validation = (() => {
     });
 
     return `<tr>
-      <td>${esc(tp(test.name))} ${info}</td>
+      <td>${emph(esc(tp(test.name)))} ${info}</td>
       <td>${esc(Explain.fmt(test.statistic))}</td>
       <td>${esc(P_FMT(test.p_value))}</td>
       <td class="${rejected ? 'pos' : ''}">${esc(P_FMT(adjusted))}</td>
@@ -637,17 +637,17 @@ const Validation = (() => {
 
   function verdictCallout(verdict, tone) {
     if (!verdict) return '';
-    let html = `<div class="callout ${tone}"><strong>${esc(tp(verdict.headline))}</strong>
-      ${verdict.detail ? ` ${esc(tp(verdict.detail))}` : ''}</div>`;
+    let html = `<div class="callout ${tone}"><strong>${emph(esc(tp(verdict.headline)))}</strong>
+      ${verdict.detail ? ` ${emph(esc(tp(verdict.detail)))}` : ''}</div>`;
     for (const note of verdict.notes || []) {
-      html += `<div class="callout">${esc(tp(note))}</div>`;
+      html += `<div class="callout">${emph(esc(tp(note)))}</div>`;
     }
     return html;
   }
 
   function familyNote(family) {
     if (!family || !family.n_tests) return '';
-    return `<p class="table-note">${esc(tp(family.note))}
+    return `<p class="table-note">${emph(esc(tp(family.note)))}
       ${family.n_significant_raw !== undefined
         ? esc(L(
             `Trước hiệu chỉnh: ${family.n_significant_raw}/${family.n_tests} kiểm định có ý nghĩa; sau hiệu chỉnh: ${family.n_significant_adjusted}/${family.n_tests}.`,
@@ -787,7 +787,7 @@ const Validation = (() => {
           <td>${num(p.variance_ratio, 3)}</td>
           <td class="muted">${num(p.z_homoskedastic)}</td>
           <td class="${Math.abs(p.z_heteroskedastic ?? 0) > 1.96 ? 'pos' : ''}">${num(p.z_heteroskedastic)}</td>
-          <td>${esc(tp(p.reading))}</td></tr>`).join('') +
+          <td>${emph(esc(tp(p.reading)))}</td></tr>`).join('') +
         `</tbody></table>
         <p class="table-note">${esc(L(
           'Cột z bền là cột để đọc: nó không giả định phương sai cố định theo thời gian, còn cột z đồng nhất thì có, và kiểm định ARCH ở bảng trên hầu như luôn bác bỏ giả định đó. Kết luận chung lấy từ thống kê Chow–Denning trên toàn bộ tập kỳ hạn, không phải từ kỳ hạn có p nhỏ nhất.',

@@ -374,7 +374,7 @@ const Report = (() => {
         cls(b.alpha_annual_pct),
         L('phần không giải thích được bằng beta', 'the part beta cannot explain'));
       html += '</div>';
-      html += `<p class="table-note">${esc(tp(b.note) || b.note)}</p>`;
+      html += `<p class="table-note">${emph(esc(tp(b.note) || b.note))}</p>`;
     }
 
     html += `<table class="data-table rp-table"><tbody>
@@ -526,7 +526,7 @@ const Report = (() => {
         upct(t2.all.best_trade_share_pct, 0), '',
         t2.all.best_trade_share_pct > 40 ? 'neg' : '')}
     </div>
-    <p class="table-note">${esc(tp(s.note) || s.note)}</p>`;
+    <p class="table-note">${emph(esc(tp(s.note) || s.note))}</p>`;
 
     html += title(L('Lãi lỗ cộng dồn theo thứ tự lệnh', 'Cumulative P&L in trade order'));
     html += sequenceChart(r);
@@ -658,7 +658,7 @@ const Report = (() => {
         'The period ends with equity still below its peak, the last drawdown never recovered. It has no recovery time to report, and its depth can still get worse.'))}</div>`;
     }
     if (k?.note) {
-      html += `<p class="table-note">${esc(L('Hệ số K: ', 'K-ratio: '))}${esc(tp(k.note) || k.note)}</p>`;
+      html += `<p class="table-note">${esc(L('Hệ số K: ', 'K-ratio: '))}${emph(esc(tp(k.note) || k.note))}</p>`;
     }
     html += `<p class="table-note">${esc(L(
       'Sụt giảm trong quá khứ là cận dưới, không phải cận trên. Một giai đoạn dài hơn gần như luôn chứa một đợt sâu hơn đợt tệ nhất ở đây, hãy lấy con số này làm mức tối thiểu phải chịu được, không phải mức tối đa sẽ gặp.',
@@ -862,11 +862,11 @@ const Report = (() => {
     </tbody></table>`;
 
     html += `<div class="callout"><strong>${esc(L('Đặt dừng lỗ ở đâu.', 'Where a stop can go.'))}</strong>
-      ${esc(tp(e.stop_note) || e.stop_note)} ${esc(L(
+      ${emph(esc(tp(e.stop_note) || e.stop_note))} ${esc(L(
         `Ở đây lệnh thắng trung bình chìm ${nf(Math.abs(e.mae_winners.mean))}% trước khi có lãi, nên một mức dừng chặt hơn thế sẽ cắt chính chúng.`,
         `Here the average winner went ${nf(Math.abs(e.mae_winners.mean))}% under water before it turned, so a stop tighter than that cuts the winners.`))}</div>`;
     html += `<div class="callout"><strong>${esc(L('Có nên chốt lãi không.', 'Whether to take profit.'))}</strong>
-      ${esc(tp(e.target_note) || e.target_note)} ${esc(L(
+      ${emph(esc(tp(e.target_note) || e.target_note))} ${esc(L(
         `Ở đây lệnh thua trung bình từng xanh ${nf(e.mfe_losers.mean)}%.`,
         `Here the average loser was ${nf(e.mfe_losers.mean)}% in profit at some point.`))}</div>`;
     return html;
@@ -884,7 +884,7 @@ const Report = (() => {
         'This strategy publishes no probability, so there is no model to score. This tab is for machine-learning strategies.'))}</p>`;
     }
     if (m.error) {
-      return `<div class="callout warn">${esc(tp(m.error) || m.error)}</div>
+      return `<div class="callout warn">${emph(esc(tp(m.error) || m.error))}</div>
         <p class="table-note">${esc(L(
           'Phần này chấm tín hiệu như một bộ phân loại hướng của nến kế tiếp. Nó cần đủ số nến vừa có vị thế vừa có nến sau biến động.',
           'This scores the signal as a classifier of the next bar’s direction. It needs enough bars that both hold a position and are followed by a bar that moved.'))}</p>`;
@@ -895,7 +895,7 @@ const Report = (() => {
       <strong>${esc(m.beats_baseline
         ? L('Vượt đường cơ sở.', 'Beats the baseline.')
         : L('Chưa vượt đường cơ sở.', 'Does not beat the baseline.'))}</strong>
-      ${esc(tp(m.conclusion) || m.conclusion)}</div>`;
+      ${emph(esc(tp(m.conclusion) || m.conclusion))}</div>`;
 
     html += '<div class="metrics">';
     html += card(L('Độ chính xác', 'Accuracy'), upct(m.accuracy * 100), 'ml.accuracy',
@@ -973,14 +973,14 @@ const Report = (() => {
           'Mô hình hiệu chuẩn tốt thì hai cột đầu bám sát nhau: khi nó nói 70%, kết quả đúng khoảng 70% số lần đó.',
           'A well-calibrated model keeps the first two columns close: when it says 70%, it is right about 70% of the time.'))}</p>`;
       }
-      html += `<p class="table-note">${esc(tp(p.note) || p.note)}</p>`;
+      html += `<p class="table-note">${emph(esc(tp(p.note) || p.note))}</p>`;
     } else {
       html += `<p class="table-note">${esc(L(
         'Chiến lược này không công bố xác suất, nên không chấm được phần hiệu chuẩn. Để có phần đó, hãy gán df["ml_probability"] trong hàm signals().',
         'This strategy publishes no probabilities, so calibration cannot be scored. To get it, assign df["ml_probability"] inside signals().'))}</p>`;
     }
 
-    html += `<p class="table-note">${esc(tp(m.note) || m.note)} ${esc(tp(m.assumptions) || m.assumptions)}</p>`;
+    html += `<p class="table-note">${emph(esc(tp(m.note) || m.note))} ${emph(esc(tp(m.assumptions) || m.assumptions))}</p>`;
     return html;
   }
 
@@ -1040,9 +1040,9 @@ const Report = (() => {
     let html = '';
 
     if (!tail.available) {
-      html += `<div class="callout warn">${esc(tp(tail.reason) || L(
+      html += `<div class="callout warn">${emph(esc(tp(tail.reason) || L(
         'Không đủ dữ liệu để đo rủi ro đuôi.',
-        'Not enough data to measure tail risk.'))}</div>`;
+        'Not enough data to measure tail risk.')))}</div>`;
     } else {
       html += `<div class="field-group-title">${esc(L(
         'Rủi ro đuôi', 'Tail risk'))} ${varCvarExplain(tail)}</div>`;
@@ -1069,9 +1069,9 @@ const Report = (() => {
 
       const thin = tail.levels.filter((lv) => lv.thin_tail);
       if (thin.length) {
-        html += `<div class="callout warn">${esc(tp(thin[0].note))}</div>`;
+        html += `<div class="callout warn">${emph(esc(tp(thin[0].note)))}</div>`;
       }
-      html += `<p class="table-note">${esc(tp(tail.method))}</p>`;
+      html += `<p class="table-note">${emph(esc(tp(tail.method)))}</p>`;
     }
 
     html += `<div class="field-group-title">${esc(L(
@@ -1101,7 +1101,7 @@ const Report = (() => {
     html += '</div>';
 
     if (!kel.available && kel.reason) {
-      html += `<div class="callout">${esc(tp(kel.reason))}</div>`;
+      html += `<div class="callout">${emph(esc(tp(kel.reason)))}</div>`;
     }
     if (bud.available && bud.capped) {
       html += `<div class="callout warn">${esc(L(
@@ -1123,7 +1123,7 @@ const Report = (() => {
           <td>${row2.max_leverage === null ? '—' : `${row2.max_leverage.toFixed(1)}x`}</td></tr>`;
       }
       html += '</tbody></table>';
-      html += `<div class="callout warn">${esc(tp(lev.watch))}</div>`;
+      html += `<div class="callout warn">${emph(esc(tp(lev.watch)))}</div>`;
     }
 
     html += marketRiskBlock();

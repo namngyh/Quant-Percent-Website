@@ -454,7 +454,7 @@ const Portfolio = (() => {
   function overviewTab(d) {
     let html = '';
     for (const note of d.notes || []) {
-      html += `<div class="callout">${esc(tp(note) || note)}</div>`;
+      html += `<div class="callout">${emph(esc(tp(note) || note))}</div>`;
     }
 
     html += '<div class="metrics">';
@@ -801,7 +801,7 @@ const Portfolio = (() => {
   function forwardTab(d) {
     const f = d.forward;
     if (!f.available) {
-      return `<div class="callout warn">${esc(tp(f.reason) || f.reason)}</div>`;
+      return `<div class="callout warn">${emph(esc(tp(f.reason) || f.reason))}</div>`;
     }
 
     const paths = f.paths.toLocaleString(I18n.locale());
@@ -831,7 +831,7 @@ const Portfolio = (() => {
 
     html += `<div class="callout warn" style="margin-top:14px"><strong>${esc(L(
       'Giới hạn của mô phỏng này.', 'What this simulation cannot do.'))}</strong>
-      ${esc(tp(f.caveat) || f.caveat)}</div>`;
+      ${emph(esc(tp(f.caveat) || f.caveat))}</div>`;
     return html;
   }
 

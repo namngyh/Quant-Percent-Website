@@ -17,6 +17,7 @@
     resize     the 2/4-chart dividers change the sizes they claim to
     history    panning left keeps loading older pages, on every chart
     switchload clicking a cell fetches only that cell's series
+    switchview a switch keeps each chart's time window and never dims the others
     pickerflip a picker near the bottom opens upward, inside the window
     tools      Optimise, Monte Carlo and Statistics run from their own panels
     charttype  the chart-type menu is actually reachable by the pointer
@@ -924,6 +925,66 @@ async function pick(doc, symbol, timeframe) {
     await openAndRun('optimize', 'run-optimize', 'optimize-results', (n) => n.querySelector('table'));
     const tabs = [...doc.querySelectorAll('[data-restab]')].map((b) => b.dataset.restab).join(', ');
     log(`  tab con lai o Ket qua: ${tabs}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('switchview')) {
+  log('');
+  log('=== switchview (doi o: cac o khac giu nguyen) ===');
+  try {
+    const cm = () => w.eval('ChartManager');
+    const mc = () => w.eval('MultiChart');
+    const fmt = (r) => r ? `${new Date(r.from * 1000).toISOString().slice(5, 16)}..${new Date(r.to * 1000).toISOString().slice(5, 16)}` : '-';
+    const close = (a, b, tol) => a && b && Math.abs(a.from - b.from) <= tol && Math.abs(a.to - b.to) <= tol;
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('button[data-layout="2"]').click();
+    await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
+    await until('cell 1 drawn', () => candlePixels(doc.querySelector('[data-body="1"]')) > 0, 200);
+
+    // Zoom the working chart somewhere unusual, so a reset would show.
+    const n = cm().chart.timeScale().getVisibleLogicalRange();
+    cm().chart.timeScale().setVisibleLogicalRange({ from: n.from - 400, to: n.to - 350 });
+    doc.getElementById('chart-main').getBoundingClientRect();
+    await sleep(600);
+    const workingBefore = cm().chart.timeScale().getVisibleRange();
+
+    // Watch what covers cell 0 while cell 1 is loading into the working chart.
+    const covered = [];
+    const watch = setInterval(() => {
+      const r = doc.querySelector('[data-cell="0"]').getBoundingClientRect();
+      const hit = doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (hit?.closest('#loading')) covered.push(true);
+    }, 30);
+    const enteringView = mc().viewOf(1);
+    doc.querySelector('[data-body="1"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true }));
+    // Record the working chart's window every 30ms through the switch, so a
+    // later change is seen when it happens rather than inferred at the end.
+    const trace = [];
+    let lastText = '';
+    const t0 = performance.now();
+    const tracer = setInterval(() => {
+      let r = null;
+      try { r = cm().chart.timeScale().getVisibleRange(); } catch (e) { r = null; }
+      const text = `${doc.getElementById('work-unit').classList.contains('pending') ? 'cho' : 'hien'} ${cm().seriesKey} ${fmt(r)}`;
+      if (text !== lastText) { trace.push(`${Math.round(performance.now() - t0)}ms ${text}`); lastText = text; }
+    }, 30);
+    await until('cell 1 working', () => !doc.getElementById('work-unit').classList.contains('pending')
+      && doc.getElementById('chart-main').closest('.cell')?.dataset.cell === '1', 200);
+    await sleep(2500);
+    clearInterval(watch);
+    clearInterval(tracer);
+    for (const line of trace) log('    ' + line);
+
+    const bar = 3600 * 2;
+    const leftView = mc().viewOf(0);
+    const workingAfter = cm().chart.timeScale().getVisibleRange();
+    log(`  khung nhin o 0 truoc khi roi: ${fmt(workingBefore)}`);
+    log(`  anh chup o 0 sau khi roi:     ${fmt(leftView)}  giu nguyen: ${close(workingBefore, leftView, bar)}`);
+    log(`  anh chup o 1 truoc khi vao:   ${fmt(enteringView)}`);
+    log(`  bieu do chinh o o 1 sau do:   ${fmt(workingAfter)}  giu nguyen: ${close(enteringView, workingAfter, bar)}`);
+    log(`  lop phu dang tai che o 0 trong luc chuyen: ${covered.length ? covered.length + ' lan' : 'khong lan nao'}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }

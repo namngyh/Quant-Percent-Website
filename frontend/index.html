@@ -562,8 +562,10 @@
            role="separator" aria-orientation="horizontal"
            data-i18n-title="resize.panes"></div>
       <div id="panes"></div>
-      </div>
-      </div>
+      <!-- The loading mark covers the working chart only. It used to cover the
+           whole charts area, so every load of the working chart — including
+           the one that happens when another cell is clicked — dimmed all four
+           cells at once and read as all of them reloading. -->
       <div id="loading" class="loading" role="status" aria-label="Loading" hidden>
         <svg class="qp-loader" viewBox="0 0 100 100" aria-hidden="true">
           <rect x="17" y="13" width="25" height="25" />
@@ -571,6 +573,9 @@
           <path d="M19 81 L81 19" />
         </svg>
       </div>
+      </div>
+      </div>
+
     </section>
   </main>
 
