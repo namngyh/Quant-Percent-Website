@@ -331,24 +331,41 @@
      that these outages never touched. */
   const coverageSeen = new Set();
 
+  /* Coverage is fetched for every VN symbol, on any timeframe.
+
+     It used to be fetched only on intraday frames, because only the warning
+     needed it. The same reading now decides which timeframe buttons exist, so
+     a symbol opened on the daily chart has to be measured too — otherwise its
+     minute frames stay on offer purely because nobody looked. */
   async function warnIfDataIncomplete(key) {
-    if (!INTRADAY.has(state.timeframe)) return;
-    if (!state.symbol.startsWith('VN:')) return;
-    /* Once per symbol, not once per symbol-and-timeframe. What is being
-       reported is a fact about the symbol's minute data, and 5m and 15m are
-       built from those same bars — saying it again on every intraday frame
-       repeats one truth as though it were several. */
-    if (coverageSeen.has(state.symbol)) return;
-    coverageSeen.add(state.symbol);
+    const symbol = state.symbol;
+    if (!symbol.startsWith('VN:')) return;
+    if (coverageSeen.has(symbol)) return;
+    coverageSeen.add(symbol);
 
     let report;
     try {
-      report = await API.vnCoverage(state.symbol);
+      report = await API.vnCoverage(symbol);
     } catch {
+      coverageSeen.delete(symbol);   // let a later load try again
       return;   // coverage is a courtesy; never let it break a chart load
     }
-    // The user may have moved on while this was in flight.
-    if (key !== `${state.symbol}|${state.timeframe}`) return;
+
+    // The bar count decides which frames are worth offering, and that holds
+    // whether or not the user has moved on since.
+    if (typeof report.median_bars === 'number') {
+      const before = sessionBars.get(symbol);
+      sessionBars.set(symbol, report.median_bars);
+      if (before !== report.median_bars && symbol === state.symbol) {
+        buildTimeframeButtons();
+      }
+    }
+
+    /* The warning itself is only about minute data, so it stays on intraday
+       frames — and only once per symbol, since 5m and 15m are built from the
+       same bars and repeating it would tell one truth as if it were several. */
+    if (!INTRADAY.has(state.timeframe)) return;
+    if (key !== `${symbol}|${state.timeframe}`) return;
 
     if (report.thin) {
       toast(L(`${report.symbol} chỉ khớp lệnh khoảng ${report.median_bars} phút mỗi phiên, `
@@ -733,9 +750,38 @@
     return entry ? entry.has_intraday : true;
   }
 
+  /* Minute bars a symbol typically prints in one session, from the coverage
+     endpoint. Cached per symbol because the answer barely moves. */
+  const sessionBars = new Map();
+
+  const FRAME_MINUTES = { '1m': 1, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
+                          '1h': 60, '2h': 120, '4h': 240, '6h': 360,
+                          '8h': 480, '12h': 720 };
+
+  // Below this many bars per session a frame has nothing to show.
+  const MIN_BARS_PER_SESSION = 4;
+
+  /* Which timeframes this symbol can actually fill.
+
+     Offering every frame for every symbol produced menus of buttons that
+     mostly drew near-empty charts: A32 prints a median of one minute bar per
+     session, so its "5m" was a single candle a day presented as an intraday
+     series. A frame is offered when the symbol's own minute density would
+     fill it. Daily is always offered — it comes from a different table and
+     does not depend on minute coverage at all. */
   function allowedTimeframes(symbol) {
     const all = timeframesFor(symbol);
-    return symbolHasIntraday(symbol) ? all : all.filter((tf) => tf === '1d');
+    if (!symbolHasIntraday(symbol)) return all.filter((tf) => tf === '1d');
+
+    const perSession = sessionBars.get(symbol);
+    if (perSession === undefined) return all;   // not measured yet; offer all
+
+    return all.filter((tf) => {
+      if (tf === '1d') return true;
+      const minutes = FRAME_MINUTES[tf];
+      if (!minutes) return true;
+      return perSession / minutes >= MIN_BARS_PER_SESSION;
+    });
   }
 
   /* Crypto symbols come with the config, so this costs nothing and runs before
@@ -1516,6 +1562,19 @@ def signals(df, params):
     Explain.init();
     Report.init({ onToast: toast });
     PaperDash.init({ onToast: toast });
+    Editor.init({
+      onToast: toast,
+      // A saved plugin is only useful once the platform has re-read the
+      // folder, so saving reloads both catalogues rather than leaving the
+      // user to work out why their new file is not in the list.
+      onSaved: async () => {
+        await Indicators.load().catch(() => {});
+        await Strategy.load().catch(() => {});
+      },
+    });
+    for (const button of document.querySelectorAll('[data-write]')) {
+      button.addEventListener('click', () => Editor.open({ kind: button.dataset.write }));
+    }
     Markets.init({
       elements: {
         add: document.getElementById('mm-add'),

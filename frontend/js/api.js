@@ -170,6 +170,13 @@ const API = (() => {
         execution,
       }),
 
+    pluginFiles: () => request('/api/plugins/files'),
+    pluginRead: (kind, filename) =>
+      request(`/api/plugins/files/${encodeURIComponent(kind)}/${encodeURIComponent(filename)}`),
+    /* Parses and classifies source without writing or running it — safe to
+       call on every pause in typing. */
+    pluginCheck: (content) => post('/api/plugins/check', { content }),
+
     vnSymbols: () => request('/api/markets/vn/symbols'),
     vnCoverage: (symbol) => request(`/api/markets/vn/coverage?symbol=${encodeURIComponent(symbol)}`),
 

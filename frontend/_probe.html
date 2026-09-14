@@ -33,6 +33,12 @@ const out = [];
 const log = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* Groups can be run one at a time: `?only=editor`. The full sweep drives five
+   features through a live VN database and outgrows any single virtual-time
+   budget, which looks exactly like a hung probe. */
+const ONLY = new URLSearchParams(location.search).get('only');
+const wants = (group) => !ONLY || ONLY === group;
+
 /** Wait for the app frame to hold a real document (see the note above). */
 async function appDocument(frame) {
   for (let i = 0; i < 160; i++) {
@@ -75,7 +81,7 @@ async function pick(doc, symbol, timeframe) {
   const w = frame.contentWindow;
   await sleep(6000);
 
-  // ---------------------------------------------------------- coverage
+  if (wants('coverage')) {
   log('=== coverage ===');
   const seen = watchToasts(doc);
 
@@ -89,7 +95,68 @@ async function pick(doc, symbol, timeframe) {
   await sleep(7000);
   log(`[A32 @ 1d]     ${seen.length} toast   (mong doi 0)`);
 
-  // ---------------------------------------------------- many markets
+  }
+
+  if (wants('editor')) {
+  log('');
+  log('=== trinh soan code ===');
+  doc.querySelector('.rail-btn[data-panel="indicators"]')?.click();
+  await sleep(400);
+  const writeBtn = doc.querySelector('[data-write="indicator"]');
+  log(`  nut "Viet code": ${!!writeBtn}`);
+  writeBtn.click();
+  await sleep(2500);
+
+  const dlg = doc.querySelector('.editor-dialog');
+  const code = dlg?.querySelector('[data-ed="code"]');
+  const status = dlg?.querySelector('[data-ed="status"]');
+  const gutter = dlg?.querySelector('[data-ed="gutter"]');
+  log(`  hop thoai mo   : ${!!dlg}`);
+  log(`  co khung mau   : ${code && code.value.includes('INDICATOR')}`);
+  log(`  so dong gutter : ${gutter?.children.length}`);
+  log(`  file co san    : ${dlg.querySelector('[data-ed="file"]').options.length} muc`);
+
+  // Code sai cu phap -> phai bao loi, khong duoc im lang
+  code.value = ['INDICATOR = {', '  "name": broken'].join(String.fromCharCode(10));
+  code.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(2500);
+  log(`  code sai  -> "${status.textContent.slice(0, 70)}" [${status.className}]`);
+
+  // Code dung -> phai nhan ra la chi bao
+  code.value = [
+    'INDICATOR = {',
+    '    "name": "Probe MA",',
+    '    "kind": "overlay",',
+    '    "params": [{"name": "length", "type": "int", "default": 10}],',
+    '    "outputs": [{"key": "value", "label": "MA"}],',
+    '}',
+    '',
+    '',
+    'def calculate(df, params):',
+    '    return {"value": df["close"].rolling(int(params["length"])).mean()}',
+    '',
+  ].join(String.fromCharCode(10));
+  code.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(2500);
+  log(`  code dung -> "${status.textContent.slice(0, 70)}" [${status.className}]`);
+  log(`  so dong gutter sau: ${gutter?.children.length}`);
+
+  // Luu that
+  // Not '_probe_ma.py': a leading underscore is refused on purpose (the
+  // loaders skip such files), the save would fail, and the unsaved-changes
+  // confirm() would then hang headless Chrome with no visible reason.
+  dlg.querySelector('[data-ed="name"]').value = 'probe_ma.py';
+  dlg.querySelector('[data-ed="save"]').click();
+  await sleep(6000);
+  log(`  duong dan sau khi luu: "${dlg.querySelector('[data-ed="path"]').textContent}"`);
+
+  dlg.querySelector('[data-ed="close"]').click();
+  await sleep(600);
+  log(`  da dong: ${!doc.querySelector('.editor-dialog')}`);
+
+  }
+
+  if (wants('markets')) {
   log('');
   log('=== nhieu thi truong ===');
   doc.querySelector('.rail-btn[data-panel="strategy"]')?.click();
@@ -126,7 +193,9 @@ async function pick(doc, symbol, timeframe) {
     log(`  > ${c.textContent.trim().slice(0, 130).replace(/\s+/g, ' ')}`);
   }
 
-  // ------------------------------------------------------ left panel bulk
+  }
+
+  if (wants('panels')) {
   log('');
   log('=== panel ben trai ===');
   for (const [name, sel] of [['Chi bao','indicators'], ['Chien luoc','strategy'],
@@ -150,7 +219,9 @@ async function pick(doc, symbol, timeframe) {
   doc.querySelector('.rail-btn[data-panel="indicators"]')?.click();
   await sleep(300);
 
-  // ------------------------------------------------------- data smoothness
+  }
+
+  if (wants('smooth')) {
   log('');
   log('=== do muot cua du lieu ===');
   async function watchPrice(symbol, seconds) {
@@ -207,7 +278,9 @@ async function pick(doc, symbol, timeframe) {
   await watchPrice('VN:VN30F1M', 25);
   log(`    socket frames: ${frames} ${JSON.stringify(kinds)}`);
 
-  // ------------------------------------------------------- topbar layout
+  }
+
+  if (wants('topbar')) {
   log('');
   log('=== topbar layout ===');
   const boxes = {};
@@ -239,7 +312,9 @@ async function pick(doc, symbol, timeframe) {
     log(`  #chart-type background=${cs.backgroundColor}`);
   }
 
-  // --------------------------------------------------------- chart type
+  }
+
+  if (wants('charttype')) {
   log('');
   log('=== chart type menu ===');
   const btn = doc.getElementById('chart-type');
@@ -258,7 +333,9 @@ async function pick(doc, symbol, timeframe) {
   log(`  bam duoc       : ${!!hit?.closest?.('[data-chart-type]')}`);
   btn.click();
 
-  // -------------------------------------------------------------- timing
+  }
+
+  if (wants('timing')) {
   log('');
   log('=== timing ===');
   const nav = w.performance.getEntriesByType('navigation')[0];
@@ -279,6 +356,8 @@ async function pick(doc, symbol, timeframe) {
   const raw = res.reduce((s, r) => s + r.raw, 0);
   log(`  tong ${res.length} request, gui ${(sent / 1024).toFixed(0)}KB, goc ${(raw / 1024).toFixed(0)}KB`);
   log(`  picker: ${doc.getElementById('symbol').options.length} option`);
+
+  }
 
   log('');
   log('DONE');
