@@ -114,5 +114,11 @@ const Resizer = (() => {
     attach(document.getElementById('resize-panes'), 'panes', 'y', { invert: true });
   }
 
-  return { init, get layout() { return { ...layout }; } };
+  // Each chart in the grid has its own divider above its indicator panes;
+  // they all set the one shared pane height.
+  function attachPanes(handle) {
+    attach(handle, 'panes', 'y', { invert: true });
+  }
+
+  return { init, attachPanes, get layout() { return { ...layout }; } };
 })();

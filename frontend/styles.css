@@ -960,8 +960,8 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .charts-stack { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .chart-pane { position: relative; border-bottom: 1px solid var(--border-soft); }
 .chart-main { flex: 1; min-height: 200px; }
-#panes { display: flex; flex-direction: column; flex-shrink: 0; }
-#panes .chart-pane { height: 128px; }
+.panes { display: flex; flex-direction: column; flex-shrink: 0; }
+.panes .chart-pane { height: 128px; }
 
 .pane-label {
   position: absolute; top: 8px; left: 12px; z-index: 3;
@@ -1412,7 +1412,7 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; }
 body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 
 /* Pane height comes from the variable the resizer writes. */
-#panes .chart-pane { height: var(--pane-h, 128px); }
+.panes .chart-pane { height: var(--pane-h, 128px); }
 
 
 /* ==================== Explanation popover ====================
@@ -2970,20 +2970,36 @@ body[data-mode="overview"] .draw-layer { display: none; }
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: var(--surface);
 }
 .cell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
-/* A cell's own snapshot chart fills the cell underneath; the working chart,
-   when it is in this cell, sits on top of it. Switching cells then never
-   blanks one: see `activate` in multichart.js. */
-.cell-plot { position: absolute; inset: 0; z-index: 0; }
+/* Every cell holds its own complete chart (multichart.js); the loading mark
+   is positioned against it, so a load covers that chart and nothing else. */
 .work-unit {
   flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column;
-  position: relative; z-index: 1; background: var(--surface);
+  position: relative; background: var(--surface);
 }
-/* Loading into a newly clicked cell: invisible but still sized, so the chart
-   lays out correctly and the cell's snapshot shows through until it is ready. */
-.work-unit.pending { visibility: hidden; }
+.work-unit .chart-main { min-height: 0; flex: 1 1 160px; }
+.work-unit .panes {
+  min-height: 0;
+  max-height: 45%;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.work-unit .panes .chart-pane { flex-shrink: 0; }
+.volume-note {
+  position: absolute;
+  left: 10px;
+  bottom: 30px;
+  max-width: calc(100% - 85px);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 2;
+}
 .cell-error { padding: 14px; }
 
 /* One chart: no cell chrome, it is simply the chart. */

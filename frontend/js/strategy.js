@@ -308,7 +308,7 @@ const Strategy = (() => {
     });
     lastBacktest = result;
     renderResult(result);
-    onResult(result);
+    onResult(result, ctx);
     return result;
   }
 

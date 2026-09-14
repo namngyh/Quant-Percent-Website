@@ -210,6 +210,70 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-14 — Kiểm tra tính năng, volume trong lưới 4 ô và backtest
+
+Đã kiểm tra 326 test Python (17 script), bộ render Việt/Anh, và 19 nhóm kiểm
+tra trên Chrome: panels, charttype, pickerflip, types, guards, tools, persist,
+resize, switching, autoscale, history, multichart, async, stay, layout,
+backtest, picker, boot, markets. Các kiểm tra đều đạt sau sửa.
+
+Các phát hiện và kết quả:
+
+- **Volume ô vàng G-XAUUSD:** 200/200 nến 1h được kiểm tra có volume bằng 0;
+  BTCUSDT, VNINDEX, VN30F1M đều có 200/200 giá trị dương. Biểu đồ giờ ghi
+  rõ nguồn trả về 0, bằng Việt/Anh, thay vì để một vùng trắng không giải thích.
+  Không dựng volume giả. Ghi chú tự ẩn nếu volume dương xuất hiện.
+- **Volume realtime mất khi kéo lịch sử:** trên code trước sửa, cột live 777
+  biến mất sau `prependCandles`, cột cuối quay về giá trị 20. Giờ mảng volume
+  được cập nhật cùng series; cả cột mới 777 và lần sửa thành 888 được giữ lại.
+- **Chỉ báo tràn sang ô dưới:** RSI/MACD/CCI ở ô đầu lưới 4 có đáy 685px,
+  trong khi ô kết thúc tại 478,5px. Vùng chỉ báo giờ giới hạn 45% chiều cao,
+  cuộn riêng; nến và volume vẫn nằm trong ô. Kiểm cả hàng cao và hàng thấp.
+- **Backtest không dựng được biểu đồ vốn:** `EquityChart` tham chiếu `FONT`
+  nằm trong scope của chart manager, gây `ReferenceError`. Dùng `CHART_FONT`
+  chung; biểu đồ vốn đã vẽ được. Backtest trả về trễ giữ manager gốc: đo được
+  38 dấu giao dịch ở ô gửi yêu cầu, 0 dấu ở ô khác, loading tắt đúng ô.
+- **Kéo slider rồi chuyển ô ngay:** tham số RSI đã lưu thành 15 nhưng có
+  0 yêu cầu tính mới. Giờ chạy lần debounce cuối trước khi đổi ô: đúng 1
+  yêu cầu BTCUSDT/length=15 và kết quả vẫn về chart gốc.
+
+Thêm `tests/test_chart_layout.html` (15 kiểm tra), probe `backtest`, mở rộng
+probe `async` thành 8 kiểm tra. Runner `tests/run_browser_probes.js` tạo
+browser context riêng cho mỗi nhóm để không sửa session trình duyệt đang dùng.
+Ví dụ, với app ở :8000 và Chrome thử nghiệm có remote debugging ở :9223:
+
+```text
+node tests/run_browser_probes.js layout async backtest guards
+```
+
+Lỗi của phép kiểm đã phân biệt với lỗi sản phẩm: regex runner Python ban đầu
+nhận nhầm thông báo thư viện “Failed to converge” là test fail dù script báo
+40/40 và exit 0; browser runner ban đầu chưa nhận chuỗi kết thúc “chart guards
+hold”, gây timeout giả. Đã sửa cách nhận kết thúc browser và chạy guards lại.
+
+### 2026-09-14 — Phản hồi đến trễ khi chuyển ô biểu đồ
+
+Tiếp tục trên các thay đổi chưa commit đang chuyển sang `ChartHub`/`DrawingHub`.
+Đã tái hiện hai lỗi trên Chrome, bằng cách giữ phản hồi API rồi đổi ô:
+
+| Thao tác | Trước | Sau |
+|---|---|---|
+| Tính RSI ở ô 0, chuyển ô 1 trước khi có kết quả | Số pane `[1, 0]` thành `[1, 1]`, dù ô 1 không bật chỉ báo | `[1, 0]`, kết quả chỉ vẽ vào ô gửi yêu cầu |
+| Đổi BTC ô 0 từ 1h sang 4h rồi chuyển ô 1 | Nhãn 4h nhưng series vẫn `BTCUSDT\|1h`, loading không tắt | Ô gửi yêu cầu nhận đúng khung và tắt loading |
+
+`loadCandles` giữ tham chiếu tới chart, drawing layer và loading của ô gửi yêu
+cầu. Mỗi lần tải có token riêng, dùng chung với `loadCell`; phản hồi cũ không
+được ghi đè lần tải mới, kể cả khi mã và khung giống nhau. Các cập nhật toolbar
+chỉ chạy nếu ô đó còn được chọn. Tính chỉ báo cũng giữ ô, tham số và lần tải;
+bỏ kết quả khi chỉ báo đã xóa, tham số đã đổi hoặc ô đã bị hủy.
+
+Kiểm tra: probe `/static/_probe.html?only=async` có **7 pass, 0 fail** với nến
+tổng hợp và phản hồi được chủ động giữ lại; probe `stay` trên dữ liệu thật có
+**0 thay đổi khung nhìn/pane trong 6 lần bấm**. `tests/test_render.js` đạt toàn
+bộ kiểm tra, `tests/test_i18n.py` đạt 2/2; kiểm tra cú pháp JS và `git diff
+--check` không lỗi. Probe `async` thay API trong iframe và khôi phục sau kiểm
+tra; nên chạy bằng hồ sơ trình duyệt thử riêng vì thao tác bố cục vẫn lưu session.
+
 ### 2026-09-18 (tối) — Các ô kết quả đè nhau, và "reload" khi đổi biểu đồ
 
 **326 test Python** + **160 render check**, không lỗi. Probe mới `switchview`.

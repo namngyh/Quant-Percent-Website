@@ -16,10 +16,11 @@
     persist    a reload keeps symbol, frame, panel, indicators, strategy, layout
     resize     the 2/4-chart dividers change the sizes they claim to
     history    panning left keeps loading older pages, on every chart
-    switchload clicking a cell fetches only that cell's series
-    switchview a switch keeps each chart's time window and never dims the others
     pickerflip a picker near the bottom opens upward, inside the window
     tools      Optimise, Monte Carlo and Statistics run from their own panels
+    stay       clicking charts alternately leaves every other chart untouched
+    async      delayed responses stay with their chart across switches/removal
+    backtest   a delayed backtest keeps its markers and loading in its own cell
     charttype  the chart-type menu is actually reachable by the pointer
     timing     where a page load spends its time
 
@@ -418,7 +419,7 @@ async function pick(doc, symbol, timeframe) {
 
     doc.querySelector('[data-layout="4"]').click();
     await until('four cells', () => cells().length === 4);
-    log(`  4 o, bieu do chinh o o ${cellOf(doc.getElementById('chart-main'))}, o dang lam viec ${doc.querySelector('.cell.active')?.dataset.cell}`);
+    log(`  4 o, moi o co bieu do rieng: ${[...doc.querySelectorAll('#chart-grid .cell .chart-main')].length}, o dang lam viec ${doc.querySelector('.cell.active')?.dataset.cell}`);
 
     for (const [i, symbol] of [[1, 'VN:VNINDEX'], [2, 'VN:G-XAUUSD'], [3, 'VN:VIC']]) {
       const sel = doc.querySelector(`[data-pick="${i}"]`);
@@ -447,12 +448,11 @@ async function pick(doc, symbol, timeframe) {
 
     // Click cell 2: the working chart and the tools move there.
     doc.querySelector('[data-body="2"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-    await until('working chart in cell 2', () => cellOf(doc.getElementById('chart-main')) === '2');
-    await until('G-XAUUSD loaded', () => (cm().seriesKey || '').startsWith('VN:G-XAUUSD|'));
+    await until('cell 2 active', () => w.eval('MultiChart').active === 2);
+    await until('G-XAUUSD is the working series', () => (cm().seriesKey || '').startsWith('VN:G-XAUUSD|'));
     await sleep(1500);
-    log(`  bam o 2 -> bieu do chinh o o ${cellOf(doc.getElementById('chart-main'))}, series ${cm().seriesKey}, chi bao dang bat ${doc.querySelectorAll('#active .active-item').length}`);
-    await until('cell 0 redrawn with RSI', () => candlePixels(doc.querySelector('[data-body="0"]')) > 0);
-    log(`  o 0 (vua roi): ${candlePixels(doc.querySelector('[data-body="0"]'))} diem nen, chu thich "${caption(0)}"`);
+    log(`  bam o 2 -> o dang lam viec ${w.eval('MultiChart').active}, series ${cm().seriesKey}, chi bao dang bat ${doc.querySelectorAll('#active .active-item').length}`);
+    log(`  o 0 (vua roi): ${candlePixels(doc.querySelector('[data-body="0"]'))} diem nen, ${doc.querySelectorAll('[data-body="0"] .panes .chart-pane').length} pane RSI van con, chu thich "${caption(0)}"`);
 
     // A strategy test runs on the active cell.
     doc.querySelector('.rail-btn[data-panel="strategy"]').click();
@@ -474,7 +474,7 @@ async function pick(doc, symbol, timeframe) {
     doc.getElementById('mode-toggle').click();
     await sleep(600);
     const shown = cells().filter((c) => c.getBoundingClientRect().width > 0).length;
-    const mainWidth = Math.round(doc.getElementById('chart-main').getBoundingClientRect().width);
+    const mainWidth = Math.round(doc.querySelector('.cell.active .chart-main').getBoundingClientRect().width);
     log(`  Tong quan: ${doc.body.dataset.mode}, o hien ${shown}, bieu do rong ${mainWidth}px / grid ${Math.round(grid.getBoundingClientRect().width)}px`);
     doc.getElementById('mode-toggle').click();
     await sleep(800);
@@ -483,7 +483,7 @@ async function pick(doc, symbol, timeframe) {
 
     doc.querySelector('[data-layout="1"]').click();
     await sleep(400);
-    log(`  ve 1 khung: ${cells().length} o, bieu do chinh rong ${Math.round(doc.getElementById('chart-main').getBoundingClientRect().width)}px, series ${cm().seriesKey}`);
+    log(`  ve 1 khung: ${cells().length} o, bieu do dang lam viec rong ${Math.round(doc.querySelector('.cell.active .chart-main').getBoundingClientRect().width)}px, series ${cm().seriesKey}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }
@@ -813,51 +813,32 @@ async function pick(doc, symbol, timeframe) {
     await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
     const body = doc.querySelector('[data-body="1"]');
     await until('cell 1 candles', () => candlePixels(body) > 0, 200);
-    const canvas = [...body.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    // The drawing layer is the largest canvas but sits beside the chart, so a
+    // wheel fired at it never reaches the chart's own listeners.
+    const canvas = [...body.querySelectorAll('canvas')].filter((c) => !c.classList.contains('draw-layer'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     const r = canvas.getBoundingClientRect();
     const before = pages();
-    for (let i = 0; i < 60 && pages() === before; i++) {
+    const m1 = () => w.eval('MultiChart').managerAt(1);
+    const range1 = () => { const q = m1().chart.timeScale().getVisibleLogicalRange(); return q ? `${Math.round(q.from)}..${Math.round(q.to)}` : '-'; };
+    const oldest1 = m1().oldestTime;
+    log(`  o phu truoc khi cuon: ${m1().seriesKey}, ${m1().barCount} nen, range ${range1()}, active ${w.eval('MultiChart').active}`);
+    let wheels = 0;
+    for (; wheels < 200 && pages() === before; wheels++) {
       canvas.dispatchEvent(new w.WheelEvent('wheel', {
-        bubbles: true, cancelable: true, deltaX: -600, deltaY: 0,
+        bubbles: true, cancelable: true, deltaX: -800, deltaY: 0,
         clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
       }));
-      await sleep(60);
+      await sleep(40);
     }
-    log(`  o phu: sau khi cuon trai, trang lich su moi: ${pages() - before}`);
-  } catch (e) {
-    log('  LOI: ' + e.message);
-  }
-  }
-
-  if (wants('switchload')) {
-  log('');
-  log('=== switchload (doi o khong tai lai cac o khac) ===');
-  const candleCalls = () => w.performance.getEntriesByType('resource')
-    .filter((r) => r.name.includes('/api/candles') && !r.name.includes('end='))
-    .map((r) => decodeURIComponent(r.name.split('symbol=')[1]?.split('&')[0] || ''));
-  try {
-    const cm = () => w.eval('ChartManager');
-    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
-    doc.querySelector('button[data-layout="4"]').click();
-    await until('four cells', () => doc.querySelectorAll('#chart-grid .cell').length === 4);
-    await until('cells drawn', () => [1, 2, 3].every((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`)) > 0), 200);
-    const symbols = [0, 1, 2, 3].map((i) => doc.querySelector(`[data-pick="${i}"]`).value);
-    log(`  4 o: ${symbols.join(', ')}`);
-
-    const click = async (i) => {
-      const calls = candleCalls().length;
-      const frame = doc.querySelector(`.cell[data-cell="${i}"]`);
-      frame.querySelector('.cell-body').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-      await until('series of cell ' + i, () => (cm().seriesKey || '').startsWith(symbols[i] + '|'), 200);
-      await sleep(1500);
-      const fresh = candleCalls().slice(calls);
-      const pending = doc.getElementById('work-unit').classList.contains('pending');
-      const outlined = getComputedStyle(frame, '::after').borderTopWidth;
-      log(`  bam o ${i}: request nen moi [${fresh.join(', ')}], dang cho ${pending}, vien o ${outlined || '0px'}`);
-    };
-    await click(2);
-    await click(0);
-    await click(2);
+    const bars1 = m1().barCount;
+    for (let i = 0; i < 100 && m1().barCount === bars1; i++) await sleep(100);
+    // An unchanged bar count is right when the market has nothing older:
+    // ask the server what that page held before calling it a failure.
+    const last = w.performance.getEntriesByType('resource').filter((q) => q.name.includes('/api/candles') && q.name.includes('end=')).pop();
+    const held = last ? (await (await fetch(last.name)).json()).candles?.length ?? 0 : null;
+    log(`  trang cuoi o phu xin: ${decodeURIComponent(last?.name.split('?')[1] || '-')} -> server tra ${held} nen`);
+    log(`  o phu sau ${wheels} lan cuon: range ${range1()}, ${m1().barCount} nen, nen cu nhat doi: ${m1().oldestTime !== oldest1}, trang lich su moi: ${pages() - before}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }
@@ -930,61 +911,313 @@ async function pick(doc, symbol, timeframe) {
   }
   }
 
-  if (wants('switchview')) {
+  if (wants('backtest')) {
   log('');
-  log('=== switchview (doi o: cac o khac giu nguyen) ===');
+  log('=== backtest (delayed result stays in its own chart) ===');
   try {
-    const cm = () => w.eval('ChartManager');
+    await until('strategy catalogue', () => doc.getElementById('strategy-select').options.length);
+    const result = await w.eval(`(async () => {
+      Live.setEnabled(false);
+      MultiChart.setLayout(2);
+      for (let i = 0; i < 200 && !MultiChart.managerAt(1)?.barCount; i++) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      MultiChart.activate(0);
+      const owner = MultiChart.activeCell;
+      const other = MultiChart.managerAt(1);
+      owner.manager.clearTradeMarkers(); other.clearTradeMarkers();
+      const original = API.backtest;
+      let release;
+      const gate = new Promise(r => release = r);
+      API.backtest = async args => {
+        const data = await original(args);
+        await gate;
+        return data;
+      };
+      try {
+        document.getElementById('run-backtest').click();
+        MultiChart.activate(1);
+        release();
+        for (let i = 0; i < 400 && document.getElementById('run-backtest').disabled; i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        return {
+          complete: !document.getElementById('run-backtest').disabled,
+          trades: Strategy.lastResult?.trades.length || 0,
+          ownerMarkers: owner.manager.markerCount,
+          otherMarkers: other.markerCount,
+          loading: !owner.loading.hidden,
+          equity: document.querySelectorAll('#equity-chart canvas').length,
+        };
+      } finally { API.backtest = original; }
+    })()`);
+    const ok = result.complete && result.trades > 0 && result.ownerMarkers === result.trades
+      && result.otherMarkers === 0 && !result.loading && result.equity > 0;
+    log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(result));
+  } catch (e) { log('FAIL backtest: ' + e.message); }
+  }
+
+  if (wants('async')) {
+  log('');
+  log('=== async (responses belong to the requesting cell) ===');
+  try {
+    await until('RSI catalogue', () => doc.querySelector('.cat-item[data-id="rsi"]'), 200);
+    const results = await w.eval(`(async () => {
+      Live.setEnabled(false);
+      MultiChart.setLayout(1);
+      Indicators.clearAll();
+      const originalCandles = API.candles;
+      const originalCompute = API.compute;
+      const results = [];
+      const check = (name, ok, detail) => results.push({name, ok, detail});
+      const wait = () => new Promise(r => setTimeout(r, 30));
+      const until = async (predicate) => {
+        for (let i = 0; i < 200; i++) { if (predicate()) return; await wait(); }
+        throw new Error('Timed out waiting for the delayed request');
+      };
+      const deferred = () => {
+        let resolve;
+        const promise = new Promise(r => resolve = r);
+        return {promise, resolve};
+      };
+      // Synthetic bars isolate request ordering from market/VPN latency.
+      const payload = (price = 100) => {
+        const candles = Array.from({length: 100}, (_, i) => ({
+          time: 1700000000 + i * 3600, open: price, high: price + 2,
+          low: price - 2, close: price + 1,
+        }));
+        return {count: candles.length, candles,
+          volumes: candles.map(c => ({time: c.time, value: 10})),
+          can_backfill: false, bars_behind: 0};
+      };
+      const panes = i => document.querySelectorAll('[data-body="'+i+'"] .panes .chart-pane').length;
+      const reload = () => document.getElementById('limit').dispatchEvent(new Event('change'));
+      try {
+        API.candles = async () => payload();
+        reload();
+        await until(() => MultiChart.activeCell.loading.hidden);
+        MultiChart.setLayout(2);
+        await until(() => MultiChart.managerAt(1)?.barCount === 100);
+        // Let catalogue restoration finish before adding an indicator.
+        await new Promise(r => setTimeout(r, 100));
+        const cell0 = MultiChart.activeCell;
+        const gate = deferred();
+        API.compute = async () => {
+          await gate.promise;
+          return {kind: 'panel', name: 'RSI', outputs: [{key: 'rsi', name: 'RSI',
+            pane: 'separate', plot_type: 'line', color: '#123456'}],
+            times: payload().candles.map(c => c.time), values: {rsi: Array(100).fill(50)}};
+        };
+        document.querySelector('.cat-item[data-id="rsi"]').click();
+        const job = Indicators.recomputeAll();
+        MultiChart.activate(1);
+        gate.resolve();
+        await job;
+        check('late indicator draws only in its original cell', panes(0) === 1 && panes(1) === 0,
+          {panes: [panes(0), panes(1)], activeIndicators: Indicators.snapshot().length});
+
+        // A slider's debounce must still compute when the user leaves at once.
+        MultiChart.activate(0);
+        const sliderRequests = [];
+        const sliderCompute = API.compute;
+        API.compute = args => {
+          sliderRequests.push({ symbol: args.symbol, length: args.params.length });
+          return sliderCompute(args);
+        };
+        const slider = document.querySelector('#active [data-param="length"]');
+        const length = Number(slider.value) + 1;
+        slider.value = String(length);
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+        MultiChart.activate(1);
+        await new Promise(r => setTimeout(r, 220));
+        check('a pending slider change computes in its source cell', sliderRequests.length === 1
+          && sliderRequests[0].symbol === cell0.ws.symbol && sliderRequests[0].length === length,
+          {requests: sliderRequests});
+        API.compute = sliderCompute;
+
+        MultiChart.activate(0);
+        const removed = deferred();
+        const compute = API.compute;
+        API.compute = async args => { await removed.promise; return compute(args); };
+        const removing = Indicators.recomputeAll();
+        Indicators.clearAll();
+        removed.resolve();
+        await removing;
+        check('removed indicator does not return after its response', panes(0) === 0, {panes: panes(0)});
+        API.compute = compute;
+
+        // Change frame, leave before the response, then complete that load.
+        const candleGate = deferred();
+        API.candles = () => candleGate.promise;
+        const frameButtons = [...document.querySelectorAll('#timeframes button')];
+        const nextFrame = frameButtons.find(b => !b.classList.contains('active'));
+        if (!nextFrame) throw new Error('Need two available timeframes');
+        nextFrame.click();
+        const expectedKey = cell0.ws.symbol + '|' + cell0.ws.timeframe;
+        MultiChart.activate(1);
+        candleGate.resolve(payload(200));
+        await until(() => cell0.loading.hidden);
+        check('inactive cell finishes its own timeframe load', cell0.manager.seriesKey === expectedKey
+          && cell0.manager.lastClose === 201, {expectedKey, actualKey: cell0.manager.seriesKey, loading: !cell0.loading.hidden});
+
+        // Identical keys are still distinct requests (e.g. changed bar count).
+        API.candles = async () => payload(200);
+        MultiChart.activate(0);
+        await new Promise(r => setTimeout(r, 100));
+        const first = deferred(), second = deferred();
+        let calls = 0;
+        API.candles = () => (++calls === 1 ? first.promise : second.promise);
+        reload(); reload();
+        first.resolve(payload(300));
+        await new Promise(r => setTimeout(r, 100));
+        check('older response cannot clear the newer loading mark', !cell0.loading.hidden,
+          {loading: !cell0.loading.hidden});
+        second.resolve(payload(400));
+        await until(() => cell0.loading.hidden);
+        check('latest request wins for identical market/frame', cell0.manager.lastClose === 401,
+          {lastClose: cell0.manager.lastClose});
+
+        // The opposite completion order must also keep the newest result.
+        const older = deferred(), newer = deferred(); calls = 0;
+        API.candles = () => (++calls === 1 ? older.promise : newer.promise);
+        reload(); reload();
+        newer.resolve(payload(500));
+        await until(() => cell0.loading.hidden);
+        older.resolve(payload(600));
+        await new Promise(r => setTimeout(r, 100));
+        check('last response cannot overwrite a newer request', cell0.manager.lastClose === 501,
+          {lastClose: cell0.manager.lastClose});
+
+        // Removing a chart while its data is pending must not resurrect it.
+        API.candles = async () => payload();
+        MultiChart.activate(1);
+        await new Promise(r => setTimeout(r, 100));
+        const doomed = MultiChart.activeCell;
+        const gone = deferred(); API.candles = () => gone.promise;
+        reload();
+        MultiChart.activate(0);
+        MultiChart.setLayout(1);
+        gone.resolve(payload(700));
+        await new Promise(r => setTimeout(r, 100));
+        check('removed cell stays destroyed after its response', doomed.manager.chart === null
+          && MultiChart.managerAt(0) === cell0.manager, {cells: MultiChart.cells.length});
+      } finally {
+        API.candles = originalCandles;
+        API.compute = originalCompute;
+      }
+      return results;
+    })()`);
+    for (const result of results) log((result.ok ? 'PASS ' : 'FAIL ') + result.name + ' ' + JSON.stringify(result.detail));
+    log(results.filter(r => r.ok).length + ' passed, ' + results.filter(r => !r.ok).length + ' failed');
+  } catch (e) {
+    log('FAIL async: ' + e.message);
+  }
+  }
+
+  if (wants('stay')) {
+  log('');
+  log('=== stay (bam xen ke: bieu do kia KHONG doi gi) ===');
+  /* Nam, 2026-09-18: clicking chart 1 then chart 2 back and forth made the
+     other chart reset or zoom. Measured on each chart, after every click:
+     its visible bars, its price range, how many bars it holds, how many
+     indicator panes it has, and how many candle requests went out. Nothing
+     may change except which chart is active. */
+  try {
     const mc = () => w.eval('MultiChart');
-    const fmt = (r) => r ? `${new Date(r.from * 1000).toISOString().slice(5, 16)}..${new Date(r.to * 1000).toISOString().slice(5, 16)}` : '-';
-    const close = (a, b, tol) => a && b && Math.abs(a.from - b.from) <= tol && Math.abs(a.to - b.to) <= tol;
+    const reqs = () => w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/api/candles')).length;
     await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
     doc.querySelector('button[data-layout="2"]').click();
     await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
-    await until('cell 1 drawn', () => candlePixels(doc.querySelector('[data-body="1"]')) > 0, 200);
+    await until('cell 1 loaded', () => mc().managerAt(1)?.barCount > 0, 200);
 
-    // Zoom the working chart somewhere unusual, so a reset would show.
-    const n = cm().chart.timeScale().getVisibleLogicalRange();
-    cm().chart.timeScale().setVisibleLogicalRange({ from: n.from - 400, to: n.to - 350 });
-    doc.getElementById('chart-main').getBoundingClientRect();
-    await sleep(600);
-    const workingBefore = cm().chart.timeScale().getVisibleRange();
+    // An indicator with its own pane on cell 0, so a lost pane would show.
+    (await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
+    await until('RSI pane on cell 0', () => doc.querySelectorAll('[data-body="0"] .panes .chart-pane').length === 1, 200);
 
-    // Watch what covers cell 0 while cell 1 is loading into the working chart.
-    const covered = [];
-    const watch = setInterval(() => {
-      const r = doc.querySelector('[data-cell="0"]').getBoundingClientRect();
-      const hit = doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      if (hit?.closest('#loading')) covered.push(true);
-    }, 30);
-    const enteringView = mc().viewOf(1);
-    doc.querySelector('[data-body="1"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true }));
-    // Record the working chart's window every 30ms through the switch, so a
-    // later change is seen when it happens rather than inferred at the end.
-    const trace = [];
-    let lastText = '';
-    const t0 = performance.now();
-    const tracer = setInterval(() => {
-      let r = null;
-      try { r = cm().chart.timeScale().getVisibleRange(); } catch (e) { r = null; }
-      const text = `${doc.getElementById('work-unit').classList.contains('pending') ? 'cho' : 'hien'} ${cm().seriesKey} ${fmt(r)}`;
-      if (text !== lastText) { trace.push(`${Math.round(performance.now() - t0)}ms ${text}`); lastText = text; }
-    }, 30);
-    await until('cell 1 working', () => !doc.getElementById('work-unit').classList.contains('pending')
-      && doc.getElementById('chart-main').closest('.cell')?.dataset.cell === '1', 200);
-    await sleep(2500);
-    clearInterval(watch);
-    clearInterval(tracer);
-    for (const line of trace) log('    ' + line);
+    /* Zoom each chart the way a person does — wheel on its plot — while it is
+       the active one, then make the other active and zoom that. Ranges set
+       through the API are only read back after a repaint, which headless
+       Chrome may never do; a wheel paints. */
+    const plotCanvas = (i) => [...doc.querySelectorAll(`[data-body="${i}"] .chart-main canvas`)]
+      .filter((c) => !c.classList.contains('draw-layer'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const wheelZoom = async (i, times) => {
+      const c = plotCanvas(i);
+      const r = c.getBoundingClientRect();
+      for (let n = 0; n < times; n++) {
+        c.dispatchEvent(new w.WheelEvent('wheel', {
+          bubbles: true, cancelable: true, deltaY: -240,
+          clientX: r.left + r.width * 0.6, clientY: r.top + r.height / 2,
+        }));
+        await sleep(60);
+      }
+    };
+    const span = (i) => {
+      const q = mc().managerAt(i).chart.timeScale().getVisibleLogicalRange();
+      return q ? q.to - q.from : 0;
+    };
+    const spans0 = [span(0), span(1)];
+    await wheelZoom(0, 8);
+    doc.querySelector('[data-body="1"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    await until('active 1', () => mc().active === 1, 100);
+    await sleep(900);
+    await wheelZoom(1, 12);
+    await sleep(900);
+    log(`  zoom bang con lan: o0 ${Math.round(spans0[0])} -> ${Math.round(span(0))} nen, o1 ${Math.round(spans0[1])} -> ${Math.round(span(1))} nen`);
 
-    const bar = 3600 * 2;
-    const leftView = mc().viewOf(0);
-    const workingAfter = cm().chart.timeScale().getVisibleRange();
-    log(`  khung nhin o 0 truoc khi roi: ${fmt(workingBefore)}`);
-    log(`  anh chup o 0 sau khi roi:     ${fmt(leftView)}  giu nguyen: ${close(workingBefore, leftView, bar)}`);
-    log(`  anh chup o 1 truoc khi vao:   ${fmt(enteringView)}`);
-    log(`  bieu do chinh o o 1 sau do:   ${fmt(workingAfter)}  giu nguyen: ${close(enteringView, workingAfter, bar)}`);
-    log(`  lop phu dang tai che o 0 trong luc chuyen: ${covered.length ? covered.length + ' lan' : 'khong lan nao'}`);
+    const state = (i) => {
+      const m = mc().managerAt(i);
+      /* The price axis is fitted when the chart paints, and headless Chrome
+         paints a chart nobody is interacting with late: one run read chart 0's
+         axis as 76574 at the start and 76215 three clicks later, with the same
+         bars in view. takeScreenshot() paints synchronously, so what is read
+         is what a person would see now. */
+      m.chart.takeScreenshot();
+      const r = m.chart.timeScale().getVisibleLogicalRange();
+      const body = doc.querySelector(`[data-body="${i}"]`);
+      const h = body.querySelector('.chart-main').clientHeight;
+      const top = m.priceSeries.coordinateToPrice(10);
+      const bottom = m.priceSeries.coordinateToPrice(h - 40);
+      return {
+        range: r ? `${Math.round(r.from)}..${Math.round(r.to)}` : '-',
+        price: `${Math.round(bottom)}..${Math.round(top)}`,
+        bars: m.barCount,
+        panes: body.querySelectorAll('.panes .chart-pane').length,
+        key: m.seriesKey,
+        h,
+        markers: m.markerCount,
+        last: (() => { const d = m.priceSeries.data(); const b = d[d.length - 1]; return b ? `${b.time}:${b.low}-${b.high}` : '-'; })(),
+        // The lowest low and highest high actually in view, from the data.
+        span: (() => {
+          const d = m.priceSeries.data();
+          const from = Math.max(0, Math.ceil(r?.from ?? 0));
+          const to = Math.min(d.length - 1, Math.floor(r?.to ?? -1));
+          let lo = Infinity, hi = -Infinity;
+          for (let k = from; k <= to; k++) { lo = Math.min(lo, d[k].low); hi = Math.max(hi, d[k].high); }
+          return Number.isFinite(lo) ? `${Math.round(lo)}-${Math.round(hi)}` : '-';
+        })(),
+      };
+    };
+    const text = (x) => `${x.key} nen ${x.range} gia ${x.price} (${x.bars} nen, ${x.panes} pane, cao ${x.h}px, ${x.markers} marker, trong khung ${x.span})`;
+    // A range set from here is only reported back after the chart repaints,
+    // which headless Chrome does lazily; poll until both read the zoom.
+    const before = [state(0), state(1)];
+    log(`  truoc: o0 ${text(before[0])}`);
+    log(`         o1 ${text(before[1])}`);
+
+    let changed = 0;
+    const requests0 = reqs();
+    for (let k = 1; k <= 6; k++) {
+      const target = k % 2;                      // 1, 0, 1, 0, 1, 0
+      doc.querySelector(`[data-body="${target}"]`).dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      await until('active ' + target, () => mc().active === target, 100);
+      await sleep(900);
+      const now = [state(0), state(1)];
+      const diff = [0, 1].filter((i) => JSON.stringify(now[i]) !== JSON.stringify(before[i]));
+      changed += diff.length;
+      log(`  bam ${k} -> o ${target} dang lam viec | o doi: ${diff.length ? diff.map((i) => 'o' + i + ' ' + text(now[i])).join(' ; ') : 'khong'} | panel chi bao: ${doc.querySelectorAll('#active .active-item').length}`);
+    }
+    log(`  tong so lan mot bieu do bi doi: ${changed}; request nen trong 6 lan bam: ${reqs() - requests0}`);
   } catch (e) {
     log('  LOI: ' + e.message);
   }

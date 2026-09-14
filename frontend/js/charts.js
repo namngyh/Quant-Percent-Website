@@ -5,7 +5,13 @@
    indicator gets its own chart instance and the instances are kept in lockstep
    by mirroring the time scale and crosshair between them. */
 
-const ChartManager = (() => {
+// Shared by market charts and the backtest equity chart.
+const CHART_FONT = "'Be Vietnam Pro', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif";
+
+/* One chart per call. Each cell of the 1/2/4 layout owns one (multichart.js);
+   `ChartManager`, below, always means the one the user is working on, so the
+   rest of the app never has to know how many there are. */
+function createChartManager() {
   /* Lightweight Charts renders its axis in UTC and v4 has no timezone option,
      so every timestamp is shifted by the display offset on the way in. Vietnam
      is UTC+7 all year: no daylight saving: so a fixed offset is exact, and a
@@ -25,14 +31,12 @@ const ChartManager = (() => {
      Be Vietnam Pro's figures are tabular when asked, so the scale's digits
      still line up column by column. Grid and borders are the same greys the
      stylesheet uses, so the plot does not read as a pasted-in widget. */
-  const FONT = "'Be Vietnam Pro', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif";
-
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
       textColor: '#72727a',
       fontSize: 11,
-      fontFamily: FONT,
+      fontFamily: CHART_FONT,
     },
     // No grid behind the candles (Nam, 2026-09-14). The price axis and the
     // crosshair already say where a value is; the lattice was only noise.
@@ -52,6 +56,16 @@ const ChartManager = (() => {
   let mainChart = null;
   let candleSeries = null;
   let volumeSeries = null;
+  let volumeNote = null;
+  let positiveVolumes = 0;
+
+  function refreshVolumeNote() {
+    if (!volumeNote) return;
+    volumeNote.hidden = mode === 'overview' || !candleData.length || positiveVolumes > 0;
+    volumeNote.textContent = volumeData.length
+      ? L('Volume: nguồn dữ liệu trả về 0', 'Volume: source reports zero')
+      : L('Chưa có dữ liệu khối lượng', 'Volume data unavailable');
+  }
 
   /** Overlay line series drawn on the main chart, keyed by instance id. */
   const overlays = new Map();
@@ -194,6 +208,7 @@ const ChartManager = (() => {
     for (const s of extraSeries) s.applyOptions({ visible: !overview });
     volumeSeries?.applyOptions({ visible: !overview });
     overviewSeries?.applyOptions({ visible: overview });
+    refreshVolumeNote();
 
     // Indicator panes and overlays belong to the working view only.
     for (const pane of panes.values()) {
@@ -216,7 +231,7 @@ const ChartManager = (() => {
        it. */
     document.fonts?.ready.then(() => {
       for (const chart of allCharts()) {
-        chart.applyOptions({ layout: { fontFamily: FONT } });
+        chart.applyOptions({ layout: { fontFamily: CHART_FONT } });
       }
     });
     trackSize(mainChart, container);
@@ -235,6 +250,10 @@ const ChartManager = (() => {
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.86, bottom: 0 },
     });
+    volumeNote = document.createElement('div');
+    volumeNote.className = 'volume-note';
+    volumeNote.hidden = true;
+    container.appendChild(volumeNote);
 
     /* The overview series: one line with a gradient under it, the shape a
        quote page uses. It lives on the same chart as the candles rather than
@@ -346,6 +365,8 @@ const ChartManager = (() => {
      them behind is how a chart ends up with the ghost of a previous type
      drawn under the current one. */
   let priceType = 'candles';
+  // Tells this chart's own drawing layer that the price series was replaced.
+  let onSeriesChanged = null;
   let extraSeries = [];
   let applyPriceData = null;
   let updatePricePoint = null;
@@ -380,7 +401,7 @@ const ChartManager = (() => {
     for (const s of extraSeries) s.applyOptions({ visible: mode !== 'overview' });
     // Drawings convert prices through the series, so they must be handed the
     // new one or every shape would stay anchored to a series that is gone.
-    if (typeof Drawings !== 'undefined') Drawings.setSeries(candleSeries);
+    onSeriesChanged?.(candleSeries);
     if (range) scale.setVisibleLogicalRange(range);
     return priceType;
   }
@@ -401,6 +422,8 @@ const ChartManager = (() => {
       color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
     }));
     volumeSeries.setData(volumeData);
+    positiveVolumes = volumeData.filter(v => v.value > 0).length;
+    refreshVolumeNote();
 
     /* The same closes as a line. Coloured by where the window ended against
        where it started, which is what a quote page's colour means — not the
@@ -863,11 +886,23 @@ const ChartManager = (() => {
       candleData,
       priceType,
     );
-    volumeSeries.update({
+    const volumePoint = {
       time,
       value: candle.volume,
       color: candle.close >= candle.open ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
-    });
+    };
+    // Keep the backing array in step with the rendered series. History paging
+    // calls setData from this array; otherwise it erases every live volume bar.
+    const previousVolume = volumeData[volumeData.length - 1];
+    if (previousVolume?.time === time) {
+      if (previousVolume.value > 0) positiveVolumes--;
+      volumeData[volumeData.length - 1] = volumePoint;
+    } else {
+      volumeData.push(volumePoint);
+    }
+    if (volumePoint.value > 0) positiveVolumes++;
+    volumeSeries.update(volumePoint);
+    refreshVolumeNote();
 
     if (lastBarTime === null || time > lastBarTime) {
       lastBarTime = time;
@@ -885,6 +920,19 @@ const ChartManager = (() => {
     if (!candleSeries) return null;
     const bar = candleSeries.dataByIndex(Number.MAX_SAFE_INTEGER, -1);
     return bar ? bar.time : null;
+  }
+
+  /** Remove this chart and everything it registered. */
+  function destroy() {
+    window.removeEventListener('resize', refreshSize);
+    for (const id of [...panes.keys()]) removePane(id);
+    for (const { observer } of sizers.values()) observer.disconnect();
+    sizers.clear();
+    try { mainChart?.remove(); } catch { /* already gone */ }
+    mainChart = null;
+    candleSeries = null;
+    volumeNote?.remove();
+    volumeNote = null;
   }
 
   /** A canvas of the price chart as drawn, for export. */
@@ -977,6 +1025,8 @@ const ChartManager = (() => {
 
     candleData = [...older, ...candleData];
     volumeData = [...olderVol, ...volumeData];
+    positiveVolumes += olderVol.filter(v => v.value > 0).length;
+    refreshVolumeNote();
     applyPriceData(candleData);
     volumeSeries.setData(volumeData);
     overviewSeries?.setData(candleData.map((c) => ({ time: c.time, value: c.close })));
@@ -1031,6 +1081,7 @@ const ChartManager = (() => {
            },
            get chart() { return mainChart; },
            get priceSeries() { return candleSeries; },
+           get volumeSeries() { return volumeSeries; },
            get priceType() { return priceType; },
            set onNeedHistory(fn) { onNeedHistory = fn || null; },
            get oldestTime() { return candleData.length ? candleData[0].time : null; },
@@ -1043,8 +1094,32 @@ const ChartManager = (() => {
            get markersVisible() { return markersVisible; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
-           screenshot, refreshSize, timezoneLabel: TZ_LABEL, toChartTime: toChart };
+           screenshot, refreshSize, refreshVolumeNote, timezoneLabel: TZ_LABEL, toChartTime: toChart,
+           destroy,
+           get barCount() { return candleData.length; },
+           get lastClose() { return candleData.length ? candleData[candleData.length - 1].close : null; },
+           set onSeriesChanged(fn) { onSeriesChanged = fn || null; } };
+}
+
+/* The charts, and which one is being worked on.
+
+   `ChartManager` is a stand-in for the active chart rather than a chart of its
+   own: every `ChartManager.setCandles(...)`, `.draw(...)`, `.seriesKey` in the
+   app reaches whichever cell is active at the moment of the call. The first
+   chart exists from the start, so the stand-in is never empty. */
+const ChartHub = (() => {
+  let active = createChartManager();
+  return {
+    create: () => createChartManager(),
+    get active() { return active; },
+    setActive(manager) { if (manager) active = manager; },
+  };
 })();
+
+const ChartManager = new Proxy({}, {
+  get: (_, prop) => ChartHub.active[prop],
+  set: (_, prop, value) => { ChartHub.active[prop] = value; return true; },
+});
 
 /* The equity curve, drawn in the results panel. Its own small chart rather
    than a pane of the price chart: equity is denominated in account currency
@@ -1064,7 +1139,7 @@ const EquityChart = (() => {
         background: { color: '#ffffff' },
         textColor: '#9a9aa2',
         fontSize: 10,
-        fontFamily: FONT,
+        fontFamily: CHART_FONT,
       },
       grid: {
         vertLines: { visible: false },

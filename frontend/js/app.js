@@ -13,6 +13,7 @@
     loading: document.getElementById('loading'),
     chartMain: document.getElementById('chart-main'),
     panes: document.getElementById('panes'),
+    chartStack: document.querySelector('.charts-stack'),
     panelHost: document.getElementById('panel-host'),
     runBacktest: document.getElementById('run-backtest'),
     runOptimize: document.getElementById('run-optimize'),
@@ -102,8 +103,6 @@
     }
   }
 
-  const setLoading = (on) => { el.loading.hidden = !on; };
-
   function toast(message, bad = false) {
     const node = document.createElement('div');
     node.className = `toast${bad ? ' bad' : ''}`;
@@ -115,34 +114,47 @@
   // ---------- Data ----------
 
   async function loadCandles() {
-    setLoading(true);
     Session.patch({ symbol: state.symbol, timeframe: state.timeframe });
     MultiChart.syncActive();
-    const requested = `${state.symbol}|${state.timeframe}`;
+    const cell = MultiChart.activeCell;
+    const manager = ChartHub.active;
+    const drawings = DrawingHub.active;
+    const loading = cell?.loading || el.loading;
+    const { symbol, timeframe, limit } = state;
+    const requested = `${symbol}|${timeframe}`;
+    const token = {};
+    const owner = cell || manager;
+    owner.loadToken = token;
+    const current = () => owner.loadToken === token && !cell?.destroyed;
+    const isActive = () => current() && ChartHub.active === manager;
+    loading.hidden = false;
     try {
       const data = await API.candles({
-        symbol: state.symbol, timeframe: state.timeframe, limit: state.limit,
+        symbol, timeframe, limit,
       });
 
-      /* Two symbol changes in quick succession start two requests, and they
-         can finish in either order. Without this the slower one wins and the
-         chart settles on a series nobody asked for last. */
-      if (requested !== `${state.symbol}|${state.timeframe}`) return;
+      // A switch changes the toolbar's target, never this request's owner.
+      // A token also distinguishes two requests for the same market/frame.
+      if (!current()) return;
 
       if (!data.count) {
         // Drop the drawings too, or lines from the previous timeframe linger
         // over an empty chart. The active list stays, so they redraw when data
         // for this series arrives.
-        ChartManager.clearAll();
-        ChartManager.clearTradeMarkers();
-        ChartManager.setCandles([], [], { timeVisible: false, key: null });
-        setStatusLive(() => t('status.noData'), 'error');
-        hidePrice();
+        manager.clearAll();
+        manager.clearTradeMarkers();
+        manager.setCandles([], [], { timeVisible: false, key: null });
+        drawings.load(requested);
+        if (isActive()) {
+          loadedBars = 0;
+          setStatusLive(() => t('status.noData'), 'error');
+          hidePrice();
+        }
         return;
       }
 
-      ChartManager.setCandles(data.candles, data.volumes, {
-        timeVisible: INTRADAY.has(state.timeframe),
+      manager.setCandles(data.candles, data.volumes, {
+        timeVisible: INTRADAY.has(timeframe),
         key: requested,
       });
 
@@ -155,25 +167,26 @@
          and the header price then tracked an instrument nobody had selected.
          Nothing between here and the end of the function is a precondition for
          receiving live data. */
-      Live.subscribe(state.symbol, state.timeframe);
+      if (isActive()) Live.subscribe(symbol, timeframe);
       // A different series has its own history; the previous "nothing older"
       // answer says nothing about this one.
-      historyExhausted = false;
+      if (cell) cell.exhausted = false;
       // Shapes are notes about one series. Showing a trend line drawn on BTC
       // 1h over VIC daily would be worse than not showing it at all.
-      Drawings.load(requested);
+      drawings.load(requested);
 
       // The symbol and the timeframe are already selected two controls to the
       // left, and the price now has a readout of its own, so the status line
       // is left for the one thing neither of those shows.
       const last = data.candles[data.candles.length - 1];
-      loadedBars = data.count;
-      showLoadedBars();
-      warnIfDataIncomplete(requested);
+      if (isActive()) {
+        loadedBars = data.count;
+        showLoadedBars();
+        warnIfDataIncomplete(requested);
+        showPrice(last.close);
+      }
 
-      showPrice(last.close);
-
-      ChartManager.clearTradeMarkers();
+      manager.clearTradeMarkers();
 
       /* One broken indicator must not cost the chart everything after it.
 
@@ -182,39 +195,53 @@
          propagate skipped the trade markers, the subscription and the
          catch-up, and reported the whole load as failed. */
       try {
-        await Indicators.recomputeAll();
+        if (cell) await computeCellIndicators(cell);
+        else await Indicators.recomputeAll();
       } catch (err) {
         toast(L(`Không tính được chỉ báo: ${err.message}`,
                 `Could not compute indicators: ${err.message}`), 'bad');
       }
+      if (!isActive()) return;
       drawPaperMarkers();
       drawPositionLines();
 
       // Fill any gap left while the app was closed, then redraw including it.
-      if (await catchUpIfBehind(data)) {
+      if (await catchUpIfBehind(data, { symbol, timeframe, loading, isActive }) && isActive()) {
         await loadCandles();
       }
     } catch (err) {
-      setStatus(err.message, 'error');
+      if (isActive()) setStatus(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (current()) loading.hidden = true;
     }
   }
 
-  async function computeIndicator(instanceId, instance) {
+  async function computeIndicator(instanceId, instance, cell = MultiChart.activeCell) {
+    const manager = cell?.manager || ChartHub.active;
+    const panes = cell?.panes || el.panes;
+    const { symbol, timeframe } = cell?.ws || state;
+    const key = `${symbol}|${timeframe}`;
+    const loadToken = cell?.loadToken;
+    const params = { ...instance.params };
+    const token = {};
+    instance.computeToken = token;
     const result = await API.compute({
       indicatorId: instance.spec.id,
-      symbol: state.symbol,
-      timeframe: state.timeframe,
-      params: instance.params,
+      symbol,
+      timeframe,
+      params,
       /* As many bars as the chart holds, not the load size. After panning
          left the chart holds more than `state.limit`, and an indicator
          computed over the original 2 000 left the older stretch bare. */
-      limit: Math.max(state.limit, loadedBars),
+      limit: Math.max(state.limit, manager.barCount),
     });
+    const instances = !cell || MultiChart.activeCell === cell ? Indicators.active : cell.indicators;
+    if (cell?.destroyed || cell?.loadToken !== loadToken || manager.seriesKey !== key
+        || instances.get(instanceId) !== instance || instance.computeToken !== token
+        || JSON.stringify(instance.params) !== JSON.stringify(params)) return;
     // The backend tags each output with the pane it belongs in, so one call
     // handles overlays, panels, and indicators that mix the two.
-    ChartManager.draw(instanceId, result, el.panes);
+    manager.draw(instanceId, result, panes);
   }
 
   // ---------- Live ----------
@@ -286,41 +313,38 @@
      is to keep the pan smooth: a page arrives in about the time one flick
      takes, and the next flick asks for the next one. */
   const HISTORY_PAGE = 1000;
-  let historyExhausted = false;
+  /* Page older bars into one chart.
 
-  async function loadOlderHistory(oldestSeconds) {
-    if (historyExhausted) return;
-    // The series this page belongs to, captured before the request rather than
-    // read after it: `state.symbol` is whatever is selected *now*, and a pan
-    // that starts a fetch and a click that changes symbol are two things a
-    // person does within the same second.
-    const key = `${state.symbol}|${state.timeframe}`;
+     Every chart in the grid has its own pager. The active one reads the app's
+     state and recomputes through the indicator panel; any other recomputes its
+     own indicator set. `exhausted` lives on the cell: one market running out of
+     history says nothing about another. */
+  async function pageCell(cell, oldestSeconds) {
+    if (cell.exhausted) return;
+    const isActive = MultiChart.activeCell === cell;
+    const symbol = isActive ? state.symbol : cell.ws.symbol;
+    const timeframe = isActive ? state.timeframe : cell.ws.timeframe;
+    const key = `${symbol}|${timeframe}`;
     try {
-      const data = await API.candlesBefore({
-        symbol: state.symbol,
-        timeframe: state.timeframe,
-        before: oldestSeconds,
-        limit: HISTORY_PAGE,
-      });
-      if (key !== ChartManager.seriesKey) return;
-      const added = ChartManager.prependCandles(data.candles, data.volumes, key);
-      if (added) {
-        loadedBars += added;
-        showLoadedBars();
-      }
+      const data = await API.candlesBefore({ symbol, timeframe, before: oldestSeconds, limit: HISTORY_PAGE });
+      if (key !== cell.manager.seriesKey) return;
+      const added = cell.manager.prependCandles(data.candles, data.volumes, key);
       if (!added) {
-        // The store has nothing older. Stop asking; a chart that refires the
-        // same empty request on every pan is how a scroll gesture becomes a
-        // request storm.
-        historyExhausted = true;
+        // Nothing older: stop asking, or a scroll becomes a request storm.
+        cell.exhausted = true;
         return;
       }
-      // The indicator panes are drawn over the bars that were on screen, so
-      // they have to be recomputed against the longer series.
-      await Indicators.recomputeAll();
+      if (MultiChart.activeCell === cell) {
+        loadedBars = cell.manager.barCount;
+        showLoadedBars();
+        await Indicators.recomputeAll();
+      } else {
+        await computeCellIndicators(cell);
+      }
     } catch (err) {
-      historyExhausted = true;
-      toast(`Không nạp thêm được lịch sử: ${err.message}`, 'bad');
+      cell.exhausted = true;
+      toast(L(`Không nạp thêm được lịch sử: ${err.message}`,
+              `Could not load more history: ${err.message}`), 'bad');
     }
   }
 
@@ -342,9 +366,14 @@
         timeframe: state.timeframe,
         indicators: Indicators.snapshot(),
       }),
-      load: loadWorkspace,
       timeframes: (symbol) => allowedTimeframes(symbol),
       describe: (list) => Indicators.describe(list),
+      exportIndicators: () => Indicators.exportState(),
+      beforeDeactivate: () => Indicators.flushPending(),
+      configure: configureCell,
+      loadCell,
+      activated: onCellActivated,
+      onDrawingsChange: renderDrawBar,
       setActiveSymbol: (symbol) => {
         el.symbol.value = symbol;
         el.symbol.dispatchEvent(new Event('change', { bubbles: true }));
@@ -356,8 +385,7 @@
     });
 
     const markLayout = (chosen) => {
-      // Buttons only: the grid itself carries `data-layout`, and matching it
-      // here gave the grid an `active` class meant for the toolbar.
+      // Buttons only: the grid itself carries `data-layout`.
       for (const b of document.querySelectorAll('button[data-layout]')) {
         b.classList.toggle('active', Number(b.dataset.layout) === chosen);
       }
@@ -370,27 +398,131 @@
       });
     }
 
-    // The layout, each cell's market, frame and indicators, and the sizes.
+    // The layout, each chart's market, frame and indicators, and the sizes.
     markLayout(MultiChart.restore(Session.saved.multi));
   }
 
-  /* Load a cell's workspace into the working chart: its series and its
-     indicators. The indicators wait for the catalogue, which the working view
-     fetches on first use. */
-  function loadWorkspace(ws) {
-    state.symbol = ws.symbol;
-    state.timeframe = ws.timeframe;
-    el.symbol.value = ws.symbol;
-    hidePrice();
+  /** Handlers every chart needs, whichever cell it lives in. */
+  function configureCell(cell) {
+    cell.manager.onNeedHistory = (oldest) => pageCell(cell, oldest);
+    cell.manager.onLevelDragged = onLevelDragged;
+    cell.manager.onMarkersChanged = (count, visible) => {
+      if (MultiChart.activeCell === cell) paintMarkerTools(count, visible);
+    };
+    cell.manager.onSeriesChanged = (series) => cell.drawings?.setSeries(series);
+    // A new chart is drawn the way the others are.
+    if (cell.manager !== ChartHub.active && ChartHub.active.priceType) {
+      cell.manager.setPriceType(ChartHub.active.priceType);
+    }
+  }
+
+  /* Load a chart that is not the working one: its series, its drawings, its
+     indicators. Only this chart changes. */
+  async function loadCell(cell) {
+    const { symbol, timeframe } = cell.ws;
+    const key = `${symbol}|${timeframe}`;
+    const token = {};
+    cell.loadToken = token;
+    const current = () => cell.loadToken === token && !cell.destroyed;
+    cell.exhausted = false;
+    cell.loading.hidden = false;
+    try {
+      const data = await API.candles({ symbol, timeframe, limit: state.limit });
+      if (!current()) return;
+      cell.manager.clearAll();
+      cell.manager.clearTradeMarkers();
+      cell.manager.setCandles(data.candles || [], data.volumes || [], {
+        timeVisible: INTRADAY.has(timeframe),
+        key: data.count ? key : null,
+      });
+      cell.drawings.load(key);
+      cell.loading.hidden = true;
+
+      await loadWorkingView();                 // the indicator catalogue
+      if (!current()) return;
+      cell.indicators = Indicators.buildState(cell.ws.indicators || []);
+      if (MultiChart.activeCell === cell) Indicators.importState(cell.indicators);
+      await computeCellIndicators(cell);
+    } catch (err) {
+      if (current()) {
+        toast(L(`Không nạp được ${symbol}: ${err.message}`, `Could not load ${symbol}: ${err.message}`), true);
+      }
+    } finally {
+      if (current()) cell.loading.hidden = true;
+    }
+  }
+
+  async function computeCellIndicators(cell) {
+    const instances = MultiChart.activeCell === cell ? Indicators.active : cell.indicators;
+    await Promise.all([...instances].map(async ([instanceId, instance]) => {
+      try {
+        await computeIndicator(instanceId, instance, cell);
+        instance.error = null;
+      } catch (err) {
+        instance.error = err.message;
+      }
+    }));
+    if (MultiChart.activeCell === cell) Indicators.rerender();
+  }
+
+  /* The working chart is now this one. Point everything at it — the symbol
+     and timeframe controls, the indicator list, the price, the drawing bar,
+     the live feed — and change nothing on any chart. */
+  function onCellActivated(cell) {
+    state.symbol = cell.ws.symbol;
+    state.timeframe = cell.ws.timeframe;
+    el.symbol.value = state.symbol;
+    loadedBars = cell.manager.barCount;
+    showLoadedBars();
     refreshStars();
     Paper.refreshManualButton();
     buildTimeframeButtons();
     Markets.refreshTimeframeNote();
-    Indicators.clearAll();
-    Promise.resolve(loadWorkingView()).then(() => Indicators.restore(ws.indicators));
-    // Returned so the grid can keep showing the cell's snapshot until the
-    // working chart actually has the new series.
-    return loadCandles();
+    Indicators.importState(cell.indicators);
+
+    cell.chartMain.appendChild(el.chartTools);
+    paintMarkerTools(cell.manager.markerCount, cell.manager.markersVisible);
+    renderChartTypeMenu();
+    renderDrawBar();
+
+    hidePrice();
+    if (cell.manager.lastClose !== null) showPrice(cell.manager.lastClose);
+    Live.subscribe(state.symbol, state.timeframe);
+    catchUpLive(cell);
+
+    drawPaperMarkers();
+    drawPositionLines();
+    Session.patch({ symbol: state.symbol, timeframe: state.timeframe, indicators: Indicators.snapshot() });
+  }
+
+  /* Bars the chart missed while it was not the one receiving the live feed.
+     Applied through the same update path a live candle takes, so nothing is
+     re-drawn from scratch and the view stays where it is. */
+  async function catchUpLive(cell) {
+    const key = cell.manager.seriesKey;
+    if (!key) return;
+    /* Only the bars it could have missed: the time since its last bar, in
+       bars, plus two for the forming one. A click on a chart that was active a
+       moment ago asks for three bars, not three hundred. */
+    const frameSeconds = state.timeframe === '1d' ? 86400 : (FRAME_MINUTES[state.timeframe] || 60) * 60;
+    const lastUtc = (cell.manager.lastCandleTime() ?? 0) - 7 * 3600;
+    const missed = Math.ceil(Math.max(0, Date.now() / 1000 - lastUtc) / frameSeconds);
+    const limit = Math.min(1000, Math.max(3, missed + 2));
+    try {
+      const data = await API.candles({ symbol: state.symbol, timeframe: state.timeframe, limit });
+      if (cell.manager.seriesKey !== key) return;
+      (data.candles || []).forEach((c, n) => {
+        cell.manager.updateCandle({
+          time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
+          volume: data.volumes?.[n]?.value ?? 0,
+        }, key);
+      });
+      if (MultiChart.activeCell === cell && cell.manager.lastClose !== null) {
+        showPrice(cell.manager.lastClose);
+      }
+    } catch {
+      // The live feed fills the gap on its next bar anyway.
+    }
   }
 
   /* Say when the minute data behind this chart is not what it looks like.
@@ -570,6 +702,7 @@
       chart: ChartManager.chart,
       series: ChartManager.priceSeries,
       host: el.chartMain,
+      manager: ChartHub.active,
       onChange: renderDrawBar,
     });
     renderDrawBar();
@@ -1012,7 +1145,7 @@
      says while it runs. */
   let catchingUp = false;
 
-  async function catchUpIfBehind(data) {
+  async function catchUpIfBehind(data, { symbol, timeframe, loading, isActive }) {
     if (catchingUp || !data.can_backfill || !data.bars_behind) return false;
 
     catchingUp = true;
@@ -1022,20 +1155,19 @@
        the plumbing to someone who only wanted the chart. Nam called it
        unprofessional, and it is: how many rows a backfill fetched is not a
        thing a reader acts on. The mark says "wait" and nothing else. */
-    setLoading(true);
+    loading.hidden = false;
     try {
       const report = await API.backfill({
-        symbols: [state.symbol],
-        timeframes: [state.timeframe],
+        symbols: [symbol],
+        timeframes: [timeframe],
       });
       return report.total_rows > 0;
     } catch (err) {
-      setStatus(L(`Không bù được dữ liệu: ${err.message}`,
+      if (isActive()) setStatus(L(`Không bù được dữ liệu: ${err.message}`,
                   `Could not fill the missing bars: ${err.message}`), 'error');
       return false;
     } finally {
       catchingUp = false;
-      setLoading(false);
     }
   }
 
@@ -1106,7 +1238,11 @@
      where the server still has it rather than leaving the chart showing a
      level that was never accepted. */
   function bindLevelDrag() {
-    ChartManager.onLevelDragged = async (which, price) => {
+    ChartManager.onLevelDragged = onLevelDragged;
+  }
+
+  async function onLevelDragged(which, price) {
+    {
       if (!paperLevelSession) return;
       const session = (Paper.sessions || []).find((s) => s.id === paperLevelSession);
       if (!session) return;
@@ -1123,22 +1259,24 @@
       } catch (err) {
         toast(err.message, true);
         drawPaperMarkers();
-      drawPositionLines();          // put the line back where the server has it
+        drawPositionLines();        // put the line back where the server has it
       }
-    };
+    }
   }
 
 
   /* The marker controls appear only once something has drawn markers, and go
      away when nothing has. A permanently visible "hide markers" button on an
      empty chart is a control for a state that does not exist. */
+  function paintMarkerTools(count, visible) {
+    el.chartTools.hidden = count === 0;
+    el.toggleMarkers.textContent = t('chart.markers', { n: count });
+    el.toggleMarkers.classList.toggle('off', !visible);
+    el.toggleMarkers.title = t(visible ? 'chart.hideMarkers' : 'chart.showMarkers');
+  }
+
   function setupMarkerControls() {
-    ChartManager.onMarkersChanged = (count, visible) => {
-      el.chartTools.hidden = count === 0;
-      el.toggleMarkers.textContent = t('chart.markers', { n: count });
-      el.toggleMarkers.classList.toggle('off', !visible);
-      el.toggleMarkers.title = t(visible ? 'chart.hideMarkers' : 'chart.showMarkers');
-    };
+    ChartManager.onMarkersChanged = paintMarkerTools;
 
     el.toggleMarkers.addEventListener('click', () => {
       const visible = ChartManager.toggleMarkers();
@@ -1529,6 +1667,7 @@ def signals(df, params):
       Validation.rerender?.();
       Report.rerender?.();
       Portfolio.rerender?.();
+      MultiChart.refreshLabels();
       ChartManager.refreshSize();
     });
 
@@ -1681,9 +1820,12 @@ def signals(df, params):
 
   async function withButton(button, label, work) {
     const original = button.textContent;
+    const cell = MultiChart.activeCell;
+    const loading = cell?.loading || el.loading;
+    const loadToken = cell?.loadToken;
     button.disabled = true;
     button.textContent = label;
-    setLoading(true);
+    loading.hidden = false;
     try {
       await work();
     } catch (err) {
@@ -1691,7 +1833,7 @@ def signals(df, params):
     } finally {
       button.disabled = false;
       button.textContent = original;
-      setLoading(false);
+      if (cell?.loadToken === loadToken) loading.hidden = true;
     }
   }
 
@@ -1779,8 +1921,8 @@ def signals(df, params):
     });
     setupMarkerControls();
     ChartManager.init(el.chartMain);
-    // Panning left past the oldest bar fetches the page before it.
-    ChartManager.onNeedHistory = loadOlderHistory;
+    // History paging is wired per chart when the grid adopts this one
+    // (configureCell).
     // Dividers change the chart's box, so the charts re-measure on every drag.
     Resizer.init({ onChange: () => ChartManager.refreshSize() });
     setupNavigation();
@@ -1873,11 +2015,14 @@ def signals(df, params):
         fee: document.getElementById('exec-fee'),
         slippage: document.getElementById('exec-slippage'),
       },
-      context: () => ({ ...state }),
+      context: () => ({ ...state, manager: ChartHub.active, cell: MultiChart.activeCell,
+        loadToken: MultiChart.activeCell?.loadToken }),
       onSelect: refreshStars,
-      onResult: (result) => {
-        markerSource = 'backtest';
-        ChartManager.setTradeMarkers(result.trades);
+      onResult: (result, ctx) => {
+        if (ctx.cell?.destroyed || ctx.cell?.loadToken !== ctx.loadToken
+            || ctx.manager.seriesKey !== `${ctx.symbol}|${ctx.timeframe}`) return;
+        if (ChartHub.active === ctx.manager) markerSource = 'backtest';
+        ctx.manager.setTradeMarkers(result.trades);
       },
     });
 
@@ -2028,17 +2173,17 @@ def signals(df, params):
        event. Press and release have to land within a few pixels of each other,
        which is what separates "I pointed at this" from "I dragged this". */
     let pressAt = null;
-    el.chartMain?.addEventListener('pointerdown', (event) => {
+    el.chartStack?.addEventListener('pointerdown', (event) => {
       pressAt = { x: event.clientX, y: event.clientY };
     });
-    el.chartMain?.addEventListener('pointerup', (event) => {
+    el.chartStack?.addEventListener('pointerup', (event) => {
       if (ChartManager.mode !== 'overview' || !pressAt) { pressAt = null; return; }
       const moved = Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y);
       pressAt = null;
       // 5px covers the wobble of a deliberate click; a pan is tens of pixels.
       if (moved <= 5) setViewMode('trading');
     });
-    el.chartMain?.addEventListener('pointercancel', () => { pressAt = null; });
+    el.chartStack?.addEventListener('pointercancel', () => { pressAt = null; });
 
     el.runBacktest.addEventListener('click', () =>
       withButton(el.runBacktest, 'Đang chạy…', async () => {

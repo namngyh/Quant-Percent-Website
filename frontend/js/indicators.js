@@ -20,7 +20,10 @@ const Indicators = (() => {
 
   function debounce(key, fn, delay = 160) {
     clearTimeout(debounceTimers.get(key));
-    debounceTimers.set(key, setTimeout(fn, delay));
+    debounceTimers.set(key, setTimeout(() => {
+      debounceTimers.delete(key);
+      fn();
+    }, delay));
   }
 
   // ---------- Catalog ----------
@@ -169,6 +172,49 @@ const Indicators = (() => {
     renderCatalog();
     compute(instanceId);
     onChange();
+  }
+
+  /* Each chart in the grid has its own indicator set. Switching the working
+     chart swaps which set this panel shows — without touching any chart, since
+     every chart already has its own series drawn. */
+  function exportState() {
+    return new Map(active);
+  }
+
+  // Start the final slider calculation while the source chart is still active.
+  // Otherwise its debounce wakes after the switch and finds the other list.
+  function flushPending() {
+    for (const id of active.keys()) {
+      if (!debounceTimers.has(id)) continue;
+      clearTimeout(debounceTimers.get(id));
+      debounceTimers.delete(id);
+      compute(id);
+    }
+  }
+
+  function importState(state) {
+    active.clear();
+    if (state) for (const [id, entry] of state) active.set(id, entry);
+    renderActive();
+    renderCatalog();
+  }
+
+  /** A set built from a saved snapshot, for a chart that is not the active one. */
+  function buildState(list) {
+    const state = new Map();
+    for (const entry of Array.isArray(list) ? list : []) {
+      const spec = catalog.find((s) => s.id === entry?.id);
+      if (!spec || [...state.values()].some((i) => i.spec.id === spec.id)) continue;
+      counter += 1;
+      const params = {};
+      for (const p of spec.params) {
+        const kept = entry.params && Object.prototype.hasOwnProperty.call(entry.params, p.name)
+          ? entry.params[p.name] : undefined;
+        params[p.name] = kept === undefined ? p.default : kept;
+      }
+      state.set(`${spec.id}#${counter}`, { spec, params, error: null });
+    }
+    return state;
   }
 
   /** Short names for a snapshot, for captions: "RSI 14", "EMA 20". */
@@ -367,5 +413,6 @@ const Indicators = (() => {
     renderActive();
   }
 
-  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore, describe };
+  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore, describe,
+           exportState, importState, buildState, flushPending };
 })();

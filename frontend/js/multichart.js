@@ -1,70 +1,43 @@
-/* One, two or four charts — every one of them a full chart.
+/* One, two or four charts — each a complete chart that stays put.
 
-   Nam's rule (2026-09-17): the second and fourth charts must do what the first
-   does — indicators, strategy tests, drawings — each with its own timeframe
-   behind a gear, and a short caption under it.
+   Nam's rule (2026-09-17/18): every cell does what the first does —
+   indicators, strategy tests, drawings — with its own timeframe behind a gear
+   and a caption under it; and clicking one chart must leave the others exactly
+   as they are.
 
-   How, without four copies of ChartManager.
+   The first design kept ONE full chart and moved it into whichever cell was
+   clicked, leaving a lighter snapshot behind in the cell it left. Every click
+   therefore swapped two charts for two different ones: the snapshot had no
+   volume, no indicator panes, its own price-scale fit and its own framing, and
+   the cell being entered reloaded its series. Clicking back and forth made the
+   other chart "reset" or "zoom" on every click (Nam, 2026-09-18) — no amount
+   of carrying ranges across could make two different charts look the same.
 
-   ChartManager owns one Lightweight chart and everything hung off it: indicator
-   overlays and panes kept in index sync (§3.3), drawings, trade markers, paper
-   position lines, the history pager, the live feed. Making all of that
-   multi-instance would thread an instance id through every one of those
-   features. Instead each cell holds a *workspace* — a symbol, a timeframe and
-   the indicators with their parameters — and the full chart lives in whichever
-   cell is active, the way a multi-chart layout in a charting package works: one
-   chart has the focus, and the toolbar, the panels and the drawing rail act on
-   it. Clicking another cell moves the working chart there and loads that
-   cell's workspace into it; the cell it left keeps showing its own candles and
-   indicators, drawn from the same compute endpoint.
+   Now each cell owns a real chart (`ChartHub.create()`), its own drawing layer
+   (`DrawingHub.create()`), its own indicator set and its own history pager.
+   Clicking a cell changes only which one the toolbar, the panels and the live
+   feed are pointed at: `ChartHub.setActive` and `DrawingHub.setActive`, plus
+   the app swapping the indicator list it shows. Nothing is torn down, moved,
+   reloaded or re-framed, so there is nothing for the eye to see change.
 
-   So everything the main chart can do, any cell can do the moment it is
-   clicked, and nothing about indicators, strategies or drawings had to learn
-   that there is more than one chart.
-
-   The limit, stated rather than discovered (§2.7): only the active cell is
-   live. The others are a snapshot taken when they were drawn — as far back as
-   they have been panned, a page at a time — and are redrawn when their
-   timeframe, symbol or indicators change. A strategy runs on the active cell. */
+   Limit, stated (§2.7): the live feed follows the active cell. A cell that is
+   not active keeps its last bar until it is clicked, when the bars it missed
+   are fetched and appended. */
 
 const MultiChart = (() => {
-  const PASSIVE_BARS = 600;
-  // Older bars arrive a page at a time as a cell is panned left; there is no
-  // ceiling on how far back it can go other than the data itself.
-  const PAGE_BARS = 1000;
   const LAYOUTS = [1, 2, 4];
 
   let grid = null;
-  let workUnit = null;
   let hooks = {};
   let layout = 1;
   let active = 0;
   let mode = 'trading';
-  let cells = [];                      // [{ symbol, timeframe, indicators: [{ id, params }] }]
-  const passive = new Map();           // cell index -> { chart, token }
+  let cells = [];
   let optionsHtml = '';
   let colFr = [1, 1];
   let rowFr = [1, 1];
-  let pendingSwitch = null;
-
-  const THEME = {
-    layout: {
-      background: { color: '#ffffff' },
-      textColor: '#72727a',
-      fontSize: 11,
-      fontFamily: "'Be Vietnam Pro', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif",
-    },
-    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-    rightPriceScale: { borderColor: '#ececee' },
-    timeScale: { borderColor: '#ececee', timeVisible: true, secondsVisible: false },
-    crosshair: { mode: 0 },
-  };
-
-  const CANDLES = {
-    upColor: '#089981', downColor: '#f23645',
-    borderUpColor: '#089981', borderDownColor: '#f23645',
-    wickUpColor: '#089981', wickDownColor: '#f23645',
-  };
+  let colHandle = null;
+  let rowHandle = null;
 
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -80,19 +53,20 @@ const MultiChart = (() => {
       a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1
       a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
 
-  const toChart = (t) => (typeof ChartManager !== 'undefined' ? ChartManager.toChartTime(t) : t);
+  const LOADER = `<svg class="qp-loader" viewBox="0 0 100 100" aria-hidden="true">
+    <rect x="17" y="13" width="25" height="25" /><rect x="58" y="62" width="25" height="25" />
+    <path d="M19 81 L81 19" /></svg>`;
 
   // ---------------------------------------------------------------- workspaces
 
-  /** What the active cell holds right now, read from the app. */
   const current = () => hooks.current();
-  const wsAt = (i) => (i === active ? current() : cells[i]);
+  const indexOf = (cell) => cells.indexOf(cell);
+  const wsOf = (cell) => (indexOf(cell) === active ? current() : cell.ws);
 
-  /* A new cell opens on a market not already on screen, never on a blank.
-     An empty cell could not be clicked into — there is nothing to load into
-     the working chart — and a copy of a market already shown says nothing. */
+  /* A new cell opens on a market not already on screen, never on a blank: an
+     empty cell has nothing to work on, and a second copy says nothing new. */
   function freshWorkspace() {
-    const shown = new Set(cells.map((c) => c?.symbol).concat(current().symbol));
+    const shown = new Set(cells.map((c) => wsOf(c)?.symbol));
     const candidates = ['VN:VNINDEX', 'VN:VN30F1M', 'VN:G-XAUUSD', 'BTCUSDT', 'VN:VIC', 'VN:FPT', 'ETHUSDT'];
     const symbol = candidates.find((s) => !shown.has(s)) || current().symbol;
     return { symbol, timeframe: fitTimeframe(symbol, current().timeframe), indicators: [] };
@@ -104,391 +78,255 @@ const MultiChart = (() => {
     return frames.includes('1d') ? '1d' : (frames[frames.length - 1] || wanted);
   }
 
+  // ---------------------------------------------------------------- cells
+
+  /** The chrome around a chart: head with picker and gear, body, caption. */
+  function shell(cell) {
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.innerHTML = `
+      <div class="cell-head">
+        <span class="cell-badge"></span>
+        <select class="cell-pick" aria-label="${esc(t('mc.choose'))}">
+          <option value=""></option>${optionsHtml}
+        </select>
+        <button type="button" class="cell-gear" aria-haspopup="menu" aria-expanded="false"
+                title="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}"
+                aria-label="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}">${GEAR}</button>
+      </div>
+      <div class="cell-body"></div>
+      <div class="cell-caption"></div>`;
+    cell.el = el;
+    cell.body = el.querySelector('.cell-body');
+    cell.caption = el.querySelector('.cell-caption');
+    cell.badge = el.querySelector('.cell-badge');
+    cell.select = el.querySelector('.cell-pick');
+    cell.gear = el.querySelector('.cell-gear');
+
+    cell.select.addEventListener('change', () => setCellSymbol(cell, cell.select.value));
+    if (typeof SymbolPicker !== 'undefined') {
+      SymbolPicker.attach(cell.select, { placeholder: () => t('mc.choose') });
+    }
+    cell.gear.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (menuFor === cell) closeMenu(); else openMenu(cell);
+    });
+    // Capture: the cell becomes the working one before the chart turns the
+    // same press into a pan or a drawing — and the press then carries on into
+    // that chart as normal, because nothing was moved out from under it.
+    cell.body.addEventListener('pointerdown', () => {
+      const i = indexOf(cell);
+      if (i !== active) activate(i);
+    }, { capture: true });
+    return cell;
+  }
+
+  /** Cell 0 wraps the chart the app already built at start-up. */
+  function adopt(workUnit) {
+    const cell = shell({});
+    cell.body.appendChild(workUnit);
+    cell.chartMain = workUnit.querySelector('.chart-main');
+    cell.panes = workUnit.querySelector('.panes');
+    cell.loading = workUnit.querySelector('.loading');
+    cell.manager = ChartHub.active;
+    cell.drawings = DrawingHub.active;
+    cell.ws = current();
+    cell.indicators = new Map();
+    cell.exhausted = false;
+    hooks.configure(cell);
+    return cell;
+  }
+
+  /** A new chart with its own series, drawings, indicators and pager. */
+  function create(ws) {
+    const cell = shell({});
+    cell.body.innerHTML = `
+      <div class="work-unit">
+        <div class="chart-pane chart-main"></div>
+        <div class="resize-handle resize-y" role="separator" aria-orientation="horizontal"></div>
+        <div class="panes"></div>
+        <div class="loading" role="status" aria-label="Loading" hidden>${LOADER}</div>
+      </div>`;
+    cell.chartMain = cell.body.querySelector('.chart-main');
+    cell.panes = cell.body.querySelector('.panes');
+    cell.loading = cell.body.querySelector('.loading');
+    if (typeof Resizer !== 'undefined') Resizer.attachPanes(cell.body.querySelector('.resize-handle'));
+
+    cell.ws = { symbol: ws.symbol, timeframe: ws.timeframe, indicators: ws.indicators || [] };
+    cell.indicators = new Map();
+    cell.exhausted = false;
+
+    cell.manager = ChartHub.create();
+    cell.manager.init(cell.chartMain);
+    cell.manager.setMode('trading');
+    cell.drawings = DrawingHub.create();
+    cell.drawings.init({
+      chart: cell.manager.chart,
+      series: cell.manager.priceSeries,
+      host: cell.chartMain,
+      manager: cell.manager,
+      onChange: () => { if (indexOf(cell) === active) hooks.onDrawingsChange?.(); },
+    });
+    cell.drawings.setActive(false);
+
+    hooks.configure(cell);
+    hooks.loadCell(cell);
+    return cell;
+  }
+
+  function destroy(cell) {
+    cell.destroyed = true;
+    cell.loadToken = null;
+    try { cell.drawings.destroy(); } catch { /* already gone */ }
+    try { cell.manager.destroy(); } catch { /* already gone */ }
+    cell.el.remove();
+  }
+
   // ---------------------------------------------------------------- layout
 
   function setLayout(next) {
     if (!LAYOUTS.includes(next) || next === layout) return layout;
-    cells[active] = current();
+    const working = cells[active];
+    working.ws = current();
 
-    // The working chart keeps working: it moves to the first cell rather than
-    // disappearing with a cell that the smaller layout no longer has.
+    // The working chart keeps working: it moves to the front of the list (its
+    // element is re-appended, the chart itself is untouched) instead of
+    // disappearing with a cell the smaller layout does not have.
     if (active !== 0) {
-      const [ws] = cells.splice(active, 1);
-      cells.unshift(ws);
+      cells.splice(active, 1);
+      cells.unshift(working);
       active = 0;
     }
-    cells = cells.slice(0, next);
-    while (cells.length < next) cells.push(freshWorkspace());
+    while (cells.length > next) destroy(cells.pop());
     layout = next;
+    while (cells.length < next) cells.push(create(freshWorkspace()));
     build();
     return layout;
   }
 
-  /** Draw the cells. The working chart's DOM is moved, never re-created. */
+  /** Arrange the existing cells. Elements are moved, charts never rebuilt. */
   function build() {
     if (!grid) return;
     closeMenu();
-    for (const i of [...passive.keys()]) disposePassive(i);
-    workUnit.classList.remove('pending');
-    pendingSwitch = null;
-
-    // Park the working chart outside the grid while the grid is rewritten, or
-    // `innerHTML` would destroy the chart along with the cells.
-    const parking = document.createDocumentFragment();
-    parking.appendChild(workUnit);
-
     grid.dataset.layout = String(layout);
-    grid.innerHTML = cells.map((_, i) => `
-      <div class="cell" data-cell="${i}">
-        <div class="cell-head">
-          <span class="cell-badge" data-badge="${i}"></span>
-          <select class="cell-pick" data-pick="${i}" aria-label="${esc(t('mc.choose'))}">
-            <option value=""></option>${optionsHtml}
-          </select>
-          <button type="button" class="cell-gear" data-gear="${i}" aria-haspopup="menu"
-                  aria-expanded="false" title="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}"
-                  aria-label="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}">${GEAR}</button>
-        </div>
-        <div class="cell-body" data-body="${i}"></div>
-        <div class="cell-caption" data-caption="${i}"></div>
-      </div>`).join('')
-      + (layout > 1 ? '<div class="grid-handle grid-handle-col" role="separator" aria-orientation="vertical"></div>' : '')
-      + (layout === 4 ? '<div class="grid-handle grid-handle-row" role="separator" aria-orientation="horizontal"></div>' : '');
-
-    grid.querySelector(`[data-body="${active}"]`).appendChild(workUnit);
-
-    for (const cell of grid.querySelectorAll('.cell')) {
-      const i = Number(cell.dataset.cell);
-      const select = cell.querySelector('.cell-pick');
-      select.value = wsAt(i)?.symbol || '';
-      select.addEventListener('change', () => setCellSymbol(i, select.value));
-      if (typeof SymbolPicker !== 'undefined') {
-        SymbolPicker.attach(select, { placeholder: () => t('mc.choose') });
-      }
-      cell.querySelector('.cell-gear').addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (menuFor === i) closeMenu(); else openMenu(i, event.currentTarget);
-      });
-      // Capture, so the click reaches us before the chart turns it into a pan.
-      cell.querySelector('.cell-body').addEventListener('pointerdown', () => {
-        if (i !== active) activate(i);
-      }, { capture: true });
-    }
-
-    const col = grid.querySelector('.grid-handle-col');
-    const row = grid.querySelector('.grid-handle-row');
-    if (col) bindHandle(col, 'x');
-    if (row) bindHandle(row, 'y');
-
-    /* Every cell gets its snapshot now, the active one included (it sits
-       under the working chart). Mounting it lazily made the first click away
-       from the starting cell fetch that cell's candles, measured as one extra
-       request on the first switch and none after. */
-    cells.forEach((_, i) => mountPassive(i));
+    grid.replaceChildren(...cells.map((cell, i) => {
+      cell.el.dataset.cell = String(i);
+      cell.select.dataset.pick = String(i);
+      cell.gear.dataset.gear = String(i);
+      cell.body.dataset.body = String(i);
+      cell.caption.dataset.caption = String(i);
+      return cell.el;
+    }));
+    if (layout > 1) grid.appendChild(colHandle);
+    if (layout === 4) grid.appendChild(rowHandle);
     paintAll();
     applySizes();
     persist();
     hooks.onResize();
+    for (const cell of cells) cell.manager.refreshSize();
   }
 
-  /* Give the working chart to cell `i` — without reloading anything else.
+  /* Point the toolbar, the panels and the live feed at cell `i`.
 
-     Two things used to flash on every click. The cell being left refetched
-     and redrew its chart, and the cell being entered went blank while the
-     working chart loaded into it. Now:
-
-     * every cell keeps its own snapshot chart underneath, including the active
-       one. The cell being left simply shows it again, and it is redrawn only
-       if what the cell holds changed while it was the working chart (another
-       symbol, frame or indicator);
-     * the cell being entered keeps showing its snapshot until the working
-       chart has the new series, and only then does the working chart appear
-       over it. */
+     This is the whole of a switch. No chart is created, destroyed, moved,
+     reloaded or re-framed: the cell being left keeps its series, its zoom, its
+     indicators and its drawings exactly as they were. */
   function activate(i) {
     if (mode === 'overview' || i === active || !cells[i]) return;
     closeMenu();
-    const leaving = active;
-    const ws = current();
-    cells[leaving] = ws;
+    const from = cells[active];
+    const to = cells[i];
 
-    /* The same stretch of time stays on screen through a switch.
+    hooks.beforeDeactivate?.();
+    from.ws = current();
+    from.indicators = hooks.exportIndicators();
+    from.drawings.setActive(false);
 
-       The snapshot a cell falls back to was framed when it was drawn — the
-       last 160 bars — while the working chart it replaces had been zoomed and
-       panned since. Swapping one for the other jumped the view, and a chart
-       that jumps looks like a chart that reloaded. The window the person was
-       looking at is carried across in both directions. */
-    const leavingView = visibleRange(workingChart());
-    const kept = passive.get(leaving);
-    if (!kept || kept.signature !== signature(ws)) mountPassive(leaving, leavingView);
-    else applyRange(kept.chart, leavingView);
-    const enteringView = visibleRange(passive.get(i)?.chart);
-
-    workUnit.classList.add('pending');
-    grid.querySelector(`[data-body="${i}"]`).appendChild(workUnit);
     active = i;
-    const token = {};
-    pendingSwitch = token;
+    ChartHub.setActive(to.manager);
+    DrawingHub.setActive(to.drawings);
+    to.drawings.setActive(true);
+    hooks.activated(to);
+
     paintAll();
     persist();
-    hooks.onResize();
-
-    Promise.resolve(hooks.load(cells[i])).catch(() => {}).finally(() => {
-      if (pendingSwitch !== token) return;
-      pendingSwitch = null;
-      applyRange(workingChart(), enteringView);
-      // Reveal one frame later, after the chart has painted the carried-over
-      // window, so the frame in between (the fresh series at its default
-      // framing) is never the one on screen.
-      // A timer backs the frame: a tab that is not painting (in the
-      // background, or headless) never runs the frame callback, and the
-      // working chart would stay invisible until it did.
-      let shown = false;
-      const reveal = () => {
-        if (shown || pendingSwitch !== null) return;
-        shown = true;
-        workUnit.classList.remove('pending');
-        hooks.onResize();
-      };
-      requestAnimationFrame(reveal);
-      setTimeout(reveal, 80);
-    });
   }
 
-  function setCellSymbol(i, symbol) {
-    if (!symbol) { paint(i); return; }
-    if (i === active) {
+  function setCellSymbol(cell, symbol) {
+    if (!symbol) { paint(cell); return; }
+    if (indexOf(cell) === active) {
       if (symbol !== current().symbol) hooks.setActiveSymbol(symbol);
       return;
     }
-    const ws = cells[i];
-    if (ws.symbol === symbol) return;
-    ws.symbol = symbol;
-    ws.timeframe = fitTimeframe(symbol, ws.timeframe);
-    mountPassive(i);
-    paint(i);
+    if (cell.ws.symbol === symbol) return;
+    cell.ws.symbol = symbol;
+    cell.ws.timeframe = fitTimeframe(symbol, cell.ws.timeframe);
+    cell.ws.indicators = snapshotOf(cell.indicators);
+    hooks.loadCell(cell);            // this cell changed, so this cell loads
+    paint(cell);
     persist();
   }
 
-  function setCellTimeframe(i, timeframe) {
-    if (i === active) {
+  function setCellTimeframe(cell, timeframe) {
+    if (indexOf(cell) === active) {
       hooks.setActiveTimeframe(timeframe);
       return;
     }
-    if (cells[i].timeframe === timeframe) return;
-    cells[i].timeframe = timeframe;
-    mountPassive(i);
-    paint(i);
+    if (cell.ws.timeframe === timeframe) return;
+    cell.ws.timeframe = timeframe;
+    cell.ws.indicators = snapshotOf(cell.indicators);
+    hooks.loadCell(cell);
+    paint(cell);
     persist();
   }
 
   /** The app calls this whenever the working chart's series or indicators change. */
   function syncActive() {
-    if (!grid || !cells.length) return;
-    cells[active] = current();
-    paint(active);
+    const cell = cells[active];
+    if (!grid || !cell) return;
+    cell.ws = current();
+    cell.indicators = hooks.exportIndicators();
+    paint(cell);
     persist();
   }
 
-  /* Overview shows the working chart alone, full screen; the other cells are
-     hidden, not torn down, so returning to the working view finds the layout
-     exactly as it was left (Nam, 2026-09-17). */
+  /* Overview shows the working chart alone, full screen; the others are hidden
+     by the stylesheet, not torn down, so the working view returns as it was. */
   function setMode(next) {
     mode = next;
     closeMenu();
     hooks.onResize?.();
   }
 
-  // ---------------------------------------------------------------- passive cells
-
-  function disposePassive(i) {
-    const held = passive.get(i);
-    if (!held) return;
-    try { held.chart.remove(); } catch { /* already gone */ }
-    held.plot.remove();
-    passive.delete(i);
-  }
-
-  const workingChart = () => (typeof ChartManager !== 'undefined' ? ChartManager.chart : null);
-
-  function visibleRange(chart) {
-    try { return chart?.timeScale().getVisibleRange() || null; } catch { return null; }
-  }
-
-  function applyRange(chart, range) {
-    if (!chart || !range) return;
-    try { chart.timeScale().setVisibleRange(range); } catch { /* outside the data held */ }
-  }
-
-  /** What a snapshot was drawn from; a different signature means redraw. */
-  const signature = (ws) => JSON.stringify([ws?.symbol, ws?.timeframe, ws?.indicators || []]);
-
-  async function mountPassive(i, view = null) {
-    disposePassive(i);
-    const ws = cells[i] ? { ...cells[i], indicators: [...(cells[i].indicators || [])] } : null;
-    const body = grid?.querySelector(`[data-body="${i}"]`);
-    if (!body || !ws?.symbol) return;
-    body.querySelector('.cell-error')?.remove();
-
-    // First in the cell, so the working chart (when it is here) sits on top.
-    const plot = document.createElement('div');
-    plot.className = 'cell-plot';
-    body.prepend(plot);
-
-    const chart = LightweightCharts.createChart(plot, { ...THEME, autoSize: true });
-    const entry = {
-      chart, plot, ws,
-      candles: chart.addCandlestickSeries(CANDLES),
-      lines: [],
-      bars: [],
-      signature: signature(ws),
-      paging: false,
-      exhausted: false,
-    };
-    passive.set(i, entry);
-    const stale = () => passive.get(i) !== entry;
-
-    try {
-      const data = await API.candles({ symbol: ws.symbol, timeframe: ws.timeframe, limit: PASSIVE_BARS });
-      if (stale()) return;
-      entry.bars = data.candles || [];
-      paintCandles(entry);
-      await paintIndicators(entry);
-      if (stale()) return;
-
-      const n = entry.bars.length;
-      if (view) applyRange(chart, view);
-      else if (n) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 160), to: n + 3 });
-
-      // Pan toward the oldest bar and the page before it loads, as on the
-      // working chart.
-      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (!range || range.from > 40 || entry.paging || entry.exhausted || stale()) return;
-        pageBack(entry, stale);
-      });
-    } catch (err) {
-      if (stale()) return;
-      disposePassive(i);
-      body.insertAdjacentHTML('afterbegin', `<p class="empty cell-error">${esc(err.message)}</p>`);
-    }
-  }
-
-  function paintCandles(entry) {
-    entry.candles.setData(entry.bars.map((c) => ({
-      time: toChart(c.time), open: c.open, high: c.high, low: c.low, close: c.close,
-    })));
-  }
-
-  /* Indicators the way the working chart draws them, in one chart: price
-     outputs on the price scale, "separate" outputs (RSI, bandwidth…) on their
-     own scale in the bottom quarter so they cannot drag the price axis toward
-     zero. Computed over every bar the cell holds, so paging back extends them. */
-  async function paintIndicators(entry) {
-    const { chart, ws } = entry;
-    const limit = Math.max(PASSIVE_BARS, entry.bars.length);
-    const results = await Promise.all(ws.indicators.map((ind) => API.compute({
-      indicatorId: ind.id, symbol: ws.symbol, timeframe: ws.timeframe, params: ind.params, limit,
-    }).catch(() => null)));   // one plugin that raises must not blank the cell
-
-    for (const series of entry.lines) {
-      try { chart.removeSeries(series); } catch { /* chart gone */ }
-    }
-    entry.lines = [];
-
-    let separate = false;
-    results.forEach((result) => {
-      if (!result) return;
-      result.outputs.forEach((output) => {
-        const own = output.pane === 'separate';
-        separate = separate || own;
-        const common = {
-          color: output.color || '#1c2f5e',
-          priceLineVisible: false,
-          lastValueVisible: false,
-          ...(own ? { priceScaleId: 'sub' } : {}),
-        };
-        const series = output.plot_type === 'histogram'
-          ? chart.addHistogramSeries(common)
-          : chart.addLineSeries({ ...common, lineWidth: 1.5, crosshairMarkerVisible: false });
-        const values = result.values[output.key] || [];
-        series.setData(result.times.map((time, n) => (
-          values[n] === null || values[n] === undefined
-            ? { time: toChart(time) } : { time: toChart(time), value: values[n] })));
-        entry.lines.push(series);
-      });
-    });
-    if (separate) {
-      chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.32 } });
-      chart.priceScale('sub').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
-    }
-  }
-
-  async function pageBack(entry, stale) {
-    const oldest = entry.bars[0]?.time;
-    if (oldest === undefined) return;
-    entry.paging = true;
-    try {
-      const data = await API.candlesBefore({
-        symbol: entry.ws.symbol, timeframe: entry.ws.timeframe, before: oldest, limit: PAGE_BARS,
-      });
-      if (stale()) return;
-      const older = (data.candles || []).filter((c) => c.time < oldest);
-      if (!older.length) {
-        entry.exhausted = true;          // nothing older: stop asking on every pan
-        return;
-      }
-      const range = entry.chart.timeScale().getVisibleLogicalRange();
-      entry.bars = [...older, ...entry.bars];
-      paintCandles(entry);
-      // Everything moved right by the bars added; keep the same bars in view.
-      if (range) {
-        entry.chart.timeScale().setVisibleLogicalRange({
-          from: range.from + older.length, to: range.to + older.length,
-        });
-      }
-      await paintIndicators(entry);
-    } catch {
-      entry.exhausted = true;
-    } finally {
-      entry.paging = false;
-    }
-  }
+  const snapshotOf = (map) => [...(map || new Map()).values()]
+    .map((entry) => ({ id: entry.spec.id, params: { ...entry.params } }));
 
   // ---------------------------------------------------------------- heads and captions
 
-  function paint(i) {
-    const cell = grid?.querySelector(`[data-cell="${i}"]`);
-    const ws = wsAt(i);
-    if (!cell || !ws) return;
-    cell.classList.toggle('active', i === active);
-
-    const badge = cell.querySelector('.cell-badge');
-    badge.innerHTML = ws.symbol ? Paper.symbolBadge(ws.symbol) : '';
-
-    const select = cell.querySelector('.cell-pick');
-    if (select.value !== ws.symbol) select.value = ws.symbol || '';
-
-    const names = hooks.describe(ws.indicators || []);
-    const parts = [String(ws.symbol || '').replace(/^VN:/, ''), ws.timeframe, ...names].filter(Boolean);
-    const caption = cell.querySelector('.cell-caption');
-    caption.textContent = parts.join('  ·  ');
-    caption.title = caption.textContent;
+  function paint(cell) {
+    const ws = wsOf(cell);
+    if (!ws) return;
+    const isActive = indexOf(cell) === active;
+    cell.el.classList.toggle('active', isActive);
+    cell.badge.innerHTML = ws.symbol ? Paper.symbolBadge(ws.symbol) : '';
+    if (cell.select.value !== ws.symbol) cell.select.value = ws.symbol || '';
+    const list = isActive ? ws.indicators : snapshotOf(cell.indicators);
+    const names = hooks.describe(list && list.length ? list : (ws.indicators || []));
+    cell.caption.textContent = [String(ws.symbol || '').replace(/^VN:/, ''), ws.timeframe, ...names]
+      .filter(Boolean).join('  ·  ');
+    cell.caption.title = cell.caption.textContent;
   }
 
-  function paintAll() {
-    cells.forEach((_, i) => paint(i));
-  }
+  function paintAll() { cells.forEach(paint); }
 
   function setOptions(groups) {
     optionsHtml = (groups || []).map((group) =>
       `<optgroup label="${esc(group.label)}">` +
       group.options.map((o) => `<option value="${esc(o.id)}">${esc(o.text)}</option>`).join('') +
       '</optgroup>').join('');
-    if (!grid) return;
-    for (const select of grid.querySelectorAll('.cell-pick')) {
-      const i = Number(select.dataset.pick);
-      select.innerHTML = `<option value=""></option>${optionsHtml}`;
-      select.value = wsAt(i)?.symbol || '';
+    for (const cell of cells) {
+      cell.select.innerHTML = `<option value=""></option>${optionsHtml}`;
+      cell.select.value = wsOf(cell)?.symbol || '';
     }
   }
 
@@ -501,11 +339,12 @@ const MultiChart = (() => {
   document.body.appendChild(menu);
   let menuFor = null;
 
-  function openMenu(i, button) {
+  function openMenu(cell) {
     closeMenu();
-    const ws = wsAt(i);
+    const ws = wsOf(cell);
     if (!ws) return;
-    menuFor = i;
+    menuFor = cell;
+    const isActive = indexOf(cell) === active;
     const frames = hooks.timeframes(ws.symbol) || [];
     menu.innerHTML = `
       <div class="cell-menu-title">${esc(L('Khung thời gian', 'Timeframe'))}</div>
@@ -513,36 +352,35 @@ const MultiChart = (() => {
         <button type="button" role="menuitemradio" aria-checked="${tf === ws.timeframe}"
                 class="cell-menu-tf${tf === ws.timeframe ? ' active' : ''}" data-tf="${esc(tf)}">${esc(tf)}</button>`).join('')}
       </div>
-      ${i === active
+      ${isActive
         ? `<p class="cell-menu-note">${esc(L(
           'Chỉ báo, chiến lược và hình vẽ đang áp dụng lên biểu đồ này.',
           'Indicators, strategies and drawings apply to this chart.'))}</p>`
         : `<button type="button" class="btn btn-sm btn-block cell-menu-work" data-work>${esc(L(
           'Làm việc trên biểu đồ này', 'Work on this chart'))}</button>`}`;
-
     menu.hidden = false;
-    button.setAttribute('aria-expanded', 'true');
-    const rect = button.getBoundingClientRect();
+    cell.gear.setAttribute('aria-expanded', 'true');
+    const rect = cell.gear.getBoundingClientRect();
     const width = menu.offsetWidth;
     menu.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
     menu.style.top = `${rect.bottom + 6}px`;
   }
 
   function closeMenu() {
-    if (menuFor === null) return;
-    grid?.querySelector(`[data-gear="${menuFor}"]`)?.setAttribute('aria-expanded', 'false');
+    if (!menuFor) return;
+    menuFor.gear.setAttribute('aria-expanded', 'false');
     menuFor = null;
     menu.hidden = true;
   }
 
   menu.addEventListener('click', (event) => {
-    const i = menuFor;
+    const cell = menuFor;
     const tf = event.target.closest('[data-tf]')?.dataset.tf;
-    if (tf) { closeMenu(); setCellTimeframe(i, tf); return; }
-    if (event.target.closest('[data-work]')) { closeMenu(); activate(i); }
+    if (tf) { closeMenu(); setCellTimeframe(cell, tf); return; }
+    if (event.target.closest('[data-work]')) { closeMenu(); activate(indexOf(cell)); }
   });
   document.addEventListener('mousedown', (event) => {
-    if (menuFor === null || menu.contains(event.target)) return;
+    if (!menuFor || menu.contains(event.target)) return;
     if (event.target.closest?.('.cell-gear')) return;
     closeMenu();
   });
@@ -555,19 +393,18 @@ const MultiChart = (() => {
     grid.style.gridTemplateColumns = layout > 1 ? colFr.map((f) => `${f.toFixed(4)}fr`).join(' ') : '';
     grid.style.gridTemplateRows = layout === 4 ? rowFr.map((f) => `${f.toFixed(4)}fr`).join(' ') : '';
     requestAnimationFrame(placeHandles);
+    setTimeout(placeHandles, 60);
   }
 
   function placeHandles() {
-    const first = grid?.querySelector('[data-cell="0"]');
-    if (!first) return;
-    const col = grid.querySelector('.grid-handle-col');
-    const row = grid.querySelector('.grid-handle-row');
-    if (col) col.style.left = `${first.offsetLeft + first.offsetWidth}px`;
-    if (row) row.style.top = `${first.offsetTop + first.offsetHeight}px`;
+    const first = cells[0]?.el;
+    if (!first || !grid) return;
+    colHandle.style.left = `${first.offsetLeft + first.offsetWidth}px`;
+    rowHandle.style.top = `${first.offsetTop + first.offsetHeight}px`;
   }
 
-  /* Drag a divider. Both neighbours keep at least 20% of their pair, and the
-     cursor is pinned for the whole gesture. Double-click puts the default back. */
+  /* Drag a divider. Both neighbours keep at least 20% of their pair; the
+     cursor is pinned for the whole gesture; double-click restores the default. */
   function bindHandle(handle, axis) {
     handle.addEventListener('pointerdown', (event) => {
       event.preventDefault();
@@ -579,7 +416,6 @@ const MultiChart = (() => {
       const total = from[0] + from[1];
       document.body.classList.add('resizing', axis === 'x' ? 'resizing-x' : 'resizing-y');
       handle.classList.add('active');
-
       const move = (e) => {
         const delta = ((axis === 'x' ? e.clientX : e.clientY) - start) / size * total;
         const left = Math.max(total * 0.2, Math.min(total * 0.8, from[0] + delta));
@@ -610,30 +446,36 @@ const MultiChart = (() => {
 
   function persist() {
     if (typeof Session === 'undefined' || !cells.length) return;
-    Session.patch({ multi: { v: 2, layout, active, cells, cols: colFr, rows: rowFr } });
+    const list = cells.map((cell, i) => {
+      if (i === active) return current();
+      return { symbol: cell.ws.symbol, timeframe: cell.ws.timeframe,
+               indicators: cell.indicators.size ? snapshotOf(cell.indicators) : (cell.ws.indicators || []) };
+    });
+    Session.patch({ multi: { v: 3, layout, active, cells: list, cols: colFr, rows: rowFr } });
   }
 
-  /* Put a remembered layout back. The active cell's own series and indicators
-     are restored by the app from the session's top-level fields, so its entry
-     here is refreshed from the app rather than trusted. */
+  /* Put a remembered layout back. The working cell is the chart the app built
+     from the session's own fields; every other cell is created and loads its
+     own market, frame and indicators. */
   function restore(snap) {
-    if (!snap || snap.v !== 2 || !LAYOUTS.includes(snap.layout) || !Array.isArray(snap.cells)) {
+    if (!snap || ![2, 3].includes(snap.v) || !LAYOUTS.includes(snap.layout) || !Array.isArray(snap.cells)) {
       return layout;
     }
-    const valid = snap.cells
+    const saved = snap.cells
       .filter((c) => c && typeof c.symbol === 'string' && typeof c.timeframe === 'string')
       .map((c) => ({ symbol: c.symbol, timeframe: c.timeframe,
                      indicators: Array.isArray(c.indicators) ? c.indicators : [] }));
-    if (valid.length !== snap.layout) return layout;
+    if (saved.length !== snap.layout) return layout;
 
     const okFr = (f) => Array.isArray(f) && f.length === 2 && f.every((x) => x > 0);
     if (okFr(snap.cols)) colFr = snap.cols.slice();
     if (okFr(snap.rows)) rowFr = snap.rows.slice();
+
+    const working = cells[0];
+    const at = Math.min(Math.max(0, snap.active | 0), snap.layout - 1);
     layout = snap.layout;
-    cells = valid;
-    active = Math.min(Math.max(0, snap.active | 0), layout - 1);
-    const saved = cells[active];
-    cells[active] = { ...current(), indicators: saved.indicators };
+    cells = saved.map((ws, i) => (i === at ? working : create(ws)));
+    active = at;
     build();
     return layout;
   }
@@ -642,9 +484,19 @@ const MultiChart = (() => {
 
   function init(config) {
     grid = config.grid;
-    workUnit = config.workUnit;
     hooks = config;
-    cells = [current()];
+    colHandle = document.createElement('div');
+    colHandle.className = 'grid-handle grid-handle-col';
+    colHandle.setAttribute('role', 'separator');
+    colHandle.setAttribute('aria-orientation', 'vertical');
+    rowHandle = document.createElement('div');
+    rowHandle.className = 'grid-handle grid-handle-row';
+    rowHandle.setAttribute('role', 'separator');
+    rowHandle.setAttribute('aria-orientation', 'horizontal');
+    bindHandle(colHandle, 'x');
+    bindHandle(rowHandle, 'y');
+
+    cells = [adopt(config.workUnit)];
     active = 0;
     layout = 1;
     build();
@@ -653,10 +505,12 @@ const MultiChart = (() => {
 
   return {
     init, setLayout, setOptions, setMode, syncActive, restore, activate,
-    // For probes: the time window a cell's snapshot is showing.
-    viewOf: (i) => visibleRange(passive.get(i)?.chart),
+    refreshLabels: () => cells.forEach(cell => cell.manager.refreshVolumeNote()),
     get layout() { return layout; },
     get active() { return active; },
-    get cells() { return cells.map((c, i) => (i === active ? current() : c)); },
+    get activeCell() { return cells[active] || null; },
+    // For probes: the chart a cell owns.
+    managerAt: (i) => cells[i]?.manager || null,
+    get cells() { return cells.map((cell) => wsOf(cell)); },
   };
 })();

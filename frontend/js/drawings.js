@@ -22,7 +22,8 @@
  * worse than losing it.
  */
 
-const Drawings = (() => {
+/* One drawing layer per chart; `Drawings`, at the bottom, is the active one. */
+function createDrawings() {
   const STORE_KEY = 'qp.drawings';
   /* Ink, like the rest of the chrome. A drawing is the user's own annotation,
      not market data, so it must not borrow the green and red that mean
@@ -49,6 +50,12 @@ const Drawings = (() => {
 
   let chart = null;
   let series = null;
+  // The chart manager this layer belongs to, for snapping and bar counts.
+  let manager = null;
+  // Only the active chart's layer answers the keyboard: Delete and Escape
+  // must not act on shapes in a chart nobody is looking at.
+  let isActive = true;
+  let observer = null;
   let canvas = null;
   let ctx = null;
   let host = null;
@@ -90,7 +97,7 @@ const Drawings = (() => {
      pointer. Snapping to the bar's own levels is what makes a line drawn "off
      the high" actually sit on the high, rather than a pixel above it. */
   function snapToBar(time, price) {
-    const bar = ChartManager.barAt?.(time);
+    const bar = (manager || ChartManager).barAt?.(time);
     if (!bar) return price;
     const levels = [bar.open, bar.high, bar.low, bar.close];
     let best = price;
@@ -242,7 +249,7 @@ const Drawings = (() => {
         const from = shape.points[0];
         const to = shape.points[1];
         const move = ((to.price - from.price) / from.price) * 100;
-        const bars = ChartManager.barsBetween?.(from.time, to.time) ?? null;
+        const bars = (manager || ChartManager).barsBetween?.(from.time, to.time) ?? null;
         ctx.globalAlpha = 0.12;
         ctx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y),
                      Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -443,6 +450,7 @@ const Drawings = (() => {
   }
 
   function onKey(event) {
+    if (!isActive) return;
     if (event.key === 'Escape') {
       pending = null;
       hover = null;
@@ -516,6 +524,7 @@ const Drawings = (() => {
     chart = config.chart;
     series = config.series;
     host = config.host;
+    manager = config.manager || null;
     onChange = config.onChange || (() => {});
 
     canvas = document.createElement('canvas');
@@ -534,8 +543,29 @@ const Drawings = (() => {
     // Repaint whenever the chart moves under the drawings.
     chart.timeScale().subscribeVisibleLogicalRangeChange(paint);
     chart.subscribeCrosshairMove(() => { if (pending) paint(); });
-    new ResizeObserver(resize).observe(host);
+    observer = new ResizeObserver(resize);
+    observer.observe(host);
     resize();
+  }
+
+  /** Becoming inactive also disarms a half-chosen tool on this layer. */
+  function setActive(on) {
+    isActive = Boolean(on);
+    if (!isActive && canvas) {
+      pending = null;
+      hover = null;
+      if (tool !== 'cursor') setTool('cursor');
+    }
+  }
+
+  function destroy() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('keydown', onKey);
+    observer?.disconnect();
+    canvas?.remove();
+    canvas = null;
+    ctx = null;
   }
 
   /** The price series changed shape, so coordinates come from the new one. */
@@ -546,7 +576,7 @@ const Drawings = (() => {
 
   return {
     init, load, setSeries, setTool, undo, clear, resize, paint,
-    setVisible, setLocked, setMagnet, removeSelected,
+    setVisible, setLocked, setMagnet, removeSelected, setActive, destroy,
     get hasSelection() { return selected !== null; },
     get tools() { return TOOLS.slice(); },
     get tool() { return tool; },
@@ -555,4 +585,18 @@ const Drawings = (() => {
     get locked() { return locked; },
     get magnet() { return magnet; },
   };
+}
+
+const DrawingHub = (() => {
+  let active = createDrawings();
+  return {
+    create: () => createDrawings(),
+    get active() { return active; },
+    setActive(layer) { if (layer) active = layer; },
+  };
 })();
+
+const Drawings = new Proxy({}, {
+  get: (_, prop) => DrawingHub.active[prop],
+  set: (_, prop, value) => { DrawingHub.active[prop] = value; return true; },
+});
