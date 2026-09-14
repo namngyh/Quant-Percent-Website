@@ -21,6 +21,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from dataclasses import dataclass
@@ -49,6 +50,15 @@ RECONNECT_MAX_DELAY = 60.0
 # Outside the session nothing is being written, so the loop backs right off
 # rather than asking a question with a known answer several times a minute.
 VN_POLL_SECONDS = 5
+
+# How long after a bar's minute closes before its row appears. Measured: the
+# pipeline writes the 07:07 bar shortly after 07:08:00, and nothing ever
+# appears for the minute in progress — there is no forming bar to stream, so a
+# 1m VN series can only change once a minute no matter how often it is asked.
+# Polling every 5s therefore threw away eleven of every twelve queries against
+# a view that costs seconds. Waiting for the boundary instead cuts the load and
+# the latency at once.
+VN_BAR_SETTLE_SECONDS = 2
 VN_IDLE_POLL_SECONDS = 120
 
 # The Vietnamese session, 09:00-15:00 local, is 02:00-08:00 UTC. A margin
@@ -304,7 +314,24 @@ class StreamManager:
                     announced = False
                 delay = min(max(delay * 2, VN_POLL_SECONDS), VN_IDLE_POLL_SECONDS)
 
-            await asyncio.sleep(delay if _vn_session_open() else VN_IDLE_POLL_SECONDS)
+            if not _vn_session_open():
+                await asyncio.sleep(VN_IDLE_POLL_SECONDS)
+                continue
+
+            if delay == VN_POLL_SECONDS and last_seen is not None:
+                # Sleep to just past the next minute boundary, where the next
+                # bar can first exist, rather than asking twelve times for the
+                # same answer. Falls back to the fixed delay while backing off
+                # from an error, when the boundary is not the thing being
+                # waited for.
+                now = time.time()
+                await asyncio.sleep(
+                    max(1.0, VN_BAR_SETTLE_SECONDS - (now % 60))
+                    if now % 60 < VN_BAR_SETTLE_SECONDS
+                    else 60 - (now % 60) + VN_BAR_SETTLE_SECONDS
+                )
+            else:
+                await asyncio.sleep(delay)
 
     async def _run_binance(self, series: Series) -> None:
         """Hold one upstream connection open, reconnecting with backoff."""

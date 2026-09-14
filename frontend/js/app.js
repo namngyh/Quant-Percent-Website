@@ -9,7 +9,6 @@
     symbol: document.getElementById('symbol'),
     timeframes: document.getElementById('timeframes'),
     limit: document.getElementById('limit'),
-    backfill: document.getElementById('backfill'),
     status: document.getElementById('status'),
     loading: document.getElementById('loading'),
     chartMain: document.getElementById('chart-main'),
@@ -18,9 +17,6 @@
     runBacktest: document.getElementById('run-backtest'),
     runOptimize: document.getElementById('run-optimize'),
     startPaper: document.getElementById('start-paper'),
-    liveToggle: document.getElementById('live-toggle'),
-    liveDot: document.getElementById('live-dot'),
-    liveLabel: document.getElementById('live-label'),
     importFile: document.getElementById('import-file'),
     runWalkForward: document.getElementById('run-walkforward'),
     runMonteCarlo: document.getElementById('run-montecarlo'),
@@ -39,7 +35,6 @@
     toggleMarkers: document.getElementById('toggle-markers'),
     clearMarkers: document.getElementById('clear-markers'),
     exportCsv: document.getElementById('export-csv'),
-    exportPng: document.getElementById('export-png'),
     formatDialog: document.getElementById('format-dialog'),
     formatBody: document.getElementById('format-body'),
     formatClose: document.getElementById('format-close'),
@@ -227,15 +222,9 @@
 
   function setLiveState({ state: liveState }) {
     lastLiveState = liveState;
-    const dot = { live: 'live', connecting: 'connecting', offline: 'offline' }[liveState] || '';
-    el.liveDot.className = `live-dot ${dot}`;
-    el.liveToggle.classList.toggle('on', liveState === 'live' || liveState === 'connecting');
-    el.liveLabel.textContent = {
-      live: t(isVN(state.symbol) ? 'live.watching' : 'live.running'),
-      connecting: t('live.connecting'),
-      offline: t('live.offline'),
-      error: t('live.error'),
-    }[liveState] || t('top.live');
+    /* The realtime indicator was removed from the bar: the stream is always
+       on, so a light that is always green says nothing. What still matters is
+       further down — a stale price must stop looking current. */
 
     // A stale price is worse than no price: it looks current.
     if (liveState !== 'live' && liveState !== 'connecting') hidePrice();
@@ -558,6 +547,28 @@
     el.chartType.setAttribute('aria-label', ChartTypes.label(current));
   }
 
+  /* Put the menu under its button in viewport coordinates.
+
+     It is `position: fixed` because its ancestor scrolls and would otherwise
+     clip it (see .ct-menu in styles.css), and fixed elements do not inherit a
+     position from the DOM — so the button's rectangle has to be measured and
+     applied here. Flipped to the right edge when it would run off screen,
+     since the button sits well to the right on narrow windows. */
+  function placeChartTypeMenu() {
+    const rect = el.chartType.getBoundingClientRect();
+    const menu = el.chartTypeMenu;
+    menu.style.top = `${rect.bottom + 6}px`;
+    // Measure the width while it is still hidden by making it briefly
+    // visible-but-transparent, or offsetWidth reads 0 and every menu lands
+    // flush against the left edge of the button.
+    menu.style.left = '0px';
+    menu.hidden = false;
+    const width = menu.offsetWidth;
+    menu.hidden = true;
+    const room = document.documentElement.clientWidth - 8;
+    menu.style.left = `${Math.max(8, Math.min(rect.left, room - width))}px`;
+  }
+
   function closeChartTypeMenu() {
     if (!el.chartTypeMenu || el.chartTypeMenu.hidden) return;
     el.chartTypeMenu.hidden = true;
@@ -584,6 +595,7 @@
     el.chartType.addEventListener('click', (event) => {
       event.stopPropagation();
       const opening = el.chartTypeMenu.hidden;
+      if (opening) placeChartTypeMenu();
       el.chartTypeMenu.hidden = !opening;
       el.chartType.setAttribute('aria-expanded', String(opening));
     });
@@ -798,7 +810,7 @@
       // Not fatal, and not silent either: say why the VN names are missing.
       // This now arrives after the chart is already up, which is the point —
       // a VPN that is off should cost the user a message, not a blank screen.
-      setStatus(`Thị trường VN không khả dụng: ${err.message}`, 'error');
+      setStatus(t('status.vnDown', { msg: err.message }), 'error');
       return;
     }
 
@@ -833,22 +845,6 @@
     if (chosen) el.symbol.value = chosen;
   }
 
-  /** Live and backfill are Binance-only; say so rather than failing on click. */
-  function applyMarketCapabilities() {
-    const vn = isVN(state.symbol);
-
-    el.backfill.disabled = vn;
-    el.backfill.title = vn
-      ? 'Dữ liệu VN đến từ database của team và chỉ đọc, không cần backfill.'
-      : 'Kéo nến mới nhất từ Binance';
-
-    // Live works for both markets, by different means: Binance pushes, the
-    // HOSE database is polled. Nothing to disable here.
-    el.liveToggle.disabled = false;
-    el.liveToggle.title = vn
-      ? 'Nến mới từ database của team, kiểm tra mỗi vài giây trong phiên'
-      : 'Nến realtime từ Binance';
-  }
 
 
   // ---------- Catching up ----------
@@ -859,25 +855,21 @@
   // it happens on load rather than waiting for someone to notice the hole.
   // The Vietnam database is read live and is never behind.
 
-  const MAX_AUTO_CATCHUP_BARS = 5000;   // beyond this, ask rather than assume
+  /* There is no size threshold any more.
 
+     It used to stop above 5,000 bars and tell the user to press "Cập nhật dữ
+     liệu". That button is gone, so the threshold now has nowhere to send
+     anyone: it would just refuse to fill the gap and name a control that does
+     not exist. A long catch-up is slow, not dangerous, and the status line
+     says while it runs. */
   let catchingUp = false;
 
   async function catchUpIfBehind(data) {
     if (catchingUp || !data.can_backfill || !data.bars_behind) return false;
 
-    if (data.bars_behind > MAX_AUTO_CATCHUP_BARS) {
-      setStatus(
-        `${state.symbol} ${state.timeframe}: thiếu ${data.bars_behind.toLocaleString('vi-VN')} nến, ` +
-          'bấm "Cập nhật dữ liệu"',
-        'busy',
-      );
-      return false;
-    }
-
     catchingUp = true;
     try {
-      setStatus(`Đang bù ${data.bars_behind.toLocaleString('vi-VN')} nến còn thiếu…`, 'busy');
+      setStatus(t('status.catchUp', { n: data.bars_behind.toLocaleString() }), 'busy');
       const report = await API.backfill({
         symbols: [state.symbol],
         timeframes: [state.timeframe],
@@ -1246,10 +1238,9 @@ def signals(df, params):
       chatInput.value = status.chat_id || '';
 
       if (status.reachable) {
-        label.innerHTML = `Đang bật qua <strong>@${status.bot_username}</strong>. `
-          + 'Mỗi lần phiên paper vào hoặc đóng lệnh sẽ có tin nhắn.';
+        label.innerHTML = t('tg.on', { bot: status.bot_username });
       } else {
-        label.textContent = status.message || 'Chưa bật.';
+        label.textContent = status.message || t('tg.off');
       }
       clearButton.disabled = !status.bot_token_masked;
     }
@@ -1265,31 +1256,31 @@ def signals(df, params):
     await refresh();
 
     saveButton.addEventListener('click', () =>
-      withButton(saveButton, 'Đang kiểm tra…', async () => {
+      withButton(saveButton, t('tg.saving'), async () => {
         const token = tokenInput.value.trim();
         const chatId = chatInput.value.trim();
         if (!token) {
-          toast('Dán bot token vào ô phía trên.', true);
+          toast(t('tg.needToken'), true);
           return;
         }
         if (!chatId) {
-          toast('Thiếu chat id.', true);
+          toast(t('tg.needChat'), true);
           return;
         }
         apply(await API.notifySave({ botToken: token, chatId }));
-        toast('Đã lưu. Bấm "Gửi tin thử" để chắc chắn chat id đúng.');
+        toast(t('tg.saved'));
       }));
 
     testButton.addEventListener('click', () =>
-      withButton(testButton, 'Đang gửi…', async () => {
+      withButton(testButton, t('tg.sending'), async () => {
         await API.notifyTest();
-        toast('Đã gửi tin thử: kiểm tra Telegram');
+        toast(t('tg.sent'));
       }));
 
     clearButton.addEventListener('click', () =>
-      withButton(clearButton, 'Đang xoá…', async () => {
+      withButton(clearButton, t('tg.clearing'), async () => {
         apply(await API.notifyClear());
-        toast('Đã xoá token khỏi máy.');
+        toast(t('tg.cleared'));
       }));
   }
 
@@ -1456,26 +1447,6 @@ def signals(df, params):
         loadCandles();
       });
       el.timeframes.appendChild(button);
-    }
-  }
-
-  async function runBackfill() {
-    el.backfill.disabled = true;
-    setStatusLive(() => t('status.loading'), 'busy');
-    setLoading(true);
-    try {
-      const report = await API.backfill({
-        symbols: [state.symbol], timeframes: [state.timeframe],
-      });
-      const failed = report.series.filter((s) => s.error);
-      if (failed.length) setStatus(`Lỗi: ${failed[0].error}`, 'error');
-      else toast(`Đã thêm ${report.total_rows.toLocaleString('vi-VN')} nến`);
-      await loadCandles();
-    } catch (err) {
-      setStatus(err.message, 'error');
-    } finally {
-      el.backfill.disabled = false;
-      setLoading(false);
     }
   }
 
@@ -1698,7 +1669,6 @@ def signals(df, params):
       loadCryptoSymbols(config);
       el.symbol.value = state.symbol;
       buildTimeframeButtons();
-      applyMarketCapabilities();
 
       /* Everything below this line used to be awaited one after another before
          the first candle was drawn. Measured on a warm server: the VN symbol
@@ -1714,8 +1684,8 @@ def signals(df, params):
       warnIfServerStale();
     } catch (err) {
       dismissSplash();
-      setStatus(`Không kết nối được backend: ${err.message}`, 'error');
-      toast(`Không kết nối được backend: ${err.message}`, 'bad');
+      setStatus(t('status.noBackend', { msg: err.message }), 'error');
+      toast(t('status.noBackend', { msg: err.message }), 'bad');
       return;
     }
 
@@ -1729,11 +1699,9 @@ def signals(df, params):
       // The paper button follows the chart, so it always names this market.
       Paper.refreshManualButton();
       buildTimeframeButtons();      // markets differ in what they offer
-      applyMarketCapabilities();
       loadCandles();
     });
     el.limit.addEventListener('change', () => { state.limit = Number(el.limit.value); loadCandles(); });
-    el.backfill.addEventListener('click', runBackfill);
     setupChartType();
     setupDrawings();
     el.modeToggle?.addEventListener('click', () => {
@@ -1765,12 +1733,6 @@ def signals(df, params):
       if (moved <= 5) setViewMode('trading');
     });
     el.chartMain?.addEventListener('pointercancel', () => { pressAt = null; });
-
-    el.liveToggle.addEventListener('click', () => {
-      const turningOn = !Live.enabled;
-      Live.setEnabled(turningOn);
-      if (turningOn) Live.subscribe(state.symbol, state.timeframe);
-    });
 
     el.runBacktest.addEventListener('click', () =>
       withButton(el.runBacktest, 'Đang chạy…', async () => {
@@ -1817,10 +1779,10 @@ def signals(df, params):
     // The report is fetched on demand rather than with every backtest: it is
     // roughly a hundred times the payload, and most runs are never opened.
     el.openReport.addEventListener('click', () =>
-      withButton(el.openReport, 'Đang dựng…', async () => {
+      withButton(el.openReport, t('rp.building'), async () => {
         const strategy = Strategy.selected;
         if (!strategy) {
-          toast('Chọn một chiến lược ở tab Chiến lược trước.', true);
+          toast(t('rp.pickStrategy'), true);
           return;
         }
         Report.open(await API.report({
@@ -1834,7 +1796,6 @@ def signals(df, params):
       }));
 
     el.exportCsv.addEventListener('click', () => Validation.exportTrades(Strategy.lastResult));
-    el.exportPng.addEventListener('click', () => Validation.exportChart());
 
     el.runOptimize.addEventListener('click', () =>
       withButton(el.runOptimize, 'Đang quét…', async () => {

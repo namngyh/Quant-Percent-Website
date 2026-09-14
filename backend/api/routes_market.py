@@ -139,17 +139,6 @@ def risk() -> dict:
     return report
 
 
-@router.get("/freshness")
-def freshness() -> dict:
-    """How recent each symbol's data is, straight from the pipeline's own view."""
-    if not market_vn.configured():
-        raise HTTPException(503, "Chưa cấu hình MARKET_DSN.")
-    try:
-        return {"series": market_vn.freshness()}
-    except market_vn.MarketUnavailable as exc:
-        raise HTTPException(503, str(exc)) from exc
-
-
 @router.get("/status")
 def status() -> dict:
     """Whether the database is reachable right now, for the UI to show plainly."""

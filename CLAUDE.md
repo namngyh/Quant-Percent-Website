@@ -188,6 +188,134 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 — Nút bị cắt, bỏ điều khiển thừa, gập catalog, và giới hạn của dữ liệu VN
+
+**291 test Python** + toàn bộ render check, không lỗi. Ratchet i18n siết hai nấc trong phiên này: `app.js` từ 95 xuống **70** chuỗi chưa dịch.
+
+#### Nút kiểu biểu đồ "không ấn được" rồi "mất khung" — cùng một nguyên nhân
+
+`.topbar-controls` có `overflow-x: auto` (thêm 2026-09-09 để dải khung thời
+gian không đè lên giá ở cửa sổ hẹp). Một vùng cuộn **cắt mọi thứ tràn ra**, và
+nút kiểu biểu đồ là con cuối cùng của nó:
+
+| Đo được | |
+|---|---|
+| `.ct-picker` mép phải | **751px** |
+| `.topbar-controls` mép phải | **710px** |
+
+Nút bị cắt mất 41px — đúng phần viền phải và nửa mũi tên, nên nó *trông như*
+một nút hỏng. Cùng vùng cuộn đó trước đấy đã cắt luôn cái menu 476px xuống còn
+một mẩu, khiến bấm vào thì trúng canvas phía sau.
+
+Sửa ở gốc thay vì vá từng thứ: **thứ cần cuộn là dải khung thời gian**, không
+phải cả nhóm. `overflow-x: auto` chuyển xuống `.tf-group`; `.topbar-controls`
+không cắt gì nữa. Đo lại: `ct phải = controls phải = 751` → không còn tràn.
+
+#### Bỏ "Realtime" và "Cập nhật dữ liệu"
+
+Cả hai là công tắc cho những việc **giờ đã tự xảy ra**: luồng realtime bật từ
+lúc khởi động (2026-09-10), và nến thiếu được bù ngay khi nạp chuỗi. Một cái
+đèn lúc nào cũng xanh thì không nói gì, còn một cái nút cho việc đã tự chạy chỉ
+là thêm thứ để đọc nhầm.
+
+*Một chi tiết phải xử lý cùng, nếu không sẽ hỏng lặng lẽ:* phần tự bù có ngưỡng
+5 000 nến, trên ngưỡng thì nó dừng và bảo *"bấm Cập nhật dữ liệu"* — một cái nút
+vừa bị xoá. Ngưỡng đó giờ đã bỏ: bù dài thì chậm chứ không nguy hiểm, và dòng
+trạng thái vẫn nói trong lúc chạy.
+
+Dọn theo: `runBackfill`, `applyMarketCapabilities`, ba tham chiếu phần tử, và
+6 dòng CSS `.live-dot`/`.live-toggle`.
+
+#### CSV và Báo cáo về đúng chỗ của chúng
+
+Cả hai nằm trên `panel-head`, nên chúng đọc như hành động áp lên *tab đang mở*
+— mà đó chính là thứ chúng không phải. Cả hai đều thao tác trên danh sách lệnh:
+báo cáo dựng từ nó, còn CSV **chính là** nó. Giờ chúng nằm trong tab **Lệnh**.
+**PNG đã bỏ hẳn** theo yêu cầu.
+
+#### Panel Chỉ báo: 8 màn hình cuộn còn 0
+
+Đo cả năm panel để biết cái nào thật sự rối, thay vì sửa theo cảm giác:
+
+| Panel | Cao nội dung | Phải cuộn | Điều khiển |
+|---|---|---|---|
+| **Chỉ báo** | **6 280px** | **5 613px** | **193** |
+| Chiến lược | 874px | 87px | 44 |
+| Paper | 1 184px | 397px | 17 |
+| Kết quả / Danh mục | vừa khung | 0 | 2 / 22 |
+
+Chỉ báo rối gấp **14 lần** panel kế tiếp. Và nguyên nhân không phải thiếu cấu
+trúc: catalog **đã** nhóm theo 11 danh mục từ trước, chỉ là **mở hết cùng lúc**.
+Dữ liệu phân loại vốn đã có trong payload (`category`: momentum 53, overlap 45,
+trend 22…) — frontend chỉ chưa dùng nó để gập.
+
+Giờ mỗi danh mục là một `<details>`, và nó mở khi **có lý do để nhìn vào**:
+đang tìm kiếm, đang chứa chỉ báo có trên biểu đồ, là nhóm ★, hoặc người dùng tự
+mở. Nhóm người dùng mở được nhớ lại, nếu không thì mỗi lần đánh dấu sao hay
+thêm chỉ báo sẽ gập sập nhóm họ đang làm việc.
+
+Đo lại: **6 280px → 667px, cuộn 5 613px → 0px.** Vừa đúng một màn hình.
+
+#### "Data chảy chưa mượt" — một thị trường ổn, một thị trường chạm trần dữ liệu
+
+Đo bằng một client WebSocket nối thẳng vào `/ws/live`, không qua trình duyệt:
+
+| | Số nến / 40s | Khoảng cách | Giá đổi |
+|---|---|---|---|
+| BTCUSDT | 21 | trung vị **2,0s** | 18/20 lần |
+| VN30F1M | **0** | — | — |
+
+BTC mượt. VN thì **không thể mượt hơn**, và lý do nằm ở nguồn chứ không ở code:
+
+1. `_run_vn_poll` chỉ đẩy nến có `open_time` mới, nên khung 1m tối đa **một lần
+   mỗi phút**.
+2. Không có nến đang hình thành để đẩy. Đo ba lần cách nhau 12 giây, có và
+   không có bộ lọc `ts < date_trunc('minute', now())`: **hai bên luôn cho cùng
+   một dòng**. Pipeline chỉ ghi nến sau khi phút đã đóng.
+3. `api.v_quote` cũng không cứu được: giá một mã mất **4–7 giây** mỗi truy vấn,
+   và `data_as_of` của nó cũng chỉ có độ phân giải phút (07:09:00).
+
+Nên với thị trường VN, **một lần mỗi phút là trần**, không phải lỗi. Nói ra
+theo §2.7 thay vì để Nam tự đoán.
+
+*Cải thiện thật làm được:* poll mỗi 5 giây nghĩa là **11 trong 12 lần hỏi một
+view tốn vài giây để nhận đúng câu trả lời cũ**. Vòng lặp giờ ngủ tới ngay sau
+mốc phút (`VN_BAR_SETTLE_SECONDS = 2`) — nơi nến tiếp theo mới có thể tồn tại.
+Tải database giảm khoảng **12 lần**, và độ trễ từ "tối đa 5 giây sau khi nến
+sẵn sàng" xuống còn khoảng 2 giây. Khi đang backoff vì lỗi thì vẫn dùng delay
+cũ, vì lúc đó thứ đang chờ không phải mốc phút.
+
+*Hai lần phép đo của tôi sai trước khi ra được bảng trên, ghi theo §2.2:*
+
+1. Probe đọc `msg.candle.close`, nhưng message để `close` ở **cấp ngoài cùng**.
+   Kết quả: "16 nến, 0 giá khác nhau" — trông y như luồng chết, trong khi giá
+   đang chạy 77 684 → 77 688.
+2. Probe đọc `window.Live.enabled` và nhận `undefined`, suýt kết luận luồng
+   chưa bật. `const Live = (…)()` ở top-level **không** tạo thuộc tính trên
+   `window` — đó là cách `const` hoạt động, không phải lỗi ứng dụng.
+
+#### Dọn dẹp (theo yêu cầu "làm mọi thứ clean lại")
+
+- **Khoá i18n chết được nối lại thay vì xoá.** 18 khoá không dùng, và mỗi khoá
+  có một **bản sao tiếng Việt viết thẳng trong code** ở đúng chỗ đáng lẽ phải
+  dùng nó. Nối lại là dọn cả hai đầu: nợ i18n của `app.js` **95 → 78** chuỗi.
+- Bỏ `.splash-status` (không phần tử nào mang class đó), endpoint
+  `/api/markets/vn/freshness` và hàm `market_vn.freshness()` (frontend không
+  gọi, và `data_coverage` đã thay thế vai trò của nó).
+- Ba file probe rời (`_probe`, `_perf`, `_ct`) gộp thành **một** `_probe.html`
+  chạy tuần tự: coverage → panel → độ mượt → bố cục thanh trên → menu → timing.
+
+#### Còn tồn, cần Nam quyết
+
+- **`/api/live/status` không ai gọi.** Không xoá: nó tồn tại đúng theo §2.5
+  ("trạng thái phải hỏi được, không chỉ được thông báo"). Frontend hiện chỉ
+  *nghe* `stream_status` qua socket, nên client nối vào sau khi luồng đã chạy
+  không có đường hỏi lại — đúng cái bẫy §2.5 mô tả. Đây là **lỗ hổng chưa nối**,
+  không phải code chết.
+- Panel **Paper** vẫn cuộn 397px và **Chiến lược** 87px. Nhỏ hơn Chỉ báo hai
+  bậc nên chưa đụng tới; nếu Nam thấy vướng thì xử lý cùng cách (gập nhóm ít
+  dùng).
+
 ### 2026-09-15 — Cảnh báo 27/07 là lỗi của tôi, và trang tải nhanh gấp 2,5 lần
 
 **291 test Python** (trước 290) + toàn bộ render check, không lỗi. Test mới kiểm đúng lỗi cửa sổ trượt: bỏ bản sửa ra thì nó đỏ.

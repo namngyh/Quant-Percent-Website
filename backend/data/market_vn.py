@@ -444,14 +444,6 @@ def daily_closes(symbols: list[str], lookback: int) -> dict[str, dict]:
     return out
 
 
-def freshness() -> list[dict]:
-    rows = query("SELECT symbol, data_as_of FROM api.v_data_freshness ORDER BY data_as_of DESC")
-    return [
-        {"symbol": r[0], "data_as_of": int(r[1].timestamp() * 1000) if r[1] else None}
-        for r in rows
-    ]
-
-
 # --------------------------------------------------------------------- candles
 
 def _to_ms(value) -> int:

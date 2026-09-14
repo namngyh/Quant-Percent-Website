@@ -481,7 +481,7 @@ const Paper = (() => {
 
     el.preset.innerHTML = keys
       .map((key) => `<option value="${key}">${esc(PRESETS[key].label())}</option>`)
-      .join('') + `<option value="custom">${esc(L('Tự đặt', 'Custom'))}</option>`;
+      .join('') + `<option value="custom">${esc(t('ps.custom'))}</option>`;
 
     /* Keep the previous choice only while the market is the same.
 

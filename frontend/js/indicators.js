@@ -42,6 +42,9 @@ const Indicators = (() => {
       .join('');
   }
 
+  // Category names the user has opened by hand this session.
+  const openGroups = new Set();
+
   function renderCatalog() {
     const query = elements.search.value.trim().toLowerCase();
     const matches = query
@@ -75,9 +78,20 @@ const Indicators = (() => {
       return;
     }
 
+    /* Groups collapse.
+
+       All eleven categories used to render open at once: 190 rows, measured at
+       6,280px of content in a 667px panel — eight screens of scrolling to
+       reach anything not near the top, which is what made this panel the
+       hardest one to use. A group opens when there is a reason to look inside
+       it: a search is running, it holds something already on the chart, it is
+       the favourites group, or the user opened it themselves. */
     let html = '';
     for (const [group, specs] of groups) {
-      html += `<div class="cat-group"><div class="cat-group-name">${escapeHtml(group)} · ${specs.length}</div>`;
+      const holdsActive = specs.some((spec) => activeIds.has(spec.id));
+      const open = query || holdsActive || group.startsWith('★') || openGroups.has(group);
+      html += `<details class="cat-group"${open ? ' open' : ''} data-group="${escapeHtml(group)}">`
+        + `<summary class="cat-group-name">${escapeHtml(group)} · ${specs.length}</summary>`;
       for (const spec of specs) {
         const on = activeIds.has(spec.id) ? ' on' : '';
         const plugin = spec.source === 'plugin' ? ' plugin' : '';
@@ -87,12 +101,21 @@ const Indicators = (() => {
           `<span class="cat-item-name">${escapeHtml(spec.name)}</span>` +
           `<span class="cat-item-kind">${spec.kind === 'overlay' ? 'overlay' : 'panel'}</span>` +
           `<button class="info-btn" data-info="${escapeHtml(spec.id)}" title="${
-            escapeHtml(L('Giải thích chỉ báo', 'Explain this indicator'))}">i</button>` +
+            escapeHtml(t('ind.explain'))}">i</button>` +
           `</div>`;
       }
-      html += '</div>';
+      html += '</details>';
     }
     elements.catalog.innerHTML = html;
+
+    // Remember what the user opened, so a repaint (starring, adding, typing)
+    // does not fold the group they are working in shut under them.
+    for (const node of elements.catalog.querySelectorAll('.cat-group')) {
+      node.addEventListener('toggle', () => {
+        if (node.open) openGroups.add(node.dataset.group);
+        else openGroups.delete(node.dataset.group);
+      });
+    }
 
     for (const node of elements.catalog.querySelectorAll('.cat-item')) {
       node.addEventListener('click', () => add(node.dataset.id));
@@ -201,7 +224,7 @@ const Indicators = (() => {
           <span class="active-name">${escapeHtml(spec.name)}</span>
           <span class="active-kind">${spec.kind}</span>
           <button class="info-btn" data-info-active="${escapeHtml(spec.id)}" title="${
-            escapeHtml(L('Giải thích chỉ báo', 'Explain this indicator'))}">i</button>
+            escapeHtml(t('ind.explain'))}">i</button>
           <button class="btn btn-ghost btn-sm active-remove" data-remove="${escapeHtml(instanceId)}">✕</button>
         </div>`;
 

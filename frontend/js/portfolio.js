@@ -852,7 +852,7 @@ const Portfolio = (() => {
     ));
 
     elements.run.addEventListener('click', () => config.withButton(
-      elements.run, L('Đang phân tích…', 'Analysing…'), run,
+      elements.run, t('pfr.analysing'), run,
     ));
 
     loadSymbols();

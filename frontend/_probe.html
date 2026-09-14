@@ -1,53 +1,55 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>coverage warning probe</title>
+<title>browser probes</title>
 <!--
-  Drives the real app in an iframe to check the data-coverage warnings, which
-  jsdom cannot reach: they are toasts raised from a live API call after a chart
-  load. Lives under frontend/ because it has to be same-origin with the app to
-  reach into the frame at all.
+  Checks that only a real browser can make: they need a live chart, a live API
+  and real layout, which jsdom does not provide and the Python tests cannot
+  reach. Three groups, run in order:
 
-  Run (server must be up):
-    chrome --headless --disable-gpu --virtual-time-budget=90000 \
+    coverage   the data-completeness toasts fire on the right symbols
+    charttype  the chart-type menu is actually reachable by the pointer
+    timing     where a page load spends its time
+
+  Run (the server must be up):
+    chrome --headless --disable-gpu --window-size=1400,900 \
+           --virtual-time-budget=90000 \
            --dump-dom http://127.0.0.1:8000/static/_probe.html
 
-  Read the <pre id="out"> block out of the dumped DOM. Note the toasts are
-  watched with a MutationObserver rather than read at the end: they delete
-  themselves after 5s, and reading once at the end reports a working warning
-  as a broken one.
--->
+  Then read the <pre id="out"> block out of the dumped DOM.
 
+  Two traps this file exists to remember:
+
+  * Toasts delete themselves after 5s. Reading them once at the end finds none
+    and reports a working warning as broken, so they are watched with a
+    MutationObserver from the start.
+  * A fresh iframe begins on about:blank, which already reports readyState
+    "complete", and its load event may fire before this script runs. Neither
+    is a reliable signal, so the frame is polled for a known element instead.
+-->
 <pre id="out">running…</pre>
-<iframe id="app" src="/#trade" style="width:1200px;height:800px"></iframe>
+<iframe id="app" src="/#trade" style="width:1400px;height:900px"></iframe>
 <script>
 const out = [];
 const log = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function pick(doc, symbol, timeframe) {
-  const sel = doc.getElementById('symbol');
-  sel.value = symbol;
-  sel.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }));
-  await sleep(5000);                       // the VN database is slow; wait for it
-
-  const buttons = [...doc.querySelectorAll('#timeframes .tf-btn')];
-  log(`  khung co san: [${buttons.map((b) => b.textContent.trim()).join(', ')}]`);
-  const tf = buttons.find((b) => b.textContent.trim() === timeframe);
-  if (!tf) { log(`  KHONG co nut khung ${timeframe}`); return false; }
-  tf.click();
-  return true;
+/** Wait for the app frame to hold a real document (see the note above). */
+async function appDocument(frame) {
+  for (let i = 0; i < 160; i++) {
+    const d = frame.contentDocument;
+    if (d && d.getElementById('chart-type')) return d;
+    await sleep(250);
+  }
+  return null;
 }
 
-/* Toasts remove themselves after 5s, so reading once at the end sees nothing
-   and reports a working warning as broken. Watch instead. */
+/** Collect toasts as they appear; they remove themselves after 5s. */
 function watchToasts(doc) {
   const seen = [];
   const obs = new doc.defaultView.MutationObserver((records) => {
     for (const rec of records) {
       for (const node of rec.addedNodes) {
-        if (node.classList && node.classList.contains('toast')) {
-          seen.push(node.textContent);
-        }
+        if (node.classList?.contains('toast')) seen.push(node.textContent);
       }
     }
   });
@@ -55,42 +57,193 @@ function watchToasts(doc) {
   return seen;
 }
 
+async function pick(doc, symbol, timeframe) {
+  const sel = doc.getElementById('symbol');
+  sel.value = symbol;
+  sel.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }));
+  await sleep(5000);                        // the VN database is not fast
+  const button = [...doc.querySelectorAll('#timeframes .tf-btn')]
+    .find((b) => b.textContent.trim() === timeframe);
+  if (button) button.click();
+  return !!button;
+}
+
 (async () => {
   const frame = document.getElementById('app');
-  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
-  const doc = frame.contentDocument;
-  await sleep(6000);                       // splash + first chart
+  const doc = await appDocument(frame);
+  if (!doc) { log('KHONG nap duoc app trong frame'); return; }
+  const w = frame.contentWindow;
+  await sleep(6000);
 
-  const opts = [...doc.querySelectorAll('#symbol option')].map((o) => o.value);
-  log(`picker options: ${opts.length}`);
-  log(`has VN:A32      : ${opts.includes('VN:A32')}`);
-  log(`has VN:VN30F1M  : ${opts.includes('VN:VN30F1M')}`);
-  log(`has VN:G-XAUUSD : ${opts.includes('VN:G-XAUUSD')}`);
-
+  // ---------------------------------------------------------- coverage
+  log('=== coverage ===');
   const seen = watchToasts(doc);
 
-  // A thin symbol on an intraday frame must say so.
-  log('\n[A32 @ 1m]');
-  await pick(doc, 'VN:A32', '1m');
+  await pick(doc, 'VN:A32', '1m');          // a symbol too thin for intraday
   await sleep(9000);
-  log(`  toasts: ${seen.length}`);
-  seen.forEach((t) => log(`  > ${t.slice(0, 140)}`));
+  log(`[A32 @ 1m]     ${seen.length} toast`);
+  seen.forEach((t) => log(`  > ${t.slice(0, 120)}`));
 
-  // A steady symbol with a real outage must name the session.
   seen.length = 0;
-  log('\n[VN30F1M @ 1m]');
-  await pick(doc, 'VN:VN30F1M', '1m');
-  await sleep(9000);
-  log(`  toasts: ${seen.length}`);
-  seen.forEach((t) => log(`  > ${t.slice(0, 140)}`));
-
-  // A daily frame must NOT warn: daily bars come from a different table.
-  seen.length = 0;
-  log('\n[A32 @ 1d]');
-  await pick(doc, 'VN:A32', '1d');
+  await pick(doc, 'VN:A32', '1d');          // daily comes from another table
   await sleep(7000);
-  log(`  toasts: ${seen.length} (mong doi 0)`);
+  log(`[A32 @ 1d]     ${seen.length} toast   (mong doi 0)`);
 
-  log('\nDONE');
+  // ------------------------------------------------------ left panel bulk
+  log('');
+  log('=== panel ben trai ===');
+  for (const [name, sel] of [['Chi bao','indicators'], ['Chien luoc','strategy'],
+                             ['Ket qua','results'], ['Danh muc','portfolio'],
+                             ['Paper','paper']]) {
+    const btn = doc.querySelector(`.rail-btn[data-panel="${sel}"]`);
+    if (btn) btn.click();
+    await sleep(400);
+    const panel = doc.querySelector(`.panel[data-panel="${sel}"]`);
+    const body = panel?.querySelector('.panel-body');
+    if (!body) { log(`  ${name}: khong co`); continue; }
+    const controls = panel.querySelectorAll(
+      'input, select, button:not(.info-btn):not(.subtab)').length;
+    const groups = panel.querySelectorAll('.field-group').length;
+    const over = Math.max(0, body.scrollHeight - body.clientHeight);
+    log(`  ${name.padEnd(11)} cao ${String(body.scrollHeight).padStart(5)}px`
+        + ` / khung ${String(body.clientHeight).padStart(4)}px`
+        + `  phai cuon ${String(over).padStart(5)}px`
+        + `  ${String(controls).padStart(3)} dieu khien, ${groups} nhom`);
+  }
+  doc.querySelector('.rail-btn[data-panel="indicators"]')?.click();
+  await sleep(300);
+
+  // ------------------------------------------------------- data smoothness
+  log('');
+  log('=== do muot cua du lieu ===');
+  async function watchPrice(symbol, seconds) {
+    const sel = doc.getElementById('symbol');
+    sel.value = symbol;
+    sel.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }));
+    await sleep(6000);
+
+    const priceNode = doc.getElementById('price');
+    const stamps = [];
+    let last = priceNode.textContent;
+    const obs = new doc.defaultView.MutationObserver(() => {
+      const now = priceNode.textContent;
+      if (now !== last) { stamps.push(w.performance.now()); last = now; }
+    });
+    obs.observe(priceNode, { childList: true, characterData: true, subtree: true });
+    await sleep(seconds * 1000);
+    obs.disconnect();
+
+    if (stamps.length < 2) {
+      log(`  ${symbol.padEnd(12)} ${stamps.length} lan doi gia trong ${seconds}s`
+          + '  (ngoai phien hoac khong co tick)');
+      return;
+    }
+    const gaps = stamps.slice(1).map((t, i) => (t - stamps[i]) / 1000);
+    gaps.sort((a, b) => a - b);
+    const med = gaps[Math.floor(gaps.length / 2)];
+    log(`  ${symbol.padEnd(12)} ${stamps.length} lan doi gia / ${seconds}s`
+        + `  khoang cach: min ${gaps[0].toFixed(2)}s`
+        + ` trung vi ${med.toFixed(2)}s max ${gaps[gaps.length - 1].toFixed(2)}s`);
+  }
+  // Truoc khi do gia: luong live co song khong?
+  log(`  Live.enabled      : ${w.Live?.enabled}`);
+  log(`  price-block hidden: ${doc.getElementById('price-block')?.hidden}`);
+  log(`  price text        : ${JSON.stringify(doc.getElementById('price')?.textContent)}`);
+
+  // Nghe thang socket cua app de dem message that su den
+  let frames = 0, kinds = {};
+  const origWS = w.WebSocket;
+  w.WebSocket = function (...args) {
+    const ws = new origWS(...args);
+    ws.addEventListener('message', (ev) => {
+      frames++;
+      try { const k = JSON.parse(ev.data).type || '?'; kinds[k] = (kinds[k] || 0) + 1; }
+      catch { kinds.raw = (kinds.raw || 0) + 1; }
+    });
+    return ws;
+  };
+  w.WebSocket.prototype = origWS.prototype;
+
+  await watchPrice('BTCUSDT', 25);
+  log(`    socket frames: ${frames} ${JSON.stringify(kinds)}`);
+  frames = 0; kinds = {};
+  await watchPrice('VN:VN30F1M', 25);
+  log(`    socket frames: ${frames} ${JSON.stringify(kinds)}`);
+
+  // ------------------------------------------------------- topbar layout
+  log('');
+  log('=== topbar layout ===');
+  const boxes = {};
+  for (const sel of ['#symbol', '#timeframes', '.ct-picker', '#chart-type',
+                     '.topbar-controls', '.topbar-right']) {
+    const n = doc.querySelector(sel);
+    if (!n) { log(`  ${sel}: KHONG co`); continue; }
+    const r = n.getBoundingClientRect();
+    boxes[sel] = r;
+    const cs = w.getComputedStyle(n);
+    log(`  ${sel.padEnd(18)} ${r.width.toFixed(0).padStart(5)}x${r.height.toFixed(0)}`
+        + ` @ ${r.left.toFixed(0)},${r.top.toFixed(0)}`
+        + `  right=${r.right.toFixed(0)} overflow=${cs.overflowX}`);
+  }
+  const tf = boxes['#timeframes'], ct = boxes['.ct-picker'];
+  const controls = boxes['.topbar-controls'];
+  if (tf && ct) {
+    log(`  tf phai=${tf.right.toFixed(0)}  ct trai=${ct.left.toFixed(0)}`
+        + `  -> chong lan: ${tf.right > ct.left + 1}`);
+  }
+  if (ct && controls) {
+    log(`  ct phai=${ct.right.toFixed(0)}  controls phai=${controls.right.toFixed(0)}`
+        + `  -> nut tran ra ngoai: ${ct.right > controls.right + 1}`);
+  }
+  const btn0 = doc.getElementById('chart-type');
+  if (btn0) {
+    const cs = w.getComputedStyle(btn0);
+    log(`  #chart-type border=${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`);
+    log(`  #chart-type background=${cs.backgroundColor}`);
+  }
+
+  // --------------------------------------------------------- chart type
+  log('');
+  log('=== chart type menu ===');
+  const btn = doc.getElementById('chart-type');
+  const menu = doc.getElementById('chart-type-menu');
+  btn.click();
+  await sleep(600);
+  const rect = menu.getBoundingClientRect();
+  log(`  menu mo        : ${!menu.hidden}, ${menu.querySelectorAll('[data-chart-type]').length} muc`);
+  log(`  kich thuoc     : ${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+  /* The real question is not whether the menu is open but whether a click
+     reaches it. It lives inside `.topbar-controls`, which scrolls, so an
+     absolutely positioned menu is clipped to the bar and every click lands on
+     the chart canvas behind it. */
+  const hit = doc.elementFromPoint(rect.left + rect.width / 2, rect.top + 12);
+  log(`  duoi con tro   : ${hit ? hit.tagName + '.' + hit.className : 'null'}`);
+  log(`  bam duoc       : ${!!hit?.closest?.('[data-chart-type]')}`);
+  btn.click();
+
+  // -------------------------------------------------------------- timing
+  log('');
+  log('=== timing ===');
+  const nav = w.performance.getEntriesByType('navigation')[0];
+  if (nav) {
+    log(`  domContentLoaded ${nav.domContentLoadedEventEnd.toFixed(0)}ms`);
+    log(`  loadEventEnd     ${nav.loadEventEnd.toFixed(0)}ms`);
+  }
+  const res = w.performance.getEntriesByType('resource')
+    .map((r) => ({ name: r.name.replace(/^https?:\/\/[^/]+/, ''), dur: r.duration,
+                   sent: r.transferSize, raw: r.decodedBodySize }))
+    .sort((a, b) => b.dur - a.dur);
+  log('  5 tai nguyen cham nhat:');
+  for (const r of res.slice(0, 5)) {
+    log(`    ${r.dur.toFixed(0).padStart(6)}ms ${(r.sent / 1024).toFixed(1).padStart(8)}KB`
+      + ` ${r.name.slice(0, 48)}`);
+  }
+  const sent = res.reduce((s, r) => s + r.sent, 0);
+  const raw = res.reduce((s, r) => s + r.raw, 0);
+  log(`  tong ${res.length} request, gui ${(sent / 1024).toFixed(0)}KB, goc ${(raw / 1024).toFixed(0)}KB`);
+  log(`  picker: ${doc.getElementById('symbol').options.length} option`);
+
+  log('');
+  log('DONE');
 })().catch((e) => log('PROBE ERROR: ' + e.message));
 </script>

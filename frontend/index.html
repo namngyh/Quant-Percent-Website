@@ -79,13 +79,13 @@
       <span class="topbar-sep" aria-hidden="true"></span>
       <span id="status" class="status" title=""></span>
       <span class="tz-badge" data-i18n-title="top.tz">GMT+7</span>
-      <button id="live-toggle" class="btn btn-quiet live-toggle" data-i18n-title="top.liveToggle">
-        <span id="live-dot" class="live-dot"></span>
-        <span id="live-label" data-i18n="top.live">Realtime</span>
-      </button>
+      <!-- Realtime and the backfill button used to sit here. Both were
+           controls for things that now simply happen: the stream is on from
+           start-up, and missing bars are fetched when a series loads. A
+           switch for something already handled is one more thing to read and
+           one more way to break it by accident. The status line still says
+           when a catch-up is running. -->
       <button id="mode-toggle" class="btn btn-primary btn-lg" data-i18n="top.trade">Giao dịch</button>
-      <span class="topbar-sep" aria-hidden="true"></span>
-      <button id="backfill" class="btn" data-i18n="top.backfill">Cập nhật dữ liệu</button>
       <div class="lang-switch" role="group" data-i18n-aria="top.lang">
         <button class="lang-btn" data-lang="vi" type="button">VI</button>
         <button class="lang-btn" data-lang="en" type="button">EN</button>
@@ -303,11 +303,6 @@
             <button class="subtab" data-restab="validation" role="tab" data-i18n="res.validation">Kiểm định</button>
             <button class="subtab" data-restab="stats" role="tab" data-i18n="res.stats">Thống kê</button>
           </div>
-          <div class="panel-head-actions">
-            <button id="open-report" class="btn btn-sm" data-i18n-title="res.reportTitle" data-i18n="res.report">Báo cáo</button>
-            <button id="export-csv" class="btn btn-quiet btn-sm" data-i18n-title="res.csv">CSV</button>
-            <button id="export-png" class="btn btn-quiet btn-sm" data-i18n-title="res.png">PNG</button>
-          </div>
         </div>
         <div class="panel-body">
           <div class="subpanel active" data-respanel="summary">
@@ -320,6 +315,16 @@
             </div>
           </div>
           <div class="subpanel" data-respanel="trades">
+            <!-- Report and CSV live here rather than in the panel header.
+                 Both act on the trade list: the report is built from it and
+                 the CSV is it. In the header they read as actions on whatever
+                 tab happened to be open, which is what they are not. -->
+            <div class="subpanel-actions">
+              <button id="open-report" class="btn btn-sm"
+                      data-i18n-title="res.reportTitle" data-i18n="res.report">Báo cáo</button>
+              <button id="export-csv" class="btn btn-quiet btn-sm"
+                      data-i18n-title="res.csv">CSV</button>
+            </div>
             <div id="trades" class="scroll-area"><p class="empty" data-i18n="res.noTrades">Chưa có lệnh nào.</p></div>
           </div>
           <div class="subpanel" data-respanel="optimize">

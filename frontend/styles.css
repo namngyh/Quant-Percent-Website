@@ -390,6 +390,15 @@ select { cursor: pointer; }
 .subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 .subpanel { display: none; }
+
+/* Actions that belong to one tab's content, not to the panel as a whole.
+   Right-aligned above the list they act on. */
+.subpanel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
 .subpanel.active { display: block; }
 [data-respanel] { height: 100%; }
 [data-respanel].active { display: flex; flex-direction: column; }
@@ -400,6 +409,20 @@ select { cursor: pointer; }
 
 .catalog { }
 .cat-group { margin-bottom: 12px; }
+/* The group header is a <summary>: it must look like the row it replaced,
+   minus the default disclosure triangle, plus one that matches the app. */
+.cat-group > summary { cursor: pointer; list-style: none; user-select: none; }
+.cat-group > summary::-webkit-details-marker { display: none; }
+.cat-group > summary::after {
+  content: '';
+  float: right;
+  border: 4px solid transparent;
+  border-top-color: var(--text-faint);
+  margin-top: 6px;
+  transition: transform 0.15s ease;
+}
+.cat-group[open] > summary::after { transform: rotate(180deg); transform-origin: 4px 2px; }
+
 .cat-group-name {
   font-size: 9.5px;
   text-transform: uppercase;
@@ -764,12 +787,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 /* ==================== Live indicator ==================== */
 
-.live-toggle { display: flex; align-items: center; gap: 7px; }
-.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
-.live-dot.live { background: var(--up); animation: pulse 2s ease-in-out infinite; }
-.live-dot.connecting { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
-.live-dot.offline { background: var(--down); }
-.live-toggle.on { border-color: var(--border); background: var(--up-soft); color: var(--text); }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
@@ -819,7 +836,15 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
   text-overflow: ellipsis;
 }
 
-.tf-group { flex-shrink: 0; }
+.tf-group {
+  /* Shrinks and scrolls inside its own border, so a long strip of timeframes
+     never pushes the controls beside it out of the bar. */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tf-group::-webkit-scrollbar { display: none; }
 .tf-btn { padding: 4px 8px; }
 
 .status {
@@ -977,15 +1002,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 }
 .splash-word strong { color: var(--text); font-weight: 700; }
 
-.splash-status {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-faint);
-  min-height: 16px;
-  opacity: 0;
-  animation: fadeUp 0.4s ease-out 0.95s forwards;
-}
-
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(5px); }
   to   { opacity: 1; transform: none; }
@@ -1013,7 +1029,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash-mark rect, .splash-mark path, .splash-word, .splash-status, .splash-bar,
+  .splash-mark rect, .splash-mark path, .splash-word, .splash-bar,
   .splash-bar span, .dialog, .dialog-backdrop, .toast {
     animation: none !important;
     opacity: 1;
@@ -1933,8 +1949,12 @@ body[data-mode="overview"] .price-change { font-size: 14px; }
      already pushed over by its own `margin-left: auto`; nothing here needs to
      grow to make that happen. */
   flex: 0 1 auto;
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* Deliberately NOT scrolling. It used to, and it clipped its own last
+     child: the chart-type button sat 41px past the group's right edge and
+     lost its border and half its arrow, which read as a broken button. The
+     thing that actually needs to scroll is the timeframe strip, so the
+     scrolling moved there — one long child, not the whole bar. */
+  min-width: 0;
 }
 /* The status text is short and matters; it should not be the thing that gives
    way when the bar is tight. */
@@ -2201,10 +2221,17 @@ body[data-mode="overview"] .chart-main { cursor: pointer; }
 }
 .ct-button .ct-icon { color: var(--text); }
 
+/* Fixed, not absolute, and positioned from JS.
+
+   `.topbar-controls` scrolls horizontally (added 2026-09-09 to stop the
+   timeframe strip overlapping the price at narrow widths), and an absolutely
+   positioned child of a scrolling box is clipped by it. The menu is 476px
+   tall inside a 56px bar, so it opened correctly and was then cut down to a
+   sliver — the button looked dead because what it opened was invisible, and
+   clicks landed on the chart canvas behind. Taking it out of the flow is the
+   only fix that survives that overflow. */
 .ct-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  position: fixed;
   z-index: 60;
   min-width: 232px;
   padding: 6px;
