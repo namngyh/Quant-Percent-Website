@@ -153,6 +153,23 @@ const API = (() => {
         n_trials: nTrials || 1,
       }),
 
+    /* One strategy over several markets. Deliberately one request rather
+       than a loop here: the deflated Sharpe needs to see every market's
+       result at once to know how wide the search was. */
+    backtestMarkets: ({ strategyId, symbols, timeframe, params, execution,
+                        limit, start, end, metric }) =>
+      post('/api/strategies/backtest/markets', {
+        strategy_id: strategyId,
+        symbols,
+        timeframe,
+        params,
+        limit,
+        start,
+        end,
+        metric: metric || 'sharpe',
+        execution,
+      }),
+
     vnSymbols: () => request('/api/markets/vn/symbols'),
     vnCoverage: (symbol) => request(`/api/markets/vn/coverage?symbol=${encodeURIComponent(symbol)}`),
 

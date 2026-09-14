@@ -816,6 +816,9 @@
 
     symbolGroups = groups;
     rebuildSymbolOptions();
+    // The multi-market picker offers the same catalogue as the chart's, so it
+    // is filled from the same groups rather than fetching its own copy.
+    Markets.setOptions(symbolGroups);
     // The picker may have been rebuilt from a favourite in the meantime.
     if (el.symbol.value !== state.symbol) el.symbol.value = state.symbol;
   }
@@ -1443,6 +1446,8 @@ def signals(df, params):
         state.timeframe = tf;
         // A new timeframe is a new series, so the percentage restarts with it.
         hidePrice();
+        // The multi-market run follows the chart, so its note must follow too.
+        Markets.refreshTimeframeNote();
         for (const b of el.timeframes.children) b.classList.toggle('active', b === button);
         loadCandles();
       });
@@ -1511,6 +1516,19 @@ def signals(df, params):
     Explain.init();
     Report.init({ onToast: toast });
     PaperDash.init({ onToast: toast });
+    Markets.init({
+      elements: {
+        add: document.getElementById('mm-add'),
+        addCurrent: document.getElementById('mm-add-current'),
+        chosen: document.getElementById('mm-chosen'),
+        run: document.getElementById('run-markets'),
+        note: document.getElementById('mm-timeframe-note'),
+        output: document.getElementById('markets-output'),
+      },
+      context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
+      withButton,
+      onToast: toast,
+    });
     setupMarkerControls();
     ChartManager.init(el.chartMain);
     // Panning left past the oldest bar fetches the page before it.

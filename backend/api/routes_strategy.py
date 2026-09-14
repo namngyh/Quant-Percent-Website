@@ -19,7 +19,7 @@ from backend.optimizer.grid import (
     grid_size,
     optimize,
 )
-from backend.strategy import registry
+from backend.strategy import multi, registry
 from backend.strategy.base import StrategyError
 from backend.strategy.engine import BacktestConfig
 
@@ -202,6 +202,92 @@ def backtest(request: BacktestRequest) -> dict:
     except Exception as exc:
         log.exception("backtest failed for %s", request.strategy_id)
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
+
+
+class MultiMarketRequest(BaseModel):
+    """One strategy, one timeframe, many symbols."""
+
+    strategy_id: str
+    symbols: list[str]
+    timeframe: str | None = None
+    params: dict = Field(default_factory=dict)
+    limit: int | None = None
+    start: str | None = None
+    end: str | None = None
+    execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
+    # Which column decides "best". Only affects ranking; every row carries the
+    # full metric set regardless.
+    metric: str = "sharpe"
+
+
+# Scanning more than this in one request is a different kind of job — it would
+# hold a worker for minutes and the table stops being readable well before the
+# limit bites.
+MAX_MARKETS = 25
+
+
+@router.post("/backtest/markets")
+def backtest_markets(request: MultiMarketRequest) -> dict:
+    """Run one strategy across several markets and rank the outcomes.
+
+    Deliberately not a loop the frontend could run itself: doing it here is
+    what makes the result honest. Twenty markets is twenty trials, so the best
+    Sharpe gets deflated by the dispersion measured across them, and the
+    summary leads with how many markets worked rather than with the winner.
+    See backend/strategy/multi.py.
+    """
+    symbols = [s.strip() for s in request.symbols if s and s.strip()]
+    # Same symbol twice would count as two trials and deflate the winner by a
+    # search that never happened.
+    seen: set[str] = set()
+    symbols = [s for s in symbols if not (s in seen or seen.add(s))]
+
+    if not symbols:
+        raise HTTPException(400, "Chưa chọn thị trường nào.")
+    if len(symbols) > MAX_MARKETS:
+        raise HTTPException(
+            400, f"Tối đa {MAX_MARKETS} thị trường một lần (đã chọn {len(symbols)})."
+        )
+    if request.metric not in RANKABLE_METRICS:
+        raise HTTPException(
+            400,
+            f"Chỉ số `{request.metric}` không xếp hạng được. "
+            f"Dùng một trong: {', '.join(sorted(RANKABLE_METRICS))}.",
+        )
+
+    runs: list[multi.MarketRun] = []
+    for symbol in symbols:
+        # One market failing is normal — a VN symbol with the VPN down, a
+        # series with no bars in the window — and must not take the rest of
+        # the scan with it. The reason travels with the row instead.
+        try:
+            df, timeframe = _load_candles(
+                symbol, request.timeframe, request.limit, request.start, request.end
+            )
+        except HTTPException as exc:
+            runs.append(multi.MarketRun(symbol, request.timeframe or "?",
+                                        error=str(exc.detail)))
+            continue
+
+        try:
+            result = registry.run_strategy(
+                request.strategy_id, df, timeframe, request.params,
+                request.execution.to_config(),
+            )
+        except StrategyError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except Exception as exc:
+            log.exception("multi-market backtest failed on %s", symbol)
+            runs.append(multi.MarketRun(symbol, timeframe,
+                                        error=f"{type(exc).__name__}: {exc}"))
+            continue
+
+        runs.append(multi.MarketRun(symbol, timeframe, result=result))
+
+    payload = multi.summarise(runs, request.metric)
+    payload["strategy_id"] = request.strategy_id
+    payload["params"] = request.params
+    return payload
 
 
 @router.post("/optimize")

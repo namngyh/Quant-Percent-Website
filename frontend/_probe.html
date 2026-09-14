@@ -89,6 +89,43 @@ async function pick(doc, symbol, timeframe) {
   await sleep(7000);
   log(`[A32 @ 1d]     ${seen.length} toast   (mong doi 0)`);
 
+  // ---------------------------------------------------- many markets
+  log('');
+  log('=== nhieu thi truong ===');
+  doc.querySelector('.rail-btn[data-panel="strategy"]')?.click();
+  await sleep(600);
+  const mmAdd = doc.getElementById('mm-add');
+  const mmRun = doc.getElementById('run-markets');
+  const mmNote = doc.getElementById('mm-timeframe-note');
+  log(`  o chon co ${mmAdd ? mmAdd.options.length : 0} option`);
+  log(`  ghi chu khung: ${JSON.stringify(mmNote?.textContent || '')}`);
+  log(`  nut truoc khi chon: disabled=${mmRun?.disabled}`);
+
+  for (const sym of ['BTCUSDT', 'VN:VNINDEX', 'VN:VIC', 'VN:SHS']) {
+    mmAdd.value = sym;
+    mmAdd.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await sleep(150);
+  }
+  log(`  da chon ${doc.querySelectorAll('#mm-chosen .mm-chip').length} chip`);
+  log(`  nut sau khi chon: disabled=${mmRun?.disabled} "${mmRun?.textContent.trim()}"`);
+
+  mmRun.click();
+  for (let i = 0; i < 90 && doc.getElementById('markets-output')
+       .querySelector('.empty'); i++) await sleep(1000);
+  await sleep(1500);
+
+  const out = doc.getElementById('markets-output');
+  log(`  so dong bang : ${out.querySelectorAll('tbody tr').length}`);
+  log(`  the tom tat  : ${out.querySelectorAll('.metric').length}`);
+  log(`  canh bao     : ${out.querySelectorAll('.callout').length}`);
+  const cards = [...out.querySelectorAll('.metric')].map(
+    (m) => m.querySelector('.metric-label')?.textContent.trim() + '='
+         + m.querySelector('.metric-value')?.textContent.trim());
+  log(`  ${cards.join('  |  ')}`);
+  for (const c of out.querySelectorAll('.callout')) {
+    log(`  > ${c.textContent.trim().slice(0, 130).replace(/\s+/g, ' ')}`);
+  }
+
   // ------------------------------------------------------ left panel bulk
   log('');
   log('=== panel ben trai ===');

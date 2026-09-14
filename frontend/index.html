@@ -220,6 +220,30 @@
 
             <button id="run-backtest" class="btn btn-primary btn-block" data-i18n="st.runBacktest">Chạy backtest</button>
             <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy paper trading</button>
+
+            <!-- The same strategy over several markets at once.
+
+                 Kept in the Run tab rather than given its own, because it is
+                 the same question as the button above it — "does this work" —
+                 asked of more than one instrument. The timeframe is not a
+                 control here: it follows the chart, so what is tested is what
+                 is on screen. -->
+            <div class="field-group">
+              <div class="field-group-title">
+                <span data-i18n="mm.title">Nhiều thị trường</span>
+                <button type="button" class="info-btn" data-explain="mm.about"
+                        data-i18n-title="mm.title">i</button>
+              </div>
+              <p class="hint" id="mm-timeframe-note"></p>
+              <div class="mm-picker">
+                <select id="mm-add" data-i18n-aria="mm.add"></select>
+                <button id="mm-add-current" class="btn btn-quiet btn-sm"
+                        data-i18n="mm.addCurrent">Thêm mã đang xem</button>
+              </div>
+              <div id="mm-chosen" class="mm-chosen"></div>
+              <button id="run-markets" class="btn btn-block" data-i18n="mm.run"
+                      disabled>Chạy trên các thị trường đã chọn</button>
+            </div>
           </div>
 
           <div class="subpanel" data-subpanel="opt">
@@ -299,6 +323,7 @@
           <div class="subtabs compact" role="tablist">
             <button class="subtab active" data-restab="summary" role="tab" data-i18n="res.summary">Tổng quan</button>
             <button class="subtab" data-restab="trades" role="tab" data-i18n="res.trades">Lệnh</button>
+            <button class="subtab" data-restab="markets" role="tab" data-i18n="mm.tab">Thị trường</button>
             <button class="subtab" data-restab="optimize" role="tab" data-i18n="res.optimize">Tối ưu</button>
             <button class="subtab" data-restab="validation" role="tab" data-i18n="res.validation">Kiểm định</button>
             <button class="subtab" data-restab="stats" role="tab" data-i18n="res.stats">Thống kê</button>
@@ -326,6 +351,11 @@
                       data-i18n-title="res.csv">CSV</button>
             </div>
             <div id="trades" class="scroll-area"><p class="empty" data-i18n="res.noTrades">Chưa có lệnh nào.</p></div>
+          </div>
+          <div class="subpanel" data-respanel="markets">
+            <div id="markets-output" class="scroll-area">
+              <p class="empty" data-i18n="mm.none">Chọn vài thị trường ở tab Chiến lược → Chạy, rồi bấm chạy.</p>
+            </div>
           </div>
           <div class="subpanel" data-respanel="optimize">
             <div id="optimize-results" class="scroll-area"><p class="empty" data-i18n="res.noOpt">Chưa chạy tối ưu.</p></div>
@@ -566,6 +596,7 @@
   <script src="/static/js/paper.js"></script>
   <script src="/static/js/paper-dash.js"></script>
   <script src="/static/js/report.js"></script>
+  <script src="/static/js/markets.js"></script>
   <script src="/static/js/portfolio.js"></script>
   <script src="/static/js/validation.js"></script>
   <script src="/static/js/live.js"></script>

@@ -2473,3 +2473,38 @@ body[data-mode="overview"] .draw-layer { display: none; }
 
 /* The session for the symbol on screen, marked so it is findable at a glance. */
 .paper-card.watching { border-color: var(--accent); }
+
+/* ==================== Many markets ==================== */
+
+.mm-picker { display: flex; gap: 8px; margin-bottom: 8px; }
+.mm-picker select { flex: 1 1 auto; min-width: 0; }
+
+/* The chosen list is a wrap of chips rather than a <select multiple>: with
+   1,700 symbols available, what matters is seeing the handful picked, not
+   scrolling the ones that were not. */
+.mm-chosen { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mm-chosen:empty { display: none; }
+
+.mm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 3px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+.mm-chip .sym-badge { width: 20px; height: 20px; font-size: 9px; }
+.mm-chip-name { font-variant-numeric: tabular-nums; }
+.mm-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 999px;
+}
+.mm-chip-x:hover { color: var(--down); background: var(--down-soft); }
