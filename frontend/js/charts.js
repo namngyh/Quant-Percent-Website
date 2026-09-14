@@ -200,6 +200,9 @@ const ChartManager = (() => {
     trackSize(mainChart, container);
 
     buildPriceSeries(priceType);
+    // Stop and target lines are dragged on the container, since the library
+    // has no interactive price lines of its own.
+    bindLevelDragging(container);
 
     volumeSeries = mainChart.addHistogramSeries({
       priceFormat: { type: 'volume' },
@@ -602,6 +605,130 @@ const ChartManager = (() => {
     onMarkersChanged(markerCount(), markersVisible);
   }
 
+  /* ---------- Position lines: entry, stop and target ----------
+
+     Markers say where a trade happened. A running position needs the other
+     thing: where it is now relative to the levels that will close it. An arrow
+     three hundred bars back does not answer "how far is my stop", and that is
+     the question someone holding a position actually has.
+
+     These are the library's own price lines, so they sit on the price scale
+     with their value in the axis label and stay put through zoom and pan
+     without any drawing code of ours. Dragging them is ours, because the
+     library has no notion of a draggable line — see beginLevelDrag below. */
+  let positionLines = { entry: null, stop: null, target: null };
+  let levels = { side: 0, entry: null, stop: null, target: null };
+  let onLevelDragged = null;
+
+  const LEVEL_STYLE = {
+    entry: { color: '#2962ff', style: 0, title: '' },
+    // Stop and target keep the market colours deliberately: a stop is the
+    // losing side of the trade and a target the winning one, whichever way
+    // the position points.
+    stop: { color: '#f23645', style: 2, title: 'SL' },
+    target: { color: '#089981', style: 2, title: 'TP' },
+  };
+
+  function clearPositionLines() {
+    for (const key of Object.keys(positionLines)) {
+      if (positionLines[key]) {
+        try { candleSeries.removePriceLine(positionLines[key]); } catch { /* gone */ }
+        positionLines[key] = null;
+      }
+    }
+    levels = { side: 0, entry: null, stop: null, target: null };
+  }
+
+  /** Draw the open position's entry and its exit levels, or clear them. */
+  function setPositionLines({ side = 0, entry = null, stop = null,
+                              target = null, label = '' } = {}) {
+    clearPositionLines();
+    if (!candleSeries || !side) return;
+    levels = { side, entry, stop, target };
+
+    const make = (key, price, title) => {
+      if (!Number.isFinite(price)) return null;
+      return candleSeries.createPriceLine({
+        price,
+        color: LEVEL_STYLE[key].color,
+        lineWidth: key === 'entry' ? 2 : 1,
+        lineStyle: LEVEL_STYLE[key].style,
+        axisLabelVisible: true,
+        title: title || LEVEL_STYLE[key].title,
+      });
+    };
+
+    positionLines.entry = make('entry', entry, label || (side > 0 ? 'LONG' : 'SHORT'));
+    positionLines.stop = make('stop', stop);
+    positionLines.target = make('target', target);
+  }
+
+  /* Dragging a level.
+
+     Lightweight Charts price lines are not interactive, so this works on the
+     container: a pointerdown within a few pixels of a stop or target line
+     starts a drag, and the line follows the pointer until release. The entry
+     is deliberately NOT draggable — it is a fact about a fill that already
+     happened, not a setting.
+
+     While a drag is running the chart's own handlers must not also pan, so
+     the drag captures the pointer and the caller is told only on release:
+     sending an order amendment on every mouse move would mean a hundred
+     requests per drag. */
+  const DRAG_GRAB_PX = 6;
+
+  function levelAt(y) {
+    for (const key of ['stop', 'target']) {
+      const price = levels[key];
+      if (!Number.isFinite(price)) continue;
+      const coord = candleSeries?.priceToCoordinate(price);
+      if (coord !== null && Math.abs(coord - y) <= DRAG_GRAB_PX) return key;
+    }
+    return null;
+  }
+
+  function bindLevelDragging(container) {
+    let dragging = null;
+
+    container.addEventListener('pointermove', (event) => {
+      if (!dragging) {
+        // The cursor is the only affordance these lines have, so it has to be
+        // right: no grab handle, no tooltip, just the shape of the pointer.
+        container.style.cursor = levelAt(offsetY(event)) ? 'ns-resize' : '';
+        return;
+      }
+      const price = candleSeries.coordinateToPrice(offsetY(event));
+      if (!Number.isFinite(price)) return;
+      levels[dragging] = price;
+      positionLines[dragging]?.applyOptions({ price });
+    });
+
+    container.addEventListener('pointerdown', (event) => {
+      const key = levelAt(offsetY(event));
+      if (!key) return;
+      dragging = key;
+      container.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+
+    const finish = (event) => {
+      if (!dragging) return;
+      const key = dragging;
+      dragging = null;
+      try { container.releasePointerCapture(event.pointerId); } catch { /* already */ }
+      // Told once, at the end: one amendment per drag, not one per pixel.
+      onLevelDragged?.(key, levels[key]);
+    };
+    container.addEventListener('pointerup', finish);
+    container.addEventListener('pointercancel', finish);
+  }
+
+  function offsetY(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientY - rect.top;
+  }
+
   function clearTradeMarkers() {
     storedMarkers = [];
     applyMarkers();
@@ -867,6 +994,8 @@ const ChartManager = (() => {
            draw, drawOverlay, drawPane, remove, clearAll, alignment,
            get mode() { return mode; },
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
+           setPositionLines, clearPositionLines,
+           set onLevelDragged(fn) { onLevelDragged = fn || null; },
            get markerCount() { return markerCount(); },
            get markersVisible() { return markersVisible; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },

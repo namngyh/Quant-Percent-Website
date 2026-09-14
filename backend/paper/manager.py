@@ -302,6 +302,15 @@ class PaperManager:
             "entry_price": s.entry_price, "entry_time": s.entry_time, "margin": s.margin,
             "pending_signal": s.pending_signal, "last_price": s.last_price,
             "last_closed_time": s.last_closed_time, "bars_seen": s.bars_seen,
+            # The exit levels and who is driving the position. Left out of
+            # this payload until 2026-09-16, which meant a restart silently
+            # disarmed every stop and target: the position came back open and
+            # unprotected, with nothing on screen saying the levels were gone.
+            # manual_override belongs here for the same reason — without it a
+            # restart hands a hand-placed position back to the strategy, which
+            # then reverses it on the next bar.
+            "stop_loss": s.stop_loss, "take_profit": s.take_profit,
+            "manual_override": s.manual_override,
             "trades": [t.as_dict() for t in s.trades],
         }
 
@@ -322,6 +331,12 @@ class PaperManager:
         session.last_price = d["last_price"]
         session.last_closed_time = d["last_closed_time"]
         session.bars_seen = d["bars_seen"]
+        # `.get` rather than `[...]`: sessions written before these fields
+        # existed still load, they just come back without levels — which is
+        # what they actually had.
+        session.stop_loss = d.get("stop_loss")
+        session.take_profit = d.get("take_profit")
+        session.manual_override = d.get("manual_override", False)
         session.trades = [PaperTrade(**t) for t in d.get("trades", [])]
 
         history = sources.get_candles(session.symbol, session.timeframe, limit=WARMUP_BARS)

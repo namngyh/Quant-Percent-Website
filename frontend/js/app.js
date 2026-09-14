@@ -186,6 +186,7 @@
                 `Could not compute indicators: ${err.message}`), 'bad');
       }
       drawPaperMarkers();
+      drawPositionLines();
 
       // Fill any gap left while the app was closed, then redraw including it.
       if (await catchUpIfBehind(data)) {
@@ -962,6 +963,69 @@
     ChartManager.setTradeMarkers(session.trades || [], open);
   }
 
+  /* Horizontal lines for the open position, which the arrows cannot give.
+
+     An arrow marks where a trade started. Someone holding a position wants to
+     know where it stands against the levels that will close it, and that is a
+     line across the chart at a price, not a marker three hundred bars back.
+
+     Unlike the markers, this does NOT wait for the Paper panel to be open.
+     Markers are history and belong to whatever the user last ran; an open
+     position is the present, and hiding it behind a panel means placing an
+     order and then seeing nothing on the chart you placed it from. */
+  function drawPositionLines() {
+    const session = (Paper.sessions || []).find(
+      (s) => s.symbol === state.symbol && s.timeframe === state.timeframe
+             && s.active && s.position !== 0,
+    );
+    if (!session) {
+      ChartManager.clearPositionLines();
+      paperLevelSession = null;
+      return;
+    }
+    ChartManager.setPositionLines({
+      side: session.position,
+      entry: session.entry_price,
+      stop: session.stop_loss,
+      target: session.take_profit,
+      label: `${session.position > 0 ? 'LONG' : 'SHORT'} ${
+        Number(session.quantity || 0).toLocaleString()}`,
+    });
+    paperLevelSession = session.id;
+  }
+
+  // Which session the lines on the chart belong to, so a drag amends that one.
+  let paperLevelSession = null;
+
+  /* Dragging a stop or target sends the amendment once, on release.
+
+     The chart reports the new price only when the pointer comes up; sending
+     on every move would be a request per pixel. A failure puts the line back
+     where the server still has it rather than leaving the chart showing a
+     level that was never accepted. */
+  function bindLevelDrag() {
+    ChartManager.onLevelDragged = async (which, price) => {
+      if (!paperLevelSession) return;
+      const session = (Paper.sessions || []).find((s) => s.id === paperLevelSession);
+      if (!session) return;
+
+      const exits = {
+        stopLoss: which === 'stop' ? price : session.stop_loss,
+        takeProfit: which === 'target' ? price : session.take_profit,
+      };
+      try {
+        await API.paperExits(session.id, exits);
+        await Paper.refresh();
+        toast(L(`Đã đặt ${which === 'stop' ? 'cắt lỗ' : 'chốt lời'} ở ${price.toFixed(2)}`,
+                `${which === 'stop' ? 'Stop' : 'Target'} moved to ${price.toFixed(2)}`));
+      } catch (err) {
+        toast(err.message, true);
+        drawPaperMarkers();
+      drawPositionLines();          // put the line back where the server has it
+      }
+    };
+  }
+
 
   /* The marker controls appear only once something has drawn markers, and go
      away when nothing has. A permanently visible "hide markers" button on an
@@ -1395,7 +1459,7 @@ def signals(df, params):
 
     if (name === 'paper') {
       markerSource = 'paper';
-      Paper.refresh().then(drawPaperMarkers);
+      Paper.refresh().then(() => { drawPaperMarkers(); drawPositionLines(); });
     }
   }
 
@@ -1724,6 +1788,7 @@ def signals(df, params):
       onPaperUpdate: (session) => {
         Paper.apply(session);
         drawPaperMarkers();
+      drawPositionLines();
       },
       onPaperEvent: (sessionId, event) => {
         if (event.type === 'entry') {
@@ -1757,7 +1822,9 @@ def signals(df, params):
          arrive — each one merges into a screen that is already usable. */
       refreshStars();
       loadVnSymbols();
-      Paper.refresh();
+      // An open position has to appear on the chart at start-up, not only
+      // after someone opens the Paper panel.
+      Paper.refresh().then(drawPositionLines);
       warnIfServerStale();
     } catch (err) {
       dismissSplash();
@@ -1781,6 +1848,7 @@ def signals(df, params):
     el.limit.addEventListener('change', () => { state.limit = Number(el.limit.value); loadCandles(); });
     setupChartType();
     setupDrawings();
+    bindLevelDrag();
     el.modeToggle?.addEventListener('click', () => {
       setViewMode(ChartManager.mode === 'overview' ? 'trading' : 'overview');
     });
@@ -1893,6 +1961,7 @@ def signals(df, params):
         markerSource = 'paper';
         openPanel('paper');
         drawPaperMarkers();
+      drawPositionLines();
         toast('Đã bắt đầu phiên paper trading');
       }));
 

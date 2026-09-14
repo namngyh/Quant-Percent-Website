@@ -596,6 +596,60 @@ def _():
     assert snap["stop_loss"] == 95.0, snap["stop_loss"]
     assert snap["take_profit"] == 110.0, snap["take_profit"]
 
+@check("a restart does not disarm the stop and target")
+def _():
+    """The bug this pins, found 2026-09-16.
+
+    `_to_payload` wrote position, quantity and entry price but not the exit
+    levels, so restarting the server brought the position back open with no
+    stop and no target — unprotected, with nothing on screen saying so. A
+    hand-placed position also lost `manual_override`, which handed it back to
+    the strategy to reverse on the next bar.
+    """
+    from backend.paper.manager import PaperManager
+
+    s = manual()
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    s.manual_override = True
+
+    manager = PaperManager.__new__(PaperManager)      # no store, no event loop
+    payload = manager._to_payload(s)
+
+    for field in ("stop_loss", "take_profit", "manual_override"):
+        assert field in payload, f"{field} is not persisted"
+    assert payload["stop_loss"] == 95.0, payload["stop_loss"]
+    assert payload["take_profit"] == 110.0, payload["take_profit"]
+    assert payload["manual_override"] is True, payload["manual_override"]
+
+
+@check("a session saved before the levels existed still loads")
+def _():
+    from backend.paper.manager import PaperManager
+
+    s = manual()
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    manager = PaperManager.__new__(PaperManager)
+    payload = manager._to_payload(s)
+
+    # An older row simply has no such keys; it must come back level-free
+    # rather than raising, because that is what it actually had.
+    for field in ("stop_loss", "take_profit", "manual_override"):
+        payload.pop(field)
+
+    # Restoring reloads warm-up candles from the store, which the running
+    # server holds a DuckDB lock on. The lock is not what is being tested.
+    from backend.data import sources as data_sources
+    original = data_sources.get_candles
+    data_sources.get_candles = lambda *a, **k: pd.DataFrame()
+    try:
+        restored = manager._from_payload(payload)
+    finally:
+        data_sources.get_candles = original
+    assert restored.stop_loss is None, restored.stop_loss
+    assert restored.take_profit is None, restored.take_profit
+    assert restored.manual_override is False, restored.manual_override
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:
