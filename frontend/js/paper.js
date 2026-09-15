@@ -84,75 +84,92 @@ const Paper = (() => {
       aria-hidden="true">${esc(label)}</span>`;
   }
 
-  function positionPill(s) {
-    if (s.position > 0) return '<span class="pill long">LONG</span>';
-    if (s.position < 0) return '<span class="pill short">SHORT</span>';
-    return `<span class="pill flat">${esc(L('ĐỨNG NGOÀI', 'FLAT'))}</span>`;
+  function positionTag(s) {
+    if (s.position === 0) return esc(L('Đứng ngoài', 'Flat'));
+    const size = Math.abs(Number(s.quantity) || 0)
+      .toLocaleString('en-US', { maximumFractionDigits: 6 });
+    return `<span class="pp-side ${s.position > 0 ? 'long' : 'short'}">${
+      s.position > 0 ? 'LONG' : 'SHORT'}</span>${size}`;
   }
+
+  /** One ledger row. `value` must already be safe HTML. */
+  function figure(label, value, tone = '') {
+    return `<div class="pp-fig"><dt>${esc(label)}</dt><dd${
+      tone ? ` class="${tone}"` : ''}>${value}</dd></div>`;
+  }
+
+  const signedMoney = (v) => `${v > 0 ? '+' : ''}${money(v)}`;
+
+  /* A price as it goes into a field. A level dragged on the chart can arrive
+     with float noise (1935.2365200241713), and a box that shows sixteen digits
+     shows none of them usefully: cents for ordinary prices, finer below 1. */
+  const fieldPrice = (v) => (Number.isFinite(v) ? String(+v.toFixed(Math.abs(v) >= 1 ? 2 : 6)) : '');
 
   /* The trade ticket.
 
-     Two buttons and a size box, sized and coloured the way an order pad is:
-     buy on the left in green, sell on the right in red, the live price on both
-     so you can see what you are about to pay. A manual order fills at that
-     price immediately — there is no next-candle wait, because the user is
-     acting on a number they can see (see backend/paper/engine.py).
+     Buy and sell are one joined control, green left and red right, each with
+     the live price, so you see what you are about to pay. A manual order fills
+     at that price immediately — there is no next-candle wait, because the user
+     is acting on a number they can see (see backend/paper/engine.py).
 
      Buttons are disabled rather than hidden when an action is impossible, so
-     the pad does not reshuffle under the pointer between two clicks. */
+     the pad does not reshuffle under the pointer between two clicks. Stop,
+     target and size share one row of equal-height fields; the actions sit
+     under them as plain text buttons rather than more boxes. */
   function ticket(s) {
     if (!s.active) return '';
     const long = s.position > 0;
     const short = s.position < 0;
+    const open = s.position !== 0;
+    const id = esc(s.id);
     const costPct = (s.config.fee * 2 + s.config.slippage * 2) * 100;
 
-    return `<div class="ticket" data-ticket="${esc(s.id)}">
-      <div class="ticket-row">
-        <button class="ticket-btn buy ${long ? 'held' : ''}"
-                data-order="long" data-session="${esc(s.id)}"
-                ${long ? 'disabled' : ''}>
-          <span class="ticket-verb">${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
-          <span class="ticket-price">${money(s.last_price)}</span>
+    return `<div class="pp-ticket" data-ticket="${id}">
+      <div class="pp-order">
+        <button type="button" class="pp-order-btn buy${long ? ' held' : ''}"
+                data-order="long" data-session="${id}"${long ? ' disabled' : ''}>
+          <span>${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
+          <strong>${money(s.last_price)}</strong>
         </button>
-        <button class="ticket-btn sell ${short ? 'held' : ''}"
-                data-order="short" data-session="${esc(s.id)}"
-                ${short ? 'disabled' : ''}>
-          <span class="ticket-verb">${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
-          <span class="ticket-price">${money(s.last_price)}</span>
+        <button type="button" class="pp-order-btn sell${short ? ' held' : ''}"
+                data-order="short" data-session="${id}"${short ? ' disabled' : ''}>
+          <span>${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
+          <strong>${money(s.last_price)}</strong>
         </button>
       </div>
-      <div class="ticket-row ticket-exits">
-        <label class="ticket-field">
+      <div class="pp-fields">
+        <label class="pp-field">
           <span>${esc(L('Cắt lỗ', 'Stop loss'))}</span>
           <input type="number" step="any" min="0" inputmode="decimal"
                  placeholder="${esc(L('không đặt', 'none'))}"
-                 value="${s.stop_loss ?? ''}" data-stop="${esc(s.id)}" />
+                 value="${fieldPrice(s.stop_loss)}" data-stop="${id}" />
         </label>
-        <label class="ticket-field">
+        <label class="pp-field">
           <span>${esc(L('Chốt lời', 'Take profit'))}</span>
           <input type="number" step="any" min="0" inputmode="decimal"
                  placeholder="${esc(L('không đặt', 'none'))}"
-                 value="${s.take_profit ?? ''}" data-target="${esc(s.id)}" />
+                 value="${fieldPrice(s.take_profit)}" data-target="${id}" />
         </label>
-      </div>
-      ${s.position !== 0 ? `<div class="ticket-row">
-        <button class="btn btn-quiet btn-sm btn-block" data-apply-exits="${esc(s.id)}"
-          >${esc(L('Áp dụng cắt lỗ / chốt lời', 'Apply stop and target'))}</button>
-      </div>` : ''}
-      <div class="ticket-row ticket-controls">
-        <label class="ticket-size">
+        <label class="pp-field">
           <span>${esc(L('% vốn', '% equity'))}</span>
           <input type="number" min="1" max="100" step="1" value="${
-            Math.round(s.config.size_pct * 100)}" data-size="${esc(s.id)}" />
+            Math.round(s.config.size_pct * 100)}" data-size="${id}" />
         </label>
-        <button class="btn btn-quiet btn-sm" data-order="close" data-session="${esc(s.id)}"
-                ${s.position === 0 ? 'disabled' : ''}>${esc(L('Đóng vị thế', 'Close position'))}</button>
-        ${s.manual_override ? `<button class="btn btn-quiet btn-sm"
-          data-resume-strategy="${esc(s.id)}">${esc(L('Trả lại chiến lược', 'Back to strategy'))}</button>` : ''}
       </div>
-      <div class="ticket-note">${esc(L(
+      <div class="pp-ticket-actions">
+        ${open ? `<button type="button" class="pp-link" data-apply-exits="${id}">${
+          esc(L('Áp dụng cắt lỗ / chốt lời', 'Apply stop and target'))}</button>` : ''}
+        ${s.manual_override ? `<button type="button" class="pp-link" data-resume-strategy="${id}">${
+          esc(L('Trả lại chiến lược', 'Back to strategy'))}</button>` : ''}
+        <button type="button" class="pp-link pp-close" data-order="close" data-session="${id}"${
+          open ? '' : ' disabled'}>${esc(L('Đóng vị thế', 'Close position'))}</button>
+      </div>
+      <p class="pp-hint">${esc(L(
         `Khớp ngay ở giá hiện tại. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
-        `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}</div>
+        `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
+        open ? ` ${esc(L(
+          'Trên biểu đồ: kéo từ đường đen lên hoặc xuống để đặt chốt lời / cắt lỗ, kéo chúng về lại đường đen để gỡ.',
+          'On the chart: pull away from the black line to set a target or stop, and drop one back on it to remove it.'))}` : ''}</p>
     </div>`;
   }
 
@@ -177,79 +194,63 @@ const Paper = (() => {
       ? [...sessions].sort((a, b) => (b.symbol === watching) - (a.symbol === watching))
       : sessions;
 
-    /* The state pill sits under the name, not beside the buttons. Beside them,
-       pill, stop and remove took so much of the head row that the session name
-       and its market were both cut to a few letters in the 344px panel. */
+    /* A ledger, not boxes in boxes.
+
+       The card version nested a bordered ticket inside a bordered card inside
+       the panel, with bordered stat tiles beside it, and the edges met. Here a
+       session is a section divided from the next by one rule, its figures are
+       label/value rows on hairlines, and only the order buttons are filled.
+
+       No row repeats what the ticket already shows: the live price is on the
+       buy and sell buttons, and the stop and target are in their own fields. */
     elements.list.innerHTML = ordered
       .map((s) => {
         const pnl = s.equity - s.config.initial_capital;
         const open = s.position !== 0;
         const current = watching && s.symbol === watching;
-        return `<div class="paper-card ${s.active ? '' : 'stopped'}${
-          current ? ' watching' : ''}">
-          <div class="paper-card-head">
+        const id = esc(s.id);
+        return `<article class="pp-session${s.active ? '' : ' stopped'}${current ? ' watching' : ''}">
+          <header class="pp-head">
             ${symbolBadge(s.symbol)}
-            <div>
-              <div class="paper-name">${esc(s.is_manual
-                ? L('Giao dịch tay', 'Manual trading') : s.strategy_id)}${
+            <div class="pp-title">
+              <strong>${esc(s.is_manual ? L('Giao dịch tay', 'Manual trading') : s.strategy_id)}${
                 s.manual_override
-                  ? ` <span class="pill warn">${esc(L('CAN THIỆP TAY', 'MANUAL'))}</span>` : ''}</div>
-              <div class="paper-series">
-                <span class="pill ${s.active ? 'running' : 'stopped'}">${
-                  esc(s.active ? L('ĐANG CHẠY', 'RUNNING') : L('ĐÃ DỪNG', 'STOPPED'))}</span>
-                ${esc(s.symbol)} · ${esc(s.timeframe)} · ${
-                L(`${s.bars_seen} nến`, `${s.bars_seen} bars`)}</div>
+                  ? ` <span class="pill warn">${esc(L('CAN THIỆP TAY', 'MANUAL'))}</span>` : ''}</strong>
+              <span class="pp-sub">${esc(s.symbol)} · ${esc(s.timeframe)} · <span class="pp-state${
+                s.active ? ' running' : ''}">${esc(s.active ? L('Đang chạy', 'Running') : L('Đã dừng', 'Stopped'))}</span></span>
             </div>
-            <div class="paper-actions">
-              <button class="btn btn-quiet btn-sm" data-paper-toggle="${esc(s.id)}">${
+            <div class="pp-actions">
+              <button type="button" class="pp-link" data-paper-toggle="${id}">${
                 esc(s.active ? L('Dừng', 'Stop') : L('Chạy lại', 'Resume'))}</button>
-              <button class="btn btn-quiet btn-sm btn-danger" data-paper-delete="${esc(s.id)}">✕</button>
+              <button type="button" class="pp-link pp-delete" data-paper-delete="${id}"
+                      title="${esc(L('Xóa phiên', 'Delete session'))}"
+                      aria-label="${esc(L('Xóa phiên', 'Delete session'))}">✕</button>
             </div>
-          </div>
-
-          <div class="paper-body">
-            <div class="paper-stat">
-              <div class="paper-stat-label">${esc(L('Vốn', 'Equity'))}</div>
-              <div class="paper-stat-value ${sign(pnl)}">${money(s.equity)}</div>
-            </div>
-            <div class="paper-stat">
-              <div class="paper-stat-label">${esc(L('Lợi nhuận', 'Return'))}</div>
-              <div class="paper-stat-value ${sign(s.return_pct)}">${pct(s.return_pct)}</div>
-            </div>
-            <div class="paper-stat">
-              <div class="paper-stat-label">${esc(L('Vị thế', 'Position'))}</div>
-              <div class="paper-stat-value">${positionPill(s)}</div>
-            </div>
-            <div class="paper-stat">
-              <div class="paper-stat-label">${esc(open
-                ? L('Lãi/lỗ mở', 'Open P&L') : L('Đã đóng', 'Closed'))}</div>
-              <div class="paper-stat-value ${open ? sign(s.unrealized_pnl) : ''}">${
-                open ? money(s.unrealized_pnl)
-                     : L(`${s.num_trades} lệnh`, `${s.num_trades} trades`)
-              }</div>
-            </div>
-            ${
-              open
-                ? `<div class="paper-note">${esc(L(
-                    `Vào ${money(s.entry_price)} · khối lượng ${s.quantity.toFixed(6)} · giá hiện tại ${money(s.last_price)}`,
-                    `In at ${money(s.entry_price)} · size ${s.quantity.toFixed(6)} · now ${money(s.last_price)}`))}</div>`
-                : ''
-            }
-            <div class="paper-note">${esc(L(
-              `${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% · đã thực hiện ${money(s.realized_pnl)} · nến cuối ${ago(s.last_closed_time)}`,
-              `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · realised ${money(s.realized_pnl)} · last bar ${ago(s.last_closed_time)}`))}</div>
-            ${
-              s.pending_signal !== s.position
-                ? `<div class="paper-note">${esc(L('Chờ khớp ở nến kế tiếp: ',
-                    'Waiting to fill at the next candle: '))}<strong>${esc(
-                    s.pending_signal > 0 ? L('MUA', 'BUY')
-                      : s.pending_signal < 0 ? L('BÁN', 'SELL') : L('ĐÓNG', 'CLOSE')
-                  )}</strong></div>`
-                : ''
-            }
-            ${ticket(s)}
-          </div>
-        </div>`;
+          </header>
+          <dl class="pp-figures">
+            ${figure(L('Vốn', 'Equity'), money(s.equity), sign(pnl))}
+            ${figure(L('Lợi nhuận', 'Return'), pct(s.return_pct), sign(s.return_pct))}
+            ${figure(L('Vị thế', 'Position'), positionTag(s))}
+            ${open
+              ? figure(L('Lãi/lỗ mở', 'Open P&L'), signedMoney(s.unrealized_pnl), sign(s.unrealized_pnl))
+              : figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl), sign(s.realized_pnl))}
+            ${open
+              ? figure(L('Giá vào', 'Entry'), money(s.entry_price))
+                + figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl), sign(s.realized_pnl))
+              : ''}
+          </dl>
+          <p class="pp-meta">${esc(L(
+            `${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% · nến cuối ${ago(s.last_closed_time)}`,
+            `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}</p>
+          ${s.pending_signal !== s.position
+            ? `<p class="pp-meta">${esc(L('Chờ khớp ở nến kế tiếp: ',
+                'Waiting to fill at the next candle: '))}<strong>${esc(
+                s.pending_signal > 0 ? L('MUA', 'BUY')
+                  : s.pending_signal < 0 ? L('BÁN', 'SELL') : L('ĐÓNG', 'CLOSE')
+              )}</strong></p>`
+            : ''}
+          ${ticket(s)}
+        </article>`;
       })
       .join('');
 

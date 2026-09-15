@@ -663,8 +663,14 @@ function createChartManager() {
      without any drawing code of ours. Dragging them is ours, because the
      library has no notion of a draggable line — see beginLevelDrag below. */
   let positionLines = { entry: null, stop: null, target: null };
-  let levels = { side: 0, entry: null, stop: null, target: null };
+  const NO_LEVELS = { side: 0, entry: null, stop: null, target: null, quantity: 0, label: '', unit: '' };
+  let levels = { ...NO_LEVELS };
   let onLevelDragged = null;
+  // A drag in progress. A session pushed over the socket while the pointer is
+  // down would rebuild the lines under it and drop the drag, so a redraw that
+  // arrives meanwhile is held and applied on release.
+  let levelDrag = null;
+  let deferredLevels = null;
 
   const LEVEL_STYLE = {
     // Ink, matching the interface accent: the entry line marks a fact
@@ -678,96 +684,211 @@ function createChartManager() {
     target: { color: '#089981', style: 2, title: 'TP' },
   };
 
+  /* Money beside each line.
+
+     The entry line carries the open P&L at the latest price and is refreshed
+     on every live candle; a stop or target carries what the position would
+     book if that level filled. Quantity is signed (negative for a short),
+     exactly as the paper engine holds it, so `quantity × (price − entry)` is
+     the number the server reports as unrealized P&L. Closing fees are not in
+     it — the server charges them when the position closes — so a target's
+     figure is before costs. */
+  function signedAmount(value) {
+    return `${value >= 0 ? '+' : '-'}${Math.abs(value).toLocaleString('en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function levelTitle(key, price) {
+    const pnl = Number.isFinite(price) && levels.quantity && Number.isFinite(levels.entry)
+      ? levels.quantity * (price - levels.entry) : null;
+    const money = pnl === null ? '' : `${signedAmount(pnl)}${levels.unit ? ` ${levels.unit}` : ''}`;
+    if (key !== 'entry') return money ? `${LEVEL_STYLE[key].title} ${money}` : LEVEL_STYLE[key].title;
+    if (pnl === null) return levels.label;
+    // Percent of the position's notional at entry: the price move, signed by side.
+    const pct = pnl / (Math.abs(levels.quantity) * levels.entry) * 100;
+    return `${levels.label}  ${money} (${signedAmount(pct)}%)`;
+  }
+
+  function latestClose() {
+    return candleData.length ? candleData[candleData.length - 1].close : null;
+  }
+
+  const finiteOrNull = (value) => (Number.isFinite(value) ? value : null);
+
+  function makeLevelLine(key, price) {
+    if (!candleSeries || !Number.isFinite(price)) return null;
+    return candleSeries.createPriceLine({
+      price,
+      color: LEVEL_STYLE[key].color,
+      lineWidth: key === 'entry' ? 2 : 1,
+      lineStyle: LEVEL_STYLE[key].style,
+      axisLabelVisible: true,
+      title: levelTitle(key, key === 'entry' ? latestClose() : price),
+    });
+  }
+
+  function removeLevelLine(key) {
+    if (!positionLines[key]) return;
+    try { candleSeries.removePriceLine(positionLines[key]); } catch { /* gone */ }
+    positionLines[key] = null;
+  }
+
   function clearPositionLines() {
-    for (const key of Object.keys(positionLines)) {
-      if (positionLines[key]) {
-        try { candleSeries.removePriceLine(positionLines[key]); } catch { /* gone */ }
-        positionLines[key] = null;
-      }
-    }
-    levels = { side: 0, entry: null, stop: null, target: null };
+    if (levelDrag) { deferredLevels = { side: 0 }; return; }
+    for (const key of Object.keys(positionLines)) removeLevelLine(key);
+    levels = { ...NO_LEVELS };
   }
 
   /** Draw the open position's entry and its exit levels, or clear them. */
-  function setPositionLines({ side = 0, entry = null, stop = null,
-                              target = null, label = '' } = {}) {
+  function setPositionLines(spec = {}) {
+    if (levelDrag) { deferredLevels = spec; return; }
+    const { side = 0, entry = null, stop = null, target = null,
+            label = '', quantity = 0, unit = '' } = spec;
     clearPositionLines();
     if (!candleSeries || !side) return;
-    levels = { side, entry, stop, target };
-
-    const make = (key, price, title) => {
-      if (!Number.isFinite(price)) return null;
-      return candleSeries.createPriceLine({
-        price,
-        color: LEVEL_STYLE[key].color,
-        lineWidth: key === 'entry' ? 2 : 1,
-        lineStyle: LEVEL_STYLE[key].style,
-        axisLabelVisible: true,
-        title: title || LEVEL_STYLE[key].title,
-      });
+    levels = {
+      side, entry, stop: finiteOrNull(stop), target: finiteOrNull(target),
+      quantity: Number(quantity) || 0, label: label || (side > 0 ? 'LONG' : 'SHORT'), unit,
     };
-
-    positionLines.entry = make('entry', entry, label || (side > 0 ? 'LONG' : 'SHORT'));
-    positionLines.stop = make('stop', stop);
-    positionLines.target = make('target', target);
+    positionLines.entry = makeLevelLine('entry', entry);
+    positionLines.stop = makeLevelLine('stop', levels.stop);
+    positionLines.target = makeLevelLine('target', levels.target);
   }
 
-  /* Dragging a level.
+  /** Keep the open P&L on the entry line in step with the price. */
+  function refreshLevelTitles(price) {
+    if (!levels.side || !positionLines.entry || !Number.isFinite(price)) return;
+    positionLines.entry.applyOptions({ title: levelTitle('entry', price) });
+  }
+
+  /* Working the position on the chart.
 
      Lightweight Charts price lines are not interactive, so this works on the
-     container: a pointerdown within a few pixels of a stop or target line
-     starts a drag, and the line follows the pointer until release. The entry
-     is deliberately NOT draggable — it is a fact about a fill that already
-     happened, not a setting.
+     container. Three gestures, all on the lines themselves:
 
-     While a drag is running the chart's own handlers must not also pan, so
-     the drag captures the pointer and the caller is told only on release:
-     sending an order amendment on every mouse move would mean a hundred
-     requests per drag. */
+     - drag a stop or target to move it;
+     - pull away from the entry line to create one. For a long, above the
+       entry is the target and below it the stop; a short is the reverse. The
+       side the pointer is on decides, so crossing back over the entry swaps
+       which level is being set and puts the other back as it was;
+     - drop a stop or target back onto the entry line to remove it.
+
+     The entry never moves — it is a fact about a fill that already happened.
+     The caller is told once, on release: an amendment per pixel would be a
+     hundred requests per drag, and a release that changes nothing sends
+     nothing. */
   const DRAG_GRAB_PX = 6;
 
+  function levelY(price) {
+    if (!Number.isFinite(price) || !candleSeries) return null;
+    return candleSeries.priceToCoordinate(price);
+  }
+
   function levelAt(y) {
-    for (const key of ['stop', 'target']) {
-      const price = levels[key];
-      if (!Number.isFinite(price)) continue;
-      const coord = candleSeries?.priceToCoordinate(price);
+    if (!levels.side) return null;
+    // Exits first: a stop sitting right on the entry must still be movable.
+    for (const key of ['stop', 'target', 'entry']) {
+      const coord = levelY(levels[key]);
       if (coord !== null && Math.abs(coord - y) <= DRAG_GRAB_PX) return key;
     }
     return null;
   }
 
-  function bindLevelDragging(container) {
-    let dragging = null;
+  /** Which exit a price would be for the open position. */
+  function exitFor(price) {
+    return (price > levels.entry) === (levels.side > 0) ? 'target' : 'stop';
+  }
 
+  /* A dragged level moves in the series' own price step, so what is sent is a
+     price the axis could print (77912.34), not the pointer's float
+     (1935.2365200241713 reached a stop-loss field before this). */
+  function snapPrice(price) {
+    const step = candleSeries?.options().priceFormat?.minMove || 0.01;
+    const decimals = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+    return Number((Math.round(price / step) * step).toFixed(decimals));
+  }
+
+  function placeLevel(key, price, title = null) {
+    levels[key] = finiteOrNull(price);
+    if (levels[key] === null) { removeLevelLine(key); return; }
+    if (!positionLines[key]) positionLines[key] = makeLevelLine(key, price);
+    positionLines[key]?.applyOptions({ price, title: title ?? levelTitle(key, price) });
+  }
+
+  function bindLevelDragging(container) {
     container.addEventListener('pointermove', (event) => {
-      if (!dragging) {
+      const y = offsetY(event);
+      if (!levelDrag) {
         // The cursor is the only affordance these lines have, so it has to be
         // right: no grab handle, no tooltip, just the shape of the pointer.
-        container.style.cursor = levelAt(offsetY(event)) ? 'ns-resize' : '';
+        container.style.cursor = levelAt(y) ? 'ns-resize' : '';
         return;
       }
-      const price = candleSeries.coordinateToPrice(offsetY(event));
-      if (!Number.isFinite(price)) return;
-      levels[dragging] = price;
-      positionLines[dragging]?.applyOptions({ price });
+      const raw = candleSeries.coordinateToPrice(y);
+      if (!Number.isFinite(raw)) return;
+      const price = snapPrice(raw);
+      const entryY = levelY(levels.entry);
+      const onEntry = entryY !== null && Math.abs(entryY - y) <= DRAG_GRAB_PX;
+      const drag = levelDrag;
+
+      if (drag.from === 'entry') {
+        const key = exitFor(price);
+        const other = key === 'stop' ? 'target' : 'stop';
+        if (levels[other] !== drag.original[other]) placeLevel(other, drag.original[other]);
+        if (onEntry) {
+          // Still on the line: nothing is being set yet.
+          if (drag.key) placeLevel(drag.key, drag.original[drag.key]);
+          drag.key = null;
+          return;
+        }
+        drag.key = key;
+        placeLevel(key, price);
+        return;
+      }
+
+      drag.remove = onEntry;
+      placeLevel(drag.key, price, onEntry ? `${LEVEL_STYLE[drag.key].title} ✕` : null);
     });
 
     container.addEventListener('pointerdown', (event) => {
-      const key = levelAt(offsetY(event));
-      if (!key) return;
-      dragging = key;
-      container.setPointerCapture(event.pointerId);
+      if (event.button !== 0) return;
+      const from = levelAt(offsetY(event));
+      if (!from) return;
+      levelDrag = {
+        from, key: from === 'entry' ? null : from, remove: false,
+        original: { stop: levels.stop, target: levels.target },
+      };
+      // Capture can be refused (a pen lifted mid-gesture); the drag still works.
+      try { container.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
       event.preventDefault();
       event.stopPropagation();
     }, true);
 
     const finish = (event) => {
-      if (!dragging) return;
-      const key = dragging;
-      dragging = null;
+      if (!levelDrag) return;
+      const drag = levelDrag;
+      levelDrag = null;
       try { container.releasePointerCapture(event.pointerId); } catch { /* already */ }
-      // Told once, at the end: one amendment per drag, not one per pixel.
-      onLevelDragged?.(key, levels[key]);
+      container.style.cursor = '';
+
+      const key = drag.key;
+      const price = key && !drag.remove ? levels[key] : null;
+      if (key && event.type !== 'pointercancel' && price !== drag.original[key]) {
+        // The line stays where it was dropped; the caller redraws from the
+        // server's answer, or puts it back if the amendment is refused.
+        if (drag.remove) placeLevel(key, null);
+        deferredLevels = null;
+        onLevelDragged?.(key, price);
+        return;
+      }
+      // Nothing to send: both exits go back exactly as they were.
+      placeLevel('stop', drag.original.stop);
+      placeLevel('target', drag.original.target);
+      if (deferredLevels) {
+        const spec = deferredLevels;
+        deferredLevels = null;
+        if (spec.side) setPositionLines(spec); else clearPositionLines();
+      }
     };
     container.addEventListener('pointerup', finish);
     container.addEventListener('pointercancel', finish);
@@ -883,6 +1004,7 @@ function createChartManager() {
       volumeData.push(volumePoint);
     }
     volumeSeries.update(volumePoint);
+    refreshLevelTitles(candle.close);
 
     if (lastBarTime === null || time > lastBarTime) {
       lastBarTime = time;
@@ -1065,6 +1187,11 @@ function createChartManager() {
            get mode() { return mode; },
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
            setPositionLines, clearPositionLines,
+           // For probes: the options of the entry, stop and target lines as drawn.
+           get levelLines() {
+             return Object.fromEntries(Object.entries(positionLines)
+               .map(([key, line]) => [key, line ? line.options() : null]));
+           },
            set onLevelDragged(fn) { onLevelDragged = fn || null; },
            get markerCount() { return markerCount(); },
            get markersVisible() { return markersVisible; },

@@ -628,6 +628,11 @@ async function render(label, kind, payload) {
        /data-apply-exits/.test(tk));
   tsay('an unset level shows as empty, not as zero',
        /value=""/.test(window.Paper.ticket(fakeSession({ position: 1 }))));
+  // A level dragged on the chart once reached this field as 1935.2365200241713.
+  tk = window.Paper.ticket(fakeSession({ position: 1, stop_loss: 1935.2365200241713,
+                                         take_profit: 0.123456789 }));
+  tsay('a level with float noise shows to the cent',
+       /value="1935\.24"/.test(tk) && /value="0\.123457"/.test(tk));
 
   tsay('a stopped session offers no ticket at all',
        window.Paper.ticket(fakeSession({ active: false })) === '');

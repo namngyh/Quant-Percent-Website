@@ -220,11 +220,13 @@ async function pick(doc, symbol, timeframe) {
       frame.style.width = `${width}px`;
       await sleep(600);
       const header = doc.querySelector('.topbar').getBoundingClientRect();
-      const toolbar = doc.querySelector('.market-toolbar').getBoundingClientRect();
+      const right = doc.querySelector('.topbar-right').getBoundingClientRect();
       const grid = doc.getElementById('chart-grid');
       check(`${width}px: no page overflow`, doc.body.scrollWidth === w.innerWidth);
-      check(`${width}px: toolbar stays below masthead`, toolbar.top >= doc.querySelector('.app-header').getBoundingClientRect().bottom - 1
-        && toolbar.right <= width && toolbar.bottom <= header.bottom);
+      // One row since the header was merged (2026-09-15): it must stay one
+      // row and keep its right-hand controls on screen.
+      check(`${width}px: header is one row and fits`, header.height <= 52
+        && right.right <= width + 1 && right.top >= header.top - 1 && right.bottom <= header.bottom + 1);
       doc.querySelector('[data-panel="indicators"]').click();
       const panel = doc.getElementById('panel-host').getBoundingClientRect();
       check(`${width}px: tool panel fits`, panel.left >= 0 && panel.right <= width);
@@ -1292,6 +1294,114 @@ async function pick(doc, symbol, timeframe) {
       log(`  bam ${k} -> o ${target} dang lam viec | o doi: ${diff.length ? diff.map((i) => 'o' + i + ' ' + text(now[i])).join(' ; ') : 'khong'} | panel chi bao: ${doc.querySelectorAll('#active .active-item').length}`);
     }
     log(`  tong so lan mot bieu do bi doi: ${changed}; request nen trong 6 lan bam: ${reqs() - requests0}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('paperdrag')) {
+  log('');
+  log('=== paperdrag (lai lo tren duong den, keo SL/TP tren bieu do) ===');
+  /* Nam, 2026-09-15: the P&L beside the black entry line, and stops and
+     targets set by dragging on the chart. Uses the paper session already
+     holding a position on the server, and puts its levels back at the end. */
+  try {
+    const cm = () => w.eval('ChartManager');
+    const api = () => w.eval('API');
+    const list = async () => (await (await fetch('/api/paper')).json()).sessions || [];
+    const open = (await list()).find((s) => s.active && s.position !== 0);
+    if (!open) {
+      log('  BO QUA: khong co phien paper nao dang giu vi the');
+    } else {
+      const before = { stop: open.stop_loss ?? null, target: open.take_profit ?? null };
+      log(`  phien ${open.symbol} ${open.timeframe} ${open.position > 0 ? 'LONG' : 'SHORT'} vao ${open.entry_price}, SL ${before.stop}, TP ${before.target}`);
+      await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1);
+      if (doc.getElementById('symbol').value !== open.symbol) {
+        doc.getElementById('symbol').value = open.symbol;
+        doc.getElementById('symbol').dispatchEvent(new w.Event('change', { bubbles: true }));
+      }
+      const frameButton = () => [...doc.querySelectorAll('#timeframes button')].find((b) => b.textContent.trim() === open.timeframe);
+      (await until('the session frame', frameButton)).click();
+      await until('the entry line', () => cm().seriesKey === `${open.symbol}|${open.timeframe}` && cm().levelLines.entry, 300);
+      const lines = () => cm().levelLines;
+      const titles = [];
+      for (let i = 0; i < 6; i++) { titles.push(lines().entry.title); await sleep(1500); }
+      log(`  nhan duong den: "${titles[0]}"`);
+      log(`  nhan duong den trong 9s: ${new Set(titles).size} gia tri khac nhau (cuoi: "${titles.at(-1)}")`);
+      /* Headless virtual time may pass those 9s without one real tick, so an
+         unchanged label proves nothing. Apply a candle 100 above the last
+         close through the live path, read the label, then put the real close
+         back. Only this page's chart sees the fake candle. */
+      {
+        const key = `${open.symbol}|${open.timeframe}`;
+        const last = cm().priceSeries.data().at(-1);
+        const vol = cm().volumeSeries.data().at(-1)?.value ?? 0;
+        const utc = last.time - 7 * 3600;
+        const bumped = last.close + 100;
+        cm().updateCandle({ time: utc, open: last.open, high: Math.max(last.high, bumped), low: last.low, close: bumped, volume: vol }, key);
+        const bumpedTitle = lines().entry.title;
+        cm().updateCandle({ time: utc, open: last.open, high: last.high, low: last.low, close: last.close, volume: vol }, key);
+        log(`  nen live gia ${bumped.toFixed(2)}: nhan "${bumpedTitle}" | tinh tay ${(open.quantity * (bumped - open.entry_price)).toFixed(2)} | sau khi tra lai: "${lines().entry.title}"`);
+        const server = (await list()).find((q) => q.id === open.id);
+        log(`  server: unrealized ${server.unrealized_pnl.toFixed(2)} o gia ${server.last_price} | cong thuc cua bieu do o cung gia: ${(open.quantity * (server.last_price - open.entry_price)).toFixed(2)}`);
+      }
+
+      const host = w.eval('MultiChart').activeCell.chartMain;
+      const rect = host.getBoundingClientRect();
+      const yOf = (price) => rect.top + cm().priceSeries.priceToCoordinate(price);
+      const fire = (type, y) => host.dispatchEvent(new w.PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, button: 0,
+        buttons: type === 'pointerup' ? 0 : 1, clientX: rect.left + rect.width / 2, clientY: y,
+      }));
+      const exits = async () => {
+        const s = (await list()).find((q) => q.id === open.id);
+        return { stop: s.stop_loss ?? null, target: s.take_profit ?? null };
+      };
+      const waitFor = async (test) => {
+        let now = await exits();
+        for (let i = 0; i < 40 && !test(now); i++) { await sleep(250); now = await exits(); }
+        return now;
+      };
+      const exitRequests = () => w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/exits')).length;
+
+      // 1. Pull away from the entry line, upward.
+      const up = open.position > 0 ? 'target' : 'stop';
+      let entryY = yOf(open.entry_price);
+      fire('pointerdown', entryY);
+      for (let dy = 10; dy <= 60; dy += 10) fire('pointermove', entryY - dy);
+      const preview = lines()[up]?.title;
+      fire('pointerup', entryY - 60);
+      let after = await waitFor((e) => e[up] !== before[up]);
+      log(`  keo tu duong den len 60px: ${up} tren server = ${after[up]} | nhan luc keo: "${preview}"`);
+
+      // 2. Drop it back onto the entry line.
+      await until('the redrawn level', () => lines()[up] && Math.abs(lines()[up].price - after[up]) < 1e-6, 100);
+      entryY = yOf(open.entry_price);
+      let y = yOf(after[up]);
+      fire('pointerdown', y);
+      while (Math.abs(y - entryY) > 10) { y += Math.sign(entryY - y) * 10; fire('pointermove', y); }
+      fire('pointermove', entryY);
+      const dropTitle = lines()[up]?.title;
+      fire('pointerup', entryY);
+      after = await waitFor((e) => e[up] === null);
+      log(`  tha lai len duong den: ${up} tren server = ${after[up]} | nhan luc tha: "${dropTitle}"`);
+
+      // 3. Press and release on the entry line without moving: nothing is sent.
+      await sleep(800);
+      const n0 = exitRequests();
+      entryY = yOf(open.entry_price);
+      fire('pointerdown', entryY);
+      fire('pointerup', entryY);
+      await sleep(1500);
+      log(`  bam len duong den khong keo: request /exits moi = ${exitRequests() - n0}`);
+
+      after = await exits();
+      if (after.stop !== before.stop || after.target !== before.target) {
+        await api().paperExits(open.id, { stopLoss: before.stop, takeProfit: before.target });
+      }
+      const restored = await exits();
+      log(`  tra lai nhu cu: SL ${restored.stop}, TP ${restored.target}`);
+    }
   } catch (e) {
     log('  LOI: ' + e.message);
   }

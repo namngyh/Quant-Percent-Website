@@ -1221,8 +1221,11 @@
       entry: session.entry_price,
       stop: session.stop_loss,
       target: session.take_profit,
+      // Signed, as the engine holds it, so the P&L on the chart is the server's.
+      quantity: session.quantity,
+      unit: Paper.currencyFor(session.symbol),
       label: `${session.position > 0 ? 'LONG' : 'SHORT'} ${
-        Number(session.quantity || 0).toLocaleString()}`,
+        Math.abs(Number(session.quantity || 0)).toLocaleString('en-US', { maximumFractionDigits: 6 })}`,
     });
     paperLevelSession = session.id;
   }
@@ -1230,36 +1233,40 @@
   // Which session the lines on the chart belong to, so a drag amends that one.
   let paperLevelSession = null;
 
-  /* Dragging a stop or target sends the amendment once, on release.
+  /* A stop or target moved, created or removed on the chart (charts.js).
 
-     The chart reports the new price only when the pointer comes up; sending
-     on every move would be a request per pixel. A failure puts the line back
-     where the server still has it rather than leaving the chart showing a
-     level that was never accepted. */
+     Sent once, on release. `price` is null when a level was dropped back onto
+     the entry line. Only the dragged level changes; the other goes as the
+     server has it. A refusal puts the lines back where the server still has
+     them rather than leaving the chart showing a level that was never
+     accepted. */
   function bindLevelDrag() {
     ChartManager.onLevelDragged = onLevelDragged;
   }
 
   async function onLevelDragged(which, price) {
-    {
-      if (!paperLevelSession) return;
-      const session = (Paper.sessions || []).find((s) => s.id === paperLevelSession);
-      if (!session) return;
+    if (!paperLevelSession) return;
+    const session = (Paper.sessions || []).find((s) => s.id === paperLevelSession);
+    if (!session) return;
 
-      const exits = {
-        stopLoss: which === 'stop' ? price : session.stop_loss,
-        takeProfit: which === 'target' ? price : session.take_profit,
-      };
-      try {
-        await API.paperExits(session.id, exits);
-        await Paper.refresh();
-        toast(L(`Đã đặt ${which === 'stop' ? 'cắt lỗ' : 'chốt lời'} ở ${price.toFixed(2)}`,
-                `${which === 'stop' ? 'Stop' : 'Target'} moved to ${price.toFixed(2)}`));
-      } catch (err) {
-        toast(err.message, true);
-        drawPaperMarkers();
-        drawPositionLines();        // put the line back where the server has it
-      }
+    const exits = {
+      stopLoss: which === 'stop' ? price : (session.stop_loss ?? null),
+      takeProfit: which === 'target' ? price : (session.take_profit ?? null),
+    };
+    const name = which === 'stop' ? L('cắt lỗ', 'stop') : L('chốt lời', 'target');
+    const at = price === null ? '' : price.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    try {
+      await API.paperExits(session.id, exits);
+      await Paper.refresh();
+      drawPositionLines();
+      toast(price === null
+        ? L(`Đã gỡ ${name}`, `Removed the ${name}`)
+        : L(`Đã đặt ${name} ở ${at}`, `Set the ${name} at ${at}`));
+    } catch (err) {
+      // A refusal carries {code, message:{vi,en}}: show the text, never match on it (§2.4).
+      toast(tp(err.detail?.message) || err.message, true);
+      drawPaperMarkers();
+      drawPositionLines();
     }
   }
 

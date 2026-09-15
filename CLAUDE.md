@@ -210,6 +210,96 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-15 (tiếp) — Đầu trang một hàng, lãi/lỗ và SL/TP ngay trên biểu đồ, bớt bo góc, panel Paper kiểu sổ cái
+
+Backend không đổi. Render check (gồm 20 check bảng lệnh), i18n 2/2, 4 trang test
+Chrome (layout 14, guards 4, types 26, **level drag 11 — mới**) và 17 nhóm probe
+đều đạt sau khi sửa.
+
+#### 1. "Phần đầu hơi to và dư thừa, muốn biểu đồ to hơn"
+
+| | Trước | Sau |
+|---|---|---|
+| Đầu trang | 2 hàng, 124px | **1 hàng, 48px** |
+| Tiêu đề "Biểu đồ thị trường" + dòng gợi ý dưới biểu đồ | 83px + 33px | bỏ |
+| Thanh điều hướng trái | 174px | **64px** (icon + nhãn ngắn) |
+| Đầu ô khi chỉ có 1 biểu đồ | 47px | ẩn — thanh trên đã có mã |
+| Ô lưới 4 biểu đồ ở 1600×950 (probe `multichart`) | 564×324 | **645×426** |
+
+Bỏ hẳn: chữ "RESEARCH TERMINAL", "Không gian nghiên cứu", chữ "Đang chạy" (còn
+chấm màu, chữ thành tooltip và vẫn có cho trình đọc màn hình), nhãn nhóm và chân
+"QP Quant Percent" của thanh trái, "Bố cục tự lưu", ô ngữ cảnh mã/khung. Các ô
+trong lưới giờ sát nhau trên một đường kẻ 1px thay vì là thẻ bo góc có khe 12px;
+tay kéo cột trùng mép ô (954/954). Bấm xen kẽ 6 lần: **0** lần biểu đồ bị đổi.
+
+#### 2. Paper trading thao tác trực tiếp trên biểu đồ
+
+- **Đường đen mang lãi/lỗ mở**, ví dụ `LONG 0.128219  -6.09 USDT (-0.06%)`, cập
+  nhật theo từng nến live. Công thức `quantity × (giá − giá vào)`, `quantity` có
+  dấu đúng như engine giữ, nên là cùng con số server gọi `unrealized_pnl`.
+- **Kéo từ đường đen ra** là tạo chốt lời hoặc cắt lỗ. Với lệnh mua, phía trên là
+  TP và phía dưới là SL; lệnh bán ngược lại. Kéo qua lại đường đen thì đổi mức
+  đang đặt và trả mức kia về như cũ. **Kéo SL/TP về lại đường đen** là gỡ. Nhãn
+  SL/TP hiện lãi/lỗ nếu mức đó khớp.
+- Chỉ gửi **một** yêu cầu lúc thả tay; thả mà không đổi gì thì không gửi. Nếu
+  server từ chối (ví dụ SL sai phía) thì đường về lại chỗ server đang giữ.
+- Một cập nhật phiên đến qua socket trong lúc đang kéo sẽ được **giữ lại tới lúc
+  thả**, nếu không nó vẽ lại các đường ngay dưới con trỏ và làm rơi thao tác kéo.
+
+Đo trên app đang chạy (probe mới `paperdrag`):
+
+| Kiểm tra | Kết quả |
+|---|---|
+| Nến live giả cao hơn 100 điểm | nhãn **+532.31**, tính tay 532.31; trả nến về thì nhãn về +16.60 |
+| Công thức biểu đồ ở giá của server (1940) | **4.74**, server báo 4.74 |
+| Kéo từ đường đen lên 60px | TP trên server = 78065.18; nhãn lúc kéo "TP +9.45 USDT" = 0.128219 × (78065.18 − 77991.45) |
+| Thả TP về đường đen | TP trên server = `null` |
+| Bấm lên đường đen không kéo | **0** yêu cầu `/exits` |
+
+*§2.2:* lần đo đầu, nhãn đường đen **không đổi trong 9 giây** và trông như không
+cập nhật. Đó là thời gian ảo của Chrome headless, có thể trôi qua mà không có tick
+thật nào — không chứng minh gì cả. Bơm một nến qua đúng đường live mới cho ra bằng
+chứng ở dòng đầu bảng.
+
+**Cảnh báo về probe `paperdrag`:** nó thao tác trên **phiên paper thật** đang giữ
+vị thế đầu tiên nó tìm thấy, rồi trả SL/TP về như cũ. Trong vài giây chạy, TP của
+phiên đó bị dời rồi bị gỡ. Lần chạy thứ hai đã chạm vào phiên VN30F1M Nam vừa mở
+(SL 1935.24 / TP 1944.47) — đã khôi phục đúng cả hai mức. Đừng chạy nhóm này khi
+đang có vị thế cần giữ mức.
+
+**Giới hạn (§2.7):**
+
+- Số trên nhãn SL/TP là **trước phí đóng lệnh**; server trừ phí lúc đóng.
+- Phần trăm trên đường đen là **trên giá trị danh nghĩa lúc vào** (tức biến động
+  giá theo chiều vị thế), không phải trên ký quỹ.
+- Chỉ ô đang làm việc nhận tick live, nên đường vị thế ở ô khác không cập nhật.
+- Đơn vị lấy theo sàn của hộp cài đặt Paper. Với VN30F1M nhãn ghi "VND" trong khi
+  giá là điểm chỉ số: mô hình tài khoản paper vốn không có hệ số nhân hợp đồng,
+  nên con số là "đơn vị tài khoản", không phải tiền thật của một hợp đồng.
+
+#### 3. Bớt bo góc, panel Paper trình bày lại
+
+- Bo góc còn **2–4px** ở mọi nơi: token `--radius*` (kể cả `--radius-pill`, vốn
+  chỉ dùng cho badge/chip/huy hiệu, không có nút gạt tròn nào), 11 giá trị cứng
+  trong `styles.css` (thanh cuộn, cửa sổ Báo cáo, cửa sổ Tài khoản Paper, chip…),
+  và toàn bộ `workspace.css`. Chỉ các chấm thật sự tròn giữ `50%`.
+- **Panel Paper thành sổ cái:** mỗi phiên là một đoạn ngăn bằng một đường kẻ, số
+  liệu là các dòng nhãn/giá trị trên đường kẻ mảnh, chỉ hai nút mua/bán là khối
+  màu. Trước đây là bảng lệnh có viền nằm trong thẻ có viền, cạnh các ô số có viền
+  — các cạnh chạm nhau. Bỏ dòng trùng với bảng lệnh (giá hiện tại có trên nút,
+  SL/TP có trong ô nhập). Nút mua/bán xếp nhãn trên giá: cạnh nhau thì giá bị cắt
+  thành "77,922…".
+- Các `data-*` của bảng lệnh giữ nguyên nên cả 20 check render của bảng lệnh vẫn
+  đạt không phải sửa test. 118 dòng CSS cũ `.paper-card`/`.ticket` đã xoá.
+- Chiều cao (probe `panels`): panel Paper **1 048px** trong khung 738px với **hai**
+  phiên đang giữ vị thế. Lần đo 742px trước đó chỉ có một phiên, nên hai con số
+  không so thẳng được. Trừ đoạn giới thiệu và nút "Giao dịch tay" (~170px), mỗi
+  phiên còn **~440px**, so với **~570px** của kiểu thẻ cũ. Đây là ước lượng suy
+  ra từ hai lần đo tổng, chưa đo riêng từng phiên.
+
+Probe `responsive` đổi phép kiểm "thanh công cụ nằm dưới đầu trang" thành "đầu
+trang một hàng và vừa màn hình" (14/14 đạt ở 1536/1024/768/390px).
+
 ### 2026-09-15 — Nâng cấp toàn diện giao diện workspace
 
 Theo yêu cầu mới của Nam, giao diện chuyển sang nền sáng, menu navy, điểm nhấn

@@ -222,7 +222,7 @@ html, body {
 /* Every figure that updates in place uses tabular numerals, so a digit
    changing does not shift the ones beside it. */
 .metric-value, .data-table, .price-ticker, .price-change, .status, .xp-table,
-.badge, .param-value, .paper-stat-value, .cat-count {
+.badge, .param-value, .pp-fig dd, .cat-count {
   font-variant-numeric: tabular-nums;
 }
 
@@ -321,7 +321,7 @@ input::placeholder { color: var(--text-faint); }
   background: transparent;
   color: var(--text-dim);
   padding: 4px 10px;
-  border-radius: 7px;
+  border-radius: 3px;
   cursor: pointer;
   font-family: inherit;
   font-size: 12.5px;
@@ -341,7 +341,7 @@ input::placeholder { color: var(--text-faint); }
   bottom: 3px;
   left: 0;
   width: 0;
-  border-radius: 7px;
+  border-radius: 3px;
   background: var(--accent);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   pointer-events: none;
@@ -386,7 +386,7 @@ input::placeholder { color: var(--text-faint); }
 .btn-ghost:hover:not(:disabled) { background: var(--surface-3); color: var(--text); border-color: transparent; }
 .btn-quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
 
-.btn-sm { padding: 4px 10px; min-height: 30px; font-size: 12.5px; border-radius: 7px; }
+.btn-sm { padding: 4px 10px; min-height: 30px; font-size: 12.5px; border-radius: 3px; }
 /* The one button that changes the whole mode. */
 .btn-lg { padding: 8px 18px; min-height: 38px; font-size: 13.5px; font-weight: 600; }
 .btn-block { width: 100%; margin-top: 8px; }
@@ -543,7 +543,7 @@ input::placeholder { color: var(--text-faint); }
   background: transparent;
   color: var(--text-dim);
   padding: 6px 8px;
-  border-radius: 7px;
+  border-radius: 3px;
   cursor: pointer;
   font-family: inherit;
   font-size: 12.5px;
@@ -896,34 +896,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 /* ==================== Paper trading ==================== */
 
-.paper-list { display: grid; gap: 10px; }
-
-.paper-card {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  overflow: hidden;
-  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t) var(--ease);
-}
-.paper-card:hover { border-color: var(--border); box-shadow: var(--shadow); }
-.paper-card.stopped { opacity: 0.66; }
-
-.paper-card-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 12px 12px 14px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.paper-card-head > div:nth-child(2) { min-width: 0; }
-.paper-card .sym-badge { width: 30px; height: 30px; font-size: 10.5px; }
-.paper-name { font-size: 13.5px; font-weight: 600; line-height: 1.35;
-  overflow: hidden; text-overflow: ellipsis; }
-.paper-series { font-size: 12px; color: var(--text-faint); margin-top: 3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.paper-series .pill { margin-right: 4px; font-size: 10.5px; padding: 1px 7px; vertical-align: 1px; }
-.paper-actions { display: flex; align-items: center; gap: 2px; }
 
 .pill {
   font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
@@ -937,25 +909,6 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .pill.long    { background: var(--up-soft); color: var(--up); }
 .pill.short   { background: var(--down-soft); color: var(--down); }
 .pill.flat    { background: var(--surface-2); color: var(--text-dim); }
-
-.paper-body {
-  padding: 14px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-}
-.paper-stat { min-width: 0; }
-.paper-stat-label { font-size: 11.5px; color: var(--text-faint); font-weight: 400; line-height: 1.3; }
-.paper-stat-value { font-size: 15px; font-weight: 600; margin-top: 3px; letter-spacing: -0.01em;
-  line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.paper-stat-value.pos { color: var(--up); }
-.paper-stat-value.neg { color: var(--down); }
-.paper-note { grid-column: 1 / -1; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
-/* The order pad sits inside the two-column stats grid, and without a span it
-   took one column: buy and sell squeezed into half the card, and the stop and
-   target fields cut their own placeholder text off. */
-.paper-body > .ticket { grid-column: 1 / -1; }
-.paper-name { white-space: nowrap; }
 
 /* ==================== Charts ==================== */
 
@@ -1067,7 +1020,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #d6d6da; border-radius: 8px;
+  background: #d6d6da; border-radius: 3px;
   border: 2px solid transparent; background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover { background: #b9b9bf; background-clip: content-box; }
@@ -1558,7 +1511,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   flex-direction: column;
   background: var(--surface);
   border: 0;
-  border-radius: 20px;
+  border-radius: 4px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: liftIn 0.32s var(--spring);
@@ -1929,7 +1882,7 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
   width: 54px;
   height: 40px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: 3px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2041,57 +1994,6 @@ body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
 .rp-axis { flex-wrap: wrap; }
 
 
-/* ---------- Trade ticket ----------
-
-   An order pad, laid out the way order pads are: buy left and green, sell
-   right and red, both showing the price you are about to get. A manual order
-   fills at that price immediately, so the number on the button is the number
-   that matters. Impossible actions are disabled rather than removed, so the
-   pad does not reshuffle under the pointer between two clicks. */
-/* One rhythm for the whole pad: 10px between rows, 8px between neighbours,
-   and boxes of matching height. The previous pad mixed 12px-radius buttons,
-   8px inputs and 30px quiet buttons that touched each other, which is what
-   made it look loose. */
-.ticket {
-  margin-top: 2px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-soft);
-  display: grid;
-  gap: 10px;
-}
-.ticket-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
-.ticket-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  display: grid;
-  justify-items: start;
-  gap: 1px;
-  padding: 9px 12px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font: inherit;
-  color: #fff;
-  transition: filter var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease),
-              transform var(--t-fast) var(--ease);
-}
-.ticket-btn:hover:not(:disabled) { filter: brightness(1.08); }
-.ticket-btn:active:not(:disabled) { transform: scale(0.98); }
-.ticket-btn:disabled { cursor: default; opacity: 0.45; }
-.ticket-btn.buy  { background: var(--up); }
-.ticket-btn.sell { background: var(--down); }
-.ticket-btn.held { opacity: 1; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6); }
-.ticket-verb { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.92; line-height: 1.3; }
-.ticket-price { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
-  line-height: 1.3; white-space: nowrap; }
-.ticket-controls { justify-content: space-between; flex-wrap: wrap; row-gap: 8px; }
-.ticket-size { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px;
-               color: var(--text-dim); white-space: nowrap; }
-.ticket-size input {
-  width: 64px; height: 32px; padding: 0 9px; text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.ticket-note { font-size: 12px; color: var(--text-faint); line-height: 1.5; }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 
 
@@ -2631,24 +2533,6 @@ body[data-mode="overview"] .draw-bar,
 body[data-mode="overview"] .draw-layer { display: none; }
 
 
-/* Stop and target sit above the size box, because they are decided before the
-   order is sent rather than after — and a position that is already open shows
-   the levels it is carrying rather than an empty pair of boxes. */
-.ticket-exits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.ticket-field { display: grid; gap: 4px; font-size: 11.5px; color: var(--text-dim); min-width: 0; }
-.ticket-field input {
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  text-align: right;
-  padding: 0 10px;
-  font-variant-numeric: tabular-nums;
-}
-.ticket-field input:focus {
-  background: var(--surface);
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
 
 
 /* A unit beside a field label: the currency an account settles in, or the
@@ -2686,7 +2570,7 @@ body[data-mode="overview"] .draw-layer { display: none; }
   flex-direction: column;
   background: var(--surface);
   border: 0;
-  border-radius: 20px;
+  border-radius: 4px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: liftIn 0.32s var(--spring);
@@ -2735,8 +2619,6 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .pd-bar span.pos { background: var(--up); }
 .pd-bar span.neg { background: var(--down); }
 
-/* The session for the symbol on screen, marked so it is findable at a glance. */
-.paper-card.watching { border-color: var(--accent); }
 
 /* ==================== Many markets ==================== */
 
@@ -2756,7 +2638,7 @@ body[data-mode="overview"] .draw-layer { display: none; }
   padding: 3px 4px 3px 3px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 3px;
   font-size: 12px;
 }
 .mm-chip .sym-badge { width: 20px; height: 20px; font-size: 11px; }
@@ -2769,7 +2651,7 @@ body[data-mode="overview"] .draw-layer { display: none; }
   font-size: 15px;
   line-height: 1;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: 3px;
 }
 .mm-chip-x:hover { color: var(--down); background: var(--down-soft); }
 
@@ -3098,7 +2980,7 @@ body[data-mode="overview"] .cell-caption { display: none; }
 .cell-menu-tf {
   height: 30px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 3px;
   background: var(--surface-2);
   color: var(--text-dim);
   font: inherit;

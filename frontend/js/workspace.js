@@ -94,13 +94,16 @@ const Workspace = (() => {
     const key = state === 'live' ? 'live.running' : state === 'connecting' ? 'live.connecting'
       : state === 'error' ? 'live.error' : 'live.offline';
     node.querySelector('span').textContent = t(key);
+    // The header shows only the dot; the words are its tooltip.
+    node.title = t(key);
   }
 
   function refresh() {
     const cell = MultiChart.cells[MultiChart.active];
     const context = cell ? `${cell.symbol.replace(/^VN:/, '')} / ${cell.timeframe}` : '';
     const node = document.getElementById('workspace-context');
-    if (node.textContent !== context) node.textContent = context;
+    // The context label went with the page title; nothing to keep in step.
+    if (node && node.textContent !== context) node.textContent = context;
   }
 
   async function fullscreen() {
