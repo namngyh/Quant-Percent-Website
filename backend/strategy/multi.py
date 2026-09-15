@@ -90,6 +90,7 @@ def summarise(runs: list[MarketRun], metric: str = "sharpe") -> dict:
                 "first_time": int(times[0]) if times else None,
                 "last_time": int(times[-1]) if times else None,
                 "span_ms": _span_ms(run.result),
+                "execution_model": run.result.get("execution_model"),
                 "metrics": metrics,
                 # Kept for the deflated-Sharpe step, which needs the winning
                 # market's bar returns; stripped before the payload is sent.

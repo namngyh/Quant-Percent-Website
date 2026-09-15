@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.api.routes_strategy import ExecutionSettings
+from backend.api.routes_strategy import ExecutionSettings, config_for
 from backend.config import settings
 from backend.paper import summary as paper_summary
 from backend.paper.engine import OrderRefused
@@ -74,11 +74,12 @@ def get_session(session_id: str) -> dict:
 async def start(request: StartRequest) -> dict:
     symbol = request.symbol or settings.chart.default_symbol
     timeframe = request.timeframe or settings.chart.default_timeframe
+    config = config_for(request.execution, symbol)
 
     try:
         session = await manager.start(
             request.strategy_id, symbol, timeframe,
-            request.params, request.execution.to_config(),
+            request.params, config,
         )
     except StrategyError as exc:
         raise HTTPException(422, str(exc)) from exc
