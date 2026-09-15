@@ -94,7 +94,9 @@ CASES = {
     "fees_and_slippage": dict(fee=0.0004, slippage=0.0002),
     "half_size": dict(fee=0.0004, slippage=0.0002, size_pct=0.5),
     "leverage_5": dict(fee=0.0004, slippage=0.0002, leverage=5.0),
-    "leverage_25_liquidates": dict(fee=0.0004, slippage=0.0002, leverage=25.0),
+    # A fifth of equity per trade, so a liquidation does not end the run and
+    # trading continues after it.
+    "leverage_25_liquidates": dict(fee=0.0004, slippage=0.0002, size_pct=0.2, leverage=25.0),
     "high_cost": dict(fee=0.002, slippage=0.001, size_pct=0.8, leverage=2.0),
 }
 
@@ -115,13 +117,13 @@ def frame(n: int = 1500, seed: int = 11) -> pd.DataFrame:
 
 
 def signal(n: int = 1500, seed: int = 12) -> np.ndarray:
-    # Regimes of 20-80 bars of long, short or flat, so entries, exits and
-    # reversals all occur.
+    # Regimes of 5-30 bars of long, short or flat, so entries, exits and
+    # reversals all occur many times. (20-80 bar regimes gave only 15 trades.)
     rng = np.random.default_rng(seed)
     out = np.zeros(n, dtype="int8")
     i = 0
     while i < n:
-        span = int(rng.integers(20, 80))
+        span = int(rng.integers(5, 30))
         out[i:i + span] = int(rng.choice([-1, 0, 1]))
         i += span
     return out
@@ -210,9 +212,12 @@ def same(a, b) -> bool:
 @check("the golden run exercises liquidation and many trades")
 def _():
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
-    assert golden["leverage_25_liquidates"]["liquidated"] is True
-    assert any(t["exit_reason"] == "liquidation"
-               for t in golden["leverage_25_liquidates"]["trades"])
+    leveraged = golden["leverage_25_liquidates"]
+    liquidations = sum(t["exit_reason"] == "liquidation" for t in leveraged["trades"])
+    # Several liquidations, with the account still trading after them: one
+    # liquidation that wipes the account tests only the first trade.
+    assert leveraged["liquidated"] is True and liquidations >= 2, liquidations
+    assert leveraged["ruined"] is False and len(leveraged["trades"]) > liquidations, leveraged["trades"][-1:]
     assert len(golden["no_costs"]["trades"]) >= 20, len(golden["no_costs"]["trades"])
 
 
