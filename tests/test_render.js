@@ -679,6 +679,23 @@ async function render(label, kind, payload) {
   card.querySelector('.pp-actions').click();
   tsay('clicking its action row does not', openedSessions.length === 2);
 
+  // ---------- Contract model off ----------
+  for (const [lang, word] of [['vi', 'hệ số nhân'], ['en', 'multiplier']]) {
+    window.I18n.set(lang);
+    tsay(`the results say the contract model is off [${lang}]`,
+         window.Strategy.executionNote({ execution_model: 'contract_model_off' }).includes(word));
+  }
+  tsay('no note when the contract model ran or the symbol is linear',
+       window.Strategy.executionNote({ execution_model: 'contract' }) === ''
+         && window.Strategy.executionNote({ execution_model: 'linear' }) === '');
+  window.I18n.set('vi');
+  window.API.paperSessions = async () => ({ sessions: [
+    fakeSession({ id: 'off', symbol: 'VN:VN30F1M', execution_model: 'contract_model_off' }),
+  ] });
+  await window.Paper.refresh();
+  tsay('a paper session says the contract model is off',
+       psel('paper-sessions').textContent.includes('hệ số nhân'));
+
   // ---------- Language purity ----------
   //
   // Every panel is bilingual by construction, but a string added in a hurry as
