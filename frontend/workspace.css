@@ -178,7 +178,10 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .pp-session.stopped { opacity: .6; }
 .pp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .pp-head .sym-badge { width: 28px; height: 28px; font-size: 9px; border-radius: 3px; }
-.pp-title { display: grid; gap: 2px; min-width: 0; }
+.pp-session[data-session-card] { cursor: pointer; }
+.pp-session .pp-ticket { cursor: default; }
+.pp-title { display: grid; gap: 2px; min-width: 0; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pp-session:hover .pp-title strong, .pp-title:focus-visible strong { color: var(--accent); }
 .pp-title strong { font-size: 13px; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pp-title .pill { font-size: 9px; padding: 1px 5px; vertical-align: 1px; }
 .pp-sub { font-size: 11px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -246,6 +249,15 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .chart-tools { top: 8px; right: 74px; }
 .chip { border: 1px solid #e1e8f4; background: #f7faff; color: #5e79a1; font-size: 10px; }
 body[data-mode="overview"] .chart-grid { background: transparent; }
+
+/* The position on the chart: bands under the drawing layer (z 3), the chip
+   above it but below the marker tools (z 6), which it must never cover. */
+.level-zones { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.position-chip { position: absolute; z-index: 5; transform: translateY(-50%); display: inline-flex; align-items: stretch; height: 20px; border-radius: 2px; background: var(--accent); color: #fff; font: 600 11px var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 1px 3px #1322402e; }
+.position-chip > span { display: flex; align-items: center; padding: 0 8px; }
+.position-chip-close { width: 22px; padding: 0; border: 0; border-left: 1px solid #ffffff4d; border-radius: 0 2px 2px 0; background: transparent; color: #fff; font-size: 10px; cursor: pointer; }
+.position-chip-close:hover { background: #ffffff2e; }
+body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-chip { display: none; }
 
 /* Dialogs, menus and the editor use the same surface and focus treatment. */
 .dialog-backdrop { background: #101c374a; backdrop-filter: blur(4px); }

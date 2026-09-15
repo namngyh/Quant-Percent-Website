@@ -210,6 +210,45 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-15 (tối) — Mở biểu đồ từ phiên Paper, vùng SL/TP, thẻ vị thế có nút đóng
+
+Backend không đổi. Render check (thêm 4 check bấm phiên), i18n 2/2, 4 trang test
+Chrome (level drag **22**, types 26, guards 4, layout 14) và các probe history,
+stay, multichart, async 8/8, backtest, switching, responsive 14/14 đều đạt.
+
+| Việc | Kết quả đo |
+|---|---|
+| Bấm một phiên Paper | Ô đang làm việc chuyển đúng mã + khung, một lần nạp. App thật, chỉ đọc: `BTCUSDT\|1h` → `BTCUSDT\|1m`; bấm ô SL của phiên khác không chuyển; **0** request `/order`, `/exits` |
+| Đường vào lệnh | Xanh dương `#3264e8`. Nhãn là thẻ HTML trên đường: nhãn vị thế, lãi/lỗ mở, nút đóng vị thế (khoá khi lệnh đang gửi) |
+| Vị trí thẻ | Ngay sau nến vào lệnh, trong vùng vẽ. Đặt ở mép phải thì thẻ che các nến mới nhất |
+| Vùng SL/TP | Xanh: giá vào → TP; đỏ: giá vào → SL; từ nến vào lệnh tới mép phải; độ đậm 8%, 15% khi đang kéo. Toạ độ khớp đường giá và nến vào lệnh (sai số < 0,75px) |
+
+#### Lỗi có sẵn tìm được: `candleData` không nhận nến live
+
+Hàm `update` của mọi kiểu biểu đồ (`chart-types.js`) chỉ cập nhật chuỗi đang vẽ;
+mảng nến `candleData` không bao giờ nhận nến live (mảng khối lượng thì đã được
+đồng bộ). Đo được: sau khi áp một nến có giá đóng = giá vào + 10, thẻ hiện
+**+96,22** thay vì **+5,00**, và `lastClose` trả giá cũ. Đã đồng bộ trong
+`updateCandle`, ghi sau lần cập nhật chuỗi vì Heikin Ashi đọc nến trước từ mảng
+này. Sau sửa: `lastClose` = 76 229,77 = giá nến vừa áp; 26 check của 12 kiểu biểu
+đồ vẫn đạt. Probe `stay` giờ đếm 2 001 nến thay vì 2 000 — nến live được giữ.
+
+#### Hai lần phép đo sai, ghi theo §2.2
+
+1. Render test **dừng giữa chừng** ở hai lần chạy liền: một test trước mock
+   `API.paperStart` trả `{id: 'x'}` không có `config`, và danh sách phiên render
+   lại phiên giả đó. Lỗi fixture, không phải sản phẩm. Không thấy sớm hơn vì output
+   được lọc bằng `grep` nên dòng kết thúc bị thiếu mà không ai để ý.
+2. Probe `history` báo 0 trang, `stay` báo cuộn không đổi zoom. Probe bắn sự kiện
+   cuộn vào canvas lớn nhất, và canvas vùng màu mới phủ toàn khung nên thành canvas
+   lớn nhất. Loại `.level-zones` như `.draw-layer`: 4/4 trang, zoom 86 → 40 nến.
+
+#### Giới hạn
+
+- Vùng màu và thẻ chỉ đo trên vị thế tổng hợp: lúc kiểm, không phiên thật nào
+  đang giữ vị thế.
+- Nút đóng trên thẻ đóng ngay, không hỏi xác nhận.
+
 ### 2026-09-15 (tiếp) — Đầu trang một hàng, lãi/lỗ và SL/TP ngay trên biểu đồ, bớt bo góc, panel Paper kiểu sổ cái
 
 Backend không đổi. Render check (gồm 20 check bảng lệnh), i18n 2/2, 4 trang test

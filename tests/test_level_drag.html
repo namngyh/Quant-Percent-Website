@@ -68,9 +68,13 @@
     time: bar.time - 7 * 3600, open: bar.open, high: Math.max(bar.high, entry + 10),
     low: Math.min(bar.low, entry + 10), close: entry + 10, volume: vol,
   }, cm.seriesKey);
-  const title = cm.levelLines.entry?.title || '';
-  check('the entry line carries the open P&L at the latest price',
+  const title = cm.levelZones?.chip?.text || '';
+  check('the chip on the entry line carries the open P&L at the latest price',
         title.startsWith('LONG 0.5') && title.includes('+5.00 USDT'), title);
+  check('the entry line is the interface blue', cm.levelLines.entry?.color === '#3264e8',
+        cm.levelLines.entry?.color);
+  check('the chart keeps an applied live candle in its own bars',
+        cm.lastClose === entry + 10, `lastClose ${cm.lastClose}, applied ${entry + 10}`);
 
   // 2. Pull up from a long's entry: a target above it, on the price step.
   position();
@@ -147,7 +151,55 @@
         heldTarget > entry && calls.length === 1 && calls[0][0] === 'target',
         JSON.stringify({ heldTarget, calls }));
 
+  // 8. Bands: green between entry and target, red between entry and stop,
+  //    from the entry bar to the plot's right edge; darker while dragging.
+  const near = (a, b) => Math.abs(a - b) < 0.75;
+  const data = cm.priceSeries.data();
+  const entryIndex = data.length - 40;
+  const target = +(last.close * 1.004).toFixed(2);
+  position({ stop, target, entryTime: data[entryIndex].time - 7 * 3600 });
+  let z = cm.levelZones;
+  const yE = cm.priceSeries.priceToCoordinate(entry);
+  const yT = cm.priceSeries.priceToCoordinate(target);
+  const yS = cm.priceSeries.priceToCoordinate(stop);
+  const xBar = Math.max(0, cm.chart.timeScale().logicalToCoordinate(entryIndex));
+  check('the green band spans entry to target',
+        z?.target && near(z.target.y, Math.min(yE, yT)) && near(z.target.height, Math.abs(yT - yE)),
+        JSON.stringify(z?.target));
+  check('the red band spans entry to stop',
+        z?.stop && near(z.stop.y, Math.min(yE, yS)) && near(z.stop.height, Math.abs(yS - yE)),
+        JSON.stringify(z?.stop));
+  check('the bands start at the entry bar and reach the plot edge',
+        z?.target && near(z.target.x, xBar) && near(z.target.x + z.target.width, z.plotWidth),
+        JSON.stringify({ x: z?.target?.x, xBar, right: z && z.target.x + z.target.width, plot: z?.plotWidth }));
+  check('the bands are light at rest', z?.target?.alpha === 0.08, String(z?.target?.alpha));
+  check('the chip sits beside the entry bar, inside the plot',
+        z?.chip && near(z.chip.left, Math.min(xBar + 8, z.plotWidth - z.chip.width - 8))
+          && z.chip.left + z.chip.width <= z.plotWidth,
+        JSON.stringify({ chip: z?.chip, xBar, plot: z?.plotWidth }));
+  fire('pointerdown', yOf(target));
+  fire('pointermove', yOf(target) - 5);
+  check('and darker while a level is being dragged', cm.levelZones?.target?.alpha === 0.15,
+        String(cm.levelZones?.target?.alpha));
+  fire('pointercancel', yOf(target) - 5);
+
+  // 9. The chip's close button closes, and a press on the chip is not a pull.
+  position({ stop, target });
+  calls.length = 0;
+  let closes = 0;
+  cm.onPositionClose = () => { closes += 1; };
+  const chip = host.querySelector('.position-chip');
+  const closeButton = chip.querySelector('.position-chip-close');
+  closeButton.dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 4 }));
+  closeButton.dispatchEvent(new w.PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 4 }));
+  closeButton.click();
+  check('the close button on the chip asks to close the position', closes === 1, String(closes));
+  check('a press on the chip does not start a drag', calls.length === 0, JSON.stringify(calls));
+
+  // 10. No position: no bands, no chip.
   cm.clearPositionLines();
+  check('clearing the position removes the bands and the chip',
+        cm.levelZones === null && chip.hidden === true, JSON.stringify(cm.levelZones));
   check('no page errors', errors.length === 0, errors.join(' | '));
   say('');
   say(failed ? `${failed} failed` : 'level drag holds');

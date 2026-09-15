@@ -207,6 +207,7 @@ function createChartManager() {
       for (const entry of seriesList) entry.series.applyOptions({ visible: !overview });
     }
     refreshSize();
+    paintLevels();
     return mode;
   }
 
@@ -663,7 +664,9 @@ function createChartManager() {
      without any drawing code of ours. Dragging them is ours, because the
      library has no notion of a draggable line — see beginLevelDrag below. */
   let positionLines = { entry: null, stop: null, target: null };
-  const NO_LEVELS = { side: 0, entry: null, stop: null, target: null, quantity: 0, label: '', unit: '' };
+  const NO_LEVELS = {
+    side: 0, entry: null, stop: null, target: null, quantity: 0, label: '', unit: '', entryTime: null,
+  };
   let levels = { ...NO_LEVELS };
   let onLevelDragged = null;
   // A drag in progress. A session pushed over the socket while the pointer is
@@ -673,10 +676,11 @@ function createChartManager() {
   let deferredLevels = null;
 
   const LEVEL_STYLE = {
-    // Ink, matching the interface accent: the entry line marks a fact
+    // The interface blue (Nam, 2026-09-15): the entry line marks a fact
     // about your own position, not a market direction, so it must not
-    // borrow green or red. Two pixels keeps it apart from the grid.
-    entry: { color: '#131722', style: 0, title: '' },
+    // borrow green or red. Two pixels keeps it apart from the grid. Its
+    // label is the HTML chip below, which can hold a close button.
+    entry: { color: '#3264e8', style: 0, title: '' },
     // Stop and target keep the market colours deliberately: a stop is the
     // losing side of the trade and a target the winning one, whichever way
     // the position points.
@@ -723,7 +727,7 @@ function createChartManager() {
       lineWidth: key === 'entry' ? 2 : 1,
       lineStyle: LEVEL_STYLE[key].style,
       axisLabelVisible: true,
-      title: levelTitle(key, key === 'entry' ? latestClose() : price),
+      title: key === 'entry' ? '' : levelTitle(key, price),
     });
   }
 
@@ -737,28 +741,31 @@ function createChartManager() {
     if (levelDrag) { deferredLevels = { side: 0 }; return; }
     for (const key of Object.keys(positionLines)) removeLevelLine(key);
     levels = { ...NO_LEVELS };
+    paintLevels();
   }
 
   /** Draw the open position's entry and its exit levels, or clear them. */
   function setPositionLines(spec = {}) {
     if (levelDrag) { deferredLevels = spec; return; }
     const { side = 0, entry = null, stop = null, target = null,
-            label = '', quantity = 0, unit = '' } = spec;
+            label = '', quantity = 0, unit = '', entryTime = null } = spec;
     clearPositionLines();
     if (!candleSeries || !side) return;
     levels = {
       side, entry, stop: finiteOrNull(stop), target: finiteOrNull(target),
       quantity: Number(quantity) || 0, label: label || (side > 0 ? 'LONG' : 'SHORT'), unit,
+      entryTime: finiteOrNull(Number(entryTime)),
     };
     positionLines.entry = makeLevelLine('entry', entry);
     positionLines.stop = makeLevelLine('stop', levels.stop);
     positionLines.target = makeLevelLine('target', levels.target);
+    paintLevels();
   }
 
   /** Keep the open P&L on the entry line in step with the price. */
   function refreshLevelTitles(price) {
-    if (!levels.side || !positionLines.entry || !Number.isFinite(price)) return;
-    positionLines.entry.applyOptions({ title: levelTitle('entry', price) });
+    if (!levels.side || !Number.isFinite(price)) return;
+    paintLevels();
   }
 
   /* Working the position on the chart.
@@ -813,15 +820,131 @@ function createChartManager() {
     if (levels[key] === null) { removeLevelLine(key); return; }
     if (!positionLines[key]) positionLines[key] = makeLevelLine(key, price);
     positionLines[key]?.applyOptions({ price, title: title ?? levelTitle(key, price) });
+    paintLevels();
+  }
+
+  /* The position as a trader reads it: a blue entry line carrying a chip
+     (label, open P&L, a close button), a light green band between entry and
+     target and a light red one between entry and stop. The bands start at the
+     bar the position was opened on and run to the plot's right edge; before
+     the entry there was no position to shade.
+
+     Lightweight Charts has no filled-band primitive, so the bands are a canvas
+     over the plot, repainted whenever the geometry can move: scroll, zoom,
+     resize, a new candle, a drag. The canvas takes no pointer events, so
+     panning and zooming reach the chart underneath. The chip is HTML because a
+     price line's title is painted on the chart's own canvas and cannot hold a
+     button. */
+  const ZONE_ALPHA = { rest: 0.08, dragging: 0.15 };
+  let levelOverlay = null;
+  let onPositionClose = null;
+  let lastZones = null;
+
+  function buildLevelOverlay(container) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'level-zones';
+    const chip = document.createElement('div');
+    chip.className = 'position-chip';
+    chip.hidden = true;
+    const label = document.createElement('span');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'position-chip-close';
+    close.textContent = '✕';
+    close.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onPositionClose?.();
+    });
+    chip.append(label, close);
+    container.append(canvas, chip);
+    const observer = new ResizeObserver(paintLevels);
+    observer.observe(container);
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange(paintLevels);
+    // The price axis can rescale while the time range stays put (autoscale on
+    // a new extreme, a drag on the axis). The crosshair fires on every pointer
+    // move over the plot, which is when such a change can be seen.
+    mainChart.subscribeCrosshairMove(paintLevels);
+    levelOverlay = { host: container, canvas, chip, label, close, observer };
+  }
+
+  /** x of the bar the position was opened on, in plot pixels. */
+  function entryX() {
+    if (!Number.isFinite(levels.entryTime) || !candleData.length) return 0;
+    const t = toChart(levels.entryTime);
+    if (t <= candleData[0].time) return 0;
+    // A hand order fills between bar opens, so the band starts at the bar that
+    // contains the fill: the last bar opening at or before it.
+    let lo = 0;
+    let hi = candleData.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (candleData[mid].time <= t) lo = mid; else hi = mid - 1;
+    }
+    const x = mainChart.timeScale().logicalToCoordinate(lo);
+    return x === null ? 0 : x;
+  }
+
+  function paintLevels() {
+    if (!levelOverlay || !mainChart) return;
+    const { host, canvas, chip, label, close } = levelOverlay;
+    const box = host.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(box.width);
+    const h = Math.round(box.height);
+    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    lastZones = null;
+
+    const entryY = levels.side && mode !== 'overview' ? levelY(levels.entry) : null;
+    if (entryY === null) {
+      chip.hidden = true;
+      return;
+    }
+    const plotWidth = mainChart.timeScale().width();
+    const x0 = Math.min(Math.max(entryX(), 0), plotWidth);
+    const alpha = levelDrag ? ZONE_ALPHA.dragging : ZONE_ALPHA.rest;
+    const zones = { plotWidth };
+    for (const [key, rgb] of [['target', '8, 153, 129'], ['stop', '242, 54, 69']]) {
+      const y = levelY(levels[key]);
+      if (y === null) continue;
+      const top = Math.min(y, entryY);
+      const height = Math.abs(y - entryY);
+      ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
+      ctx.fillRect(x0, top, plotWidth - x0, height);
+      zones[key] = { x: x0, y: top, width: plotWidth - x0, height, alpha };
+    }
+
+    label.textContent = levelTitle('entry', latestClose());
+    const name = L('Đóng vị thế', 'Close position');
+    close.title = name;
+    close.setAttribute('aria-label', name);
+    // Beside the entry bar, not at the right edge: at the edge it covered the
+    // newest candles, which is where a position is being watched. A position
+    // opened on the last bars is pushed back inside the plot.
+    chip.hidden = entryY < 0 || entryY > h;
+    const chipWidth = chip.offsetWidth;
+    const left = Math.max(8, Math.min(x0 + 8, plotWidth - chipWidth - 8));
+    chip.style.left = `${left}px`;
+    chip.style.top = `${entryY}px`;
+    zones.chip = { text: label.textContent, top: entryY, left, width: chipWidth, hidden: chip.hidden };
+    lastZones = zones;
   }
 
   function bindLevelDragging(container) {
+    buildLevelOverlay(container);
     container.addEventListener('pointermove', (event) => {
       const y = offsetY(event);
       if (!levelDrag) {
         // The cursor is the only affordance these lines have, so it has to be
         // right: no grab handle, no tooltip, just the shape of the pointer.
-        container.style.cursor = levelAt(y) ? 'ns-resize' : '';
+        container.style.cursor = !event.target.closest?.('.position-chip') && levelAt(y) ? 'ns-resize' : '';
         return;
       }
       const raw = candleSeries.coordinateToPrice(y);
@@ -852,12 +975,15 @@ function createChartManager() {
 
     container.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
+      // The chip sits on the entry line; a press on it is a click, not a pull.
+      if (event.target.closest?.('.position-chip')) return;
       const from = levelAt(offsetY(event));
       if (!from) return;
       levelDrag = {
         from, key: from === 'entry' ? null : from, remove: false,
         original: { stop: levels.stop, target: levels.target },
       };
+      paintLevels();
       // Capture can be refused (a pen lifted mid-gesture); the drag still works.
       try { container.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
       event.preventDefault();
@@ -870,6 +996,7 @@ function createChartManager() {
       levelDrag = null;
       try { container.releasePointerCapture(event.pointerId); } catch { /* already */ }
       container.style.cursor = '';
+      paintLevels();
 
       const key = drag.key;
       const price = key && !drag.remove ? levels[key] : null;
@@ -990,6 +1117,16 @@ function createChartManager() {
       candleData,
       priceType,
     );
+    /* Keep the bars array in step with the rendered series, as volumeData
+       below already is. Without it every reader of `candleData` was one live
+       candle behind: measured, the position chip showed the previous price's
+       P&L (tests/test_level_drag.html), and `lastClose` read the same stale
+       bar. Stored after the update, because Heikin Ashi builds the current bar
+       from the previous ones held here. */
+    const bar = { time, open: candle.open, high: candle.high, low: candle.low, close: candle.close };
+    const lastStored = candleData[candleData.length - 1];
+    if (lastStored?.time === time) candleData[candleData.length - 1] = bar;
+    else if (!lastStored || time > lastStored.time) candleData.push(bar);
     const volumePoint = {
       time,
       value: candle.volume,
@@ -1027,6 +1164,10 @@ function createChartManager() {
   /** Remove this chart and everything it registered. */
   function destroy() {
     window.removeEventListener('resize', refreshSize);
+    levelOverlay?.observer.disconnect();
+    levelOverlay?.canvas.remove();
+    levelOverlay?.chip.remove();
+    levelOverlay = null;
     for (const id of [...panes.keys()]) removePane(id);
     for (const { observer } of sizers.values()) observer.disconnect();
     sizers.clear();
@@ -1187,6 +1328,9 @@ function createChartManager() {
            get mode() { return mode; },
            setTradeMarkers, clearTradeMarkers, setMarkersVisible, toggleMarkers,
            setPositionLines, clearPositionLines,
+           set onPositionClose(fn) { onPositionClose = fn || null; },
+           // For probes: the bands and the chip as last painted.
+           get levelZones() { return lastZones; },
            // For probes: the options of the entry, stop and target lines as drawn.
            get levelLines() {
              return Object.fromEntries(Object.entries(positionLines)

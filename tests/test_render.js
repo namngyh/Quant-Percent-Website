@@ -231,9 +231,11 @@ async function render(label, kind, payload) {
   // ---------- Paper trading settings ----------
 
   const psel = (id) => window.document.getElementById(id);
+  const openedSessions = [];
   window.Paper.init({
     elements: {
       list: psel('paper-sessions'), refresh: psel('refresh-paper'),
+      onOpenSession: (session) => openedSessions.push(session.id),
       settings: {
         root: psel('paper-settings'), close: psel('paper-settings-close'),
         preset: psel('ps-preset'), capital: psel('ps-capital'),
@@ -657,6 +659,25 @@ async function render(label, kind, payload) {
     tsay(`renders clean in ${lang}${hits.length ? ` (printed ${hits.join(', ')})` : ''}`,
          hits.length === 0);
   }
+
+  // ---------- A session opens its chart ----------
+  // A clean list: the settings checks above leave a stub session ({id:'x'},
+  // no config) from their mocked start, which no real server ever returns.
+  window.I18n.set('vi');
+  window.API.paperSessions = async () => ({ sessions: [
+    fakeSession({ id: 'open-me', position: 1, symbol: 'VN:VN30F1M', timeframe: '5m',
+                  entry_price: 1939, quantity: 5, stop_loss: 1935, take_profit: 1944 }),
+  ] });
+  await window.Paper.refresh();
+  const card = psel('paper-sessions').querySelector('[data-session-card="open-me"]');
+  card.querySelector('.pp-title').click();
+  tsay('clicking the session title opens its chart', openedSessions.join() === 'open-me');
+  card.querySelector('.pp-fig').click();
+  tsay('clicking its figures opens it too', openedSessions.length === 2);
+  card.querySelector('input[data-stop]').click();
+  tsay('clicking a field of its ticket does not', openedSessions.length === 2);
+  card.querySelector('.pp-actions').click();
+  tsay('clicking its action row does not', openedSessions.length === 2);
 
   // ---------- Language purity ----------
   //

@@ -405,6 +405,7 @@
   function configureCell(cell) {
     cell.manager.onNeedHistory = (oldest) => pageCell(cell, oldest);
     cell.manager.onLevelDragged = onLevelDragged;
+    cell.manager.onPositionClose = closePaperPosition;
     cell.manager.onMarkersChanged = (count, visible) => {
       if (MultiChart.activeCell === cell) paintMarkerTools(count, visible);
     };
@@ -1221,6 +1222,7 @@
       entry: session.entry_price,
       stop: session.stop_loss,
       target: session.take_profit,
+      entryTime: session.entry_time,
       // Signed, as the engine holds it, so the P&L on the chart is the server's.
       quantity: session.quantity,
       unit: Paper.currencyFor(session.symbol),
@@ -1242,6 +1244,55 @@
      accepted. */
   function bindLevelDrag() {
     ChartManager.onLevelDragged = onLevelDragged;
+    ChartManager.onPositionClose = closePaperPosition;
+  }
+
+  /* The close button on the position chip. The same action as "Đóng vị thế"
+     on the ticket, placed where the position is being watched. Locked while
+     the order is in flight, so a double click cannot send two. */
+  let closingPosition = false;
+  async function closePaperPosition() {
+    const session = (Paper.sessions || []).find((s) => s.id === paperLevelSession);
+    if (!session || closingPosition) return;
+    closingPosition = true;
+    try {
+      const result = await API.paperOrder(session.id, 'close');
+      Paper.apply(result.snapshot);
+      drawPaperMarkers();
+      drawPositionLines();
+      toast(L('Đã đóng vị thế', 'Position closed'));
+    } catch (err) {
+      toast(tp(err.detail?.message) || err.message, true);
+    } finally {
+      closingPosition = false;
+    }
+  }
+
+  /* A session in the Paper panel opens its own chart in the working cell: its
+     symbol, its timeframe, and its position lines or closed trades. The layout
+     and the open panel stay as they are. */
+  function openPaperSession(session) {
+    markerSource = 'paper';
+    if (session.symbol === state.symbol && session.timeframe === state.timeframe) {
+      drawPaperMarkers();
+      drawPositionLines();
+      return;
+    }
+    if (session.symbol === state.symbol) {
+      const button = [...el.timeframes.children].find((b) => b.textContent.trim() === session.timeframe);
+      if (button) button.click();
+      return;
+    }
+    if (![...el.symbol.options].some((o) => o.value === session.symbol)) {
+      toast(L(`${session.symbol} chưa có trong danh sách mã; thử lại khi danh sách tải xong.`,
+              `${session.symbol} is not in the symbol list yet; try again once it has loaded.`), true);
+      return;
+    }
+    // Frame first: the symbol handler keeps it when the market offers it, so
+    // the chart loads once rather than twice.
+    state.timeframe = session.timeframe;
+    el.symbol.value = session.symbol;
+    el.symbol.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   async function onLevelDragged(which, price) {
@@ -2038,6 +2089,7 @@ def signals(df, params):
         dash: document.getElementById('paper-dash'),
         // A hand-traded session opens on whatever the chart is showing.
         context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
+        onOpenSession: openPaperSession,
         // The settings dialog: a paper session's costs are its own, not the
         // backtest panel's, and they are frozen once the session starts.
         settings: {

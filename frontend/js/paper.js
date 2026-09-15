@@ -209,16 +209,17 @@ const Paper = (() => {
         const open = s.position !== 0;
         const current = watching && s.symbol === watching;
         const id = esc(s.id);
-        return `<article class="pp-session${s.active ? '' : ' stopped'}${current ? ' watching' : ''}">
+        return `<article class="pp-session${s.active ? '' : ' stopped'}${current ? ' watching' : ''}"
+                         data-session-card="${id}">
           <header class="pp-head">
             ${symbolBadge(s.symbol)}
-            <div class="pp-title">
+            <button type="button" class="pp-title" title="${esc(L('Mở biểu đồ của phiên này', 'Open this session’s chart'))}">
               <strong>${esc(s.is_manual ? L('Giao dịch tay', 'Manual trading') : s.strategy_id)}${
                 s.manual_override
                   ? ` <span class="pill warn">${esc(L('CAN THIỆP TAY', 'MANUAL'))}</span>` : ''}</strong>
               <span class="pp-sub">${esc(s.symbol)} · ${esc(s.timeframe)} · <span class="pp-state${
                 s.active ? ' running' : ''}">${esc(s.active ? L('Đang chạy', 'Running') : L('Đã dừng', 'Stopped'))}</span></span>
-            </div>
+            </button>
             <div class="pp-actions">
               <button type="button" class="pp-link" data-paper-toggle="${id}">${
                 esc(s.active ? L('Dừng', 'Stop') : L('Chạy lại', 'Resume'))}</button>
@@ -274,6 +275,15 @@ const Paper = (() => {
   }
 
   function bind() {
+    // A click anywhere on a session opens its chart, except on its controls.
+    for (const card of elements.list.querySelectorAll('[data-session-card]')) {
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('.pp-ticket, .pp-actions, input, select, a')) return;
+        const session = sessions.find((s) => s.id === card.dataset.sessionCard);
+        if (session) elements.onOpenSession?.(session);
+      });
+    }
+
     for (const btn of elements.list.querySelectorAll('[data-apply-exits]')) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.applyExits;

@@ -128,7 +128,7 @@ function candlePixels(cell) {
      plot. */
   let best = -1;
   for (const c of cell.querySelectorAll('canvas')) {
-    if (c.closest('.draw-layer') || c.classList.contains('draw-layer') || !c.width || !c.height) continue;
+    if (c.closest('.draw-layer') || c.classList.contains('draw-layer') || c.classList.contains('level-zones') || !c.width || !c.height) continue;
     let px;
     try { px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; } catch (e) { continue; }
     let hits = 0;
@@ -642,7 +642,7 @@ async function pick(doc, symbol, timeframe) {
 
     // A vertical drag in the plot area, the way a pan that drifts up does.
     const plot = [...doc.querySelectorAll('#chart-main canvas')]
-      .filter((c) => !c.classList.contains('draw-layer'))
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
       .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     const r = plot.getBoundingClientRect();
     const x = r.left + r.width * 0.5, y = r.top + r.height * 0.5;
@@ -861,7 +861,7 @@ async function pick(doc, symbol, timeframe) {
        took effect, and the second page was reported as "not loaded" while the
        app had simply never been asked. */
     const mainCanvas = () => [...doc.querySelectorAll('#chart-main canvas')]
-      .filter((c) => !c.classList.contains('draw-layer'))
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
       .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     for (let round = 1; round <= 4; round++) {
       const before = cm().oldestTime;
@@ -891,7 +891,7 @@ async function pick(doc, symbol, timeframe) {
     await until('cell 1 candles', () => candlePixels(body) > 0, 200);
     // The drawing layer is the largest canvas but sits beside the chart, so a
     // wheel fired at it never reaches the chart's own listeners.
-    const canvas = [...body.querySelectorAll('canvas')].filter((c) => !c.classList.contains('draw-layer'))
+    const canvas = [...body.querySelectorAll('canvas')].filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
       .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     const r = canvas.getBoundingClientRect();
     const before = pages();
@@ -1215,7 +1215,7 @@ async function pick(doc, symbol, timeframe) {
        through the API are only read back after a repaint, which headless
        Chrome may never do; a wheel paints. */
     const plotCanvas = (i) => [...doc.querySelectorAll(`[data-body="${i}"] .chart-main canvas`)]
-      .filter((c) => !c.classList.contains('draw-layer'))
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
       .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     const wheelZoom = async (i, times) => {
       const c = plotCanvas(i);
@@ -1325,7 +1325,7 @@ async function pick(doc, symbol, timeframe) {
       await until('the entry line', () => cm().seriesKey === `${open.symbol}|${open.timeframe}` && cm().levelLines.entry, 300);
       const lines = () => cm().levelLines;
       const titles = [];
-      for (let i = 0; i < 6; i++) { titles.push(lines().entry.title); await sleep(1500); }
+      for (let i = 0; i < 6; i++) { titles.push((cm().levelZones?.chip?.text ?? '')); await sleep(1500); }
       log(`  nhan duong den: "${titles[0]}"`);
       log(`  nhan duong den trong 9s: ${new Set(titles).size} gia tri khac nhau (cuoi: "${titles.at(-1)}")`);
       /* Headless virtual time may pass those 9s without one real tick, so an
@@ -1339,9 +1339,9 @@ async function pick(doc, symbol, timeframe) {
         const utc = last.time - 7 * 3600;
         const bumped = last.close + 100;
         cm().updateCandle({ time: utc, open: last.open, high: Math.max(last.high, bumped), low: last.low, close: bumped, volume: vol }, key);
-        const bumpedTitle = lines().entry.title;
+        const bumpedTitle = (cm().levelZones?.chip?.text ?? '');
         cm().updateCandle({ time: utc, open: last.open, high: last.high, low: last.low, close: last.close, volume: vol }, key);
-        log(`  nen live gia ${bumped.toFixed(2)}: nhan "${bumpedTitle}" | tinh tay ${(open.quantity * (bumped - open.entry_price)).toFixed(2)} | sau khi tra lai: "${lines().entry.title}"`);
+        log(`  nen live gia ${bumped.toFixed(2)}: nhan "${bumpedTitle}" | tinh tay ${(open.quantity * (bumped - open.entry_price)).toFixed(2)} | sau khi tra lai: "${(cm().levelZones?.chip?.text ?? '')}"`);
         const server = (await list()).find((q) => q.id === open.id);
         log(`  server: unrealized ${server.unrealized_pnl.toFixed(2)} o gia ${server.last_price} | cong thuc cua bieu do o cung gia: ${(open.quantity * (server.last_price - open.entry_price)).toFixed(2)}`);
       }
