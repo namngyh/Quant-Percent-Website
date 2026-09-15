@@ -201,9 +201,13 @@ Số trong các ví dụ là số dùng cho test, không phải giá trị mặc
    `contract_model_off`; `contract` thiếu trường → 422
    `contract_settings_required`; quét trộn BTCUSDT + VN30F1M → mỗi dòng đúng
    `execution_model`.
-6. **Phân tích phía sau.** Trên một backtest hợp đồng: lợi nhuận ròng của báo
-   cáo bằng tổng `pnl`; Monte Carlo dựng lại đường vốn từ vốn trước/sau lệnh
-   không sai lệch.
+6. **Phân tích phía sau.** Trên một backtest hợp đồng:
+   `overview.net_profit` (vốn cuối − vốn đầu) = `trades.all.net_profit`
+   (tổng `pnl`) − tổng phí vào lệnh, vì `pnl` chỉ trừ phí ra còn phí vào bị trừ
+   thẳng vào vốn lúc mở lệnh; và vốn đầu × Π(`equity_after` / `equity_before`)
+   = vốn cuối, là đại lượng Monte Carlo dùng để dựng lại đường vốn.
+   *(Sửa ngày 2026-09-15: bản đầu ghi "lợi nhuận ròng bằng tổng `pnl`" — chỉ
+   đúng khi phí bằng 0.)*
 7. **Hồi quy.** Toàn bộ test Python, render check (thêm check song ngữ cho ghi
    chú `contract_model_off`), i18n.
 
