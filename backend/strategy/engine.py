@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from backend.strategy.position_model import ContractConfig, Sizing, model_for
+
 
 @dataclass
 class BacktestConfig:
@@ -33,6 +35,9 @@ class BacktestConfig:
     leverage: float = 1.0
     fee: float = 0.0004         # taker, per side, on notional
     slippage: float = 0.0002    # adverse price move per fill
+    # Index futures only: whole contracts, dong per point, margin by rate.
+    # None means the linear model (backend/strategy/position_model.py).
+    contract: ContractConfig | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -41,7 +46,14 @@ class BacktestConfig:
             "leverage": self.leverage,
             "fee": self.fee,
             "slippage": self.slippage,
+            "contract": self.contract.as_dict() if self.contract else None,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BacktestConfig":
+        values = dict(data)
+        contract = values.pop("contract", None)
+        return cls(**values, contract=ContractConfig.from_dict(contract) if contract else None)
 
 
 @dataclass

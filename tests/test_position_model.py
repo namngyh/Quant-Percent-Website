@@ -73,6 +73,109 @@ def _():
                 assert same(ta[key], tb[key]), (name, i, key, ta[key], tb[key])
 
 
+from backend.strategy.engine import BacktestConfig  # noqa: E402
+from backend.strategy.position_model import (  # noqa: E402
+    EXECUTION_CONTRACT,
+    EXECUTION_CONTRACT_OFF,
+    EXECUTION_LINEAR,
+    ContractConfig,
+    ContractModel,
+    LinearModel,
+    execution_model_for,
+    model_for,
+)
+
+
+def contract_config(**contract) -> BacktestConfig:
+    """100 000 000 đ, all equity per trade, margin 20%, threshold 50%, 20 000 đ/contract."""
+    values = dict(initial_margin_rate=0.2, maintenance_threshold=0.5, fee_per_contract=20_000.0)
+    values.update(contract)
+    return BacktestConfig(initial_capital=100_000_000.0, size_pct=1.0, fee=0.0, slippage=0.0,
+                          contract=ContractConfig(**values))
+
+
+@check("model_for picks the contract model only when a contract block is present")
+def _():
+    assert isinstance(model_for(BacktestConfig()), LinearModel)
+    assert isinstance(model_for(contract_config()), ContractModel)
+
+
+@check("sizing by margin: 3 contracts at 1300 with 100 000 000 dong and a 20% rate")
+def _():
+    s = model_for(contract_config()).size(100_000_000.0, 1300.0, 1)
+    assert s.contracts == 3 and s.quantity == 3.0, s
+    assert close_to(s.margin, 78_000_000.0), s.margin
+    assert close_to(s.notional, 390_000_000.0), s.notional
+
+
+@check("fixed sizing refuses what the equity cannot margin, and allows what it can")
+def _():
+    assert model_for(contract_config(sizing="fixed", contracts=5)).size(100_000_000.0, 1300.0, 1) is None
+    s = model_for(contract_config(sizing="fixed", contracts=3)).size(100_000_000.0, 1300.0, -1)
+    assert s.contracts == 3 and s.quantity == -3.0, s
+
+
+@check("P&L is points x multiplier x contracts less the exit fee, for both sides")
+def _():
+    m = model_for(contract_config())
+    long = m.size(100_000_000.0, 1300.0, 1)
+    assert close_to(m.entry_fee(long, 1300.0), 60_000.0)
+    assert close_to(m.pnl(long, 1300.0, 1310.0), 2_940_000.0), m.pnl(long, 1300.0, 1310.0)
+    short = m.size(100_000_000.0, 1300.0, -1)
+    assert close_to(m.pnl(short, 1300.0, 1290.0), 2_940_000.0), m.pnl(short, 1300.0, 1290.0)
+    assert close_to(m.unrealized(long, 1300.0, 1299.0), -300_000.0)
+
+
+@check("a notional fee is the rate on contracts x price x multiplier")
+def _():
+    m = model_for(contract_config(fee_mode="notional", fee_rate=0.0003))
+    s = m.size(100_000_000.0, 1300.0, 1)
+    assert close_to(m.entry_fee(s, 1300.0), 117_000.0), m.entry_fee(s, 1300.0)
+
+
+@check("slippage is in points and always adverse")
+def _():
+    m = model_for(contract_config(slippage_points=0.5))
+    assert close_to(m.fill(1300.0, 1), 1300.5)
+    assert close_to(m.fill(1310.0, -1), 1309.5)
+
+
+@check("the forced-close price follows the threshold and the margin rate")
+def _():
+    m = model_for(contract_config())
+    assert close_to(m.liquidation_price(1300.0, 1), 1170.0), m.liquidation_price(1300.0, 1)
+    assert close_to(m.liquidation_price(1300.0, -1), 1430.0), m.liquidation_price(1300.0, -1)
+    # The linear model keeps its rule: none at leverage 1.
+    assert model_for(BacktestConfig(leverage=1.0)).liquidation_price(100.0, 1) is None
+    assert close_to(model_for(BacktestConfig(leverage=10.0)).liquidation_price(100.0, 1), 90.0)
+
+
+@check("restore rebuilds the sizing of a stored position")
+def _():
+    m = model_for(contract_config())
+    s = m.restore(-3.0, 78_000_000.0, 1300.0)
+    assert s.contracts == 3 and close_to(s.notional, 390_000_000.0), s
+
+
+@check("execution_model_for names the model the run used")
+def _():
+    assert execution_model_for("VN:VN30F1M", contract_config()) == EXECUTION_CONTRACT
+    assert execution_model_for("VN:VN30F1M", BacktestConfig()) == EXECUTION_CONTRACT_OFF
+    assert execution_model_for("VN:VIC", contract_config()) == EXECUTION_LINEAR
+    assert execution_model_for("BTCUSDT", contract_config()) == EXECUTION_LINEAR
+    assert execution_model_for(None, BacktestConfig()) == EXECUTION_LINEAR
+
+
+@check("the contract block survives as_dict and from_dict, and old dicts load without it")
+def _():
+    cfg = contract_config(sizing="fixed", contracts=2, slippage_points=0.1)
+    again = BacktestConfig.from_dict(cfg.as_dict())
+    assert again == cfg, (again, cfg)
+    old = BacktestConfig().as_dict()
+    old.pop("contract")
+    assert BacktestConfig.from_dict(old).contract is None
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:
