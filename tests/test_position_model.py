@@ -176,6 +176,92 @@ def _():
     assert BacktestConfig.from_dict(old).contract is None
 
 
+from backend.analysis.report import build_report  # noqa: E402
+from backend.strategy.engine import run_backtest  # noqa: E402
+
+HOUR_MS = 3_600_000
+
+
+def bars(rows) -> pd.DataFrame:
+    """rows = [(open, high, low, close), ...]"""
+    return pd.DataFrame({
+        "open_time": [i * HOUR_MS for i in range(len(rows))],
+        "open": [r[0] for r in rows], "high": [r[1] for r in rows],
+        "low": [r[2] for r in rows], "close": [r[3] for r in rows],
+        "volume": [1.0] * len(rows),
+    })
+
+
+@check("a backtest long of 3 contracts books points x multiplier x contracts, less fees")
+def _():
+    df = bars([(1300, 1300, 1300, 1300), (1300, 1305, 1300, 1305), (1310, 1310, 1310, 1310)])
+    r = run_backtest(df, np.array([1, 0, 0], dtype="int8"), contract_config())
+    assert len(r.trades) == 1, r.trades
+    t = r.trades[0]
+    assert t.contracts == 3 and t.multiplier == 100_000.0, t
+    assert close_to(t.points, 10.0) and close_to(t.pnl, 2_940_000.0), t
+    assert close_to(t.equity_after, 102_880_000.0), t.equity_after
+    assert close_to(t.return_pct, 2_940_000.0 / 78_000_000.0 * 100.0), t.return_pct
+    assert close_to(float(r.equity[-1]), 102_880_000.0), r.equity[-1]
+
+
+@check("a backtest short earns the same points when the price falls")
+def _():
+    df = bars([(1300, 1300, 1300, 1300), (1300, 1300, 1295, 1295), (1290, 1290, 1290, 1290)])
+    r = run_backtest(df, np.array([-1, 0, 0], dtype="int8"), contract_config())
+    t = r.trades[0]
+    assert t.side == "short" and close_to(t.points, 10.0) and close_to(t.pnl, 2_940_000.0), t
+
+
+@check("point slippage worsens both fills")
+def _():
+    df = bars([(1300, 1300, 1300, 1300), (1300, 1305, 1300, 1305), (1310, 1310, 1310, 1310)])
+    r = run_backtest(df, np.array([1, 0, 0], dtype="int8"), contract_config(slippage_points=0.5))
+    t = r.trades[0]
+    assert close_to(t.entry_price, 1300.5) and close_to(t.exit_price, 1309.5), t
+    assert close_to(t.points, 9.0), t.points
+
+
+@check("an unaffordable fixed size is not filled")
+def _():
+    df = bars([(1300, 1300, 1300, 1300), (1300, 1305, 1300, 1305), (1310, 1310, 1310, 1310)])
+    r = run_backtest(df, np.array([1, 1, 1], dtype="int8"), contract_config(sizing="fixed", contracts=5))
+    assert len(r.trades) == 0, r.trades
+    assert all(close_to(float(e), 100_000_000.0) for e in r.equity), r.equity
+
+
+@check("the margin threshold forces a close inside the bar, and only when reached")
+def _():
+    hit = bars([(1300, 1300, 1300, 1300), (1300, 1300, 1169, 1200), (1200, 1200, 1200, 1200)])
+    r = run_backtest(hit, np.array([1, 1, 1], dtype="int8"), contract_config())
+    first = r.trades[0]
+    assert first.exit_reason == "liquidation" and close_to(first.exit_price, 1170.0), first
+    assert r.liquidated is True
+
+    miss = bars([(1300, 1300, 1300, 1300), (1300, 1300, 1171, 1200), (1200, 1200, 1200, 1200)])
+    r = run_backtest(miss, np.array([1, 1, 1], dtype="int8"), contract_config())
+    assert [t.exit_reason for t in r.trades] == ["end_of_data"], [t.exit_reason for t in r.trades]
+
+
+@check("the report's net profit is the trades' P&L less entry fees, and equity telescopes")
+def _():
+    df = make_linear_golden.frame(n=600, seed=21)
+    df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]] * 13.0  # ~1300
+    cfg = contract_config()
+    r = run_backtest(df, make_linear_golden.signal(n=600, seed=22), cfg)
+    assert len(r.trades) >= 5, len(r.trades)
+    report = build_report(r, df, "1h")
+    entry_fees = sum(t.contracts * cfg.contract.fee_per_contract for t in r.trades)
+    net = report["overview"]["net_profit"]
+    assert close_to(net, report["trades"]["all"]["net_profit"] - entry_fees, tol=1e-9), (
+        net, report["trades"]["all"]["net_profit"], entry_fees)
+    ratio = 1.0
+    for t in r.trades:
+        ratio *= t.equity_after / t.equity_before
+    assert close_to(cfg.initial_capital * ratio, float(r.equity[-1]), tol=1e-9), (
+        cfg.initial_capital * ratio, r.equity[-1])
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:
