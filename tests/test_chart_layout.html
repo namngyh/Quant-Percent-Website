@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Four-chart volume and layout checks</title>
 <link rel="stylesheet" href="/static/styles.css">
+<link rel="stylesheet" href="/static/workspace.css">
 <script src="/static/vendor/lightweight-charts.js"></script>
 <script>
 const I18n = { lang: 'en', locale: () => 'en-US' };
@@ -46,25 +47,20 @@ const L = (vi, en) => I18n.lang === 'en' ? en : vi;
     cells.push({ cell, manager });
   }
   await frame();
-  const note = i => cells[i].cell.querySelector('.volume-note');
   check('all four charts retain their volume series', cells.every(c => c.manager.volumeSeries.data().length === 100));
   check('three positive-volume charts show histograms without a warning',
-    cells.slice(0, 3).every((c, i) => c.manager.volumeSeries.options().visible && note(i).hidden));
-  check('zero-volume source is explained without inventing bars', !note(3).hidden
-    && note(3).textContent.includes('zero') && cells[3].manager.volumeSeries.data().every(v => v.value === 0));
-  I18n.lang = 'vi';
-  cells.forEach(c => c.manager.refreshVolumeNote());
-  check('the volume explanation switches language', note(3).textContent.includes('nguồn dữ liệu'));
+    cells.slice(0, 3).every(c => c.manager.volumeSeries.options().visible));
+  check('zero volume stays silent without inventing bars', !document.querySelector('.volume-note')
+    && cells[3].manager.volumeSeries.data().every(v => v.value === 0));
   cells[3].manager.setMode('overview');
-  check('overview hides both the volume and its explanation', note(3).hidden
-    && !cells[3].manager.volumeSeries.options().visible);
+  check('overview hides volume', !cells[3].manager.volumeSeries.options().visible);
   cells[3].manager.setMode('trading');
-  check('returning to trading restores the volume explanation', !note(3).hidden);
+  check('returning to trading restores volume', cells[3].manager.volumeSeries.options().visible);
 
   const manager = cells[3].manager;
   const liveTime = start + candles.length * 3600;
   manager.updateCandle({ ...bar(liveTime), volume: 777 }, 'market-3|1h');
-  check('positive live volume removes the empty-volume explanation', note(3).hidden);
+  check('positive live volume is still rendered', manager.volumeSeries.data().at(-1).value === 777);
   manager.prependCandles([bar(start - 3600)], [{ time: start - 3600, value: 55, up: true }], 'market-3|1h');
   check('history paging keeps the appended live volume', manager.volumeSeries.data().length === 102
     && manager.volumeSeries.data().at(-1).value === 777);
@@ -102,7 +98,7 @@ const L = (vi, en) => I18n.lang === 'en' ? en : vi;
     check('the backtest equity chart renders with the shared font', false, error.message);
   }
   cells.forEach(c => c.manager.destroy());
-  check('destroying charts removes volume notes', !document.querySelector('.volume-note'));
+  check('destroying charts releases every chart instance', cells.every(c => c.manager.chart === null));
   out.textContent += `\n${passed} passed, ${failed} failed`;
 })();
 </script>

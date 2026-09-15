@@ -90,6 +90,7 @@ const MultiChart = (() => {
         <select class="cell-pick" aria-label="${esc(t('mc.choose'))}">
           <option value=""></option>${optionsHtml}
         </select>
+        <span class="cell-frame"></span>
         <button type="button" class="cell-gear" aria-haspopup="menu" aria-expanded="false"
                 title="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}"
                 aria-label="${esc(L('Cài đặt biểu đồ', 'Chart settings'))}">${GEAR}</button>
@@ -102,6 +103,7 @@ const MultiChart = (() => {
     cell.badge = el.querySelector('.cell-badge');
     cell.select = el.querySelector('.cell-pick');
     cell.gear = el.querySelector('.cell-gear');
+    cell.frame = el.querySelector('.cell-frame');
 
     cell.select.addEventListener('change', () => setCellSymbol(cell, cell.select.value));
     if (typeof SymbolPicker !== 'undefined') {
@@ -307,6 +309,7 @@ const MultiChart = (() => {
     const ws = wsOf(cell);
     if (!ws) return;
     const isActive = indexOf(cell) === active;
+    cell.frame.textContent = ws.timeframe;
     cell.el.classList.toggle('active', isActive);
     cell.badge.innerHTML = ws.symbol ? Paper.symbolBadge(ws.symbol) : '';
     if (cell.select.value !== ws.symbol) cell.select.value = ws.symbol || '';
@@ -505,7 +508,6 @@ const MultiChart = (() => {
 
   return {
     init, setLayout, setOptions, setMode, syncActive, restore, activate,
-    refreshLabels: () => cells.forEach(cell => cell.manager.refreshVolumeNote()),
     get layout() { return layout; },
     get active() { return active; },
     get activeCell() { return cells[active] || null; },

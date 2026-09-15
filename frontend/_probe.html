@@ -23,6 +23,8 @@
     backtest   a delayed backtest keeps its markers and loading in its own cell
     charttype  the chart-type menu is actually reachable by the pointer
     timing     where a page load spends its time
+    workspace  quick navigation, keyboard commands and panel dismissal
+    responsive header, chart grid and panels fit desktop, tablet and phone
 
   Timings under --virtual-time-budget are virtual: the order of events is
   real, the millisecond counts are not.
@@ -173,6 +175,75 @@ async function pick(doc, symbol, timeframe) {
   const w = frame.contentWindow;
   await sleep(6000);
 
+  if (wants('workspace')) {
+    log('=== workspace ===');
+    const check = (label, condition) => { log(`${condition ? 'PASS' : 'FAIL'} ${label}`); };
+    const dialog = doc.getElementById('command-dialog');
+    const search = doc.getElementById('command-search');
+    doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    check('Ctrl+K opens and focuses search', dialog.open && doc.activeElement === search);
+    search.value = 'thong ke';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('Vietnamese search accepts unaccented text', doc.querySelectorAll('.command-item').length === 1
+      && doc.querySelector('.command-item').textContent.includes('Thống kê'));
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    check('Enter opens the Statistics panel', !dialog.open
+      && doc.querySelector('.rail-btn.active').dataset.panel === 'stats');
+    doc.querySelector('.panel:not([hidden]) .panel-dismiss').click();
+    check('panel close returns space to charts', doc.getElementById('panel-host').classList.contains('collapsed'));
+    doc.getElementById('command-open').click();
+    search.value = 'zzzzzzzz';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('unmatched search has an empty state', !doc.querySelector('.command-item')
+      && !!doc.querySelector('#command-results .empty'));
+    search.value = '';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    check('arrow key selects the next command', doc.querySelectorAll('.command-item')[1].classList.contains('selected'));
+    doc.getElementById('command-close').click();
+    doc.querySelector('[data-lang="en"]').click();
+    doc.getElementById('command-open').click();
+    search.value = 'four charts';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('commands change with language', doc.querySelectorAll('.command-item').length === 1);
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(500);
+    check('layout command displays four charts', doc.querySelectorAll('.cell').length === 4 && !dialog.open);
+  }
+
+  if (wants('responsive')) {
+    log('=== responsive ===');
+    const check = (label, condition) => log(`${condition ? 'PASS' : 'FAIL'} ${label}`);
+    doc.querySelector('[data-layout="4"]').click();
+    if (doc.querySelector('.rail-btn.active')) doc.querySelector('.rail-btn.active').click();
+    for (const width of [1536, 1024, 768, 390]) {
+      frame.style.width = `${width}px`;
+      await sleep(600);
+      const header = doc.querySelector('.topbar').getBoundingClientRect();
+      const toolbar = doc.querySelector('.market-toolbar').getBoundingClientRect();
+      const grid = doc.getElementById('chart-grid');
+      check(`${width}px: no page overflow`, doc.body.scrollWidth === w.innerWidth);
+      check(`${width}px: toolbar stays below masthead`, toolbar.top >= doc.querySelector('.app-header').getBoundingClientRect().bottom - 1
+        && toolbar.right <= width && toolbar.bottom <= header.bottom);
+      doc.querySelector('[data-panel="indicators"]').click();
+      const panel = doc.getElementById('panel-host').getBoundingClientRect();
+      check(`${width}px: tool panel fits`, panel.left >= 0 && panel.right <= width);
+      doc.querySelector('.panel:not([hidden]) .panel-dismiss').click();
+      if (width === 390) {
+        grid.scrollTop = grid.scrollHeight;
+        const last = [...doc.querySelectorAll('.cell')].at(-1).getBoundingClientRect();
+        const bounds = grid.getBoundingClientRect();
+        check('phone: final chart is reachable by scrolling', grid.scrollHeight > grid.clientHeight
+          && last.bottom <= bounds.bottom + 1 && last.top >= bounds.top);
+        doc.getElementById('command-open').click();
+        const command = doc.getElementById('command-dialog').getBoundingClientRect();
+        check('phone: quick navigation fits', command.left >= 0 && command.right <= width);
+        doc.getElementById('command-close').click();
+      }
+    }
+    frame.style.width = '1400px';
+  }
+
   if (wants('coverage')) {
   log('=== coverage ===');
   const seen = watchToasts(doc);
@@ -218,8 +289,8 @@ async function pick(doc, symbol, timeframe) {
   code.value = [
     'INDICATOR = {',
     '    "name": "Probe MA",',
-    '    "kind": "overlay",',
-    '    "params": [{"name": "length", "type": "int", "default": 10}],',
+    '    "type": "overlay",',
+    '    "params": {"length": {"type": "int", "default": 10}},',
     '    "outputs": [{"key": "value", "label": "MA"}],',
     '}',
     '',
@@ -241,10 +312,13 @@ async function pick(doc, symbol, timeframe) {
   dlg.querySelector('[data-ed="save"]').click();
   await sleep(6000);
   log(`  duong dan sau khi luu: "${dlg.querySelector('[data-ed="path"]').textContent}"`);
+  if (!dlg.querySelector('[data-ed="path"]').textContent) log('FAIL editor did not save the file');
+  log(`${[...doc.querySelectorAll('.cat-item-name')].some(el => el.textContent.includes('Probe MA')) ? 'PASS' : 'FAIL'} saved indicator appears in the catalogue`);
 
   dlg.querySelector('[data-ed="close"]').click();
   await sleep(600);
   log(`  da dong: ${!doc.querySelector('.editor-dialog')}`);
+  if (doc.querySelector('.editor-dialog')) log('FAIL editor did not close after saving');
 
   }
 

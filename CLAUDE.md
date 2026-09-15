@@ -210,6 +210,45 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-15 — Nâng cấp toàn diện giao diện workspace
+
+Theo yêu cầu mới của Nam, giao diện chuyển sang nền sáng, menu navy, điểm nhấn
+xanh dương. `workspace.css` được tải sau `styles.css`, giữ cấu trúc component
+cũ và thống nhất header, thanh công cụ, panel, thẻ biểu đồ, form, bảng số liệu,
+dialog, trình soạn thảo và trạng thái tương tác. Ưu tiên thiết kế mới này hơn
+các ghi chú lịch sử về giao diện chỉ đen/trắng.
+
+- Thêm tìm công cụ bằng Ctrl/Cmd+K, tìm tiếng Việt không dấu, phím mũi tên và
+  Enter; lệnh dùng các control hiện có. Có nút đóng panel và toàn màn hình.
+- Badge kết nối đọc trạng thái realtime thật; mã/khung thời gian ở tiêu đề
+  theo ô đang làm việc. Các nhãn mới hỗ trợ Việt/Anh.
+- Màn hình nhỏ dùng panel phủ bên cạnh menu; dưới 600px, 2/4 biểu đồ xếp dọc
+  và cuộn. Đo ở 390px phát hiện `flex-wrap` cũ làm header tràn đến 918px;
+  sau sửa, body rộng đúng 390px. Kiểm thêm 768, 1024 và 1536px đều không tràn.
+- **Theo yêu cầu rõ ràng của Nam, bỏ ghi chú khi nguồn không có volume hoặc
+  trả volume bằng 0.** Thay thế quyết định ghi chú ở báo cáo 2026-09-14 bên
+  dưới. Không dựng cột giả; vẫn giữ bản sửa volume realtime và giới hạn pane.
+
+Phát hiện thêm lỗi có sẵn ở nút **Lưu & nạp**: `Editor.save` gọi
+`API.pluginImport` không tồn tại; API công khai là `API.importPlugin`.
+Trước sửa, code hợp lệ nhưng đường dẫn lưu trống, đóng editor vẫn hỏi bỏ
+thay đổi. Hai lỗi tiếp theo lộ ra sau đó: mẫu code dùng `params` dạng list
+nhưng loader nhận dict (HTTP 422: `list has no attribute items`); callback
+sau lưu gọi `Indicators.load` không tồn tại. Đã sửa mẫu Việt/Anh theo contract
+(`type` cho chỉ báo, `params` dạng dict), cập nhật catalog qua `setCatalog`,
+và await callback để lỗi được bắt. Thêm `tests/test_editor_templates.js`:
+cả 4 mẫu thực tế đều được loader Python nạp và tính trên dữ liệu thử trong
+thư mục tạm. Probe editor kiểm đường dẫn lưu, catalog cập nhật và đóng sạch.
+Runner Chrome cũng ghi nhận và đóng hộp thoại confirm bất ngờ để test thất
+bại rõ ràng thay vì treo ở `Runtime.evaluate`.
+
+Đã kiểm tra bộ render Việt/Anh, 2 test i18n, cú pháp toàn bộ JS và 15 nhóm
+Chrome: layout (14 kiểm tra), workspace (8), responsive (14), async, backtest,
+panels, charttype, pickerflip, resize, persist, multichart, stay, tools,
+editor, markets.
+Đã xem ảnh chụp thật trên desktop và điện thoại. Backend và công thức tính
+không đổi trong đợt nâng cấp này; không chạy lại toàn bộ 326 test Python.
+
 ### 2026-09-14 — Kiểm tra tính năng, volume trong lưới 4 ô và backtest
 
 Đã kiểm tra 326 test Python (17 script), bộ render Việt/Anh, và 19 nhóm kiểm

@@ -1,4 +1,7 @@
-/* Quant Percent — ink on paper
+/* Base component styles. workspace.css is loaded after this file and owns
+ * the current navy/blue visual theme. The design notes below are historical.
+ *
+ * Quant Percent — ink on paper
  *
  * A research instrument, drawn the way a good printed chart is: white paper,
  * black ink, and grey only where something is secondary. Nam asked for black
@@ -2989,17 +2992,6 @@ body[data-mode="overview"] .draw-layer { display: none; }
   overscroll-behavior: contain;
 }
 .work-unit .panes .chart-pane { flex-shrink: 0; }
-.volume-note {
-  position: absolute;
-  left: 10px;
-  bottom: 30px;
-  max-width: calc(100% - 85px);
-  color: var(--text-dim);
-  font-size: 11px;
-  line-height: 1.4;
-  pointer-events: none;
-  z-index: 2;
-}
 .cell-error { padding: 14px; }
 
 /* One chart: no cell chrome, it is simply the chart. */

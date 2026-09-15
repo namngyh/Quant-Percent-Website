@@ -34,7 +34,7 @@ function createChartManager() {
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
-      textColor: '#72727a',
+      textColor: '#64738a',
       fontSize: 11,
       fontFamily: CHART_FONT,
     },
@@ -56,16 +56,6 @@ function createChartManager() {
   let mainChart = null;
   let candleSeries = null;
   let volumeSeries = null;
-  let volumeNote = null;
-  let positiveVolumes = 0;
-
-  function refreshVolumeNote() {
-    if (!volumeNote) return;
-    volumeNote.hidden = mode === 'overview' || !candleData.length || positiveVolumes > 0;
-    volumeNote.textContent = volumeData.length
-      ? L('Volume: nguồn dữ liệu trả về 0', 'Volume: source reports zero')
-      : L('Chưa có dữ liệu khối lượng', 'Volume data unavailable');
-  }
 
   /** Overlay line series drawn on the main chart, keyed by instance id. */
   const overlays = new Map();
@@ -208,7 +198,6 @@ function createChartManager() {
     for (const s of extraSeries) s.applyOptions({ visible: !overview });
     volumeSeries?.applyOptions({ visible: !overview });
     overviewSeries?.applyOptions({ visible: overview });
-    refreshVolumeNote();
 
     // Indicator panes and overlays belong to the working view only.
     for (const pane of panes.values()) {
@@ -250,10 +239,6 @@ function createChartManager() {
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.86, bottom: 0 },
     });
-    volumeNote = document.createElement('div');
-    volumeNote.className = 'volume-note';
-    volumeNote.hidden = true;
-    container.appendChild(volumeNote);
 
     /* The overview series: one line with a gradient under it, the shape a
        quote page uses. It lives on the same chart as the candles rather than
@@ -422,8 +407,6 @@ function createChartManager() {
       color: v.up ? 'rgba(18,128,92,0.28)' : 'rgba(200,55,45,0.28)',
     }));
     volumeSeries.setData(volumeData);
-    positiveVolumes = volumeData.filter(v => v.value > 0).length;
-    refreshVolumeNote();
 
     /* The same closes as a line. Coloured by where the window ended against
        where it started, which is what a quote page's colour means — not the
@@ -895,14 +878,11 @@ function createChartManager() {
     // calls setData from this array; otherwise it erases every live volume bar.
     const previousVolume = volumeData[volumeData.length - 1];
     if (previousVolume?.time === time) {
-      if (previousVolume.value > 0) positiveVolumes--;
       volumeData[volumeData.length - 1] = volumePoint;
     } else {
       volumeData.push(volumePoint);
     }
-    if (volumePoint.value > 0) positiveVolumes++;
     volumeSeries.update(volumePoint);
-    refreshVolumeNote();
 
     if (lastBarTime === null || time > lastBarTime) {
       lastBarTime = time;
@@ -931,8 +911,6 @@ function createChartManager() {
     try { mainChart?.remove(); } catch { /* already gone */ }
     mainChart = null;
     candleSeries = null;
-    volumeNote?.remove();
-    volumeNote = null;
   }
 
   /** A canvas of the price chart as drawn, for export. */
@@ -1025,8 +1003,6 @@ function createChartManager() {
 
     candleData = [...older, ...candleData];
     volumeData = [...olderVol, ...volumeData];
-    positiveVolumes += olderVol.filter(v => v.value > 0).length;
-    refreshVolumeNote();
     applyPriceData(candleData);
     volumeSeries.setData(volumeData);
     overviewSeries?.setData(candleData.map((c) => ({ time: c.time, value: c.close })));
@@ -1094,7 +1070,7 @@ function createChartManager() {
            get markersVisible() { return markersVisible; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
-           screenshot, refreshSize, refreshVolumeNote, timezoneLabel: TZ_LABEL, toChartTime: toChart,
+           screenshot, refreshSize, timezoneLabel: TZ_LABEL, toChartTime: toChart,
            destroy,
            get barCount() { return candleData.length; },
            get lastClose() { return candleData.length ? candleData[candleData.length - 1].close : null; },
@@ -1151,9 +1127,9 @@ const EquityChart = (() => {
     });
 
     series = chart.addAreaSeries({
-      lineColor: '#16191d',
-      topColor: 'rgba(22,25,29,0.14)',
-      bottomColor: 'rgba(22,25,29,0.01)',
+      lineColor: '#3264e8',
+      topColor: 'rgba(50,100,232,0.18)',
+      bottomColor: 'rgba(50,100,232,0.01)',
       lineWidth: 2,
       priceLineVisible: false,
     });

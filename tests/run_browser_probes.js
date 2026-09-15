@@ -30,6 +30,9 @@ async function main() {
     } else if (message.method === 'Runtime.exceptionThrown') {
       errors.get(message.sessionId)?.push(message.params.exceptionDetails.exception?.description
         || message.params.exceptionDetails.text);
+    } else if (message.method === 'Page.javascriptDialogOpening') {
+      errors.get(message.sessionId)?.push(`Unexpected ${message.params.type}: ${message.params.message}`);
+      send('Page.handleJavaScriptDialog', { accept: false }, message.sessionId).catch(() => {});
     } else if (message.method === 'Fetch.requestPaused') {
       send('Fetch.fulfillRequest', {
         requestId: message.params.requestId, responseCode: 200,
@@ -81,7 +84,7 @@ async function main() {
             expression: 'document.getElementById("out")?.textContent || ""', returnByValue: true,
           }, sessionId);
           output = response.result?.value || '';
-          if (/DONE|\d+ failed|all .+ passed|chart guards hold/i.test(output)) break;
+          if (/DONE|PROBE ERROR:|\d+ failed|all .+ passed|chart guards hold/i.test(output)) break;
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         const complete = /DONE|\d+ failed|all .+ passed|chart guards hold/i.test(output);

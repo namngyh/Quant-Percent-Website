@@ -38,10 +38,10 @@ const Editor = (() => {
 
 INDICATOR = {
     "name": "Chỉ báo mới",
-    "kind": "overlay",            # overlay | panel
-    "params": [
-        {"name": "length", "type": "int", "default": 20, "min": 2, "max": 400},
-    ],
+    "type": "overlay",            # overlay | panel
+    "params": {
+        "length": {"type": "int", "default": 20, "min": 2, "max": 400},
+    },
     "outputs": [
         {"key": "value", "label": "Giá trị"},
     ],
@@ -57,10 +57,10 @@ def calculate(df, params):
 
 INDICATOR = {
     "name": "New indicator",
-    "kind": "overlay",            # overlay | panel
-    "params": [
-        {"name": "length", "type": "int", "default": 20, "min": 2, "max": 400},
-    ],
+    "type": "overlay",            # overlay | panel
+    "params": {
+        "length": {"type": "int", "default": 20, "min": 2, "max": 400},
+    },
     "outputs": [
         {"key": "value", "label": "Value"},
     ],
@@ -78,9 +78,9 @@ def calculate(df, params):
 STRATEGY = {
     "name": "Chiến lược mới",
     "side": "both",               # long | short | both
-    "params": [
-        {"name": "length", "type": "int", "default": 20, "min": 2, "max": 400},
-    ],
+    "params": {
+        "length": {"type": "int", "default": 20, "min": 2, "max": 400},
+    },
 }
 
 
@@ -99,9 +99,9 @@ def signals(df, params):
 STRATEGY = {
     "name": "New strategy",
     "side": "both",               # long | short | both
-    "params": [
-        {"name": "length", "type": "int", "default": 20, "min": 2, "max": 400},
-    ],
+    "params": {
+        "length": {"type": "int", "default": 20, "min": 2, "max": 400},
+    },
 }
 
 
@@ -355,7 +355,7 @@ def signals(df, params):
     button.disabled = true;
     button.textContent = t('ed.saving');
     try {
-      const report = await API.pluginImport({
+      const report = await API.importPlugin({
         filename: name.endsWith('.py') ? name : `${name}.py`,
         content: codeArea().value,
         // Editing a file in place is a deliberate overwrite; refusing it would
@@ -367,7 +367,7 @@ def signals(df, params):
       host.querySelector('[data-ed="path"]').textContent = report.path;
       onToast(t('ed.saved', { name: report.filename }));
       await refreshFileList();
-      onSaved(report);
+      await onSaved(report);
     } catch (err) {
       onToast(err.message, true);
     } finally {

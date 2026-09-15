@@ -255,9 +255,8 @@
 
   function setLiveState({ state: liveState }) {
     lastLiveState = liveState;
-    /* The realtime indicator was removed from the bar: the stream is always
-       on, so a light that is always green says nothing. What still matters is
-       further down — a stale price must stop looking current. */
+    Workspace.setConnection(liveState);
+    // Keep the header connection badge and the quote's freshness in sync.
 
     // A stale price is worse than no price: it looks current.
     if (liveState !== 'live' && liveState !== 'connecting') hidePrice();
@@ -1667,7 +1666,6 @@ def signals(df, params):
       Validation.rerender?.();
       Report.rerender?.();
       Portfolio.rerender?.();
-      MultiChart.refreshLabels();
       ChartManager.refreshSize();
     });
 
@@ -1887,6 +1885,7 @@ def signals(df, params):
     // only correct itself on the next redraw.
     I18n.init();
     setupLanguage();
+    Workspace.init();
     // Then the popover: every panel emits (i) buttons, and they are inert
     // until it is listening.
     Explain.init();
@@ -1894,12 +1893,10 @@ def signals(df, params):
     PaperDash.init({ onToast: toast });
     Editor.init({
       onToast: toast,
-      // A saved plugin is only useful once the platform has re-read the
-      // folder, so saving reloads both catalogues rather than leaving the
-      // user to work out why their new file is not in the list.
-      onSaved: async () => {
-        await Indicators.load().catch(() => {});
-        await Strategy.load().catch(() => {});
+      // Refresh the saved plugin's catalogue through the same path as import.
+      onSaved: async (report) => {
+        if (report.kind === 'indicator') Indicators.setCatalog(await API.catalog());
+        else await Strategy.load();
       },
     });
     for (const button of document.querySelectorAll('[data-write]')) {
