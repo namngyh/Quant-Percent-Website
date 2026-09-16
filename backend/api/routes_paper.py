@@ -33,6 +33,7 @@ class OrderRequest(BaseModel):
     action: str                       # "long" | "short" | "close"
     # Share of equity to stake, 0-1. Omitted means the session's own size.
     size_pct: float | None = Field(default=None, gt=0, le=1)
+    leverage: float | None = Field(default=None, ge=1, le=125, allow_inf_nan=False)
     # Exit levels as prices, both optional. The engine refuses a level on the
     # wrong side of the fill rather than accepting one that fires immediately.
     stop_loss: float | None = Field(default=None, gt=0)
@@ -99,6 +100,7 @@ async def order(session_id: str, request: OrderRequest) -> dict:
         return await manager.order(
             session_id, request.action, request.size_pct,
             request.stop_loss, request.take_profit,
+            request.leverage,
         )
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc

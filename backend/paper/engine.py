@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import pandas as pd
@@ -75,6 +75,7 @@ class PaperTrade:
     points: float = 0.0
     contracts: int | None = None
     multiplier: float | None = None
+    leverage: float | None = None
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -169,6 +170,8 @@ class PaperSession:
             points=(exit_price - self.entry_price) * self.position,
             contracts=sizing.contracts,
             multiplier=model.multiplier,
+            leverage=(1 / self.config.contract.initial_margin_rate
+                      if self.config.contract else self.config.leverage),
         )
         self.trades.append(trade)
 
@@ -210,6 +213,7 @@ class PaperSession:
         size_pct: float | None = None,
         stop_loss: float | None = None,
         take_profit: float | None = None,
+        leverage: float | None = None,
     ) -> dict:
         """Open, reverse or close a position by hand, at the live price.
 
@@ -248,6 +252,15 @@ class PaperSession:
             )
 
         target = {"long": 1, "short": -1, "close": 0}[action]
+        next_config = self.config
+        if leverage is not None and target != 0:
+            if not np.isfinite(leverage) or not 1 <= leverage <= 125:
+                raise OrderRefused("bad_leverage", "Đòn bẩy phải từ 1x đến 125x.",
+                                   "Leverage must be between 1x and 125x.")
+            if self.config.contract:
+                raise OrderRefused("contract_leverage", "Đòn bẩy hợp đồng do tỷ lệ ký quỹ quyết định.",
+                                   "Contract leverage is determined by its margin rate.")
+            next_config = replace(self.config, leverage=float(leverage))
 
         # Levels are checked against the price the order will fill at, not
         # against the last trade: a stop 1 tick under the last price is under
@@ -277,7 +290,7 @@ class PaperSession:
                     self._fill_price(self.last_price, -self.position),
                 )
             fill = self._fill_price(self.last_price, target)
-            if self.model.size(equity_after_close, fill, target, size_pct) is None:
+            if equity_after_close <= 0 or model_for(next_config).size(equity_after_close, fill, target, size_pct) is None:
                 raise OrderRefused(
                     "insufficient_margin",
                     "Không đủ ký quỹ cho vị thế này ở giá hiện tại.",
@@ -302,6 +315,9 @@ class PaperSession:
                     "Tài khoản đã hết vốn.",
                     "The account has no equity left.",
                 )
+            # The old position closes under its original terms. Only the new
+            # entry uses the selected leverage; config is persisted with it.
+            self.config = next_config
             self._open(
                 self._fill_price(self.last_price, target), when, target,
                 size_pct=size_pct,
@@ -315,6 +331,8 @@ class PaperSession:
                 "quantity": abs(self.quantity),
                 "time": when,
                 "manual": True,
+                "leverage": (1 / self.config.contract.initial_margin_rate
+                             if self.config.contract else self.config.leverage),
                 "stop_loss": self.stop_loss,
                 "take_profit": self.take_profit,
             })

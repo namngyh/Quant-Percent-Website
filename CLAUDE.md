@@ -210,6 +210,34 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 — Đơn vị, dấu lệnh tay và đòn bẩy trên phiếu Paper
+
+Theo yêu cầu từ ảnh phiếu BTCUSDT: vốn/lãi lỗ/giá có USDT, khối lượng có BTC;
+giá cổ phiếu VN ghi nghìn VND, hợp đồng ghi điểm và số HĐ khi dùng model hợp
+đồng. Phiếu có bốn ô SL, TP, % vốn và đòn bẩy; giữ bản nhập và focus qua các
+tick realtime, khóa trong khi gửi lệnh, mở lại đúng trạng thái khi bị từ chối.
+
+`POST /api/paper/{id}/order` nhận `leverage` tùy chọn, hữu hạn từ 1 đến 125.
+Lệnh linear mới dùng mức vừa chọn; đảo chiều đóng vị thế cũ theo config cũ
+trước khi thay config cho lần mở mới. Config được lưu cùng phiên, lịch sử
+trade ghi đòn bẩy lúc vào lệnh. Contract model vẫn lấy đòn bẩy từ tỷ lệ ký
+quỹ, ô này chỉ đọc và API từ chối ghi đè để không âm thầm bỏ qua tham số.
+
+Sau khớp tay, callback chọn đúng phiên và vẽ dấu ngay trên chart, kể cả khi
+trước đó dấu thuộc backtest. Thời điểm khớp giữa nến được neo vào nến chứa nó;
+đảo chiều giữ dấu vào cũ, dấu đóng và dấu vào mới. Phân trang lịch sử neo lại
+dấu trên dữ liệu mới. Không phát lệnh thử vào phiên Paper đang chạy.
+
+Kiểm tra đạt: 5 test mới backend (sizing, đảo chiều, từ chối không đổi trạng
+thái, lưu/khôi phục, API), Paper 36, position model 18, paper summary 14,
+render Việt/Anh, i18n 2; test phiếu JS 5 nhóm. Chrome: manualticket 7,
+layout 16, levels 31, backtest và async 8. Probe levels ngắt riêng feed của
+trang thử trước khi bơm giá giả để tick thật không làm nến thử thành nến cũ.
+
+Server đang chạy bằng `run.py` không có `--reload`; cần khởi động lại backend
+để API nhận đòn bẩy, rồi tải lại trình duyệt. Các kiểm tra order dùng phiên
+cô lập/TestClient, không sửa dữ liệu tài khoản đang chạy trên cổng 8000.
+
 ### 2026-09-16 — Rà soát toàn bộ và bảo vệ bản nháp trong trình soạn thảo
 
 Chạy lại **380 test Python / 21 script**, toàn bộ bộ render Việt/Anh, 4 mẫu

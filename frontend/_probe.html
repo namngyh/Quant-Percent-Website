@@ -175,6 +175,53 @@ async function pick(doc, symbol, timeframe) {
   const w = frame.contentWindow;
   await sleep(6000);
 
+  if (wants('manualticket')) {
+    log('=== manual ticket (isolated UI session; no server orders) ===');
+    const check = (name, ok) => log(`${ok ? 'PASS' : 'FAIL'} ${name}`);
+    const cm = await until('chart', () => w.eval('ChartManager').barCount > 0 && w.eval('ChartManager'));
+    const paper = w.eval('Paper'), api = w.eval('API');
+    const originalOrder = api.paperOrder;
+    const originalSessions = api.paperSessions;
+    const entryTime = cm.priceSeries.data().at(-1).time - w.eval('Settings').tzOffsetSeconds() + 25;
+    let mock = { id: 'ui-ticket-probe', symbol: 'BTCUSDT', timeframe: '1h', strategy_id: 'manual',
+      is_manual: true, active: true, position: 0, quantity: 0, entry_price: 0, entry_time: 0,
+      last_price: cm.lastClose, equity: 10000, unrealized_pnl: 0, realized_pnl: 0, return_pct: 0,
+      num_trades: 0, win_rate_pct: 0, pending_signal: 0, trades: [],
+      config: { initial_capital: 10000, leverage: 1, size_pct: .7, fee: .0004, slippage: .0002 } };
+    try {
+      api.paperSessions = async () => ({ sessions: [mock] });
+      paper.apply(mock);
+      doc.querySelector('.rail-btn[data-panel="paper"]').click();
+      const card = () => doc.querySelector('[data-session-card="ui-ticket-probe"]');
+      const leverage = card().querySelector('[data-leverage]');
+      leverage.value = '4'; leverage.dispatchEvent(new w.Event('input', { bubbles: true }));
+      paper.apply({ ...mock, last_price: mock.last_price + 1 });
+      check('realtime keeps chosen leverage', card().querySelector('[data-leverage]').value === '4');
+      api.paperOrder = async (id, action, size, exits, lev) => {
+        check('ticket sends leverage to the order API', id === mock.id && lev === 4);
+        mock = { ...mock, position: 1, quantity: .35, entry_price: mock.last_price,
+          entry_time: entryTime, pending_signal: 1, config: { ...mock.config, leverage: lev } };
+        return { snapshot: mock, events: [{ type: 'entry', side: 'long', price: mock.entry_price }] };
+      };
+      card().querySelector('[data-order="long"]').click();
+      await until('manual marker', () => cm.priceSeries.markers().some(m => m.text === 'LONG ●'));
+      check('manual fill draws its arrow immediately', cm.priceSeries.markers().some(m =>
+        m.text === 'LONG ●' && m.time === cm.priceSeries.data().at(-1).time));
+      check('account and position show USDT and BTC', card().querySelector('.pp-figures').textContent.includes('USDT')
+        && card().querySelector('.pp-figures').textContent.includes('BTC'));
+      check('entry price line accompanies the marker', !!doc.querySelector('.position-chip') && !doc.querySelector('.position-chip').hidden);
+      for (const width of [1400, 390]) {
+        frame.style.width = `${width}px`; await sleep(500);
+        const fields = [...card().querySelectorAll('.pp-fields input')];
+        const bounds = card().getBoundingClientRect();
+        check(`${width}px: all four order inputs fit`, fields.length === 4 && fields.every(input => {
+          const r = input.getBoundingClientRect(); return r.width > 35 && r.left >= bounds.left && r.right <= bounds.right + 1;
+        }));
+      }
+      frame.style.width = '1400px';
+    } finally { api.paperOrder = originalOrder; api.paperSessions = originalSessions; }
+  }
+
   if (wants('workspace')) {
     log('=== workspace ===');
     const check = (label, condition) => { log(`${condition ? 'PASS' : 'FAIL'} ${label}`); };

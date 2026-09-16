@@ -1279,13 +1279,17 @@
   // asked for last owns them rather than the two fighting over the chart.
 
   let markerSource = 'backtest';
+  let paperSessionId = null;
+  function paperForChart(openOnly = false) {
+    const matching = (Paper.sessions || []).filter(s => s.symbol === state.symbol
+      && s.timeframe === state.timeframe && (!openOnly || (s.active && s.position !== 0)));
+    return matching.find(s => s.id === paperSessionId) || matching[0];
+  }
 
   function drawPaperMarkers() {
     if (markerSource !== 'paper') return;
 
-    const session = (Paper.sessions || []).find(
-      (s) => s.symbol === state.symbol && s.timeframe === state.timeframe,
-    );
+    const session = paperForChart();
     if (!session) {
       ChartManager.clearTradeMarkers();
       return;
@@ -1326,10 +1330,7 @@
   }
 
   function drawPositionLines() {
-    const session = (Paper.sessions || []).find(
-      (s) => s.symbol === state.symbol && s.timeframe === state.timeframe
-             && s.active && s.position !== 0,
-    );
+    const session = paperForChart(true);
     if (!session) {
       ChartManager.clearPositionLines();
       paperLevelSession = null;
@@ -1390,6 +1391,7 @@
      symbol, its timeframe, and its position lines or closed trades. The layout
      and the open panel stay as they are. */
   function openPaperSession(session) {
+    paperSessionId = session.id;
     markerSource = 'paper';
     if (session.symbol === state.symbol && session.timeframe === state.timeframe) {
       drawPaperMarkers();
@@ -2332,6 +2334,17 @@ def signals(df, params):
         // A hand-traded session opens on whatever the chart is showing.
         context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
         onOpenSession: openPaperSession,
+        onOrderFilled: (session) => {
+          MultiChart.cells.forEach((cell, index) => {
+            if (cell.symbol !== session.symbol || cell.timeframe !== session.timeframe) return;
+            const manager = MultiChart.managerAt(index);
+            manager.setTradeMarkers(session.trades || [], session.position && session.entry_time
+              ? { side: session.position, entry_time: session.entry_time } : null);
+            manager.setMarkersVisible(true);
+          });
+          openPaperSession(session);
+          ChartManager.setMarkersVisible(true);
+        },
         // The settings dialog: a paper session's costs are its own, not the
         // backtest panel's, and they are frozen once the session starts.
         settings: {

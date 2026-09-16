@@ -230,10 +230,11 @@ const API = (() => {
 
     // A hand order on a paper session. `action` is long | short | close;
     // `sizePct` is 0-1 and may be omitted to use the session's own size.
-    paperOrder: (id, action, sizePct, exits) =>
+    paperOrder: (id, action, sizePct, exits, leverage) =>
       post(`/api/paper/${id}/order`, {
         action,
         size_pct: sizePct ?? null,
+        leverage: leverage ?? null,
         stop_loss: exits?.stopLoss ?? null,
         take_profit: exits?.takeProfit ?? null,
       }),

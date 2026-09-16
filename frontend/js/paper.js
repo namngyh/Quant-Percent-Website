@@ -12,6 +12,23 @@ const Paper = (() => {
   let elements = {};
   let onToast = () => {};
   let sessions = [];
+  const drafts = new Map();
+  const submitting = new Set();
+  const unit = value => `<small class="pp-unit">${esc(value)}</small>`;
+  const accountUnit = s => currencyFor(s.symbol) || L('đơn vị vốn', 'account units');
+  function priceUnit(s) {
+    if (!s.symbol.startsWith('VN:')) return accountUnit(s);
+    if (venuesFor(s.symbol)[0] === 'hose') return L('nghìn VND', 'k VND');
+    if (venuesFor(s.symbol)[0] === 'vn_derivatives' || VN_INDEX_NAMES.has(s.symbol.slice(3))) return L('điểm', 'points');
+    return /USD$/.test(s.symbol) ? 'USD' : L('đơn vị giá', 'price units');
+  }
+  function quantityUnit(s) {
+    if (Number.isFinite(s.contracts)) return L('HĐ', 'contracts');
+    if (!s.symbol.startsWith('VN:')) return s.symbol.replace(/(?:USDT|USDC|BUSD|USD)$/, '');
+    return L('đơn vị', 'units');
+  }
+  const priceText = s => `${money(s.last_price)} ${unit(priceUnit(s))}`;
+  const leverageFor = s => s.config.contract ? 1 / s.config.contract.initial_margin_rate : s.config.leverage;
   // The request waiting on the settings dialog, if one is open.
   let pending = null;
 
@@ -89,7 +106,7 @@ const Paper = (() => {
     const size = Math.abs(Number(s.quantity) || 0)
       .toLocaleString('en-US', { maximumFractionDigits: 6 });
     return `<span class="pp-side ${s.position > 0 ? 'long' : 'short'}">${
-      s.position > 0 ? 'LONG' : 'SHORT'}</span>${size}`;
+      s.position > 0 ? 'LONG' : 'SHORT'}</span>${size} ${unit(quantityUnit(s))}`;
   }
 
   /** One ledger row. `value` must already be safe HTML. */
@@ -98,7 +115,7 @@ const Paper = (() => {
       tone ? ` class="${tone}"` : ''}>${value}</dd></div>`;
   }
 
-  const signedMoney = (v) => `${v > 0 ? '+' : ''}${money(v)}`;
+  const signedMoney = (v, s) => `${v > 0 ? '+' : ''}${money(v)} ${unit(accountUnit(s))}`;
 
   /* Open P&L in the mode the reader chose. Percent is on the notional at entry
      — the price move, signed by side — which is the same convention the figure
@@ -106,10 +123,11 @@ const Paper = (() => {
   const openProfit = (s) => Fmt.profit({
     money: s.unrealized_pnl,
     pct: s.quantity && Number.isFinite(s.entry_price)
-      ? (s.unrealized_pnl / (Math.abs(s.quantity) * s.entry_price)) * 100 : null,
+      ? (s.unrealized_pnl / (Math.abs(s.quantity) * s.entry_price * (s.multiplier || 1))) * 100 : null,
     points: s.position && Number.isFinite(s.entry_price) && Number.isFinite(s.last_price)
       ? (s.last_price - s.entry_price) * Math.sign(s.position) : null,
-  });
+    unit: accountUnit(s),
+  }) + (Fmt.mode() === 'points' && s.position ? ` ${L('điểm', 'points')}` : '');
 
   /* A price as it goes into a field. A level dragged on the chart can arrive
      with float noise (1935.2365200241713), and a box that shows sixteen digits
@@ -134,37 +152,44 @@ const Paper = (() => {
     const open = s.position !== 0;
     const id = esc(s.id);
     const costPct = (s.config.fee * 2 + s.config.slippage * 2) * 100;
+    const draft = drafts.get(s.id) || {};
+    const value = (key, fallback) => esc(draft[key] ?? fallback);
 
     return `<div class="pp-ticket" data-ticket="${id}">
       <div class="pp-order">
         <button type="button" class="pp-order-btn buy${long ? ' held' : ''}"
                 data-order="long" data-session="${id}"${long ? ' disabled' : ''}>
           <span>${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
-          <strong>${money(s.last_price)}</strong>
+          <strong>${priceText(s)}</strong>
         </button>
         <button type="button" class="pp-order-btn sell${short ? ' held' : ''}"
                 data-order="short" data-session="${id}"${short ? ' disabled' : ''}>
           <span>${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
-          <strong>${money(s.last_price)}</strong>
+          <strong>${priceText(s)}</strong>
         </button>
       </div>
       <div class="pp-fields">
         <label class="pp-field">
-          <span>${esc(L('Cắt lỗ', 'Stop loss'))}</span>
+          <span>${esc(L('Cắt lỗ', 'Stop loss'))} ${unit(priceUnit(s))}</span>
           <input type="number" step="any" min="0" inputmode="decimal"
                  placeholder="${esc(L('không đặt', 'none'))}"
-                 value="${fieldPrice(s.stop_loss)}" data-stop="${id}" />
+                 value="${value('stop', fieldPrice(s.stop_loss))}" data-stop="${id}" />
         </label>
         <label class="pp-field">
-          <span>${esc(L('Chốt lời', 'Take profit'))}</span>
+          <span>${esc(L('Chốt lời', 'Take profit'))} ${unit(priceUnit(s))}</span>
           <input type="number" step="any" min="0" inputmode="decimal"
                  placeholder="${esc(L('không đặt', 'none'))}"
-                 value="${fieldPrice(s.take_profit)}" data-target="${id}" />
+                 value="${value('target', fieldPrice(s.take_profit))}" data-target="${id}" />
         </label>
         <label class="pp-field">
           <span>${esc(L('% vốn', '% equity'))}</span>
           <input type="number" min="1" max="100" step="1" value="${
-            Math.round(s.config.size_pct * 100)}" data-size="${id}" />
+            value('size', Math.round(s.config.size_pct * 100))}" data-size="${id}" />
+        </label>
+        <label class="pp-field">
+          <span>${esc(L('Đòn bẩy', 'Leverage'))} ${unit('×')}</span>
+          <input type="number" min="1" max="125" step="any" inputmode="decimal" required
+                 value="${value('leverage', leverageFor(s))}" data-leverage="${id}"${s.config.contract ? ` readonly title="${esc(L('Theo tỷ lệ ký quỹ hợp đồng', 'Determined by the contract margin rate'))}"` : ''} />
         </label>
       </div>
       <div class="pp-ticket-actions">
@@ -179,12 +204,15 @@ const Paper = (() => {
         `Khớp ngay ở giá hiện tại. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
         `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
         open ? ` ${esc(L(
-          'Trên biểu đồ: kéo từ đường đen lên hoặc xuống để đặt chốt lời / cắt lỗ, kéo chúng về lại đường đen để gỡ.',
-          'On the chart: pull away from the black line to set a target or stop, and drop one back on it to remove it.'))}` : ''}</p>
+          'Đòn bẩy đã chọn áp dụng cho lần vào lệnh tiếp theo. Kéo từ đường vào lệnh để đặt chốt lời / cắt lỗ.',
+          'Selected leverage applies to the next entry. Drag from the entry line to set a target or stop.'))}` : ''}</p>
     </div>`;
   }
 
   function render() {
+    const focused = document.activeElement;
+    const focusedKey = ['stop', 'target', 'size', 'leverage'].find(key => focused?.dataset?.[key]);
+    const focusedId = focusedKey ? focused.dataset[focusedKey] : null;
     if (!sessions.length) {
       elements.list.innerHTML = `<p class="empty">${L(
         'Chưa có phiên nào. Bấm <strong>Giao dịch tay</strong> ở trên để tự đặt lệnh, ' +
@@ -240,20 +268,20 @@ const Paper = (() => {
             </div>
           </header>
           <dl class="pp-figures">
-            ${figure(L('Vốn', 'Equity'), money(s.equity), sign(pnl))}
+            ${figure(L('Vốn', 'Equity'), `${money(s.equity)} ${unit(accountUnit(s))}`, sign(pnl))}
             ${figure(L('Lợi nhuận', 'Return'), pct(s.return_pct), sign(s.return_pct))}
             ${figure(L('Vị thế', 'Position'), positionTag(s))}
             ${open
               ? figure(L('Lãi/lỗ mở', 'Open P&L'), openProfit(s), sign(s.unrealized_pnl))
-              : figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl), sign(s.realized_pnl))}
+              : figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl, s), sign(s.realized_pnl))}
             ${open
-              ? figure(L('Giá vào', 'Entry'), money(s.entry_price))
-                + figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl), sign(s.realized_pnl))
+              ? figure(L('Giá vào', 'Entry'), `${money(s.entry_price)} ${unit(priceUnit(s))}`)
+                + figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl, s), sign(s.realized_pnl))
               : ''}
           </dl>
           <p class="pp-meta">${esc(L(
             `${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% · nến cuối ${ago(s.last_closed_time)}`,
-            `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}</p>
+            `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}${open ? ` · ${Fmt.number(leverageFor(s))}×` : ''}</p>
           ${s.execution_model === 'contract_model_off'
             ? `<p class="pp-meta">${esc(t('exec.contractOff'))}</p>` : ''}
           ${s.pending_signal !== s.position
@@ -269,6 +297,7 @@ const Paper = (() => {
       .join('');
 
     bind();
+    if (focusedId) elements.list.querySelector(`[data-${focusedKey}="${CSS.escape(focusedId)}"]`)?.focus({ preventScroll: true });
   }
 
   /* The two exit boxes as the API wants them: a number or nothing.
@@ -288,6 +317,12 @@ const Paper = (() => {
   }
 
   function bind() {
+    for (const input of elements.list.querySelectorAll('[data-stop], [data-target], [data-size], [data-leverage]')) {
+      const key = ['stop', 'target', 'size', 'leverage'].find(k => input.dataset[k]);
+      const id = input.dataset[key];
+      input.disabled = submitting.has(id);
+      input.addEventListener('input', () => drafts.set(id, { ...drafts.get(id), [key]: input.value }));
+    }
     // A click anywhere on a session opens its chart, except on its controls.
     for (const card of elements.list.querySelectorAll('[data-session-card]')) {
       card.addEventListener('click', (event) => {
@@ -303,6 +338,8 @@ const Paper = (() => {
         btn.disabled = true;
         try {
           const result = await API.paperExits(id, exitsFor(id));
+          const draft = drafts.get(id);
+          if (draft) { delete draft.stop; delete draft.target; }
           apply(result.snapshot);
           onToast(L('Đã cập nhật cắt lỗ / chốt lời', 'Stop and target updated'));
         } catch (err) {
@@ -313,9 +350,16 @@ const Paper = (() => {
     }
 
     for (const btn of elements.list.querySelectorAll('[data-order]')) {
+      if (submitting.has(btn.dataset.session)) btn.disabled = true;
       btn.addEventListener('click', async () => {
         const id = btn.dataset.session;
         const action = btn.dataset.order;
+        if (submitting.has(id)) return;
+        const ticket = btn.closest('.pp-ticket');
+        if (action !== 'close' && [...ticket.querySelectorAll('input')].some(input => !input.reportValidity())) return;
+        const leverageInput = ticket.querySelector('[data-leverage]');
+        const leverage = leverageInput?.readOnly ? undefined : Number(leverageInput?.value);
+        if (action !== 'close' && !leverageInput?.readOnly && !(leverage >= 1 && leverage <= 125)) return;
         const sizeInput = elements.list.querySelector(`[data-size="${CSS.escape(id)}"]`);
         const raw = Number(sizeInput?.value);
         const exits = exitsFor(id);
@@ -328,23 +372,30 @@ const Paper = (() => {
         const buttons = [...elements.list.querySelectorAll(
           `[data-session="${CSS.escape(id)}"]`)];
         for (const b of buttons) b.disabled = true;
+        submitting.add(id);
+        ticket.querySelectorAll('input').forEach(input => { input.disabled = true; });
         try {
           const result = await API.paperOrder(
             id, action,
             action === 'close' ? undefined : sizePct,
             action === 'close' ? undefined : exits,
+            action === 'close' ? undefined : leverage,
           );
+          submitting.delete(id);
+          drafts.delete(id);
           apply(result.snapshot);
+          elements.onOrderFilled?.(result.snapshot);
           const filled = (result.events || []).find((e) => e.type === 'entry');
           onToast(filled
             ? L(`Đã khớp ${filled.side === 'long' ? 'MUA' : 'BÁN'} ở ${money(filled.price)}`,
                 `Filled ${filled.side === 'long' ? 'BUY' : 'SELL'} at ${money(filled.price)}`)
             : L('Đã đóng vị thế', 'Position closed'));
         } catch (err) {
+          submitting.delete(id);
           // The server sends {code, message:{vi,en}} for a refusal, so the
           // interface shows the text and never matches on it (§2.4).
           onToast(tp(err.detail?.message) || err.message, true);
-          for (const b of buttons) b.disabled = false;
+          render();
         }
       });
     }

@@ -156,10 +156,11 @@ class PaperManager:
         size_pct: float | None = None,
         stop_loss: float | None = None,
         take_profit: float | None = None,
+        leverage: float | None = None,
     ) -> dict:
         """Place a hand order on a session. Raises OrderRefused with a reason."""
         session = self._require(session_id)
-        result = session.place_order(action, size_pct, stop_loss, take_profit)
+        result = session.place_order(action, size_pct, stop_loss, take_profit, leverage)
         await asyncio.to_thread(self._persist, session)
         log.info(
             "paper session %s: manual %s at %.8g", session_id, action, session.last_price

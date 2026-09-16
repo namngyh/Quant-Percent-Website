@@ -42,6 +42,9 @@
     } catch { /* not ready */ }
     await wait(200);
   }
+  // The checks below inject a fixed price path. A real tick/new candle must
+  // not advance its timestamp and turn those injected bars into stale bars.
+  w.eval('Live').setEnabled(false);
   const host = w.eval('MultiChart').activeCell.chartMain;
   const calls = [];
   cm.onLevelDragged = (key, price) => calls.push([key, price]);

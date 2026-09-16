@@ -453,6 +453,7 @@ function createChartManager() {
       open: c.open, high: c.high, low: c.low, close: c.close,
     }));
     applyPriceData(candleData);
+    applyMarkers();
     volumeData = volumes.map((v) => ({
       time: toChart(v.time),
       value: v.value,
@@ -661,7 +662,18 @@ function createChartManager() {
 
   function applyMarkers() {
     if (!candleSeries) return;
-    candleSeries.setMarkers(markersVisible ? storedMarkers : []);
+    // A manual fill happens between candle opens. Attach it to the containing
+    // bar, including the current forming bar, rather than the next candle.
+    const anchored = storedMarkers.flatMap(marker => {
+      let lo = 0, hi = candleData.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (candleData[mid].time <= marker.time) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo ? [{ ...marker, time: candleData[lo - 1].time }] : [];
+    });
+    candleSeries.setMarkers(markersVisible ? anchored : []);
   }
 
   function setTradeMarkers(trades, openPosition = null) {
@@ -1416,6 +1428,7 @@ function createChartManager() {
     candleData = [...older, ...candleData];
     volumeData = [...olderVol, ...volumeData];
     applyPriceData(candleData);
+    applyMarkers();
     volumeSeries.setData(volumeData);
     overviewSeries?.setData(candleData.map((c) => ({ time: c.time, value: c.close })));
 
