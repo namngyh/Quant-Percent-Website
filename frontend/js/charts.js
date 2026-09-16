@@ -1360,6 +1360,8 @@ function createChartManager() {
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
            screenshot, refreshSize, applyDisplay, toChartTime: toChart,
+           // Readable so a probe can check the grid setting reached the chart.
+           get gridVisible() { return !!mainChart?.options().grid.vertLines.visible; },
            get timezoneLabel() { return Settings.timezoneLabel(); },
            destroy,
            get barCount() { return candleData.length; },
