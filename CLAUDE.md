@@ -225,7 +225,13 @@ Nút bánh răng ở đầu trang mở `#settings-dialog`: **Lợi nhuận** (ti
 1), **Biểu đồ** (lưới nền, số nến khi vào chế độ làm việc).
 
 Không có nút Lưu: mỗi điều khiển ghi thẳng khi đổi, vì một hộp cài đặt có trạng
-thái chưa lưu là một cách làm mất thay đổi. Cài đặt nằm trong `localStorage`
+thái chưa lưu là một cách làm mất thay đổi.
+
+*Ký hiệu nút, sửa sau khi Nam nhìn thấy:* bản đầu là một vòng tròn với tám tia
+thẳng — đó là **mặt trời**, không phải bánh răng, vì các tia rời khỏi vòng. Bản
+thay thế là một đường viền răng liền vành quanh lỗ trục, 6 răng; đã so bốn biến
+thể (6/7/8 răng, hai độ dày nét) ở đúng cỡ 15px của nút: 8 răng bị rối, 6 răng
+còn đọc được. Cài đặt nằm trong `localStorage`
 (`qp.settings.v1`), và khoá nào bản mặc định không khai báo thì bị bỏ khi nạp —
 cùng quy tắc `session.js` đang theo.
 
