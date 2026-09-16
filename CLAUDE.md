@@ -210,6 +210,156 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 (tiếp) — Danh sách tồn đọng: dấu vị thế bán, chứng quyền, mô hình của team, nợ i18n
+
+**380 test Python** (trước 368; mới: `test_team_models.py` 10, `test_corporate_actions.py`
+13, cộng các check thêm vào `test_market_vn`, `test_editor_api`, `test_stream`),
+**198 render check**, i18n **2/2 và ratchet đã gỡ**, và trên Chrome: kéo mức giá
+**31/31**, cài đặt **19/19**, tự kiểm biểu đồ **7/7 (mới)**, probe `editor`,
+`stay`, `responsive`, `workspace` không hồi quy.
+
+#### 1. Lãi/lỗ trên vị thế bán bị đảo dấu — Nam nhìn ra từ ảnh chụp
+
+Thẻ trên đường vào lệnh ghi `SHORT ... +4.54 VND` trong khi giá đang đi lên,
+`SL +13.62` và `TP −30.61`. Thẻ tính `quantity × (giá − giá vào)` và cần
+`quantity` **mang dấu**, nhưng snapshot của engine paper trả trị tuyệt đối,
+chiều nằm ở `position`. Comment ngay tại chỗ gọi còn ghi "Signed, as the engine
+holds it" — một lời mô tả đã lỗi thời mà biểu đồ tin theo.
+
+| | Trước | Sau |
+|---|---|---|
+| Bán 0,5 đơn vị, giá chạy +10 điểm | `+5.00 USDT (+0.01%)` | `-5.00 USDT (-0.01%)` |
+| Cắt lỗ phía trên giá vào | `SL +10.00` (lãi) | `SL -10.00` |
+| Chốt lời phía dưới | `TP -10.00` (lỗ) | `TP +10.00` |
+| Cùng cú đó trên lệnh mua | `+5.00` | `+5.00` (không đổi) |
+
+Chiều giờ lấy từ `side`, trường thật sự mang chiều. **Vì sao không bộ test nào
+bắt được:** cả 26 check của trang kéo mức giá đều dựng **lệnh mua**, mà dấu của
+lệnh mua đúng một cách tình cờ. Đã thêm 5 check cho lệnh bán và viết chúng
+trước khi sửa, để thấy chúng đỏ.
+
+Nhân tiện: khối lượng trên nhãn thôi in `5.130797` — giờ đi qua bộ định dạng và
+ghi đơn vị, thành `3 HĐ` khi mô hình hợp đồng đang chạy.
+
+#### 2. "Trái phiếu" trong database không phải trái phiếu
+
+Định thêm chứng quyền và trái phiếu vào ô chọn mã, nhưng đo trước khi làm thì
+18 mã đang bị `classify()` gọi là trái phiếu có giá 1.812–2.030 và khối lượng
+hàng trăm nghìn — đó là thang điểm VN30. Đối chiếu trực tiếp:
+
+| Mã VSD | Trùng VN30F1M | Ghi chú |
+|---|---|---|
+| `41I1G7000` | 19/06 → 16/07 | tháng gần nhất của kỳ đó |
+| `41I1G8000` | 17/07 → 20/08 | |
+| `41I1G9000` | 21/08 trở đi | **trùng tới từng xu và từng lô** |
+| `41I1GC000` | không phiên nào | kỳ hạn xa, chênh −4 điểm, 20–70 lô/phiên |
+
+Tức **VN30F1M là chuỗi nối hợp đồng tháng gần nhất**, và các mã `41I*` là chính
+những hợp đồng đó viết theo mã lưu ký. Đã phân loại lại thành `futures_vn`, giữ
+`bond` cho thứ chưa từng thấy. Chứng quyền vào ô chọn mã với đơn vị riêng và một
+cảnh báo: đo trên 120 phiên, CMWG2524 đi từ 1,21 xuống 0,01 — giảm 99% mà không
+có sự kiện doanh nghiệp nào, vì nó hao mòn theo thời gian rồi đáo hạn.
+
+Ô chọn mã: **1.728 → 2.077 mã** (341 chứng quyền, 10 mã hợp đồng VSD).
+
+*Giới hạn:* mã hợp đồng trong database **trễ 3 phiên** so với chuỗi liên tục
+(đo 2026-09-16: VN30F1M tới 14/09, mọi mã `41I` tới 09/09). Và chuỗi nối có
+**điểm nối**: ngày đáo hạn 20/08, VN30F1M bằng hợp đồng cũ ở 1891,10 trong khi
+hợp đồng mới ở 1883,50 — chênh 7,6 điểm không phải biến động thị trường.
+
+#### 3. Bốn view của team giờ có chỗ đứng
+
+Nút mới cạnh bánh răng mở cửa sổ **Mô hình của team**: dự báo VNINDEX (5/20/60
+phiên), kết quả của các dự báo trước, mạng tương quan VN30, và nhật ký đường
+dữ liệu. Mỗi khối hỏng riêng — một ảnh chụp mạng không đọc được không giữ lại
+phần dự báo bên cạnh.
+
+**Cột `actual_value` của team trống ở cả 66 dòng.** Báo "mô hình đúng 80%" từ
+cột đó là báo cáo hư không. Nên phần chấm điểm so dự báo với **giá đóng cửa
+VNINDEX của chính nền tảng**, đếm theo **số phiên** đúng như đơn vị của tầm dự
+báo (đếm theo ngày lịch sẽ chấm vào một phiên khác, hoặc vào thứ Bảy).
+
+Đo được, 21 dự báo đã tới hạn:
+
+| Tầm | Đã chấm | Sai số tuyệt đối | Lệch hệ thống | Trúng khoảng 90% | Đúng hướng |
+|---|---|---|---|---|---|
+| 5 phiên | 17/22 | 2,30% | **−1,47%** | **88%** | **29,4% ± 11,1** |
+| 20 phiên | 4/22 | 3,94% | −3,94% | 100% | 0,0% ± 0,0 |
+| 60 phiên | 0/22 | — | — | — | — |
+
+Khoảng tin cậy **hiệu chỉnh tốt** (88% so với danh nghĩa 90%). Tỷ lệ đúng hướng
+29,4% trông tệ, nhưng sai số ±11,1 điểm phần trăm trên 17 quan sát — cách 50%
+chưa tới hai lần sai số, nên đây **chưa phải** bằng chứng mô hình đoán ngược.
+Con số in kèm sai số chính vì lý do đó (§2.6).
+
+Nhật ký `v_ingestion_gaps` hiện dưới đúng tên của nó — **rớt kết nối của
+pipeline**, không phải dữ liệu thiếu: 226 lần, trong đó **49 lần rơi trong
+phiên**, phần còn lại rơi lúc không có nến nào để mất.
+
+#### 4. `/api/live/status` có người gọi
+
+Lỗ §2.5 trên đường socket đã được vá từ trước (client vào sau nhận snapshot).
+Phần còn thiếu là endpoint HTTP không ai gọi. Giờ nó trả trạng thái từng luồng
+(`connected`, `mode`), và frontend hỏi nó khi socket đóng — đó là chỗ duy nhất
+phân biệt được "server chết" với "server sống mà socket không mở được".
+
+#### 5. Nợ i18n: 67 → 0, và một lỗi §2.4 lộ ra khi dịch
+
+Hai khối hướng dẫn định dạng plugin và phần cài Telegram là phần lớn nợ. Chúng
+chuyển thành **hàm** thay vì object tĩnh, vì một template dựng lúc nạp trang sẽ
+đóng băng ngôn ngữ lúc đó — đúng cái bẫy `explain.js` từng mắc. Ratchet trong
+`tests/test_i18n.py` đã gỡ: thêm bất kỳ chuỗi chưa dịch nào ở bất kỳ file nào
+giờ làm test đỏ.
+
+Trong lúc dịch thì lộ ra một lỗi **§2.4 thật**: khi nhập plugin trùng tên,
+`app.js` nhận biết lỗi bằng cách **so khớp chữ "đã tồn tại"** trong câu tiếng
+Việt của backend. Người đọc bản tiếng Anh không bao giờ nhận được câu đó, nên
+hộp hỏi ghi đè **không bao giờ hiện** và lần nhập chỉ đơn giản là thất bại.
+Backend giờ trả `{code: "plugin_exists", message: {vi, en}}`, frontend rẽ theo
+mã, và `api.js` chọn ngôn ngữ theo `tp()` thay vì luôn lấy tiếng Việt.
+
+#### 6. Biểu đồ tự bắt quả tang khi mất nến
+
+Mục "đổi mã xong thì mất nến" đã ba lần không tái hiện được. Thay vì hỏi lại
+Nam đã làm gì, ứng dụng tự kiểm sau **mỗi** lần nạp và ghi chẩn đoán vào
+`localStorage['qp.chart-incidents.v1']` kèm một toast. Có hai dạng hỏng:
+
+- **`empty`** — chuỗi không có nến nào, tức lần nạp hỏng;
+- **`offPriceScale`** — có nến, nằm trong khung thời gian, nhưng trục giá ở chỗ
+  khác. Đây đúng là giả thuyết cũ, và là dạng mà một probe đếm điểm ảnh nến
+  **không thể** thấy.
+
+Dạng thứ ba tôi định bắt — nến bị cuộn ra ngoài theo chiều ngang — **không tồn
+tại**: thư viện luôn giữ vài nến trong khung, xin phạm vi 500 nến sau nến cuối
+thì nó kẹp lại. Đã bỏ nhánh đó thay vì để code chết.
+
+*§2.2 — ba phép đo của tôi sai trong lúc dựng bộ tự kiểm này:*
+
+1. Lần đầu đọc ra "thư viện bỏ qua mọi yêu cầu đổi phạm vi". Sai: tôi đọc lại
+   ngay sau khi đặt, headless chưa vẽ lại, nên nhận giá trị cũ. Nó **có** đổi,
+   chỉ là bị kẹp.
+2. Check trục giá đầu tiên của tôi khẳng định `offPriceScale === true || autoScale
+   === false`. Vế sau luôn đúng sau khi tôi tắt autoscale, nên **check không thể
+   đỏ** — nó không kiểm gì cả, đúng lớp lỗi `newest <= now + 1 or newest > now`
+   đã ghi ở mục 2026-09-12.
+3. Chờ bằng vòng lặp rồi đọc `priceToCoordinate` mãi không thấy đổi. Thư viện
+   chỉ hỏi lại `autoscaleInfoProvider` **khi nạp dữ liệu**, không phải khi đặt
+   option — và đó cũng chính là lúc lỗi của Nam xảy ra: ngay sau khi đổi mã.
+
+Ngoài ra: `applyOptions({ autoscaleInfoProvider: undefined })` **không** gỡ
+được option — applyOptions là hợp nhất, `undefined` nghĩa là "giữ nguyên".
+
+#### Giới hạn (§2.7)
+
+- Chấm điểm dự báo dùng giá của nền tảng, không phải của team; nếu sau này team
+  điền `actual_value` thì hai bên có thể lệch, và panel nói rõ đang dùng cái nào.
+- 17 dự báo là quá ít để kết luận về hướng; sai số in kèm để không ai đọc 29,4%
+  như một phát hiện.
+- Cạnh trong mạng tương quan là quan hệ **thống kê trong cửa sổ 60 phiên**,
+  không phải nhân quả, và đổi khi cửa sổ trượt.
+- Bộ tự kiểm biểu đồ chỉ ghi lại, không sửa. Nó tồn tại để lần sau lỗi xảy ra
+  thì có bằng chứng, chứ chưa phải một bản sửa.
+
 ### 2026-09-16 (khuya) — Giá VN đã điều chỉnh chia tách, và thẻ vị thế về sát trục giá
 
 **368 test Python** (trước 355; `tests/test_corporate_actions.py` 13 check mới),

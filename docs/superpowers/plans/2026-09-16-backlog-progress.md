@@ -1,5 +1,10 @@
 # Tồn đọng 2026-09-16 — trạng thái và bước tiếp theo
 
+> **ĐÃ XONG TOÀN BỘ (2026-09-16, cuối ngày).** Sáu việc trong danh sách đều đã
+> làm và đã đẩy lên git; lỗi dấu trên vị thế bán cũng đã sửa. Báo cáo đầy đủ ở
+> CLAUDE.md §4, hai mục "2026-09-16 (khuya)" và "2026-09-16 (tiếp)". Tài liệu
+> này giữ lại để đối chiếu cách từng việc được đo.
+
 Ghi lại để phiên sau tiếp tục ngay, không phải dò lại. Cập nhật: 2026-09-16.
 
 ## Đã xong và đã commit

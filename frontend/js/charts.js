@@ -400,6 +400,45 @@ function createChartManager() {
     return priceType;
   }
 
+  /* Is anything actually on screen?
+
+     Nam has reported candles vanishing after a symbol switch, and three
+     rounds of measurement failed to reproduce it (2026-09-17). Rather than
+     keep guessing, the chart can now be asked, and there are two ways the
+     answer can be "no":
+
+       empty          the series holds no bars at all — a load that failed
+       offPriceScale  bars exist, in the visible range, but the price axis is
+                      somewhere else, which is what a frozen manual scale or a
+                      bad autoscale looks like
+
+     A third shape — bars present but scrolled out of view sideways — was
+     measured and **cannot happen**: Lightweight Charts 4.2.3 silently refuses
+     any visible range outside the data. Four attempts (500 bars past the end,
+     5 past the end, 800 before the start, 5 before it) all left the range
+     exactly where it was, so there is no branch for it here. */
+  function diagnose() {
+    if (!mainChart || !candleSeries) return null;
+    const range = mainChart.timeScale().getVisibleLogicalRange();
+    const bars = candleData.length;
+    const last = bars ? candleData[bars - 1] : null;
+    const y = last ? candleSeries.priceToCoordinate(last.close) : null;
+    const height = mainChart.paneSize ? mainChart.paneSize().height : null;
+    return {
+      series: seriesKey,
+      bars,
+      from: range ? range.from : null,
+      to: range ? range.to : null,
+      autoScale: !!candleSeries.priceScale().options().autoScale,
+      lastClose: last ? last.close : null,
+      lastCloseY: Number.isFinite(y) ? y : null,
+      height,
+      empty: bars === 0,
+      offPriceScale: !!(bars && Number.isFinite(y) && Number.isFinite(height)
+                        && (y < 0 || y > height)),
+    };
+  }
+
   function applyDisplay() {
     for (const chart of allCharts()) chart.applyOptions({ grid: gridLines() });
   }
@@ -1451,11 +1490,12 @@ function createChartManager() {
            get markersVisible() { return markersVisible; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
-           screenshot, refreshSize, applyDisplay, toChartTime: toChart,
+           screenshot, refreshSize, applyDisplay, diagnose, toChartTime: toChart,
            // Readable so a probe can check the grid setting reached the chart.
            get gridVisible() { return !!mainChart?.options().grid.vertLines.visible; },
            get timezoneLabel() { return Settings.timezoneLabel(); },
            destroy,
+           get timeScale() { return mainChart ? mainChart.timeScale() : null; },
            get barCount() { return candleData.length; },
            get lastClose() { return candleData.length ? candleData[candleData.length - 1].close : null; },
            set onSeriesChanged(fn) { onSeriesChanged = fn || null; } };

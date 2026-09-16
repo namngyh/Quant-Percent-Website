@@ -185,6 +185,8 @@
         warnIfDataIncomplete(requested);
         announceCorporateActions(requested, data.corporate_actions);
         warnIfWarrant(symbol);
+        checkChartAfterLoad(requested);
+        lastSeriesKey = requested;
         showPrice(last.close);
       }
 
@@ -583,6 +585,54 @@
       `${bare} is a covered warrant: it decays against its strike and expires. `
       + 'The backtest assumptions here are equity assumptions, so a result running '
       + 'longer than a few weeks on a warrant does not read like an equity result.'));
+  }
+
+  /* The chart watches itself after every load.
+
+     "Đổi mã xong thì mất nến" has been reported more than once and three
+     rounds of measurement could not reproduce it (CLAUDE.md, 2026-09-17). A
+     bug nobody can reproduce is a bug nobody can fix, so instead of asking Nam
+     to remember what he did, the app records the state the moment it goes
+     wrong: which series, how many bars, where the visible range and the price
+     scale were, and whether the scale had been left on manual.
+
+     Kept in this browser, capped, and never sent anywhere. Read it with
+     `JSON.parse(localStorage['qp.chart-incidents.v1'])` in the console. */
+  const INCIDENT_KEY = 'qp.chart-incidents.v1';
+  const INCIDENT_CAP = 20;
+  let lastSeriesKey = null;
+
+  function recordIncident(report) {
+    let stored = [];
+    try {
+      stored = JSON.parse(localStorage.getItem(INCIDENT_KEY) || '[]');
+    } catch {
+      stored = [];
+    }
+    stored.push(report);
+    try {
+      localStorage.setItem(INCIDENT_KEY, JSON.stringify(stored.slice(-INCIDENT_CAP)));
+    } catch {
+      // Storage blocked or full: the console line below is still evidence.
+    }
+    console.warn('QP: the chart came up without candles', report);
+  }
+
+  function checkChartAfterLoad(requested) {
+    // After a paint, not in the same tick: a chart measured before its first
+    // frame reports a range it has not applied yet, which is how the earlier
+    // measurements produced their own false readings.
+    setTimeout(() => {
+      const report = ChartManager.diagnose();
+      if (!report || report.series !== requested) return;
+      if (!(report.empty || report.offPriceScale)) return;
+      recordIncident({ ...report, at: Date.now(), cameFrom: lastSeriesKey });
+      toast(L(
+        'Biểu đồ vừa nạp xong mà không có nến trong khung. Đã ghi lại chẩn đoán '
+        + '(localStorage `qp.chart-incidents.v1`) — gửi lại giúp tôi.',
+        'The chart finished loading with no candles in view. The diagnosis is '
+        + 'recorded (localStorage `qp.chart-incidents.v1`) — please send it over.'), true);
+    }, 400);
   }
 
   const coverageSeen = new Set();
