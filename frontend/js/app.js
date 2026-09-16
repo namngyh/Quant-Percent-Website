@@ -184,6 +184,7 @@
         showLoadedBars();
         warnIfDataIncomplete(requested);
         announceCorporateActions(requested, data.corporate_actions);
+        warnIfWarrant(symbol);
         showPrice(last.close);
       }
 
@@ -559,6 +560,29 @@
       `${events.length} split/stock-dividend event(s) taken out of this series; `
       + `the largest on ${when}, ratio ${worst.ratio.toFixed(2)}${name}. `
       + 'Older prices are restated onto today\'s scale; the newest are untouched.'));
+  }
+
+  /* A covered warrant is not a small share.
+
+     It decays against a strike and then expires, so a long backtest on one is
+     measuring a wasting asset and, past expiry, an instrument that no longer
+     exists. Measured over 120 sessions: CMWG2524 went from 1.21 to 0.01, a 99%
+     fall with no corporate action behind it. The platform lists them because
+     they are real series worth looking at — and says this before anyone reads
+     a backtest of one as if it were a share. */
+  const warrantsSeen = new Set();
+
+  function warnIfWarrant(symbol) {
+    const bare = String(symbol || '').replace(/^VN:/i, '').toUpperCase();
+    if (!/^C[A-Z]{3}\d{4}$/.test(bare) || warrantsSeen.has(bare)) return;
+    warrantsSeen.add(bare);
+    toast(L(
+      `${bare} là chứng quyền: giá hao mòn theo thời gian so với giá thực hiện và `
+      + 'hết hiệu lực khi đáo hạn. Các giả định của backtest ở đây là giả định cổ '
+      + 'phiếu, nên kết quả dài hơn vài tuần trên chứng quyền không đọc như kết quả cổ phiếu.',
+      `${bare} is a covered warrant: it decays against its strike and expires. `
+      + 'The backtest assumptions here are equity assumptions, so a result running '
+      + 'longer than a few weeks on a warrant does not read like an equity result.'));
   }
 
   const coverageSeen = new Set();
@@ -1084,6 +1108,7 @@
         ['futures_vn', () => L('Phái sinh Việt Nam', 'Vietnam futures')],
         ['index_sector', () => L('Chỉ số ngành', 'Sector indices')],
         ['fund', () => L('Quỹ ETF', 'ETFs')],
+        ['warrant', () => L('Chứng quyền', 'Covered warrants')],
         ['equity', () => L('Cổ phiếu Việt Nam', 'Vietnam equities')],
       ];
 

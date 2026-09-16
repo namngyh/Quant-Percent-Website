@@ -274,6 +274,14 @@ async function render(label, kind, payload) {
            === JSON.stringify(['binance_futures_taker', 'binance_futures_maker', 'binance_spot']));
   expect('a VN equity offers only HOSE',
          JSON.stringify(window.Paper.venuesFor('VN:VIC')) === JSON.stringify(['hose']));
+  // The depository writes the same contract as 41I1G9000, measured identical
+  // to VN30F1M close and volume (backend/data/market_vn.py), so it is charged
+  // as the future it is rather than as a share.
+  expect('a VSD contract code is charged as a future',
+         JSON.stringify(window.Paper.venuesFor('VN:41I1G9000')) === JSON.stringify(['vn_derivatives']));
+  // A covered warrant trades on the cash market at cash-market fees.
+  expect('a covered warrant is charged like a listing',
+         JSON.stringify(window.Paper.venuesFor('VN:CVNM2609')) === JSON.stringify(['hose']));
   expect('a VN30F contract offers only the derivatives venue',
          JSON.stringify(window.Paper.venuesFor('VN:VN30F1M')) === JSON.stringify(['vn_derivatives']));
   expect('no Binance venue is offered for a VN contract',

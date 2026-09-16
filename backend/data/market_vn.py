@@ -107,11 +107,30 @@ _VN_INDEX_NAMES = {
     "HNXINDEX", "HNX30INDEX", "UPCOMINDEX",
 }
 
-# Covered warrants (CVNM2609) and bonds (41I1G8000) are deliberately excluded
-# everywhere below: a warrant carries time decay against a strike and a bond is
-# quoted against face value with accrued interest, and neither survives the
-# equity pricing conventions the rest of this platform assumes (§3.1, §3.6).
+# Covered warrants (CVNM2609) are listed, in their own family and their own
+# unit. They were excluded for carrying time decay against a strike — true, and
+# a reason to WARN rather than to hide a real series: the interface says so when
+# one is opened, and the split adjustment leaves the class alone because a 99%
+# decay is not a corporate action (§2.7).
+#
+# What was excluded beside them, "bonds like 41I1G8000", turned out not to be
+# bonds at all: those are index futures under the depository's contract codes,
+# measured identical to VN30F1M. See _VSD_FUTURES_RE below.
 _WARRANT_RE = re.compile(r"^C[A-Z]{3}\d{4}$")
+
+# Index futures written the depository's way: 41 (a derivative), I1 or I2 (the
+# underlying), then the contract's own code — 41I1G9000, 41I1GC000, 41I2G8000.
+#
+# These used to be filed as bonds on the strength of the leading digit, and the
+# prices say otherwise. Measured over 35 shared sessions (2026-09-16):
+# 41I1G9000 matches VN30F1M to the cent AND to the lot on every one of them, so
+# the "continuous" series is that contract; 41I1GC000 is a further expiry
+# trading 20-70 lots a day at a basis of -4 points. A bond quoted against face
+# value with accrued interest looks nothing like either.
+_VSD_FUTURES_RE = re.compile(r"^41I[12][A-Z0-9]{5}$")
+
+# Anything else that opens with a digit stays unrecognised: no row in this
+# database has been shown to be a bond, and a class is a claim about pricing.
 _BOND_RE = re.compile(r"^\d")
 
 # What each class is quoted in, so the interface never labels an index level as
@@ -119,6 +138,13 @@ _BOND_RE = re.compile(r"^\d")
 CLASS_CURRENCY = {
     "equity": "VND",
     "fund": "VND",
+    # A covered warrant is quoted in the same thousands of dong as the share it
+    # is written on, and trades in the same lots. What it does NOT share is the
+    # pricing behaviour: it decays against a strike and then expires. Measured
+    # over 120 days: CMWG2524 ran 1.21 down to 0.01, a 99% fall with no
+    # corporate action behind it, which is why the split adjustment leaves this
+    # class alone and the interface warns before a backtest.
+    "warrant": "VND",
     "index_vn": "point",
     "index_sector": "point",
     "index_global": "point",
@@ -160,6 +186,8 @@ def classify(symbol: str) -> str | None:
         return "futures_vn"
     if _VN_FUND_RE.match(name):
         return "fund"
+    if _VSD_FUTURES_RE.match(name):
+        return "futures_vn"
     if _WARRANT_RE.match(name):
         return "warrant"
     if _BOND_RE.match(name):

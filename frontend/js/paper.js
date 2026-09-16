@@ -480,9 +480,17 @@ const Paper = (() => {
       return ['custom'];
     }
 
-    // VN30F1M and the VN100F/quarterly contracts are futures; everything else
-    // left on this market is an ordinary Vietnamese listing or fund.
-    return /^VN(30|100)F/i.test(bare) ? ['vn_derivatives'] : ['hose'];
+    /* Futures, written either way: VN30F1M and the VN100F/quarterly names, or
+       the depository's own contract codes (41I1G9000, measured identical to
+       VN30F1M — see classify() in backend/data/market_vn.py).
+
+       Everything else left on this market — an ordinary listing, a fund, or a
+       covered warrant — trades on the same cash market at the same fees, and
+       cannot be sold short, which the HOSE preset already says. */
+    if (/^VN(30|100)F/i.test(bare) || /^41I[12][A-Z0-9]{5}$/i.test(bare)) {
+      return ['vn_derivatives'];
+    }
+    return ['hose'];
   }
 
   /* Kept in step with `_VN_INDEX_NAMES` in backend/data/market_vn.py. Two

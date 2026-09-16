@@ -153,8 +153,18 @@ def _():
         "I1-FIN": "index_sector", "I3-BANK": "index_sector",
         "VN30F1M": "futures_vn", "VN100F2Q": "futures_vn",
         "FUESSV50": "fund", "E1VFVN30": "fund",
-        # Recognised, and deliberately not offered.
-        "CVNM2609": "warrant", "41I1G8000": "bond",
+        # Covered warrants: offered now, with their own unit and their own
+        # warning (they decay against a strike and then expire).
+        "CVNM2609": "warrant", "CHPG2512": "warrant",
+        # VSD contract codes. These were filed under "bond" on the shape of the
+        # leading digit, and the prices say otherwise: 41I1G9000 is identical
+        # to VN30F1M, close and volume, on every shared session (see the live
+        # check below). They are index futures written the depository's way.
+        "41I1G9000": "futures_vn", "41I1GC000": "futures_vn",
+        "41I2G8000": "futures_vn", "41I1H3000": "futures_vn",
+        # A leading digit that is not a VSD contract stays unrecognised rather
+        # than being promoted into a class on the strength of one character.
+        "9ABCDEFGH": "bond",
     }
     for symbol, expected in cases.items():
         assert market_vn.classify(symbol) == expected, (
@@ -179,8 +189,13 @@ def _():
     assert market_vn.CLASS_CURRENCY["equity"] == "VND"
     assert market_vn.CLASS_CURRENCY["commodity"] == "USD"
     assert market_vn.CLASS_CURRENCY["index_vn"] == "point"
-    # Warrants and bonds are not offered, so they carry no unit at all.
-    assert "warrant" not in market_vn.TRADABLE_CLASSES
+    # A warrant is quoted in the same thousands of dong as its underlying, so
+    # it carries a unit and is offered. What it does not carry is the equity
+    # pricing behaviour, which the interface says out loud instead of hiding
+    # the instrument.
+    assert market_vn.CLASS_CURRENCY["warrant"] == "VND"
+    # "bond" remains a name for "recognised and not offered": no row in this
+    # database has been shown to be one.
     assert "bond" not in market_vn.TRADABLE_CLASSES
 
 
@@ -234,11 +249,12 @@ def _():
     assert out == [], out
 
 
-@check("a warrant or bond never reaches the picker, but an index does")
+@check("every family reaches the picker carrying its own unit")
 def _():
     rows = [
-        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),    # time decay against a strike
-        ("41I1G8000", date(2026, 9, 9), 100.0, 5),     # quoted against face value
+        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),    # a covered warrant
+        ("41I1G8000", date(2026, 9, 9), 100.0, 5),     # a VSD contract code
+        ("9ABCDEFGH", date(2026, 9, 9), 100.0, 5),     # a shape nothing recognises
         ("VNINDEX", date(2026, 9, 9), 1900.0, 0),      # a legitimate index level
         ("G-XAUUSD", date(2026, 9, 9), 4418.11, 0),    # gold, priced in USD
     ]
@@ -246,8 +262,14 @@ def _():
         out = market_vn._symbols_without_quote(known=set())
 
     got = {row["symbol"]: row for row in out}
-    assert "CVNM2609" not in got, got
-    assert "41I1G8000" not in got, got
+    # A warrant is quoted like the share it is written on, and a VSD code is an
+    # index future — measured, not assumed (see classify).
+    assert got["CVNM2609"]["asset_class"] == "warrant"
+    assert got["CVNM2609"]["currency"] == "VND"
+    assert got["41I1G8000"]["asset_class"] == "futures_vn"
+    assert got["41I1G8000"]["currency"] == "point"
+    # And a shape nothing here recognises stays out rather than being guessed.
+    assert "9ABCDEFGH" not in got, got
     # And the two that belong come through carrying the right units, so the
     # interface never prints an index level or an ounce of gold as đồng.
     assert got["VNINDEX"]["asset_class"] == "index_vn"
@@ -568,8 +590,63 @@ def _():
         assert row["asset_class"] in market_vn.TRADABLE_CLASSES, row
         assert row["currency"], row
 
-    # And the two excluded families really are absent.
-    assert not [s for s in symbols if market_vn.classify(s) in ("warrant", "bond")]
+    # Warrants are listed now, priced in the same thousand-dong convention as
+    # equities; anything still classed "bond" stays out.
+    assert not [s for s in symbols if market_vn.classify(s) == "bond"], "a bond was listed"
+    warrants = [s for s in symbols if market_vn.classify(s) == "warrant"]
+    assert len(warrants) > 50, len(warrants)
+    assert all(symbols[s]["currency"] == "VND" for s in warrants)
+
+
+@live("VN30F1M is the front VSD contract, and it rolls")
+def _():
+    """The measurement the reclassification rests on.
+
+    If the depository's code and the platform's "continuous" series are the
+    same numbers, then the code is an index future and filing it under "bond"
+    on the strength of a leading digit was a wrong claim about pricing.
+
+    Measured 2026-09-16: VN30F1M is 41I1G8000 on 20/08 — expiry day — and
+    41I1G9000 from 21/08 on, to the cent AND to the lot. So the assertion is
+    not "one contract matches", which the roll breaks by exactly one session,
+    but "every session matches some contract", which is what a front-month
+    series IS.
+    """
+    front = market_vn.get_candles("VN30F1M", "1d", limit=40, adjust=False)
+    assert len(front) >= 10, len(front)
+    # The contract codes lag the continuous series here — 3 sessions when this
+    # was written — so the newest bars of VN30F1M have no contract to match.
+    recent = front.set_index("open_time").tail(15)
+
+    codes = [row[0] for row in market_vn.query(
+        """
+        SELECT DISTINCT symbol FROM api.v_history_1d
+        WHERE symbol LIKE '41I1%%' AND trading_date >= current_date - interval '60 days'
+        """
+    )]
+    assert codes, "no VSD contract codes in the last 60 sessions"
+    assert all(market_vn.classify(code) == "futures_vn" for code in codes), codes
+
+    series = {}
+    for code in codes:
+        frame = market_vn.get_candles(code, "1d", limit=40, adjust=False)
+        if len(frame):
+            series[code] = frame.set_index("open_time")
+
+    holder = {}
+    for when in recent.index:
+        for code, frame in series.items():
+            if when not in frame.index:
+                continue
+            if (abs(frame.loc[when, "close"] - recent.loc[when, "close"]) < 1e-9
+                    and abs(frame.loc[when, "volume"] - recent.loc[when, "volume"]) < 1e-9):
+                holder[when] = code
+                break
+
+    covered = [w for w in recent.index if w in holder]
+    assert len(covered) >= 10, f"only {len(covered)} of {len(recent)} sessions match any contract"
+    rolls = sum(1 for a, b in zip(covered, covered[1:]) if holder[a] != holder[b])
+    print(f"        {len(covered)} sessions matched a contract exactly, {rolls} roll(s) inside them")
 
 
 @live("the account holds no write privileges")
