@@ -20,6 +20,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 const NAV_ITEMS = [
   { key: "market", href: "/market-intelligence" },
   { key: "models", href: "/models" },
+  { key: "articles", href: "/articles" },
   { key: "performance", href: "/performance" },
   { key: "portfolio", href: "/quant-portfolio" },
   { key: "about", href: "/about" },

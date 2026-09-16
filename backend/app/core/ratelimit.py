@@ -37,6 +37,15 @@ PASSWORD_CHANGE = RateLimit(5, 15 * 60)
 # reputation and on somebody's inbox. Same shape as REGISTER for that reason.
 RESEND_VERIFICATION = RateLimit(3, 60 * 60)
 
+# Articles. All keyed on the account. Publishing is generous for a person and
+# tight for a script; votes allow somebody changing their mind a few times
+# across a page of cards; comments stop a flood without getting in the way of
+# a real conversation.
+ARTICLE_WRITE = RateLimit(10, 60 * 60)
+ARTICLE_IMAGE = RateLimit(40, 60 * 60)
+ARTICLE_VOTE = RateLimit(60, 60)
+ARTICLE_COMMENT = RateLimit(10, 60)
+
 
 def client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
