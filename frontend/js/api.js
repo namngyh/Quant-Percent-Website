@@ -64,6 +64,19 @@ const API = (() => {
 
     health: () => request('/api/health'),
 
+    /* Where the live feed stands, asked rather than waited for.
+
+       The socket announces a stream coming up once. A client that was not
+       listening — or whose socket never opened — has to be able to ask, or it
+       sits on "connecting" over a chart that is perfectly fine (§2.5). */
+    liveStatus: ({ symbol, timeframe } = {}) => {
+      const q = new URLSearchParams();
+      if (symbol) q.set('symbol', symbol);
+      if (timeframe) q.set('timeframe', timeframe);
+      const query = q.toString();
+      return request(`/api/live/status${query ? `?${query}` : ''}`);
+    },
+
     catalog: () => request('/api/indicators'),
 
     compute: ({ indicatorId, symbol, timeframe, params, limit }) =>

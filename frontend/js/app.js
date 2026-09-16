@@ -1232,6 +1232,22 @@
      Markers are history and belong to whatever the user last ran; an open
      position is the present, and hiding it behind a panel means placing an
      order and then seeing nothing on the chart you placed it from. */
+  /* How much is on, in units the reader recognises.
+
+     Whole contracts when the contract model is running, and the account-unit
+     quantity otherwise. It used to print the raw number to six decimals
+     ("SHORT 5.130797"), which is neither a contract count nor a readable size
+     — and on a future it is the fractional figure the contract model exists to
+     replace. */
+  function positionSize(session) {
+    if (Number.isFinite(session.contracts)) {
+      return `${Fmt.number(session.contracts, 0)} ${
+        L('HĐ', session.contracts === 1 ? 'contract' : 'contracts')}`;
+    }
+    const quantity = Math.abs(Number(session.quantity) || 0);
+    return Fmt.number(quantity, quantity >= 1 ? 2 : 6);
+  }
+
   function drawPositionLines() {
     const session = (Paper.sessions || []).find(
       (s) => s.symbol === state.symbol && s.timeframe === state.timeframe
@@ -1248,11 +1264,11 @@
       stop: session.stop_loss,
       target: session.take_profit,
       entryTime: session.entry_time,
-      // Signed, as the engine holds it, so the P&L on the chart is the server's.
-      quantity: session.quantity,
+      // A magnitude: the snapshot keeps direction in `position`, and the chart
+      // takes the sign from `side` above (charts.js, signedQuantity).
+      quantity: Math.abs(Number(session.quantity) || 0),
       unit: Paper.currencyFor(session.symbol),
-      label: `${session.position > 0 ? 'LONG' : 'SHORT'} ${
-        Math.abs(Number(session.quantity || 0)).toLocaleString('en-US', { maximumFractionDigits: 6 })}`,
+      label: `${session.position > 0 ? 'LONG' : 'SHORT'} ${positionSize(session)}`,
     });
     paperLevelSession = session.id;
   }

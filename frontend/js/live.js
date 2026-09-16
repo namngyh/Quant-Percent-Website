@@ -52,6 +52,10 @@ const Live = (() => {
     socket.addEventListener('close', () => {
       socket = null;
       report({ state: 'offline' });
+      /* "Offline" is where two very different situations look the same: the
+         server is gone, or the server is fine and the socket is what failed.
+         The status endpoint answers that, and the badge can then say which. */
+      probeStatus();
       scheduleReconnect();
     });
 
@@ -59,6 +63,30 @@ const Live = (() => {
       // 'close' always follows, and that is where reconnection is handled.
       if (socket) socket.close();
     });
+  }
+
+  /* Ask the server where the feed stands.
+
+     Only called when the socket is not carrying the answer itself. A reply
+     means the server is up: if it also has this series connected upstream,
+     then the broken part is this browser's socket, and saying so is the
+     difference between a user waiting and a user reloading. No reply at all
+     means the server is the problem. */
+  async function probeStatus() {
+    let body = null;
+    try {
+      body = await API.liveStatus(desired || {});
+    } catch {
+      report({ state: 'error', message: L('Không hỏi được trạng thái luồng — server không trả lời.',
+                                          'Could not ask for the feed status — the server did not answer.') });
+      return;
+    }
+    const stream = body?.stream;
+    if (stream?.connected) {
+      report({ state: 'error', ...stream,
+               message: L('Server vẫn nhận dữ liệu cho mã này, nhưng trình duyệt không mở được kênh realtime.',
+                          'The server is still receiving this series; this browser could not open the realtime channel.') });
+    }
   }
 
   /* Report a status change, and only a change.

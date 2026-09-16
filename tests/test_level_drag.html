@@ -234,7 +234,42 @@
         JSON.stringify(band));
   scale.applyOptions({ scaleMargins: { top: 0.1, bottom: 0.2 } });
 
-  // 11. No position: no bands, no chip.
+  /* 11. A SHORT position, which every check above misses.
+
+     They all build a long, and a long's sign comes out right by accident: the
+     chip multiplies `quantity` by the price move, while the paper snapshot
+     reports `quantity` as a magnitude with the direction in `position`. On a
+     short that read as a profit while the price rose against it (Nam,
+     2026-09-16), and the stop showed a gain. */
+  const shortStop = +(entry + 20).toFixed(2);
+  const shortTarget = +(entry - 20).toFixed(2);
+  cm.setPositionLines({
+    side: -1, entry, quantity: 0.5, unit: 'USDT', label: 'SHORT 0.5',
+    stop: shortStop, target: shortTarget,
+  });
+  // The price moves UP, against the short: 0.5 x 10 = 5 USDT of loss.
+  cm.updateCandle({
+    time: bar.time - 7 * 3600, open: bar.open, high: Math.max(bar.high, entry + 10),
+    low: Math.min(bar.low, entry + 10), close: entry + 10, volume: vol,
+  }, cm.seriesKey);
+  const shortChip = cm.levelZones?.chip?.text || '';
+  check('a short losing money says it is losing',
+        shortChip.includes('-5.00 USDT') && !shortChip.includes('+5.00'), shortChip);
+  check('and its percentage is negative too', /\(-0\.\d\d%\)/.test(shortChip), shortChip);
+  check("a short's stop, above the entry, books a loss",
+        /^SL -[\d,]+\.\d\d USDT$/.test(cm.levelLines.stop?.title || ''),
+        cm.levelLines.stop?.title);
+  check("a short's target, below the entry, books a gain",
+        /^TP \+[\d,]+\.\d\d USDT$/.test(cm.levelLines.target?.title || ''),
+        cm.levelLines.target?.title);
+
+  // And the long case still reads the other way, so the fix is a sign and not
+  // a flip: same prices, other side.
+  cm.setPositionLines({ side: 1, entry, quantity: 0.5, unit: 'USDT', label: 'LONG 0.5' });
+  check('the same move on a long is still a gain',
+        (cm.levelZones?.chip?.text || '').includes('+5.00 USDT'), cm.levelZones?.chip?.text);
+
+  // 12. No position: no bands, no chip.
   cm.clearPositionLines();
   check('clearing the position removes the bands and the chip',
         cm.levelZones === null && chip.hidden === true, JSON.stringify(cm.levelZones));

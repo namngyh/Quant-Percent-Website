@@ -714,13 +714,27 @@ function createChartManager() {
       minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  /* The position's size, with its direction.
+
+     The paper snapshot reports `quantity` as a magnitude and keeps the
+     direction in `position`, so multiplying the raw number by the price move
+     reads a short backwards: a short losing money showed a profit, its stop
+     showed a gain and its target a loss (Nam, 2026-09-16). `side` is the field
+     that carries direction, so the sign is taken from there and `quantity` is
+     used only for how much. */
+  function signedQuantity() {
+    const size = Math.abs(Number(levels.quantity) || 0);
+    return levels.side < 0 ? -size : size;
+  }
+
   function levelTitle(key, price) {
-    const pnl = Number.isFinite(price) && levels.quantity && Number.isFinite(levels.entry)
-      ? levels.quantity * (price - levels.entry) : null;
+    const quantity = signedQuantity();
+    const pnl = Number.isFinite(price) && quantity && Number.isFinite(levels.entry)
+      ? quantity * (price - levels.entry) : null;
     // Percent of the position's notional at entry: the price move, signed by side.
-    const pct = pnl === null ? null : pnl / (Math.abs(levels.quantity) * levels.entry) * 100;
+    const pct = pnl === null ? null : pnl / (Math.abs(quantity) * levels.entry) * 100;
     const points = pnl === null ? null
-      : (price - levels.entry) * Math.sign(levels.quantity);
+      : (price - levels.entry) * Math.sign(quantity);
     // Two decimals here whatever the setting says: this label sits on the
     // price axis, where a figure that changes width every tick is unreadable.
     const figure = pnl === null ? ''
