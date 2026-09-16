@@ -210,6 +210,80 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 (khuya) — Giá VN đã điều chỉnh chia tách, và thẻ vị thế về sát trục giá
+
+**368 test Python** (trước 355; `tests/test_corporate_actions.py` 13 check mới),
+render check đạt, i18n 2/2, `test_level_drag.html` 26/26, `test_settings_ui.html`
+17/17. Trạng thái và việc còn lại:
+`docs/superpowers/plans/2026-09-16-backlog-progress.md`.
+
+#### 1. Chia tách chưa điều chỉnh — món tốn tiền nhất, giờ đã sửa
+
+§3.6 ghi nhận `api.v_history_1d` trả giá thô và schema `api` **không có** lịch
+sử sự kiện doanh nghiệp, nên "chưa có bản sửa". Bản sửa không cần lịch sử đó:
+thị trường có **biên độ** (HOSE 7%, HNX 10%, UPCOM 15%), nên một phiên nhảy quá
+**20%** không phải biến động thị trường mà là mã được định giá lại — và chính
+bước nhảy đó là tỷ lệ. `backend/data/corporate_actions.py` suy ra sự kiện, đưa
+chuỗi về một thang (điều chỉnh **lùi**: giá hôm nay giữ nguyên, quá khứ được
+viết lại theo thang hôm nay).
+
+Đo trên VIC, 400 phiên, đòn bẩy 3, phí 0,15%:
+
+| | Giá thô | Đã điều chỉnh |
+|---|---|---|
+| Phiên tệ nhất | **−46,5%** | **−7,0%** (đúng biên độ HOSE) |
+| Lợi nhuận | **−100%, cháy tài khoản** | −57,86%, không cháy |
+| Số lệnh | 2 | 7 |
+
+VNM và HPG không có sự kiện nào → kết quả **giống hệt** tới từng chữ số, nên
+bản sửa không đụng vào mã sạch. Qua API: `adjust=1` cho 1 sự kiện và phiên tệ
+nhất 7,00%; `adjust=0` cho 46,52%; giá mới nhất **241,40 ở cả hai**.
+
+Bật mặc định, tắt được trong bánh răng (nhóm **Dữ liệu**). Biểu đồ báo một lần
+mỗi chuỗi và panel Kết quả ghi chú, vì giá trên màn hình không còn là giá trong
+database — đó chính là lý do biểu đồ này lệch với biểu đồ thô của công ty chứng
+khoán.
+
+**Giới hạn, nói trước (§2.7):**
+
+- **Cổ tức tiền mặt không thấy được ở đây.** Một cổ tức 3% làm giá giảm 3%, nằm
+  trong biên độ, và không quy tắc nào chỉ dựa trên giá phân biệt được nó với một
+  phiên xấu. Chuỗi lợi suất tổng cần lịch sử cổ tức mà database này không có.
+- Tỷ lệ là **suy ra**, không tra cứu. Nó đúng bằng bước nhảy đã xảy ra — thứ làm
+  chuỗi liền mạch — còn tên gọi ("2:1") chỉ hiện khi có phân số đủ đơn giản.
+- Một phiên ngừng giao dịch trùm lên cú sập thật sẽ bị đọc nhầm thành sự kiện.
+  Trên sàn có biên độ, sập thật đến thành chuỗi phiên sàn chứ không thành một
+  bước nhảy, nên hiếm — nhưng đó là cách nó sai.
+
+*§2.2 — hai phép kiểm của tôi sai, không phải code:* `ratio_label(1.8697)` trả
+`28:15` vì `limit_denominator` cho phân số **gần nhất** chứ không phải phân số
+**đơn giản nhất**; tỷ lệ 1,87 của VIC vốn không phải tỷ lệ tròn nên câu trả lời
+đúng là **không đặt tên**. Và hai check `open/high/low` với `volume` đòi sai số
+2% trong khi fixture có nhiễu ±6% ngay cạnh sự kiện, nên tỷ lệ suy ra là 2,097
+— tôi đang đo fixture chứ không đo công thức. Đã siết cả hai.
+
+#### 2. Thẻ vị thế: bám theo trục giá, và về sát trục giá
+
+Kéo hoặc lăn trên trục giá không sinh ra sự kiện nào lớp phủ đang nghe, nên
+đường đi mà thẻ đứng yên: đo được **131px** lệch sau một lần bóp trục. Giờ theo
+dõi chính phép ánh xạ giá → toạ độ (hai điểm, để bắt cả trường hợp phóng to lấy
+đúng giá vào lệnh làm tâm). *§2.2:* vòng `requestAnimationFrame` một mình không
+chứng minh được gì — headless Chrome không chạy rAF — nên có thêm nhịp 80ms.
+Sau sửa: **0,0px**.
+
+Thẻ cũng chuyển từ cạnh nến vào lệnh sang **sát trục giá**, vì chỗ cũ che đúng
+đoạn nến giữa lúc vào lệnh và bây giờ, tức phần đang được đọc.
+
+#### 3. Còn tồn, đã biết nguyên nhân — dấu lãi/lỗ đảo trên vị thế bán
+
+Nam gửi ảnh: `SHORT ... +4.54 VND` trong khi giá đang đi lên, `SL +13.62` và
+`TP −30.61`. Thẻ tính `quantity × (giá − giá vào)`, cần `quantity` **mang dấu**,
+nhưng snapshot paper trả `abs(quantity)` và để chiều ở `position`. Mọi con số
+trên vị thế **bán** vì thế bị đảo dấu; lệnh mua tình cờ đúng nên không lộ.
+**Chưa sửa** — bộ test hiện tại chỉ dựng lệnh mua nên không thể bắt được, và
+việc đầu tiên là thêm một mục test cho lệnh bán. Cách sửa ghi trong tài liệu
+tiến trình ở trên.
+
 ### 2026-09-16 (tiếp) — Thẻ vị thế không bám theo khi thu phóng trục giá
 
 Nam báo: "phóng to thu nhỏ trục y thì bảng xanh của đường màu xanh không theo
