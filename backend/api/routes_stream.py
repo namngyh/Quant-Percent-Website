@@ -173,6 +173,18 @@ async def live(ws: WebSocket) -> None:
 
 
 @router.get("/api/live/status", tags=["live"])
-def status() -> dict:
-    """Which series currently have an upstream connection open."""
-    return {"streams": hub.streams.watched()}
+def status(symbol: str | None = None, timeframe: str | None = None) -> dict:
+    """Where the live feed stands, for a client that was not listening.
+
+    The socket announces a stream coming up exactly once, and hands the
+    remembered status to anyone who subscribes later. This is the same state
+    over HTTP, for the case the socket itself is the thing that failed: a
+    browser that cannot open the WebSocket still gets an answer here, which is
+    how "the server is down" is told apart from "the socket did not open".
+    """
+    body: dict = {"streams": hub.streams.watched()}
+    if symbol:
+        body["stream"] = hub.streams.status_for(
+            symbol, timeframe or settings.chart.default_timeframe
+        )
+    return body

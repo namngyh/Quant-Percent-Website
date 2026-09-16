@@ -96,7 +96,13 @@ def _():
         await asyncio.sleep(0)
 
         assert len(m.running) == 1, m.running
-        assert m.watched() == [{"symbol": "BTCUSDT", "timeframe": "1m", "viewers": 2}], m.watched()
+        # `watched` carries the last thing each series said about itself, so a
+        # client that missed the announcement can ask instead (§2.5). Nothing
+        # has reported here yet, hence the three Nones.
+        assert m.watched() == [{
+            "symbol": "BTCUSDT", "timeframe": "1m", "viewers": 2,
+            "connected": None, "mode": None, "error": None,
+        }], m.watched()
         await m.close()
 
     asyncio.run(run())

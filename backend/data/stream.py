@@ -176,10 +176,25 @@ class StreamManager:
         await self._broadcast({"type": "candle", **candle})
 
     def watched(self) -> list[dict]:
-        return [
-            {"symbol": s.symbol, "timeframe": s.timeframe, "viewers": len(v)}
-            for s, v in self._watchers.items()
-        ]
+        """Every open series, with the last thing it said about itself.
+
+        The viewer count alone answers "is anyone watching", which is not the
+        question anybody asks. Carrying the remembered status makes this the
+        same answer the socket gives, so a client that missed the announcement
+        can ask for it instead (§2.5).
+        """
+        out = []
+        for series, viewers in self._watchers.items():
+            status = self._status.get(series) or {}
+            out.append({
+                "symbol": series.symbol,
+                "timeframe": series.timeframe,
+                "viewers": len(viewers),
+                "connected": status.get("connected"),
+                "mode": status.get("mode"),
+                "error": status.get("error"),
+            })
+        return out
 
     async def subscribe(self, client: object, symbol: str, timeframe: str) -> None:
         if timeframe not in INTERVAL_MS:
