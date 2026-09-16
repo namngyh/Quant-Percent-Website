@@ -76,10 +76,17 @@ def get_candles(
     start_ms: int | None = None,
     end_ms: int | None = None,
     limit: int | None = None,
+    adjust: bool = True,
 ) -> pd.DataFrame:
+    """Candles for a symbol on either market.
+
+    ``adjust`` only reaches the Vietnamese series, where prices are stored raw
+    and a split has to be taken out of them (market_vn.get_candles). Binance
+    prices carry no such events.
+    """
     market, bare = parse(symbol)
     if market == VIETNAM:
-        return market_vn.get_candles(bare, timeframe, start_ms, end_ms, limit)
+        return market_vn.get_candles(bare, timeframe, start_ms, end_ms, limit, adjust=adjust)
     return store.get_candles(bare, timeframe, start_ms, end_ms, limit)
 
 

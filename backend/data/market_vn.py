@@ -43,6 +43,8 @@ from statistics import median, quantiles
 
 import pandas as pd
 
+from backend.data import corporate_actions
+
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -487,8 +489,18 @@ def get_candles(
     start_ms: int | None = None,
     end_ms: int | None = None,
     limit: int | None = None,
+    adjust: bool = True,
 ) -> pd.DataFrame:
-    """Candles for one symbol, oldest first, excluding any unfinished bar."""
+    """Candles for one symbol, oldest first, excluding any unfinished bar.
+
+    With ``adjust`` (the default), an equity or fund series is put back on one
+    scale: this database stores raw prices, so a split prints as a −50% session
+    that never happened, and a backtest reading it sells into a crash that does
+    not exist (§3.6). The events applied are left on ``frame.attrs`` under
+    ``corporate_actions`` so a caller can say what was corrected instead of
+    quietly handing back different numbers. ``adjust=False`` returns the
+    database's own prices, which is what a check against a broker screen wants.
+    """
     if timeframe not in SUPPORTED_TIMEFRAMES:
         raise MarketUnavailable(
             f"Khung `{timeframe}` không có cho thị trường VN. "
@@ -508,7 +520,38 @@ def get_candles(
 
     # Queries fetch newest-first so LIMIT keeps the most recent window; the
     # chart wants oldest-first.
-    return _frame(list(reversed(rows)))
+    frame = _frame(list(reversed(rows)))
+    if not adjust or not corporate_actions.applies_to(symbol) or len(frame) < 2:
+        return frame
+
+    events = _corporate_events(symbol, timeframe, frame)
+    if events:
+        frame, _ = corporate_actions.adjust(frame, events)
+    frame.attrs["corporate_actions"] = [event.as_dict() for event in events]
+    return frame
+
+
+def _corporate_events(symbol: str, timeframe: str, frame: pd.DataFrame) -> list:
+    """The redenominations inside this window.
+
+    A split is a daily fact, and an intraday window is far too short to show one
+    as a step between two bars — the gap falls overnight, between sessions. So
+    the daily series for the same span is what is read, whatever the timeframe
+    being drawn.
+    """
+    if timeframe == "1d":
+        return corporate_actions.detect(frame)
+
+    times = frame["open_time"]
+    start = datetime.fromtimestamp(int(times.iloc[0]) / 1000, tz=timezone.utc)
+    end = datetime.fromtimestamp(int(times.iloc[-1]) / 1000, tz=timezone.utc)
+    try:
+        rows = _daily(symbol, start, end, limit=2000)
+    except MarketUnavailable:
+        # A second query failing is not a reason to fail the candles the caller
+        # already has; they are simply returned unadjusted.
+        return []
+    return corporate_actions.detect(_frame(list(reversed(rows))))
 
 
 def _daily(symbol: str, start, end, limit: int) -> list[tuple]:

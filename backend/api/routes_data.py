@@ -138,8 +138,15 @@ def candles(
     limit: int = Query(default=None, ge=1),
     start: str | None = Query(default=None, description="ISO date, inclusive"),
     end: str | None = Query(default=None, description="ISO date, inclusive"),
+    adjust: bool = Query(default=True, description="Take splits out of a VN series"),
 ) -> dict:
-    """Candles shaped for Lightweight Charts (time in epoch *seconds*)."""
+    """Candles shaped for Lightweight Charts (time in epoch *seconds*).
+
+    `adjust` is on by default for the Vietnamese market, where prices are stored
+    raw: a split otherwise prints as a −50% session that never happened (§3.6).
+    The response says which events were taken out, so the reader is told rather
+    than handed different numbers in silence.
+    """
     symbol = symbol or settings.chart.default_symbol
     timeframe = timeframe or settings.chart.default_timeframe
 
@@ -160,7 +167,7 @@ def candles(
         raise HTTPException(400, f"bad date: {exc}") from exc
 
     try:
-        df = sources.get_candles(symbol, timeframe, start_ms, end_ms, limit)
+        df = sources.get_candles(symbol, timeframe, start_ms, end_ms, limit, adjust=adjust)
     except market_vn.MarketUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
 
@@ -192,6 +199,7 @@ def candles(
         "count": len(df),
         "last_ms": last_ms,
         "bars_behind": bars_behind,
+        "corporate_actions": df.attrs.get("corporate_actions", []),
         "can_backfill": sources.supports_backfill(symbol),
         "candles": [
             {"time": t, "open": o, "high": h, "low": l, "close": c}

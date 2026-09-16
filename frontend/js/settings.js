@@ -27,6 +27,7 @@ const Settings = (() => {
   const defaults = () => ({
     display: { profit: 'money', locale: 'en-US', decimals: 2, timezone: 'vn' },
     chart: { grid: false, bars: 180 },
+    data: { adjustSplits: true },
     trading: {
       contract: {
         sizing: 'margin',
@@ -271,6 +272,15 @@ const Settings = (() => {
         ${row(L('Trượt giá (điểm)', 'Slippage (points)'),
               field('trading.contract.slippage_points', 'min="0" step="0.1"'))}
         ${contractState()}
+      </section>
+      <section class="set-group">
+        <h3>${esc(L('Dữ liệu', 'Data'))}</h3>
+        ${row(L('Điều chỉnh chia tách / cổ tức cổ phiếu', 'Adjust for splits and stock dividends'),
+              options('data.adjustSplits', [
+                ['true', L('Bật', 'On')], ['false', L('Tắt', 'Off')],
+              ], 'bool'),
+              L('Giá cổ phiếu VN được lưu ở dạng thô. Một lần chia tách in ra phiên giảm 50% chưa từng xảy ra, và một backtest đi qua đó sẽ bán, dừng lỗ hoặc bị thanh lý trên một cú sập không có thật. Nền tảng suy ra sự kiện từ bước nhảy vượt biên độ và đưa chuỗi về một thang. Tắt để xem đúng giá database trả về.',
+                'Vietnamese equity prices are stored raw. A split prints as a −50% session that never happened, and a backtest running through it sells, stops out or is liquidated on a crash that does not exist. The platform infers the event from a step past the price band and puts the series back on one scale. Turn this off to see the database\'s own prices.'))}
       </section>
       <section class="set-group">
         <h3>${esc(L('Biểu đồ', 'Chart'))}</h3>

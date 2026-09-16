@@ -183,6 +183,7 @@
         loadedBars = data.count;
         showLoadedBars();
         warnIfDataIncomplete(requested);
+        announceCorporateActions(requested, data.corporate_actions);
         showPrice(last.close);
       }
 
@@ -536,6 +537,30 @@
 
      Only raised for intraday frames. Daily bars come from a different table
      that these outages never touched. */
+  /* A restated series says so, once per series.
+
+     The prices on screen are no longer the ones in the database: a split was
+     taken out of them so the history is on today's scale (§3.6). That is a
+     change the reader has to be told about, because it is exactly what makes
+     the chart disagree with a broker's raw one. */
+  const actionsSeen = new Set();
+
+  function announceCorporateActions(key, events) {
+    if (!events?.length || actionsSeen.has(key)) return;
+    actionsSeen.add(key);
+    const worst = events.reduce((a, b) => (Math.abs(b.ratio - 1) > Math.abs(a.ratio - 1) ? b : a));
+    const when = new Date(worst.open_time + Settings.tzOffsetSeconds() * 1000)
+      .toISOString().slice(0, 10);
+    const name = worst.label ? ` (${worst.label})` : '';
+    toast(L(
+      `Đã điều chỉnh ${events.length} sự kiện chia tách/cổ tức cổ phiếu trong chuỗi này; `
+      + `lớn nhất ngày ${when}, tỷ lệ ${worst.ratio.toFixed(2)}${name}. `
+      + 'Giá cũ được đưa về thang giá hôm nay, giá mới nhất giữ nguyên.',
+      `${events.length} split/stock-dividend event(s) taken out of this series; `
+      + `the largest on ${when}, ratio ${worst.ratio.toFixed(2)}${name}. `
+      + 'Older prices are restated onto today\'s scale; the newest are untouched.'));
+  }
+
   const coverageSeen = new Set();
 
   /* Coverage is fetched for every VN symbol, on any timeframe.

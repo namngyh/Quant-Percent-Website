@@ -179,6 +179,7 @@ def report(request: BacktestRequest) -> dict:
     payload["strategy_name"] = spec.name
     payload["params"] = resolved
     payload["symbol"] = request.symbol
+    payload["corporate_actions"] = df.attrs.get("corporate_actions", [])
     payload["execution_model"] = execution_model_for(
         request.symbol or settings.chart.default_symbol, config)
     return payload
@@ -287,6 +288,7 @@ def backtest(request: BacktestRequest) -> dict:
         result = registry.run_strategy(
             request.strategy_id, df, timeframe, request.params, config
         )
+        result["corporate_actions"] = df.attrs.get("corporate_actions", [])
         result["execution_model"] = execution_model_for(
             request.symbol or settings.chart.default_symbol, config)
         return result

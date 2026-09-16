@@ -700,6 +700,20 @@ async function render(label, kind, payload) {
   tsay('a paper session says the contract model is off',
        psel('paper-sessions').textContent.includes('hệ số nhân'));
 
+  // ---------- A restated price series says so ----------
+  for (const [lang, word] of [['vi', 'chia tách'], ['en', 'split']]) {
+    window.I18n.set(lang);
+    const note = window.Strategy.corporateNote({
+      corporate_actions: [{ open_time: 0, ratio: 2, label: '2:1', kind: 'split' }],
+    });
+    tsay(`the results say the prices were adjusted [${lang}]`,
+         note.includes(word) && note.includes('1'));
+  }
+  tsay('a series with no events says nothing',
+       window.Strategy.corporateNote({ corporate_actions: [] }) === ''
+         && window.Strategy.corporateNote({}) === '');
+  window.I18n.set('vi');
+
   // ---------- Settings, and the one formatter ----------
   const S = window.Settings;
   const F = window.Fmt;

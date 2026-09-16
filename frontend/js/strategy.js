@@ -350,11 +350,24 @@ const Strategy = (() => {
       ? `<div class="callout warn">${esc(t('exec.contractOff'))}</div>` : '';
   }
 
+  /* A result whose prices were restated says so next to the figures. Without
+     it, a reader checking this return against a broker's chart finds two
+     different series and no reason given. */
+  function corporateNote(result) {
+    const events = result?.corporate_actions || [];
+    if (!events.length) return '';
+    return `<div class="callout">${esc(L(
+      `Chuỗi giá đã được điều chỉnh ${events.length} sự kiện chia tách/cổ tức cổ phiếu. `
+      + 'Chạy trên giá thô, một sự kiện như vậy là một cú sập không có thật.',
+      `The price series was adjusted for ${events.length} split/stock-dividend event(s). `
+      + 'On raw prices, such an event reads as a crash that never happened.'))}</div>`;
+  }
+
   function renderResult(result) {
     const m = result.metrics;
     const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
-    let html = executionNote(result);
+    let html = executionNote(result) + corporateNote(result);
 
     if (m.ruined) {
       html += `<div class="callout bad">${esc(L(
@@ -692,8 +705,9 @@ const Strategy = (() => {
     // standing up a server: the panel is where the sweep's two most important
     // verdicts are shown, and nothing else checks that they render.
     renderOptimize,
-    // Exported for tests/test_render.js, which checks the note in both languages.
+    // Exported for tests/test_render.js, which checks the notes in both languages.
     executionNote,
+    corporateNote,
     // Exposed so validation and comparison reuse exactly the parameters and
     // costs the backtest just used, rather than assembling their own.
     execution,

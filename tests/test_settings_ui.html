@@ -61,7 +61,7 @@
   check('the gear opens the settings box',
         doc.getElementById('settings-dialog').hidden === false);
   const groups = [...doc.querySelectorAll('#settings-body .set-group h3')].map((h) => h.textContent);
-  check('the box holds the five groups', groups.length === 5, groups.join(' | '));
+  check('the box holds its six groups', groups.length === 6, groups.join(' | '));
 
   // 2. Controls write through: there is no Save to forget.
   check('a control writes through with no Save',
@@ -151,7 +151,8 @@
   doc.getElementById('settings-reset').click();
   check('reset returns every group to its default',
         S.all().trading.contract.initial_margin_rate === null
-          && S.all().display.timezone === 'vn' && S.all().chart.bars === 180);
+          && S.all().display.timezone === 'vn' && S.all().chart.bars === 180
+          && S.all().data.adjustSplits === true);
 
   say(failed ? `\n${failed} failed` : '\nsettings checks hold');
 })();

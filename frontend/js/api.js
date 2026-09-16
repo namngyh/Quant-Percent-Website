@@ -56,6 +56,9 @@ const API = (() => {
 
     candles: ({ symbol, timeframe, limit }) => {
       const q = new URLSearchParams({ symbol, timeframe, limit: String(limit) });
+      // Only sent when it is off: the server's default is to adjust, and a
+      // URL that says nothing should mean the same thing everywhere.
+      if (!Settings.all().data.adjustSplits) q.set('adjust', '0');
       return request(`/api/candles?${q}`);
     },
 
