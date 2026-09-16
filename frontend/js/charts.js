@@ -1010,12 +1010,16 @@ function createChartManager() {
     const name = L('Đóng vị thế', 'Close position');
     close.title = name;
     close.setAttribute('aria-label', name);
-    // Beside the entry bar, not at the right edge: at the edge it covered the
-    // newest candles, which is where a position is being watched. A position
-    // opened on the last bars is pushed back inside the plot.
+    /* Against the price axis, at the right edge of the plot (Nam, 2026-09-16).
+       It used to sit beside the entry bar, which put it straight over the
+       candles between the entry and now — the part of the chart being read.
+       The trade-off is the other way round: the right edge is where the newest
+       bars are, so the chip can cover the last few. It is the lesser cost,
+       because the library keeps blank space past the last bar and the newest
+       price is also on the axis right behind it. */
     chip.hidden = entryY < 0 || entryY > h;
     const chipWidth = chip.offsetWidth;
-    const left = Math.max(8, Math.min(x0 + 8, plotWidth - chipWidth - 8));
+    const left = Math.max(8, plotWidth - chipWidth - 8);
     chip.style.left = `${left}px`;
     chip.style.top = `${entryY}px`;
     zones.chip = { text: label.textContent, top: entryY, left, width: chipWidth, hidden: chip.hidden };

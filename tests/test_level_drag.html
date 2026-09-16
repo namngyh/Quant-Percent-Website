@@ -173,8 +173,11 @@
         z?.target && near(z.target.x, xBar) && near(z.target.x + z.target.width, z.plotWidth),
         JSON.stringify({ x: z?.target?.x, xBar, right: z && z.target.x + z.target.width, plot: z?.plotWidth }));
   check('the bands are light at rest', z?.target?.alpha === 0.08, String(z?.target?.alpha));
-  check('the chip sits beside the entry bar, inside the plot',
-        z?.chip && near(z.chip.left, Math.min(xBar + 8, z.plotWidth - z.chip.width - 8))
+  // Against the price axis, so it never covers the candles between the entry
+  // and now: that stretch is the position's own history, and it is what the
+  // reader is looking at.
+  check('the chip sits against the price axis, inside the plot',
+        z?.chip && near(z.chip.left, z.plotWidth - z.chip.width - 8)
           && z.chip.left + z.chip.width <= z.plotWidth,
         JSON.stringify({ chip: z?.chip, xBar, plot: z?.plotWidth }));
   fire('pointerdown', yOf(target));
