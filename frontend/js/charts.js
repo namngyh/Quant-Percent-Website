@@ -759,6 +759,7 @@ function createChartManager() {
     if (levelDrag) { deferredLevels = { side: 0 }; return; }
     for (const key of Object.keys(positionLines)) removeLevelLine(key);
     levels = { ...NO_LEVELS };
+    stopWatchingLevels();
     paintLevels();
   }
 
@@ -778,6 +779,7 @@ function createChartManager() {
     positionLines.stop = makeLevelLine('stop', levels.stop);
     positionLines.target = makeLevelLine('target', levels.target);
     paintLevels();
+    watchLevels();
   }
 
   /** Keep the open P&L on the entry line in step with the price. */
@@ -857,6 +859,9 @@ function createChartManager() {
   let levelOverlay = null;
   let onPositionClose = null;
   let lastZones = null;
+  let levelWatch = null;
+  let levelWatchTimer = null;
+  let watchedMapping = '';
 
   function buildLevelOverlay(container) {
     const canvas = document.createElement('canvas');
@@ -900,6 +905,68 @@ function createChartManager() {
     }
     const x = mainChart.timeScale().logicalToCoordinate(lo);
     return x === null ? 0 : x;
+  }
+
+  /* Where the entry price lands, and how far one price unit is from it.
+
+     Two numbers rather than one: a zoom centred exactly on the entry moves the
+     scale without moving that price, and the stop and target bands would then
+     be painted at the old scale. */
+  function mappingSignature() {
+    const at = levelY(levels.entry);
+    if (at === null || !candleSeries) return '';
+    return `${at}|${candleSeries.priceToCoordinate(levels.entry + 1)}`;
+  }
+
+  /* Repaint when the price mapping has actually moved.
+
+     The overlay used to listen for a time-range change, a crosshair move over
+     the plot, and a resize. A drag or a wheel on the price axis is none of
+     those — the pointer never enters the plot and the time range stays put —
+     so the line moved and its chip did not. Measured: 131px of drift after one
+     squeeze of the axis (Nam, 2026-09-16). Autoscale jumping on a new extreme
+     is the same class of change. */
+  function syncLevels() {
+    if (!levelOverlay || !levels.side) return;
+    const signature = mappingSignature();
+    if (signature === watchedMapping) return;
+    watchedMapping = signature;
+    paintLevels();
+  }
+
+  /* A frame loop while a position is on screen: a drag on the axis produces no
+     event this overlay can hear, so the mapping is polled instead. It costs two
+     coordinate lookups per frame, runs only while a position is drawn, and
+     paints only when something moved. Pointer and wheel handlers call
+     `syncLevels` too, so the overlay still follows where a frame loop does not
+     run — a background tab, or headless Chrome. */
+  function watchLevels() {
+    if (levelWatchTimer === null) {
+      /* The timer is not a duplicate of the frame loop: a background tab and
+         headless Chrome do not run `requestAnimationFrame` at all, and the
+         measurement of this fix was 131px of drift with the frame loop already
+         in place. 80ms is the same fallback interval the chart handover uses
+         (2026-09-18). Both paths go through `syncLevels`, which paints only
+         when the mapping moved, so they cannot paint twice for one change. */
+      levelWatchTimer = setInterval(syncLevels, 80);
+    }
+    if (levelWatch !== null || typeof requestAnimationFrame !== 'function') return;
+    const tick = () => {
+      if (!levelOverlay || !levels.side) { levelWatch = null; return; }
+      syncLevels();
+      levelWatch = requestAnimationFrame(tick);
+    };
+    levelWatch = requestAnimationFrame(tick);
+  }
+
+  function stopWatchingLevels() {
+    if (levelWatch !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(levelWatch);
+    }
+    clearInterval(levelWatchTimer);
+    levelWatch = null;
+    levelWatchTimer = null;
+    watchedMapping = '';
   }
 
   function paintLevels() {
@@ -953,13 +1020,19 @@ function createChartManager() {
     chip.style.top = `${entryY}px`;
     zones.chip = { text: label.textContent, top: entryY, left, width: chipWidth, hidden: chip.hidden };
     lastZones = zones;
+    watchedMapping = mappingSignature();
   }
 
   function bindLevelDragging(container) {
     buildLevelOverlay(container);
+    // Dragging or scrolling the price axis happens inside this element but
+    // outside the plot, so these two are the overlay's only events for it.
+    container.addEventListener('wheel', syncLevels, { passive: true });
+    container.addEventListener('pointerup', syncLevels);
     container.addEventListener('pointermove', (event) => {
       const y = offsetY(event);
       if (!levelDrag) {
+        syncLevels();
         // The cursor is the only affordance these lines have, so it has to be
         // right: no grab handle, no tooltip, just the shape of the pointer.
         container.style.cursor = !event.target.closest?.('.position-chip') && levelAt(y) ? 'ns-resize' : '';
@@ -1182,6 +1255,7 @@ function createChartManager() {
   /** Remove this chart and everything it registered. */
   function destroy() {
     window.removeEventListener('resize', refreshSize);
+    stopWatchingLevels();
     levelOverlay?.observer.disconnect();
     levelOverlay?.canvas.remove();
     levelOverlay?.chip.remove();

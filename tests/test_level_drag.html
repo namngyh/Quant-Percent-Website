@@ -196,7 +196,42 @@
   check('the close button on the chip asks to close the position', closes === 1, String(closes));
   check('a press on the chip does not start a drag', calls.length === 0, JSON.stringify(calls));
 
-  // 10. No position: no bands, no chip.
+  /* 10. Zooming the PRICE axis. The overlay hears a time-range change, a
+     crosshair move over the plot and a resize — a drag or a wheel on the price
+     axis is none of those, so the line moved and its chip stayed put: measured
+     at 131px of drift before this was fixed (Nam, 2026-09-16). Changing the
+     scale margins moves the mapping the same way, with no event at all. */
+  position();
+  await wait(200);
+  const scale = cm.priceSeries.priceScale();
+  const lineY = () => cm.priceSeries.priceToCoordinate(entry);
+  const chipTop = () => cm.levelZones?.chip?.top ?? null;
+  const settled = cm.levelZones?.chip?.top;
+  check('at rest the chip sits on the entry line',
+        Math.abs(lineY() - settled) <= 1, `${lineY()} vs ${settled}`);
+
+  const startedAt = lineY();
+  scale.applyOptions({ scaleMargins: { top: 0.35, bottom: 0.35 } });
+  await wait(400);
+  check('squeezing the price axis actually moved the line',
+        Math.abs(lineY() - startedAt) > 20, `${startedAt} -> ${lineY()}`);
+  check('the chip follows the line when the price axis is zoomed',
+        Math.abs(lineY() - chipTop()) <= 1, `line ${lineY()}, chip ${chipTop()}`);
+
+  // The bands are painted in the same pass, so they must land on the new
+  // coordinates too — a band left at the old scale is a lie about the risk.
+  position({ stop: +(entry * 0.995).toFixed(2), target: +(entry * 1.005).toFixed(2) });
+  await wait(200);
+  scale.applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } });
+  await wait(400);
+  const stopY = cm.priceSeries.priceToCoordinate(+(entry * 0.995).toFixed(2));
+  const band = cm.levelZones?.stop;
+  check('the stop band follows it too',
+        band && Math.abs((band.y + band.height) - Math.max(stopY, lineY())) <= 1,
+        JSON.stringify(band));
+  scale.applyOptions({ scaleMargins: { top: 0.1, bottom: 0.2 } });
+
+  // 11. No position: no bands, no chip.
   cm.clearPositionLines();
   check('clearing the position removes the bands and the chip',
         cm.levelZones === null && chip.hidden === true, JSON.stringify(cm.levelZones));

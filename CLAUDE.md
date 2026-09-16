@@ -210,6 +210,48 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 (tiếp) — Thẻ vị thế không bám theo khi thu phóng trục giá
+
+Nam báo: "phóng to thu nhỏ trục y thì bảng xanh của đường màu xanh không theo
+kịp với đường." Tái hiện và đo được, không phải đoán.
+
+#### Nguyên nhân: lớp phủ nghe ba sự kiện, mà kéo trục giá không sinh ra cái nào
+
+Lớp phủ vị thế (thẻ lãi/lỗ và hai vùng màu) vẽ lại khi **phạm vi thời gian
+đổi**, khi **con trỏ di trên vùng nến** (crosshair), và khi **đổi kích thước**.
+Kéo hoặc lăn chuột trên **trục giá** không phải ba thứ đó: con trỏ không vào
+vùng nến, còn phạm vi thời gian đứng yên. Đường giá được thư viện vẽ lại, thẻ
+thì không.
+
+| Đo trên app đang chạy | Trước | Sau |
+|---|---|---|
+| Bóp trục giá (scaleMargins 0,35/0,35) | đường 543,8 → 412,8, thẻ **vẫn 543,8** → lệch **131,0px** | lệch **0,0px** |
+| Nới trục giá trở lại | lệch **14,4px** | lệch **0,0px** |
+| Một lần rê chuột trên vùng nến sau đó | vẫn **14,4px** | 0,0px |
+
+Bản sửa theo dõi **chính phép ánh xạ giá → toạ độ**, chứ không thêm một sự kiện
+nữa: chữ ký gồm *toạ độ của giá vào lệnh* và *toạ độ của giá vào lệnh cộng một
+đơn vị*. Hai điểm chứ không một, vì một lần phóng to lấy đúng giá vào lệnh làm
+tâm sẽ giữ nguyên điểm thứ nhất trong khi thang đo đã đổi — lúc đó hai vùng
+màu sẽ vẽ ở thang cũ. Chỉ vẽ lại khi chữ ký đổi.
+
+*§2.2 — vòng lặp `requestAnimationFrame` một mình không chứng minh được gì ở
+đây:* sau khi thêm nó, phép đo vẫn ra **131px**, vì headless Chrome không chạy
+`requestAnimationFrame` (đúng cái bẫy đã ghi ở mục 2026-09-18). Đã thêm nhịp
+hẹn giờ **80ms** làm lưới an toàn — cùng khoảng thời gian bản sửa bàn giao biểu
+đồ đang dùng — và nó cũng là thứ giữ cho lớp phủ đúng ở tab chạy nền. Cả hai
+đường đều đi qua một hàm chỉ vẽ khi chữ ký đổi, nên không có chuyện vẽ hai lần
+cho một thay đổi. Thêm `wheel` và `pointerup` trên khung biểu đồ, vì một thao
+tác trên trục giá vẫn là sự kiện con trỏ của chính khung đó.
+
+Vòng theo dõi chỉ chạy khi **có vị thế đang vẽ**, dừng khi xoá vị thế hoặc huỷ
+biểu đồ, và mỗi nhịp tốn đúng hai phép đổi toạ độ.
+
+**Kiểm tra:** `tests/test_level_drag.html` **26/26** (thêm 4 check: thẻ nằm
+đúng trên đường lúc nghỉ, trục giá thật sự đã dịch, thẻ bám theo, và **vùng
+màu cũng bám theo** — một vùng rủi ro vẽ ở thang cũ là một lời nói sai về rủi
+ro). Trang cài đặt 17/17, probe `stay` 0 lần biểu đồ bị đổi, render check đạt.
+
 ### 2026-09-16 — Bánh răng cài đặt, một bộ định dạng số, và logo màu đen
 
 **355 test Python**, **184 render check** (thêm 13), i18n 2/2, và bốn nhóm kiểm
