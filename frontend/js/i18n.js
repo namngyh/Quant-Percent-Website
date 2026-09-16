@@ -318,6 +318,8 @@ const I18n = (() => {
     'mm.remove':          { vi: 'Bỏ khỏi danh sách', en: 'Remove from the list' },
     'mm.profitable':      { vi: 'Thị trường có lãi', en: 'Profitable markets' },
     'mm.medianReturn':    { vi: 'Lợi nhuận trung vị', en: 'Median return' },
+    'set.title':          { vi: 'Cài đặt', en: 'Settings' },
+    'set.reset':          { vi: 'Về mặc định', en: 'Reset to defaults' },
     'exec.contractOff':   { vi: 'Mô hình hợp đồng chưa bật: lãi/lỗ tính tuyến tính, chưa áp dụng hệ số nhân hợp đồng.',
                             en: 'Contract model off: profit and loss are computed linearly, without the contract multiplier.' },
     'mm.medianSharpe':    { vi: 'Sharpe trung vị', en: 'Median Sharpe' },

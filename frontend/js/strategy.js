@@ -289,6 +289,9 @@ const Strategy = (() => {
       leverage: Number(elements.leverage.value) || 1,
       fee: (Number(elements.fee.value) || 0) / 100,
       slippage: (Number(elements.slippage.value) || 0) / 100,
+      // Applied by the backend only to an index future, and only when every
+      // required term is set; null everywhere else (settings.js).
+      contract: Settings.contractPayload(),
     };
   }
 

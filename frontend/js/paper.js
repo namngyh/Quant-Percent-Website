@@ -525,6 +525,7 @@ const Paper = (() => {
       leverage: Number(el.leverage?.value) || 1,
       fee: (Number(el.fee?.value) || 0) / 100,
       slippage: (Number(el.slippage?.value) || 0) / 100,
+      contract: Settings.contractPayload(),
     };
   }
 
