@@ -36,6 +36,7 @@ import pandas as pd
 from backend.i18n import bi
 from backend.strategy.base import normalize_signals
 from backend.strategy.engine import BacktestConfig
+from backend.strategy.position_model import execution_model_for, model_for
 
 # The strategy id a hand-traded session carries.
 MANUAL_STRATEGY_ID = "manual"
@@ -70,6 +71,10 @@ class PaperTrade:
     pnl: float
     return_pct: float
     exit_reason: str
+    # Same meaning as on the backtest Trade (backend/strategy/engine.py).
+    points: float = 0.0
+    contracts: int | None = None
+    multiplier: float | None = None
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -134,12 +139,21 @@ class PaperSession:
 
     # ------------------------------------------------------------------ fills
 
+    @property
+    def model(self):
+        """Sizing, fees and marking, shared with the backtest engine."""
+        return model_for(self.config)
+
+    def _sizing(self):
+        return self.model.restore(self.quantity, self.margin, self.entry_price)
+
     def _fill_price(self, price: float, direction: int) -> float:
-        return price * (1.0 + self.config.slippage * direction)
+        return self.model.fill(price, direction)
 
     def _close(self, exit_price: float, when: int, reason: str) -> PaperTrade:
-        exit_fee = abs(self.quantity) * exit_price * self.config.fee
-        pnl = self.quantity * (exit_price - self.entry_price) - exit_fee
+        model = self.model
+        sizing = self._sizing()
+        pnl = model.pnl(sizing, self.entry_price, exit_price)
         self.equity += pnl
 
         trade = PaperTrade(
@@ -152,6 +166,9 @@ class PaperSession:
             pnl=pnl,
             return_pct=(pnl / self.margin * 100.0) if self.margin > 0 else 0.0,
             exit_reason=reason,
+            points=(exit_price - self.entry_price) * self.position,
+            contracts=sizing.contracts,
+            multiplier=model.multiplier,
         )
         self.trades.append(trade)
 
@@ -166,18 +183,20 @@ class PaperSession:
 
     def _open(
         self, price: float, when: int, direction: int, size_pct: float | None = None
-    ) -> None:
+    ) -> bool:
+        """Open at ``price``. False when the equity cannot margin the position."""
         # A hand order may stake a different share of the account than the
         # strategy's configured size; everything downstream is unchanged.
-        self.margin = self.equity * (
-            self.config.size_pct if size_pct is None else size_pct
-        )
-        notional = self.margin * self.config.leverage
-        self.quantity = notional / price * direction
+        sizing = self.model.size(self.equity, price, direction, size_pct)
+        if sizing is None:
+            return False
+        self.margin = sizing.margin
+        self.quantity = sizing.quantity
         self.entry_price = price
         self.entry_time = when
         self.position = direction
-        self.equity -= notional * self.config.fee
+        self.equity -= self.model.entry_fee(sizing, price)
+        return True
 
     # ------------------------------------------------------------- hand orders
 
@@ -247,6 +266,23 @@ class PaperSession:
                 "There is no position to close." if target == 0
                 else "The position is already in that direction.",
             )
+
+        # Refuse before anything changes: a reversal whose new side cannot be
+        # margined must not close the old side first and then fail.
+        if target != 0:
+            equity_after_close = self.equity
+            if self.position != 0:
+                equity_after_close += self.model.pnl(
+                    self._sizing(), self.entry_price,
+                    self._fill_price(self.last_price, -self.position),
+                )
+            fill = self._fill_price(self.last_price, target)
+            if self.model.size(equity_after_close, fill, target, size_pct) is None:
+                raise OrderRefused(
+                    "insufficient_margin",
+                    "Không đủ ký quỹ cho vị thế này ở giá hiện tại.",
+                    "Not enough margin for this position at the current price.",
+                )
 
         when = int(time.time())
         events: list[dict] = []
@@ -405,7 +441,7 @@ class PaperSession:
     def unrealized(self) -> float:
         if self.position == 0 or self.last_price == 0.0:
             return 0.0
-        return self.quantity * (self.last_price - self.entry_price)
+        return self.model.unrealized(self._sizing(), self.entry_price, self.last_price)
 
     def equity_now(self) -> float:
         return max(self.equity + self.unrealized(), 0.0)
@@ -431,12 +467,11 @@ class PaperSession:
                     self._fill_price(open_price, -self.position), when, "signal"
                 )
                 events.append({"type": "exit", "trade": trade.as_dict()})
-            if self.pending_signal != 0 and self.equity > 0:
-                self._open(
-                    self._fill_price(open_price, self.pending_signal),
-                    when,
-                    self.pending_signal,
-                )
+            if self.pending_signal != 0 and self.equity > 0 and self._open(
+                self._fill_price(open_price, self.pending_signal),
+                when,
+                self.pending_signal,
+            ):
                 events.append(
                     {
                         "type": "entry",
@@ -447,9 +482,10 @@ class PaperSession:
                     }
                 )
 
-        # 2. Liquidation, checked against this candle's adverse extreme.
-        if self.position != 0 and self.config.leverage > 1.0:
-            liq = self.entry_price * (1.0 - self.position / self.config.leverage)
+        # 2. Liquidation, checked against this candle's adverse extreme. None
+        #    means the model has no forced-close price (linear at leverage 1).
+        liq = self.model.liquidation_price(self.entry_price, self.position) if self.position != 0 else None
+        if liq is not None:
             hit = float(candle["low"]) <= liq if self.position > 0 else float(candle["high"]) >= liq
             if hit:
                 trade = self._close(liq, when, "liquidation")
@@ -537,6 +573,9 @@ class PaperSession:
             "last_closed_time": self.last_closed_time,
             "position": self.position,
             "quantity": abs(self.quantity),
+            "contracts": self._sizing().contracts if self.position != 0 else None,
+            "multiplier": self.model.multiplier,
+            "execution_model": execution_model_for(self.symbol, self.config),
             "entry_price": self.entry_price,
             "entry_time": self.entry_time,
             "stop_loss": self.stop_loss,

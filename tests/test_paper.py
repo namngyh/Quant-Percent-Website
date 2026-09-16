@@ -650,6 +650,97 @@ def _():
     assert restored.manual_override is False, restored.manual_override
 
 
+from backend.strategy.position_model import ContractConfig  # noqa: E402
+
+
+def contract_cfg(**contract) -> BacktestConfig:
+    values = dict(initial_margin_rate=0.2, maintenance_threshold=0.5,
+                  fee_per_contract=20_000.0, slippage_points=0.05)
+    values.update(contract)
+    return BacktestConfig(initial_capital=100_000_000.0, size_pct=1.0, fee=0.0, slippage=0.0,
+                          contract=ContractConfig(**values))
+
+
+@check("with contracts, replaying history still reproduces the backtest trades")
+def _():
+    df = series()                       # prices near 100: 2 000 000 dong margin per contract
+    cfg = contract_cfg()
+    spec = registry.get_spec("example_ema_cross")
+    resolved = spec.resolve_params(None)
+    frame = df.copy()
+    frame.index = pd.to_datetime(frame["open_time"], unit="ms", utc=True)
+    signal = normalize_signals(spec.signals(frame, resolved), frame.index, spec.side)
+    expected = run_backtest(df, signal, cfg)
+
+    session = replay(df, "example_ema_cross", cfg)
+    settled = [t for t in expected.trades if t.exit_reason != "end_of_data"]
+    assert len(session.trades) == len(settled) and len(settled) > 3, (len(session.trades), len(settled))
+    for got, want in zip(session.trades, settled, strict=True):
+        assert got.contracts == want.contracts and got.contracts >= 1, (got, want)
+        assert got.entry_time == want.entry_time and got.exit_time == want.exit_time, (got, want)
+        assert close_to(got.entry_price, want.entry_price), (got.entry_price, want.entry_price)
+        assert close_to(got.exit_price, want.exit_price), (got.exit_price, want.exit_price)
+        assert close_to(got.pnl, want.pnl), (got.pnl, want.pnl)
+        assert close_to(got.points, want.points), (got.points, want.points)
+
+
+@check("a hand order the equity cannot margin is refused before anything changes")
+def _():
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m",
+                     config=contract_cfg(sizing="fixed", contracts=1000))
+    s.on_tick(1300.0)
+    try:
+        s.place_order("long")
+    except OrderRefused as exc:
+        assert exc.code == "insufficient_margin", exc.code
+        assert set(exc.message) == {"vi", "en"}, exc.message
+    else:
+        raise AssertionError("an unaffordable order was filled")
+    assert s.position == 0 and not s.trades and s.equity == 100_000_000.0, s.snapshot()
+
+
+@check("a hand order on contracts fills whole contracts and reports the model")
+def _():
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m", config=contract_cfg())
+    s.on_tick(1300.0)
+    s.place_order("long")
+    snap = s.snapshot()
+    # Fill at 1300.05: margin per contract 26 010 000 dong -> 3 contracts.
+    assert snap["contracts"] == 3 and snap["quantity"] == 3.0, snap
+    assert snap["multiplier"] == 100_000.0 and snap["execution_model"] == "contract", snap
+    s.on_tick(1310.0)
+    assert close_to(s.unrealized(), 3 * (1310.0 - 1300.05) * 100_000.0), s.unrealized()
+
+
+@check("a paper session without a contract block on a future says the model is off")
+def _():
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m", config=BacktestConfig())
+    assert s.snapshot()["execution_model"] == "contract_model_off"
+
+
+@check("a restart keeps the contract block, and an old row loads linear")
+def _():
+    from backend.data import sources as data_sources
+    from backend.paper.manager import PaperManager
+
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m", config=contract_cfg(sizing="fixed", contracts=2))
+    s.on_tick(1300.0)
+    s.place_order("long")
+    manager = PaperManager.__new__(PaperManager)
+    payload = manager._to_payload(s)
+
+    original = data_sources.get_candles
+    data_sources.get_candles = lambda *a, **k: pd.DataFrame()
+    try:
+        restored = manager._from_payload(payload)
+        assert restored.config == s.config, (restored.config, s.config)
+        assert restored.snapshot()["contracts"] == 2, restored.snapshot()
+        payload["config"].pop("contract")
+        assert manager._from_payload(payload).config.contract is None
+    finally:
+        data_sources.get_candles = original
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:

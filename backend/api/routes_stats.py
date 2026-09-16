@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.api.routes_strategy import ExecutionSettings, _load_candles
+from backend.api.routes_strategy import ExecutionSettings, _load_candles, config_for
 from backend.strategy import registry
 from backend.strategy.base import StrategyError
 from backend.strategy.metrics import BARS_PER_YEAR
@@ -77,7 +77,7 @@ def strategy(request: StrategyStatsRequest) -> dict:
     """Inference on one strategy's trades, and on its equity curve."""
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
-    config = request.execution.to_config()
+    config = config_for(request.execution, request.symbol)
 
     try:
         backtest = registry.run_strategy(

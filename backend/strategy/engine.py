@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from backend.strategy.position_model import ContractConfig, Sizing, model_for
+
 
 @dataclass
 class BacktestConfig:
@@ -33,6 +35,9 @@ class BacktestConfig:
     leverage: float = 1.0
     fee: float = 0.0004         # taker, per side, on notional
     slippage: float = 0.0002    # adverse price move per fill
+    # Index futures only: whole contracts, dong per point, margin by rate.
+    # None means the linear model (backend/strategy/position_model.py).
+    contract: ContractConfig | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -41,7 +46,14 @@ class BacktestConfig:
             "leverage": self.leverage,
             "fee": self.fee,
             "slippage": self.slippage,
+            "contract": self.contract.as_dict() if self.contract else None,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BacktestConfig":
+        values = dict(data)
+        contract = values.pop("contract", None)
+        return cls(**values, contract=ContractConfig.from_dict(contract) if contract else None)
 
 
 @dataclass
@@ -86,6 +98,12 @@ class Trade:
     # and nothing else in the record carries it.
     equity_before: float = 0.0
     equity_after: float = 0.0
+    # The price move in points, signed by side. Both models carry it; the
+    # contract model also records the whole contracts held and the multiplier
+    # (dong per point) that turned points into money.
+    points: float = 0.0
+    contracts: int | None = None
+    multiplier: float | None = None
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -117,6 +135,10 @@ def run_backtest(
     if n == 0:
         return BacktestResult(config=config)
 
+    # Sizing, fees, P&L and the forced-close price come from the position
+    # model, shared with the paper engine (backend/strategy/position_model.py).
+    model = model_for(config)
+
     open_ = df["open"].to_numpy(dtype="float64")
     high = df["high"].to_numpy(dtype="float64")
     low = df["low"].to_numpy(dtype="float64")
@@ -132,7 +154,7 @@ def run_backtest(
     position_curve = np.zeros(n, dtype="int8")
 
     position = 0          # -1 short, 0 flat, 1 long
-    quantity = 0.0        # signed, in base units
+    sizing: Sizing | None = None
     entry_price = 0.0
     margin = 0.0
     entry_index = -1
@@ -145,21 +167,20 @@ def run_backtest(
 
     def fill_price(price: float, direction: int) -> float:
         """Worsen a fill by slippage; ``direction`` is +1 when buying."""
-        return price * (1.0 + config.slippage * direction)
+        return model.fill(price, direction)
 
     def close_position(exit_price: float, index: int, reason: str) -> None:
-        nonlocal equity, position, quantity, entry_price, margin, entry_index
+        nonlocal equity, position, sizing, entry_price, margin, entry_index
         nonlocal best_price, worst_price
-        exit_fee = abs(quantity) * exit_price * config.fee
-        pnl = quantity * (exit_price - entry_price) - exit_fee
+        pnl = model.pnl(sizing, entry_price, exit_price)
         equity += pnl
 
         # Excursions on the same base as return_pct: unrealised P&L on the
         # committed margin, gross of the exit fee (which is not owed until the
         # trade actually closes).
         if margin > 0:
-            mfe = quantity * (best_price - entry_price) / margin * 100.0
-            mae = quantity * (worst_price - entry_price) / margin * 100.0
+            mfe = model.unrealized(sizing, entry_price, best_price) / margin * 100.0
+            mae = model.unrealized(sizing, entry_price, worst_price) / margin * 100.0
         else:
             mfe = mae = 0.0
 
@@ -172,7 +193,7 @@ def run_backtest(
                 exit_time=times[index],
                 entry_price=entry_price,
                 exit_price=exit_price,
-                quantity=abs(quantity),
+                quantity=abs(sizing.quantity),
                 pnl=pnl,
                 return_pct=(pnl / margin * 100.0) if margin > 0 else 0.0,
                 bars_held=index - entry_index,
@@ -185,30 +206,37 @@ def run_backtest(
                 mae_pct=min(mae, 0.0),
                 equity_before=entry_equity,
                 equity_after=equity,
+                points=(exit_price - entry_price) * position,
+                contracts=sizing.contracts,
+                multiplier=model.multiplier,
             )
         )
 
         position = 0
-        quantity = 0.0
+        sizing = None
         entry_price = 0.0
         margin = 0.0
         entry_index = -1
         best_price = worst_price = 0.0
 
     def open_position(price: float, index: int, direction: int) -> None:
-        nonlocal equity, position, quantity, entry_price, margin, entry_index
+        nonlocal equity, position, sizing, entry_price, margin, entry_index
         nonlocal best_price, worst_price, entry_equity
+        new = model.size(equity, price, direction)
+        if new is None:
+            # Not enough margin for one contract (or for the fixed count):
+            # the signal is not filled.
+            return
         entry_equity = equity          # before the entry fee is taken
-        margin = equity * config.size_pct
-        notional = margin * config.leverage
-        quantity = notional / price * direction
+        sizing = new
+        margin = new.margin
         entry_price = price
         entry_index = index
         position = direction
         # Start both excursions at the entry price: a trade that closes before
         # any further bar has moved neither way.
         best_price = worst_price = price
-        equity -= notional * config.fee   # entry fee, paid immediately
+        equity -= model.entry_fee(new, price)   # entry fee, paid immediately
 
     for i in range(n):
         if not ruined:
@@ -231,20 +259,23 @@ def run_backtest(
                     best_price = min(best_price, low[i])
                     worst_price = max(worst_price, high[i])
 
-            # 2. Liquidation: does this bar's adverse extreme wipe out the margin?
-            if position != 0 and config.leverage > 1.0:
-                liq_price = entry_price * (1.0 - position / config.leverage)
-                hit = low[i] <= liq_price if position > 0 else high[i] >= liq_price
-                if hit:
-                    close_position(liq_price, i, "liquidation")
-                    liquidated_ever = True
+            # 2. Liquidation: does this bar's adverse extreme reach the price at
+            #    which the position is force-closed? None means no such price
+            #    (the linear model at leverage 1).
+            if position != 0:
+                liq_price = model.liquidation_price(entry_price, position)
+                if liq_price is not None:
+                    hit = low[i] <= liq_price if position > 0 else high[i] >= liq_price
+                    if hit:
+                        close_position(liq_price, i, "liquidation")
+                        liquidated_ever = True
 
             if equity <= 0:
                 equity = 0.0
                 ruined = True
 
         # 3. Mark to market on this bar's close.
-        unrealized = quantity * (close[i] - entry_price) if position != 0 else 0.0
+        unrealized = model.unrealized(sizing, entry_price, close[i]) if position != 0 else 0.0
         equity_curve[i] = max(equity + unrealized, 0.0)
         position_curve[i] = position
 

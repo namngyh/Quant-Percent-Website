@@ -243,6 +243,8 @@ const Paper = (() => {
           <p class="pp-meta">${esc(L(
             `${s.num_trades} lệnh · thắng ${s.win_rate_pct.toFixed(0)}% · nến cuối ${ago(s.last_closed_time)}`,
             `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}</p>
+          ${s.execution_model === 'contract_model_off'
+            ? `<p class="pp-meta">${esc(t('exec.contractOff'))}</p>` : ''}
           ${s.pending_signal !== s.position
             ? `<p class="pp-meta">${esc(L('Chờ khớp ở nến kế tiếp: ',
                 'Waiting to fill at the next candle: '))}<strong>${esc(

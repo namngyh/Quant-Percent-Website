@@ -19,12 +19,62 @@ from backend.optimizer.grid import (
     grid_size,
     optimize,
 )
+from typing import Literal
+
+from backend.i18n import bi
 from backend.strategy import multi, registry
 from backend.strategy.base import StrategyError
 from backend.strategy.engine import BacktestConfig
+from backend.strategy.position_model import ContractConfig, execution_model_for, is_index_future
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
+
+
+class ContractSettings(BaseModel):
+    """Index-futures sizing and costs, applied only to VN30F/VN100F symbols.
+
+    The margin rate, the forced-close threshold and the fee have no defaults:
+    they are set by the exchange and the broker, and a guessed value would put
+    an invented cost on the account.
+    """
+
+    sizing: Literal["margin", "fixed"] = "margin"
+    contracts: int = Field(default=1, ge=1, le=10_000)
+    multiplier: float = Field(default=100_000.0, gt=0)
+    initial_margin_rate: float | None = Field(default=None, gt=0, le=1)
+    maintenance_threshold: float | None = Field(default=None, ge=0, lt=1)
+    fee_mode: Literal["per_contract", "notional"] = "per_contract"
+    fee_per_contract: float | None = Field(default=None, ge=0)
+    fee_rate: float | None = Field(default=None, ge=0, le=0.01)
+    slippage_points: float = Field(default=0.0, ge=0)
+
+    def missing(self) -> list[str]:
+        names = []
+        if self.initial_margin_rate is None:
+            names.append("initial_margin_rate")
+        if self.maintenance_threshold is None:
+            names.append("maintenance_threshold")
+        fee_field = "fee_per_contract" if self.fee_mode == "per_contract" else "fee_rate"
+        if getattr(self, fee_field) is None:
+            names.append(fee_field)
+        return names
+
+
+class ContractSettingsRequired(Exception):
+    """A futures symbol whose contract block leaves a required value empty."""
+
+    def __init__(self, missing: list[str]) -> None:
+        super().__init__(", ".join(missing))
+        fields = ", ".join(missing)
+        self.detail = {
+            "code": "contract_settings_required",
+            "missing": missing,
+            "message": bi(
+                f"Thiếu thông số hợp đồng: {fields}.",
+                f"Missing contract settings: {fields}.",
+            ),
+        }
 
 
 class ExecutionSettings(BaseModel):
@@ -35,15 +85,52 @@ class ExecutionSettings(BaseModel):
     leverage: float = Field(default=1.0, ge=1.0, le=125.0)
     fee: float = Field(default=0.0004, ge=0, le=0.01)
     slippage: float = Field(default=0.0002, ge=0, le=0.01)
+    contract: ContractSettings | None = None
 
-    def to_config(self) -> BacktestConfig:
+    def to_config(self, symbol: str | None = None) -> BacktestConfig:
+        """The engine config for ``symbol``.
+
+        The contract block applies only to an index future; with any other
+        symbol it is ignored. Raises ContractSettingsRequired when it applies
+        but leaves a required value empty.
+        """
+        contract = None
+        if self.contract is not None and is_index_future(symbol or settings.chart.default_symbol):
+            missing = self.contract.missing()
+            if missing:
+                raise ContractSettingsRequired(missing)
+            c = self.contract
+            contract = ContractConfig(
+                initial_margin_rate=c.initial_margin_rate,
+                maintenance_threshold=c.maintenance_threshold,
+                sizing=c.sizing,
+                contracts=c.contracts,
+                multiplier=c.multiplier,
+                fee_mode=c.fee_mode,
+                fee_per_contract=c.fee_per_contract or 0.0,
+                fee_rate=c.fee_rate or 0.0,
+                slippage_points=c.slippage_points,
+            )
         return BacktestConfig(
             initial_capital=self.initial_capital,
             size_pct=self.size_pct,
             leverage=self.leverage,
             fee=self.fee,
             slippage=self.slippage,
+            contract=contract,
         )
+
+
+def config_for(execution: ExecutionSettings, symbol: str | None) -> BacktestConfig:
+    """`to_config`, with a missing contract setting turned into HTTP 422.
+
+    Call it before an endpoint's try block: a broad `except Exception` there
+    would report the 422 as a 500.
+    """
+    try:
+        return execution.to_config(symbol)
+    except ContractSettingsRequired as exc:
+        raise HTTPException(422, detail=exc.detail) from exc
 
 
 class BacktestRequest(BaseModel):
@@ -69,7 +156,7 @@ def report(request: BacktestRequest) -> dict:
     """
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
-    config = request.execution.to_config()
+    config = config_for(request.execution, request.symbol)
 
     try:
         spec, resolved, result, probability = registry.simulate(
@@ -92,6 +179,8 @@ def report(request: BacktestRequest) -> dict:
     payload["strategy_name"] = spec.name
     payload["params"] = resolved
     payload["symbol"] = request.symbol
+    payload["execution_model"] = execution_model_for(
+        request.symbol or settings.chart.default_symbol, config)
     return payload
 
 
@@ -193,10 +282,14 @@ def backtest(request: BacktestRequest) -> dict:
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
 
+    config = config_for(request.execution, request.symbol)
     try:
-        return registry.run_strategy(
-            request.strategy_id, df, timeframe, request.params, request.execution.to_config()
+        result = registry.run_strategy(
+            request.strategy_id, df, timeframe, request.params, config
         )
+        result["execution_model"] = execution_model_for(
+            request.symbol or settings.chart.default_symbol, config)
+        return result
     except StrategyError as exc:
         raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
@@ -270,10 +363,17 @@ def backtest_markets(request: MultiMarketRequest) -> dict:
             continue
 
         try:
+            config = request.execution.to_config(symbol)
+        except ContractSettingsRequired as exc:
+            # Only this market lacks what it needs; the rest of the scan runs.
+            runs.append(multi.MarketRun(symbol, timeframe, error=exc.detail["message"]))
+            continue
+
+        try:
             result = registry.run_strategy(
-                request.strategy_id, df, timeframe, request.params,
-                request.execution.to_config(),
+                request.strategy_id, df, timeframe, request.params, config,
             )
+            result["execution_model"] = execution_model_for(symbol, config)
         except StrategyError as exc:
             raise HTTPException(422, str(exc)) from exc
         except Exception as exc:
@@ -300,6 +400,7 @@ def run_optimize(request: OptimizeRequest) -> dict:
         raise HTTPException(400, "choose at least one parameter to sweep")
 
     ranges = [ParamRange(r.name, r.start, r.stop, r.step) for r in request.ranges]
+    config = config_for(request.execution, request.symbol)
 
     try:
         return optimize(
@@ -307,7 +408,7 @@ def run_optimize(request: OptimizeRequest) -> dict:
             df,
             timeframe,
             ranges,
-            config=request.execution.to_config(),
+            config=config,
             metric=request.metric,
             top_n=request.top_n,
             mode=request.mode,

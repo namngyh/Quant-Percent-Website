@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.api.routes_strategy import ExecutionSettings, SweepRange, _load_candles
+from backend.api.routes_strategy import ExecutionSettings, SweepRange, _load_candles, config_for
 from backend.config import settings
 from backend.optimizer.grid import ParamRange
 from backend.optimizer.validation import (
@@ -84,11 +84,12 @@ def run_walk_forward(request: WalkForwardRequest) -> dict:
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
     ranges = [ParamRange(r.name, r.start, r.stop, r.step) for r in request.ranges]
+    config = config_for(request.execution, request.symbol)
 
     try:
         return walk_forward(
             request.strategy_id, df, timeframe, ranges,
-            config=request.execution.to_config(),
+            config=config,
             metric=request.metric,
             train_bars=request.train_bars,
             test_bars=request.test_bars,
@@ -109,7 +110,7 @@ def run_monte_carlo(request: MonteCarloRequest) -> dict:
     """Resample the trades of one backtest to show the range of outcomes."""
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
-    config = request.execution.to_config()
+    config = config_for(request.execution, request.symbol)
 
     try:
         backtest = registry.run_strategy(
@@ -146,7 +147,7 @@ def compare(request: CompareRequest) -> dict:
 
     df, timeframe = _load_candles(request.symbol, request.timeframe, request.limit,
                                   request.start, request.end)
-    config = request.execution.to_config()
+    config = config_for(request.execution, request.symbol)
 
     rows, failures = [], []
     for entry in request.entries:

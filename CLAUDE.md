@@ -210,6 +210,104 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-15 (khuya) — Mô hình vị thế theo hợp đồng cho phái sinh
+
+Nhánh `contract-model`. **355 test Python** (trước 326: +18
+`test_position_model.py`, +5 `test_paper.py`, +6 `test_contract_api.py`), render
+check đạt (thêm 4 check cho ghi chú `contract_model_off`), i18n 2/2.
+
+Backtest và Paper trước đây tính mọi mã theo mô hình tuyến tính: khối lượng =
+ký quỹ × đòn bẩy / giá, phí là tỷ lệ trên giá trị danh nghĩa. Với VN30F/VN100F,
+mô hình này cho ra số hợp đồng lẻ và lãi/lỗ theo đơn vị tài khoản, không có hệ
+số nhân. `backend/strategy/position_model.py` cung cấp một giao diện với hai
+hiện thực, `LinearModel` và `ContractModel`, dùng chung cho engine backtest và
+engine Paper: quy tắc định cỡ, phí, trượt giá và buộc đóng chỉ được viết ở một
+nơi. Thiết kế: `docs/superpowers/specs/2026-09-15-contract-position-model-design.md`.
+
+#### 1. Mô hình tuyến tính không đổi (§2.1)
+
+Trước khi sửa engine, lệnh và đường vốn của engine cũ được ghi lại trên 6 cấu
+hình (không phí; phí và trượt giá; 50% vốn; đòn bẩy 5; đòn bẩy 25 có thanh lý;
+phí cao) vào `tests/fixtures/linear_golden.json`. Sau khi sửa, mọi trường của
+mọi lệnh và mọi điểm của đường vốn trùng bản ghi tới sai số tương đối
+**≤ 1e-12**.
+
+*§2.2 — fixture đầu tiên quá yếu để chứng minh điều đó:* chỉ có **15 lệnh**, và
+cấu hình đòn bẩy 25 dùng toàn bộ vốn **cháy tài khoản ngay lệnh đầu tiên**, tức
+chỉ kiểm được một lần thanh lý và không kiểm gì sau nó. Sau khi kéo dài thời
+gian giữ lệnh của tín hiệu thành 5–30 nến và hạ `size_pct` của cấu hình đó
+xuống 0,2: **40 lệnh** mỗi cấu hình; cấu hình đòn bẩy 25 có **82 lệnh, 42 lần
+thanh lý**, và tài khoản vẫn giao dịch tiếp. Test chặn cả hai điều kiện để
+fixture không yếu đi mà không ai biết.
+
+#### 2. Mô hình hợp đồng, đối chiếu với số tính tay
+
+Vốn 100.000.000 đ, `size_pct` 1, hệ số nhân 100.000 đ/điểm, tỷ lệ ký quỹ 20%,
+ngưỡng buộc đóng 50%, phí 20.000 đ/hợp đồng/chiều. Đây là số dùng cho test,
+không phải giá trị mặc định. Engine trùng mọi dòng tới sai số tương đối 1e-9.
+
+| Trường hợp | Tính tay |
+|---|---|
+| Định cỡ theo vốn, giá 1300 | ký quỹ ban đầu 1300 × 100.000 × 0,2 = 26.000.000 đ → **3 hợp đồng**, ký quỹ 78.000.000 đ |
+| Cố định 5 hợp đồng | cần 130.000.000 đ > vốn → backtest **0 lệnh**; Paper từ chối `insufficient_margin` |
+| Mua 3 HĐ, 1300 → 1310 | 10 × 100.000 × 3 − 60.000 = **2.940.000 đ**; vốn sau **102.880.000 đ**; `return_pct` **3,769%** |
+| Bán 3 HĐ, 1300 → 1290 | +10 điểm, **2.940.000 đ** |
+| Trượt giá 0,5 điểm | khớp 1300,5 và 1309,5 → **+9 điểm** |
+| Phí danh nghĩa 0,03% | 3 × 1300 × 100.000 × 0,0003 = **117.000 đ**/chiều |
+| Giá buộc đóng, mua ở 1300 | 1300 × (1 − 0,5 × 0,2) = **1.170** (bán: 1.430); đáy 1169 → đóng ở 1170, `liquidation`; đáy 1171 → không đóng |
+
+Paper: phát lại lịch sử qua `PaperSession` với cấu hình hợp đồng cho đúng các
+lệnh của `run_backtest`; khối `contract` còn nguyên sau khi khởi động lại, bản
+ghi cũ không có khoá này nạp thành tuyến tính. Lệnh tay không đủ ký quỹ bị từ
+chối **trước khi** trạng thái thay đổi: một lệnh đảo chiều mà vị thế mới không
+đủ ký quỹ không được đóng vị thế cũ rồi mới báo lỗi.
+
+#### 3. Hệ thức với báo cáo, và một sai sót trong bản thiết kế (§2.2)
+
+Bản thiết kế ban đầu ghi "lợi nhuận ròng của báo cáo bằng tổng `pnl`". Điều này
+**chỉ đúng khi phí bằng 0**: `pnl` của một lệnh chỉ trừ phí ra, còn phí vào bị
+trừ thẳng vào vốn lúc mở lệnh. Hai hệ thức đúng, kiểm trên một backtest hợp
+đồng 600 nến:
+
+```
+overview.net_profit = trades.all.net_profit − Σ phí vào lệnh
+vốn đầu × Π(equity_after / equity_before) = vốn cuối
+```
+
+Hệ thức thứ hai là đại lượng Monte Carlo dùng để dựng lại đường vốn. Báo cáo,
+thống kê, walk-forward, Monte Carlo và tối ưu không phải sửa; test của các
+module đó giữ nguyên số check và đều đạt. Bản thiết kế đã được đính chính.
+
+#### 4. API và giao diện
+
+- Mô hình được chọn theo mã: chỉ mã `futures_vn` có khối `contract` đầy đủ mới
+  dùng mô hình hợp đồng; khối `contract` gửi kèm mã khác bị bỏ qua. Kết quả
+  backtest, báo cáo, từng dòng quét nhiều thị trường và snapshot phiên Paper
+  mang mã `execution_model`: `linear`, `contract` hoặc `contract_model_off`.
+- Khối `contract` thiếu tỷ lệ ký quỹ, ngưỡng buộc đóng hoặc trường phí → **422**
+  `{code: "contract_settings_required", missing, message: {vi, en}}`. Khi quét
+  nhiều thị trường, lỗi chỉ gắn vào dòng của mã phái sinh; các mã khác vẫn chạy.
+- Giao diện **chưa có chỗ nhập** thông số hợp đồng (thuộc phần 2, bánh răng cài
+  đặt). Vì vậy hiện mọi mã phái sinh vẫn tính tuyến tính, và panel Kết quả cùng
+  phiên Paper hiện ghi chú "Mô hình hợp đồng chưa bật…", rẽ nhánh theo mã
+  `contract_model_off`, không theo văn bản (§2.4).
+
+*§2.3:* một phép thay chuỗi trong `backend/paper/engine.py` khớp **3 chỗ** thay
+vì 1 (dòng `"quantity": abs(self.quantity),` còn xuất hiện, thụt sâu hơn, trong
+hai sự kiện vào lệnh). Script kiểm số lần khớp trước khi ghi nên không file nào
+bị sửa dở; phép thay được neo lại vào dòng đứng trước.
+
+#### Giới hạn
+
+- Ngưỡng buộc đóng tính trên ký quỹ đã đặt cho **một vị thế**, không mô phỏng
+  toàn bộ tài khoản ký quỹ tại công ty chứng khoán (tiền dư, nhiều vị thế).
+- Không mô phỏng thuế thu nhập cá nhân, lãi/phí qua đêm, đáo hạn và cuộn hợp
+  đồng; chuỗi VN30F1M là chuỗi liên tục của dữ liệu nguồn.
+- Tỷ lệ ký quỹ, ngưỡng buộc đóng và phí do người dùng nhập, không tự cập nhật
+  theo quy định hiện hành.
+- Với mô hình hợp đồng, `leverage` bị bỏ qua; đòn bẩy thực tế là 1 / tỷ lệ ký
+  quỹ ban đầu.
+
 ### 2026-09-15 (tối) — Mở biểu đồ từ phiên Paper, vùng SL/TP, thẻ vị thế có nút đóng
 
 Backend không đổi. Render check (thêm 4 check bấm phiên), i18n 2/2, 4 trang test

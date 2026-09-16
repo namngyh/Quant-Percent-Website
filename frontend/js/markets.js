@@ -215,7 +215,9 @@ const Markets = (() => {
   function failedList(r) {
     if (!r.failed?.length) return '';
     return `<div class="callout warn"><strong>${esc(t('mm.failedMarkets'))}:</strong><br>` +
-      r.failed.map((f) => `${esc(f.symbol)} — ${esc(f.error)}`).join('<br>') +
+      // A market can fail with a {vi, en} pair (missing contract settings) or
+      // with a plain message from the data layer.
+      r.failed.map((f) => `${esc(f.symbol)} — ${esc(typeof f.error === 'object' ? tp(f.error) : f.error)}`).join('<br>') +
       '</div>';
   }
 

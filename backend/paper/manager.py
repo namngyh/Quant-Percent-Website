@@ -317,7 +317,7 @@ class PaperManager:
     def _from_payload(self, d: dict) -> PaperSession:
         session = PaperSession(
             strategy_id=d["strategy_id"], symbol=d["symbol"], timeframe=d["timeframe"],
-            params=d.get("params", {}), config=BacktestConfig(**d["config"]),
+            params=d.get("params", {}), config=BacktestConfig.from_dict(d["config"]),
             id=d["id"], created_at=d["created_at"], updated_at=d["updated_at"],
             active=d.get("active", True),
         )

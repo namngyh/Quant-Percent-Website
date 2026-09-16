@@ -330,11 +330,19 @@ const Strategy = (() => {
     </div>`;
   }
 
+  /* A futures symbol run without contract settings: the figures are in account
+     units without the multiplier, and the reader must know before reading them.
+     Branches on the stable code from the API, never on text (§2.4). */
+  function executionNote(result) {
+    return result?.execution_model === 'contract_model_off'
+      ? `<div class="callout warn">${esc(t('exec.contractOff'))}</div>` : '';
+  }
+
   function renderResult(result) {
     const m = result.metrics;
     const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
-    let html = '';
+    let html = executionNote(result);
 
     if (m.ruined) {
       html += `<div class="callout bad">${esc(L(
@@ -667,6 +675,8 @@ const Strategy = (() => {
     // standing up a server: the panel is where the sweep's two most important
     // verdicts are shown, and nothing else checks that they render.
     renderOptimize,
+    // Exported for tests/test_render.js, which checks the note in both languages.
+    executionNote,
     // Exposed so validation and comparison reuse exactly the parameters and
     // costs the backtest just used, rather than assembling their own.
     execution,
