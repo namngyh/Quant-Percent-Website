@@ -22,7 +22,7 @@ const API = (() => {
       // can branch on `code` and display the right language (§2.4, §3.2).
       const structured = detail && typeof detail === 'object' && !Array.isArray(detail);
       const text = typeof detail === 'string' ? detail
-        : structured && detail.message ? (detail.message.vi || detail.message.en)
+        : structured && detail.message ? tp(detail.message)
         : JSON.stringify(detail);
       const error = new Error(text);
       error.status = response.status;

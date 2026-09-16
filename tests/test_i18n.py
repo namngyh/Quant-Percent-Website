@@ -208,7 +208,10 @@ def _():
 # Telegram setup notes. Recording the number here rather than skipping the file
 # keeps the debt visible, stops it growing, and shrinks to nothing by lowering
 # this line. Set it to 0 and delete the entry when app.js is finished.
-BUDGET = {'app.js': 67}
+# Empty, and staying empty: app.js carried the last 67 untranslated strings
+# (the plugin-format templates and the Telegram walkthrough) and they are
+# translated now. A new one anywhere makes this red.
+BUDGET: dict[str, int] = {}
 
 
 @check("no file gains an untranslated string, and the remaining debt does not grow")

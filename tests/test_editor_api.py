@@ -135,6 +135,44 @@ def _():
         assert not marker.exists(), "check executed the source"
 
 
+@check("a duplicate name is refused with a code, not with a Vietnamese sentence")
+def _():
+    """The refusal the frontend has to recognise.
+
+    It used to be a bare sentence, and app.js decided what it meant by looking
+    for the words "đã tồn tại" in it. An English reader never sees those words,
+    so the overwrite prompt never appeared and the import simply failed (§2.4).
+    """
+    import tempfile
+    import types
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        original = rp.settings
+        rp.settings = types.SimpleNamespace(plugin_indicator_dir=folder)
+        try:
+            first = rp.import_plugin(rp.ImportRequest(filename="dup.py", content=INDICATOR))
+            assert first["path"], first
+
+            try:
+                rp.import_plugin(rp.ImportRequest(filename="dup.py", content=INDICATOR))
+            except HTTPException as exc:
+                assert exc.status_code == 409, exc.status_code
+                assert exc.detail["code"] == "plugin_exists", exc.detail
+                assert set(exc.detail["message"]) == {"vi", "en"}, exc.detail
+                # The English half says the same thing, which is the whole point.
+                assert "already exists" in exc.detail["message"]["en"], exc.detail
+            else:
+                raise AssertionError("a duplicate name was accepted")
+
+            # And overwriting is still allowed when it is asked for.
+            again = rp.import_plugin(
+                rp.ImportRequest(filename="dup.py", content=INDICATOR, overwrite=True))
+            assert again["path"], again
+        finally:
+            rp.settings = original
+
+
 @check("an unknown kind is refused before it becomes a folder")
 def _():
     for bad in ("indicators", "strategies", "../", "secrets"):

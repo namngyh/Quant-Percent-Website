@@ -24,6 +24,8 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+
+from backend.i18n import bi
 from pydantic import BaseModel, Field
 
 from backend.config import settings
@@ -118,10 +120,21 @@ def import_plugin(request: ImportRequest) -> dict:
     destination = target_dir / name
 
     if destination.exists() and not request.overwrite:
+        # A stable code beside the sentence: the frontend used to decide what
+        # this was by matching the Vietnamese words in it, which is exactly the
+        # failure §2.4 exists to stop — the English reader's copy would not
+        # match, and the overwrite prompt would never appear.
         raise HTTPException(
             409,
-            f"`{name}` đã tồn tại trong `plugins/{FOLDER[kind]}/`. "
-            "Đổi tên file hoặc chọn ghi đè.",
+            {
+                "code": "plugin_exists",
+                "message": bi(
+                    f"`{name}` đã tồn tại trong `plugins/{FOLDER[kind]}/`. "
+                    "Đổi tên file hoặc chọn ghi đè.",
+                    f"`{name}` already exists in `plugins/{FOLDER[kind]}/`. "
+                    "Rename the file or choose to overwrite.",
+                ),
+            },
         )
 
     # Load it from a scratch copy first, so a file that blows up on import

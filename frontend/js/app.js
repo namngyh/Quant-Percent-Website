@@ -908,7 +908,8 @@
       // Let the next attempt try again rather than leaving the panels empty
       // for the rest of the session.
       workingViewLoaded = null;
-      toast(`Không nạp được chỉ báo và chiến lược: ${err.message}`, 'bad');
+      toast(L(`Không nạp được chỉ báo và chiến lược: ${err.message}`,
+              `Could not load the indicators and strategies: ${err.message}`), 'bad');
     });
     return workingViewLoaded;
   }
@@ -988,11 +989,11 @@
     try {
       if (kind === 'strategies') {
         await Strategy.load();
-        toast('Đã nạp lại chiến lược từ file');
+        toast(L('Đã nạp lại chiến lược từ file', 'Strategies reloaded from disk'));
       } else {
         Indicators.setCatalog(await API.catalog());
         await Indicators.recomputeAll();
-        toast('Đã nạp lại chỉ báo từ file');
+        toast(L('Đã nạp lại chỉ báo từ file', 'Indicators reloaded from disk'));
       }
     } catch (err) {
       setStatus(err.message, 'error');
@@ -1161,7 +1162,8 @@
     const starred = all.filter((o) => starredIds.has(o.id));
 
     const groups = starred.length
-      ? [{ label: `★ Đánh dấu (${starred.length})`, options: starred }, ...symbolGroups]
+      ? [{ label: L(`★ Đánh dấu (${starred.length})`, `★ Starred (${starred.length})`),
+           options: starred }, ...symbolGroups]
       : symbolGroups;
 
     el.symbol.innerHTML = groups
@@ -1421,37 +1423,54 @@
   // have no way to know it. The template is shown where the import button is,
   // and can be downloaded as a working file to edit rather than retyped.
 
-  const TEMPLATES = {
+  /* A function, not an object: a template built at load time would freeze
+     whichever language happened to be on then, and the reader changes it long
+     afterwards. Same trap explain.js hit with its popover entries. */
+  const templates = () => ({
     indicator: {
-      title: 'Định dạng chỉ báo',
-      filename: 'chi_bao_mau.py',
-      intro:
-        'File cần đúng hai thứ: một dict <code>INDICATOR</code> mô tả chỉ báo, ' +
-        'và một hàm <code>calculate(df, params)</code> trả về giá trị. ' +
-        'Không cần import gì ngoài thư viện bạn dùng.',
+      title: L('Định dạng chỉ báo', 'Indicator format'),
+      filename: L('chi_bao_mau.py', 'indicator_template.py'),
+      intro: L(
+        'File cần đúng hai thứ: một dict <code>INDICATOR</code> mô tả chỉ báo, '
+        + 'và một hàm <code>calculate(df, params)</code> trả về giá trị. '
+        + 'Không cần import gì ngoài thư viện bạn dùng.',
+        'The file needs exactly two things: an <code>INDICATOR</code> dict describing '
+        + 'the indicator, and a <code>calculate(df, params)</code> function returning '
+        + 'its values. Nothing to import beyond the libraries you use.'),
       notes: [
-        ['<code>type</code>', '<code>"overlay"</code> nếu cùng thang giá (EMA, Bollinger); <code>"panel"</code> nếu khác thang (RSI, MACD)'],
-        ['<code>params</code>', 'Mỗi tham số thành một thanh trượt. Kiểu: <code>int</code>, <code>float</code>, <code>bool</code>'],
-        ['<code>outputs</code>', 'Mỗi phần tử là một đường vẽ. <code>key</code> phải khớp key trả về'],
-        ['<code>df</code>', 'DataFrame có <code>open, high, low, close, volume</code>, index là thời gian UTC'],
-        ['Trả về', 'dict <code>{key: Series}</code>, hoặc một Series / DataFrame'],
+        ['<code>type</code>', L(
+          '<code>"overlay"</code> nếu cùng thang giá (EMA, Bollinger); <code>"panel"</code> nếu khác thang (RSI, MACD)',
+          '<code>"overlay"</code> if it shares the price scale (EMA, Bollinger); <code>"panel"</code> if it does not (RSI, MACD)')],
+        ['<code>params</code>', L(
+          'Mỗi tham số thành một thanh trượt. Kiểu: <code>int</code>, <code>float</code>, <code>bool</code>',
+          'Each parameter becomes a slider. Types: <code>int</code>, <code>float</code>, <code>bool</code>')],
+        ['<code>outputs</code>', L(
+          'Mỗi phần tử là một đường vẽ. <code>key</code> phải khớp key trả về',
+          'Each entry is one plotted line. Its <code>key</code> must match the key you return')],
+        ['<code>df</code>', L(
+          'DataFrame có <code>open, high, low, close, volume</code>, index là thời gian UTC',
+          'A DataFrame of <code>open, high, low, close, volume</code>, indexed by UTC time')],
+        [L('Trả về', 'Returns'), L(
+          'dict <code>{key: Series}</code>, hoặc một Series / DataFrame',
+          'a dict of <code>{key: Series}</code>, or a single Series / DataFrame')],
       ],
-      code: `"""Chỉ báo mẫu: copy file này, đổi tên rồi sửa logic."""
+      code: `"""${L('Chỉ báo mẫu: copy file này, đổi tên rồi sửa logic.',
+                    'Template indicator: copy this file, rename it, change the logic.')}"""
 
 INDICATOR = {
-    "name": "Kênh giá của tôi",
-    "type": "overlay",          # "overlay" đè lên nến | "panel" khung riêng
+    "name": "${L('Kênh giá của tôi', 'My price channel')}",
+    "type": "overlay",          # "overlay" ${L('đè lên nến', 'over the candles')} | "panel" ${L('khung riêng', 'its own pane')}
     "category": "custom",
-    "description": "Kênh cao/thấp N nến.",
+    "description": "${L('Kênh cao/thấp N nến.', 'The high/low channel of the last N bars.')}",
     "params": {
         "length": {"type": "int", "default": 20, "min": 2, "max": 200,
-                   "label": "Số nến"},
-        "show_mid": {"type": "bool", "default": True, "label": "Vẽ đường giữa"},
+                   "label": "${L('Số nến', 'Bars')}"},
+        "show_mid": {"type": "bool", "default": True, "label": "${L('Vẽ đường giữa', 'Draw the midline')}"},
     },
     "outputs": [
-        {"key": "upper", "label": "Trên",  "color": "#12805c"},
-        {"key": "mid",   "label": "Giữa",  "color": "#949ca6"},
-        {"key": "lower", "label": "Dưới",  "color": "#c8372d"},
+        {"key": "upper", "label": "${L('Trên', 'Upper')}",  "color": "#12805c"},
+        {"key": "mid",   "label": "${L('Giữa', 'Middle')}",  "color": "#949ca6"},
+        {"key": "lower", "label": "${L('Dưới', 'Lower')}",  "color": "#c8372d"},
     ],
 }
 
@@ -1467,37 +1486,53 @@ def calculate(df, params):
 `,
     },
     strategy: {
-      title: 'Định dạng chiến lược',
-      filename: 'chien_luoc_mau.py',
-      intro:
-        'File cần một dict <code>STRATEGY</code> và một hàm ' +
-        '<code>signals(df, params)</code> trả về Series gồm <code>1</code> (long), ' +
-        '<code>-1</code> (short) hoặc <code>0</code> (đứng ngoài) cho mỗi nến.',
+      title: L('Định dạng chiến lược', 'Strategy format'),
+      filename: L('chien_luoc_mau.py', 'strategy_template.py'),
+      intro: L(
+        'File cần một dict <code>STRATEGY</code> và một hàm '
+        + '<code>signals(df, params)</code> trả về Series gồm <code>1</code> (long), '
+        + '<code>-1</code> (short) hoặc <code>0</code> (đứng ngoài) cho mỗi nến.',
+        'The file needs a <code>STRATEGY</code> dict and a '
+        + '<code>signals(df, params)</code> function returning a Series of <code>1</code> '
+        + '(long), <code>-1</code> (short) or <code>0</code> (flat) for every bar.'),
       notes: [
-        ['<code>side</code>', '<code>"long"</code>, <code>"short"</code> hoặc <code>"both"</code>: tín hiệu ngược chiều sẽ bị bỏ'],
-        ['Trả về', '<code>pd.Series</code> cùng độ dài với <code>df</code>, giá trị 1 / -1 / 0'],
-        ['Nhân quả', 'Giá trị tại nến <em>i</em> chỉ được dùng dữ liệu tới lúc nến <em>i</em> đóng'],
-        ['Khớp lệnh', 'Engine khớp ở <strong>giá mở nến kế tiếp</strong>, nên bạn không thể vô tình dùng giá chưa xảy ra'],
-        ['Khởi động', 'Đặt 0 cho khoảng đầu khi chỉ báo chưa đủ dữ liệu'],
+        ['<code>side</code>', L(
+          '<code>"long"</code>, <code>"short"</code> hoặc <code>"both"</code>: tín hiệu ngược chiều sẽ bị bỏ',
+          '<code>"long"</code>, <code>"short"</code> or <code>"both"</code>: a signal against the allowed side is dropped')],
+        [L('Trả về', 'Returns'), L(
+          '<code>pd.Series</code> cùng độ dài với <code>df</code>, giá trị 1 / -1 / 0',
+          'a <code>pd.Series</code> as long as <code>df</code>, holding 1 / -1 / 0')],
+        [L('Nhân quả', 'Causality'), L(
+          'Giá trị tại nến <em>i</em> chỉ được dùng dữ liệu tới lúc nến <em>i</em> đóng',
+          'The value at bar <em>i</em> may only use data available when bar <em>i</em> closed')],
+        [L('Khớp lệnh', 'Fills'), L(
+          'Engine khớp ở <strong>giá mở nến kế tiếp</strong>, nên bạn không thể vô tình dùng giá chưa xảy ra',
+          'The engine fills at <strong>the next bar\'s open</strong>, so you cannot accidentally trade on a price that had not happened yet')],
+        [L('Khởi động', 'Warm-up'), L(
+          'Đặt 0 cho khoảng đầu khi chỉ báo chưa đủ dữ liệu',
+          'Return 0 for the opening stretch, while the indicator has too little data')],
       ],
-      code: `"""Chiến lược mẫu: copy file này, đổi tên rồi sửa logic."""
+      code: `"""${L('Chiến lược mẫu: copy file này, đổi tên rồi sửa logic.',
+                    'Template strategy: copy this file, rename it, change the logic.')}"""
 
 import pandas as pd
 
 STRATEGY = {
-    "name": "Vượt đỉnh N nến",
+    "name": "${L('Vượt đỉnh N nến', 'N-bar breakout')}",
     "side": "both",             # "long" | "short" | "both"
-    "description": "Mua khi vượt đỉnh, bán khi thủng đáy.",
+    "description": "${L('Mua khi vượt đỉnh, bán khi thủng đáy.',
+                        'Buy the breakout, sell the breakdown.')}",
     "params": {
         "lookback": {"type": "int", "default": 20, "min": 5, "max": 200,
-                     "label": "Số nến nhìn lại"},
+                     "label": "${L('Số nến nhìn lại', 'Bars looked back')}"},
     },
 }
 
 
 def signals(df, params):
     n = params["lookback"]
-    # shift(1): đỉnh/đáy của N nến TRƯỚC, không tính nến hiện tại.
+    # shift(1): ${L('đỉnh/đáy của N nến TRƯỚC, không tính nến hiện tại.',
+                    'the high/low of the N bars BEFORE this one, not including it.')}
     highest = df["high"].rolling(n).max().shift(1)
     lowest = df["low"].rolling(n).min().shift(1)
 
@@ -1505,16 +1540,16 @@ def signals(df, params):
     out[df["close"] > highest] = 1
     out[df["close"] < lowest] = -1
 
-    out.iloc[:n] = 0            # cửa sổ khởi động: đứng ngoài
+    out.iloc[:n] = 0            # ${L('cửa sổ khởi động: đứng ngoài', 'warm-up window: stay flat')}
     return out
 `,
     },
-  };
+  });
 
   let currentTemplate = null;
 
   function showFormatHelp(kind) {
-    const tpl = TEMPLATES[kind];
+    const tpl = templates()[kind];
     if (!tpl) return;
     currentTemplate = tpl;
 
@@ -1527,8 +1562,11 @@ def signals(df, params):
       '<table class="data-table format-notes"><tbody>' +
       tpl.notes.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') +
       '</tbody></table>' +
-      '<p class="hint">Nếu file sai định dạng, nền tảng từ chối kèm lý do và ' +
-      '<strong>không ghi vào đĩa</strong>: thư mục của bạn không bao giờ lẫn file hỏng.</p>';
+      `<p class="hint">${L(
+        'Nếu file sai định dạng, nền tảng từ chối kèm lý do và '
+        + '<strong>không ghi vào đĩa</strong>: thư mục của bạn không bao giờ lẫn file hỏng.',
+        'A file in the wrong shape is refused with the reason, and '
+        + '<strong>never written to disk</strong>: your folder cannot fill up with broken files.')}</p>`;
 
     el.formatDialog.hidden = false;
   }
@@ -1616,16 +1654,17 @@ def signals(df, params):
       a.download = currentTemplate.filename;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast(`Đã tải ${currentTemplate.filename}`);
+      toast(L(`Đã tải ${currentTemplate.filename}`, `Downloaded ${currentTemplate.filename}`));
     });
 
     el.formatCopy.addEventListener('click', async () => {
       if (!currentTemplate) return;
       try {
         await navigator.clipboard.writeText(currentTemplate.code);
-        toast('Đã sao chép mã mẫu');
+        toast(L('Đã sao chép mã mẫu', 'Template copied'));
       } catch {
-        toast('Trình duyệt chặn sao chép, hãy dùng nút Tải file mẫu.', true);
+        toast(L('Trình duyệt chặn sao chép, hãy dùng nút Tải file mẫu.',
+              'The browser blocked the copy; use the download button instead.'), true);
       }
     });
   }
@@ -1635,7 +1674,8 @@ def signals(df, params):
   function renderComparePicker() {
     const specs = Strategy.catalog || [];
     if (!specs.length) {
-      el.compareList.innerHTML = '<p class="empty">Chưa có chiến lược nào.</p>';
+      el.compareList.innerHTML = `<p class="empty">${L(
+        'Chưa có chiến lược nào.', 'No strategies yet.')}</p>`;
       return;
     }
     el.compareList.innerHTML = specs
@@ -1667,43 +1707,48 @@ def signals(df, params):
     let html = '';
     if (help.what) {
       html += `<div class="help-section">
-        <div class="help-label">Đo cái gì</div>
+        <div class="help-label">${L('Đo cái gì', 'What it measures')}</div>
         <p class="help-text">${esc(help.what)}</p></div>`;
     }
     if (help.how) {
       html += `<div class="help-section">
-        <div class="help-label">Đọc thế nào</div>
+        <div class="help-label">${L('Đọc thế nào', 'How to read it')}</div>
         <p class="help-text">${esc(help.how)}</p></div>`;
     }
     if (help.watch) {
       html += `<div class="help-section watch">
-        <div class="help-label">Cần lưu ý</div>
+        <div class="help-label">${L('Cần lưu ý', 'Where it fails')}</div>
         <p class="help-text">${esc(help.watch)}</p></div>`;
     }
     if (!html) {
-      html = '<p class="empty">Chỉ báo này chưa có mô tả.</p>';
+      html = `<p class="empty">${L(
+        'Chỉ báo này chưa có mô tả.', 'This indicator has no description yet.')}</p>`;
     }
 
     if (spec.params?.length) {
-      html += '<div class="help-section"><div class="help-label">Tham số</div>' +
+      html += `<div class="help-section"><div class="help-label">${L(
+        'Tham số', 'Parameters')}</div>` +
         '<table class="data-table help-params"><tbody>' +
         spec.params.map((prm) => {
           const range = prm.min !== null && prm.max !== null
             ? ` (${prm.min}–${prm.max})` : '';
-          return `<tr><td>${esc(prm.name)}</td><td>${esc(prm.label)} (mặc định
+          return `<tr><td>${esc(prm.name)}</td><td>${esc(prm.label)} ${L('(mặc định',
+            '(default')}
             <strong>${esc(prm.default)}</strong>${range}</td></tr>`;
         }).join('') +
         '</tbody></table></div>';
     }
 
     if (spec.outputs?.length) {
-      html += `<div class="help-section"><div class="help-label">Đường vẽ</div>
+      html += `<div class="help-section"><div class="help-label">${L(
+        'Đường vẽ', 'Plotted lines')}</div>
         <p class="help-text">${spec.outputs.map((o) => esc(o.label)).join(' · ')}</p></div>`;
     }
 
     const origin = {
-      curated: 'Mô tả do nền tảng viết.',
-      docstring: 'Lấy từ tài liệu gốc của thư viện hoặc của file.',
+      curated: L('Mô tả do nền tảng viết.', 'Written for this platform.'),
+      docstring: L('Lấy từ tài liệu gốc của thư viện hoặc của file.',
+                   "Taken from the library's or the file's own documentation."),
       none: '',
     }[help.source] || '';
     if (origin) html += `<div class="help-source">${origin}</div>`;
@@ -1756,14 +1801,25 @@ def signals(df, params):
     const clearButton = document.getElementById('notify-clear');
 
     Explain.define('notify.telegram', {
-      title: 'Thông báo Telegram',
-      what: 'Mỗi khi một phiên paper trading vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
-      how: '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên: nó trả về một token dạng 123456789:AA…\n'
+      title: L('Thông báo Telegram', 'Telegram notifications'),
+      what: L(
+        'Mỗi khi một phiên paper trading vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
+        'Whenever a paper session opens, closes or is liquidated out of a position, the platform sends a message to your chat.'),
+      how: L(
+        '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên: nó trả về một token dạng 123456789:AA…\n'
         + '2. Nhắn một câu bất kỳ cho chính bot vừa tạo.\n'
         + '3. Mở https://api.telegram.org/bot<TOKEN>/getUpdates và lấy giá trị message.chat.id.\n'
         + '4. Dán cả hai vào đây rồi bấm Lưu.',
-      watch: 'Nút Lưu chỉ kiểm tra được token có hợp lệ hay không. Chat id sai vẫn qua được bước đó mà không tin nào tới nơi, nên sau khi lưu hãy bấm "Gửi tin thử" một lần.',
-      source: 'Token được ghi vào .env trên máy này. WhatsApp không có ở đây vì nó đòi tài khoản Business, xét duyệt mẫu tin và một nhà cung cấp trung gian.',
+        '1. Message @BotFather on Telegram, send /newbot, give it a name: it hands back a token like 123456789:AA…\n'
+        + '2. Send any message to the bot you just created.\n'
+        + '3. Open https://api.telegram.org/bot<TOKEN>/getUpdates and take message.chat.id.\n'
+        + '4. Paste both here and press Save.'),
+      watch: L(
+        'Nút Lưu chỉ kiểm tra được token có hợp lệ hay không. Chat id sai vẫn qua được bước đó mà không tin nào tới nơi, nên sau khi lưu hãy bấm "Gửi tin thử" một lần.',
+        'Saving can only check that the token is valid. A wrong chat id passes that check while no message ever arrives, so send a test message once after saving.'),
+      source: L(
+        'Token được ghi vào .env trên máy này. WhatsApp không có ở đây vì nó đòi tài khoản Business, xét duyệt mẫu tin và một nhà cung cấp trung gian.',
+        'The token is written to .env on this machine. WhatsApp is absent because it requires a Business account, template approval and a middleman provider.'),
     });
 
     /** Paint the panel from a status payload. */
@@ -1947,12 +2003,18 @@ def signals(df, params):
         } catch (err) {
           // 409 means the name is taken; offer to replace rather than making
           // the user rename the file outside the app.
-          if (!/đã tồn tại/.test(err.message)) throw err;
-          if (!window.confirm(`${err.message}\n\nGhi đè file cũ?`)) return;
+          /* This used to test the message for the Vietnamese words "đã tồn
+             tại". In English that message does not contain them, so the
+             prompt never appeared and the import just failed — §2.4, in the
+             one place where the backend already had a code to give. */
+          if (err.code !== 'plugin_exists' && err.status !== 409) throw err;
+          if (!window.confirm(`${err.message}${L('\n\nGhi đè file cũ?',
+            '\n\nOverwrite the existing file?')}`)) return;
           result = await API.importPlugin({ filename: file.name, content, overwrite: true });
         }
 
-        toast(`Đã nhập ${result.spec.name} → ${result.path}`);
+        toast(L(`Đã nhập ${result.spec.name} → ${result.path}`,
+                `Imported ${result.spec.name} → ${result.path}`));
         // Hot-reload will also fire from the file watcher; refreshing here
         // means the list updates even if the watcher is unavailable.
         if (result.kind === 'indicator') Indicators.setCatalog(await API.catalog());
@@ -2274,17 +2336,19 @@ def signals(df, params):
       },
       onPaperEvent: (sessionId, event) => {
         if (event.type === 'entry') {
-          toast(`Paper: vào ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`);
+          toast(L(`Paper: vào ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`,
+                  `Paper: opened ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`));
         } else if (event.type === 'exit') {
-          toast(`Paper: đóng lệnh, P&L ${event.trade.pnl.toFixed(2)}`);
+          toast(L(`Paper: đóng lệnh, P&L ${event.trade.pnl.toFixed(2)}`,
+                  `Paper: position closed, P&L ${event.trade.pnl.toFixed(2)}`));
         } else if (event.type === 'liquidation') {
-          toast('Paper: bị thanh lý', true);
+          toast(L('Paper: bị thanh lý', 'Paper: liquidated'), true);
         }
       },
     });
 
     try {
-      splashSay('Đang đọc cấu hình…');
+      splashSay(L('Đang đọc cấu hình…', 'Reading the configuration…'));
       const config = await API.config();
       // The last session's series, when there was one.
       state.symbol = Session.saved.symbol || config.default_symbol;
@@ -2372,29 +2436,29 @@ def signals(df, params):
     el.chartStack?.addEventListener('pointercancel', () => { pressAt = null; });
 
     el.runBacktest.addEventListener('click', () =>
-      withButton(el.runBacktest, 'Đang chạy…', async () => {
+      withButton(el.runBacktest, L('Đang chạy…', 'Running…'), async () => {
         await Strategy.runBacktest();
         showResults('summary');
       }));
 
     el.runWalkForward.addEventListener('click', () =>
-      withButton(el.runWalkForward, 'Đang chạy…', async () => {
+      withButton(el.runWalkForward, L('Đang chạy…', 'Running…'), async () => {
         await Validation.runWalkForward(Strategy.sweepRanges());
         showResults('validation');
       }));
 
     el.runMonteCarlo.addEventListener('click', () =>
-      withButton(el.runMonteCarlo, 'Đang mô phỏng…', async () => {
+      withButton(el.runMonteCarlo, L('Đang mô phỏng…', 'Simulating…'), async () => {
         await Validation.runMonteCarlo(Strategy.currentParams());
         openPanel('montecarlo');
       }));
 
     el.runCompare.addEventListener('click', () =>
-      withButton(el.runCompare, 'Đang so sánh…', async () => {
+      withButton(el.runCompare, L('Đang so sánh…', 'Comparing…'), async () => {
         const entries = [...el.compareList.querySelectorAll('[data-compare]:checked')]
           .map((box) => ({ strategy_id: box.dataset.compare }));
         if (!entries.length) {
-          toast('Chọn ít nhất một chiến lược.', true);
+          toast(L('Chọn ít nhất một chiến lược.', 'Pick at least one strategy.'), true);
           return;
         }
         await Validation.runCompare(entries);
@@ -2402,13 +2466,13 @@ def signals(df, params):
       }));
 
     document.getElementById('run-stats-series').addEventListener('click', (e) =>
-      withButton(e.currentTarget, 'Đang tính…', async () => {
+      withButton(e.currentTarget, L('Đang tính…', 'Computing…'), async () => {
         await Validation.runSeriesStats();
         openPanel('stats');
       }));
 
     document.getElementById('run-stats-strategy').addEventListener('click', (e) =>
-      withButton(e.currentTarget, 'Đang tính…', async () => {
+      withButton(e.currentTarget, L('Đang tính…', 'Computing…'), async () => {
         await Validation.runStrategyStats(Strategy.currentParams());
         openPanel('stats');
       }));
@@ -2435,13 +2499,13 @@ def signals(df, params):
     el.exportCsv.addEventListener('click', () => Validation.exportTrades(Strategy.lastResult));
 
     el.runOptimize.addEventListener('click', () =>
-      withButton(el.runOptimize, 'Đang quét…', async () => {
+      withButton(el.runOptimize, L('Đang quét…', 'Scanning…'), async () => {
         const result = await Strategy.runOptimize();
         if (result) openPanel('optimize');
       }));
 
     el.startPaper.addEventListener('click', () =>
-      withButton(el.startPaper, 'Đang khởi động…', async () => {
+      withButton(el.startPaper, L('Đang khởi động…', 'Starting…'), async () => {
         const session = await Strategy.startPaper();
         if (!session) return;
         // A paper session needs the live feed to make progress, so turn it on
@@ -2454,7 +2518,7 @@ def signals(df, params):
         openPanel('paper');
         drawPaperMarkers();
       drawPositionLines();
-        toast('Đã bắt đầu phiên paper trading');
+        toast(L('Đã bắt đầu phiên paper trading', 'Paper session started'));
       }));
 
     // Overview first: the chart is the only thing that had to be fetched to
