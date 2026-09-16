@@ -10,6 +10,7 @@ import { MarketPulse } from "@/components/home/market-pulse";
 import { QuoteTicker } from "@/components/home/quote-ticker";
 import { PortfolioInvite } from "@/components/home/portfolio-invite";
 import { ModusComparison } from "@/components/home/modus-comparison";
+import { Sealed } from "@/components/sealed";
 import { HomeCta, ResearchSystems } from "@/components/home/sections";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home.hero");
+  const seal = await getTranslations("seal");
 
   return (
     <main>
@@ -157,8 +159,11 @@ export default async function HomePage({
           nothing on the days it has nothing to say. */}
       <MarketPulse />
 
-      {/* The flagship system's record, against the index it trades. */}
-      <ModusComparison />
+      {/* The flagship system's record, against the index it trades — sealed
+          while the system is re-examined. Pale ink: the band is dark. */}
+      <Sealed title={seal("title")} note={seal("modus")} tone="dark" sticky>
+        <ModusComparison />
+      </Sealed>
 
       {/* The one thing a visitor can run against their own holdings. */}
       <PortfolioInvite />

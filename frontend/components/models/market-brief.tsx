@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
  * So the tiles are ordered by that question, not by model. Which model
  * produced each number is named underneath rather than made the heading —
  * useful for anyone who wants to follow it, invisible to anyone who does not.
+ * The tiles are legible without a paragraph introducing them, so there is
+ * none: the page heading above already says what the page is.
  *
  * The panel reports the models it could not reach instead of hiding them. A
  * market summary missing a quarter of its evidence, presented as if whole, is
@@ -30,7 +32,6 @@ import { cn } from "@/lib/utils";
 const COPY = {
   vi: {
     heading: "Thị trường hôm nay",
-    lead: "Bốn mô hình chạy độc lập sau mỗi phiên. Đây là những gì chúng nói, gộp lại một chỗ.",
     index: "VN-Index",
     indexNote: "phiên gần nhất",
     forecast: "Dự báo 20 phiên",
@@ -53,7 +54,6 @@ const COPY = {
   },
   en: {
     heading: "The market today",
-    lead: "Four models run independently after each session. This is what they say, in one place.",
     index: "VN-Index",
     indexNote: "latest session",
     forecast: "20-session forecast",
@@ -175,9 +175,7 @@ export function MarketBrief() {
       <h2 id="market-brief" className="title-md">
         {t.heading}
       </h2>
-      <p className="mt-3 max-w-3xl leading-relaxed text-ink">{t.lead}</p>
-
-      <DataState loading={loading} reserve="min-h-[9rem]" className="mt-6">
+      <DataState loading={loading} reserve="min-h-[9rem]" className="mt-5">
         <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
           <Tile
             label={t.index}

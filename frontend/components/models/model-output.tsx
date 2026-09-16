@@ -38,7 +38,10 @@ export function CurrentOutput({
   const first = records[0];
 
   return (
-    <section>
+    // A container, not a media query, decides the card layout below. This
+    // panel sits full width on the model's own page and in a third of a row
+    // on the combined one, and the viewport cannot tell those apart.
+    <section className="@container">
       <h2 className="title-md">{t("currentOutput")}</h2>
       <DataState
         className="mt-5"
@@ -68,7 +71,15 @@ export function CurrentOutput({
                 )}
               </div>
             )}
-            <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
+            {/* Column count follows the number of horizons the model
+                publishes. Fixed at four, a model with three left a blank
+                grey cell that reads as a panel that failed to load. */}
+            <div
+              className={cn(
+                "mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm @md:grid-cols-2",
+                records.length >= 4 ? "@3xl:grid-cols-4" : "@3xl:grid-cols-3",
+              )}
+            >
               {records.map((r) => (
                 <div key={r.horizon} className="bg-background p-5">
                   <p className="figure text-xs uppercase tracking-[0.08em] text-dim">
@@ -104,10 +115,6 @@ export function CurrentOutput({
             <p className="mt-4 max-w-3xl border-l-2 border-lightgray pl-4 text-sm leading-relaxed text-dim">
               {t("currentOutputCaveat")}
             </p>
-            <DataFreshnessLabel
-              freshness={first}
-              modelVersion={first.model_version}
-            />
           </>
         )}
       </DataState>
@@ -139,26 +146,64 @@ export function ForecastChart({
     if (bars.length === 0 || records.length === 0) return null;
 
     const lastClose = bars[bars.length - 1].close;
-    const categories = [
-      ...bars.map((b) => b.time),
-      ...records.map((r) => `+${r.horizon}d`),
-    ];
     const n = bars.length;
-    const pad = (arr: (number | null)[]) => arr;
 
-    const actual = pad([...bars.map((b) => b.close), ...records.map(() => null)]);
-    const center = pad([
+    // The forecast occupies the width its horizon actually spans.
+    //
+    // Each published horizon used to take one category slot, so a 60-session
+    // forecast rendered as three columns beside eighty of history — about a
+    // twentieth of the chart for the half of it a reader came to see, and a
+    // widening interval that did not visibly widen. Giving every session
+    // between here and the last horizon its own slot puts the +60d point
+    // sixty slots out, where it belongs, and the cone opens across it.
+    //
+    // Values between two published horizons are read off the straight line
+    // joining them, which is the same line the chart drew before; positioning
+    // the endpoints correctly is what changed, not the model's output.
+    const horizons = records.map((r) => r.horizon);
+    const maxHorizon = horizons[horizons.length - 1];
+    const anchorDays = [0, ...horizons];
+
+    const along = (values: number[]) => (day: number) => {
+      for (let i = 1; i < anchorDays.length; i += 1) {
+        if (day <= anchorDays[i]) {
+          const from = anchorDays[i - 1];
+          const span = anchorDays[i] - from || 1;
+          const w = (day - from) / span;
+          return values[i - 1] + (values[i] - values[i - 1]) * w;
+        }
+      }
+      return values[values.length - 1];
+    };
+
+    const centerAt = along([lastClose, ...records.map((r) => r.forecast_value)]);
+    const lowerAt = along([lastClose, ...records.map((r) => r.interval_lower)]);
+    const upperAt = along([lastClose, ...records.map((r) => r.interval_upper)]);
+
+    const days = Array.from({ length: maxHorizon }, (_, i) => i + 1);
+    const categories = [...bars.map((b) => b.time), ...days.map((d) => `+${d}d`)];
+
+    // Where a published horizon sits, for the axis ticks and the markers.
+    const anchorIndex = new Set(horizons.map((h) => n - 1 + h));
+
+    const actual = [...bars.map((b) => b.close), ...days.map(() => null)];
+    const center = [
       ...bars.map((_, i) => (i === n - 1 ? lastClose : null)),
-      ...records.map((r) => r.forecast_value),
-    ]);
-    const lower = pad([
+      ...days.map(centerAt),
+    ];
+    const lower = [
       ...bars.map((_, i) => (i === n - 1 ? lastClose : null)),
-      ...records.map((r) => r.interval_lower),
-    ]);
-    const bandWidth = pad([
+      ...days.map(lowerAt),
+    ];
+    const bandWidth = [
       ...bars.map((_, i) => (i === n - 1 ? 0 : null)),
-      ...records.map((r) => r.interval_upper - r.interval_lower),
-    ]);
+      ...days.map((d) => upperAt(d) - lowerAt(d)),
+    ];
+
+    // One date every so often across the history, then every published
+    // horizon. Left to itself the axis spaces ticks evenly and lands them on
+    // unremarkable filler days instead of on +5d, +20d and +60d.
+    const stride = Math.max(Math.ceil(n / (isMobile ? 3 : 5)), 1);
 
     const actualLabel = tm("actual");
     const intervalLabel = tm("interval", { level: "95%" });
@@ -197,7 +242,15 @@ export function ForecastChart({
         type: "category",
         data: categories,
         axisLine: { lineStyle: { color: CHART.border } },
-        axisLabel: { color: CHART.dim },
+        axisLabel: {
+          color: CHART.dim,
+          interval: (index: number) =>
+            index < n ? index % stride === 0 : anchorIndex.has(index),
+          // The panel is two thirds of a row here and full width on the
+          // model's own page; a tick count that fits one runs the dates into
+          // each other on the other.
+          hideOverlap: true,
+        },
         axisTick: { show: false },
       },
       yAxis: {
@@ -241,7 +294,12 @@ export function ForecastChart({
           type: "line",
           data: center,
           showSymbol: true,
-          symbolSize: 5,
+          // A dot marks a horizon the model published. The dashed line
+          // between two dots is the path drawn between them, not sixty
+          // separate forecasts, and marking every session would say it was.
+          symbol: (_v: unknown, params: { dataIndex: number }) =>
+            anchorIndex.has(params.dataIndex) ? "circle" : "none",
+          symbolSize: 7,
           lineStyle: { color: CHART.brand, width: 2, type: "dashed" },
           itemStyle: { color: CHART.brand },
         },
@@ -268,7 +326,7 @@ export function ForecastChart({
             <EChart
               option={option}
               ariaLabel={`${symbol}: ${t("forecastChart")}`}
-              className="h-[26rem]"
+              className="h-[26rem] desk:h-[34rem]"
             />
           </div>
         )}

@@ -351,7 +351,7 @@
   },
   "models": {
     "title": "Models",
-    "description": "Four models run automatically after each trading session. This page brings their results together: where the index could go, how much could be lost, and how the market is behaving.",
+    "description": "Where we publish the forecast charts produced by the quantitative models Quant Percent researches and develops in house. Results update after each trading session.",
     "filters": {
       "market": "Market",
       "category": "Purpose",
@@ -416,11 +416,16 @@
     "catalogueTitle": "The full model catalogue",
     "catalogueLead": "The four models above run daily. The list below also covers models still in development or archived, each with its status."
   },
+
+  "seal": {
+    "title": "Sealed",
+    "modus": "Model Modus is under re-examination: its hypotheses are being re-verified by experts. The figures below are closed until that concludes."
+  },
   "performance": {
     "title": "Test Results",
     "description": "Model Modus is Quant Percent's main trading system, running on VN30F1M futures. This page publishes its 2024–2026 test: the model learned only from earlier years and was then tested on the following one, so the result does not depend on knowing the future.",
     "labelNote": "Every figure on this page comes from simulation on historical data. These are research results, not live trading, and not a commitment about future performance.",
-    "restatementNote": "The order-fill simulation was tightened on 4 July 2026 to treat sessions that open beyond a stop level more conservatively. The reports below were produced under the earlier method and are being rerun to the new standard.",
+    "restatementNote": "Model Modus is under re-examination: its hypotheses are being re-verified by experts. All figures on this page are sealed and will reopen when that concludes.",
     "system": {
       "eyebrow": "System",
       "reportsLead": "The result below comes from a single evaluation spanning the whole 2024–2026 period, tested in chronological order.",

@@ -351,7 +351,7 @@
   },
   "models": {
     "title": "Mô hình",
-    "description": "Bốn mô hình chạy tự động sau mỗi phiên giao dịch. Trang này gộp kết quả của chúng lại: chỉ số có thể đi tới đâu, có thể mất bao nhiêu, và thị trường đang vận hành ra sao.",
+    "description": "Nơi chúng tôi công bố các biểu đồ dự báo sinh ra từ những mô hình định lượng do Quant Percent tự nghiên cứu và phát triển. Kết quả được cập nhật sau mỗi phiên giao dịch.",
     "filters": {
       "market": "Thị trường",
       "category": "Mục đích",
@@ -416,11 +416,16 @@
     "catalogueTitle": "Toàn bộ danh mục mô hình",
     "catalogueLead": "Bốn mô hình phía trên đang chạy hằng ngày. Danh sách dưới đây gồm cả những mô hình đang phát triển hoặc đã lưu trữ, kèm trạng thái của từng cái."
   },
+
+  "seal": {
+    "title": "Niêm phong",
+    "modus": "Model Modus đang được giám định lại và kiểm định lại các giả thuyết bởi các chuyên gia. Số liệu dưới đây tạm đóng cho tới khi có kết luận."
+  },
   "performance": {
     "title": "Kết quả thử nghiệm",
     "description": "Model Modus là hệ thống giao dịch chính của Quant Percent, chạy trên hợp đồng tương lai VN30F1M. Trang này công bố kết quả kiểm tra trong giai đoạn 2024–2026: mô hình chỉ học từ dữ liệu của các năm trước rồi được thử trên năm kế tiếp, nên kết quả không dựa vào việc biết trước tương lai.",
     "labelNote": "Mọi số liệu trên trang này đến từ mô phỏng trên dữ liệu lịch sử. Đây là kết quả nghiên cứu, không phải giao dịch thật, và không phải cam kết về kết quả trong tương lai.",
-    "restatementNote": "Cách mô phỏng khớp lệnh được siết chặt hơn từ 04/07/2026 để xử lý thận trọng các phiên mở cửa vượt qua mức dừng lỗ. Các báo cáo dưới đây chạy trên phương pháp trước đó và đang được chạy lại theo chuẩn mới.",
+    "restatementNote": "Model Modus đang được giám định lại và kiểm định lại các giả thuyết bởi các chuyên gia. Toàn bộ số liệu trên trang tạm niêm phong; sẽ mở lại khi có kết luận.",
     "system": {
       "eyebrow": "Hệ thống",
       "reportsLead": "Kết quả dưới đây đến từ một lần thử nghiệm duy nhất trải dài toàn bộ giai đoạn 2024–2026, theo cách kiểm tra lần lượt theo thời gian.",

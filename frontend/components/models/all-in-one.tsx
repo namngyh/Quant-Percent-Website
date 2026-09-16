@@ -1,151 +1,153 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { MarketBrief } from "@/components/models/market-brief";
 import { CurrentOutput, ForecastChart } from "@/components/models/model-output";
 import { ForecastFan } from "@/components/models/forecast-fan";
+import { RiskInMoney } from "@/components/models/risk-in-money";
 import { RiskProfile } from "@/components/models/risk-profile";
+import { RaemfRiskTable } from "@/components/models/raemf-risk-table";
 import { DynamicNetwork } from "@/components/models/dynamic-network";
 import { NetworkRanking } from "@/components/models/network-ranking";
-import { NetworkClusters } from "@/components/models/network-clusters";
+import {
+  ClusterBreakdown,
+  InfluenceScatter,
+} from "@/components/models/network-clusters";
+import { cn } from "@/lib/utils";
 
 /**
- * The four models on one page, arranged by question rather than by model.
+ * The four models on one page, laid out to be looked at rather than read.
  *
- * Splitting them across four pages made sense while each was a research
- * write-up. It stopped making sense once they started publishing daily,
- * because a reader who wants to know what the market is doing had to open
- * four pages and assemble the answer themselves — and three of the four
- * pages open with methodology, which is the wrong thing to read first.
+ * The first version put a heading, a lead paragraph and a link above every
+ * section — three blocks of prose before the reader reaches a number,
+ * repeated eight times. The second cut the prose but left every panel at full
+ * width, so the page became one tall column: eight blocks stacked down the
+ * middle, and comparing any two of them meant scrolling between them.
  *
- * The order here follows what someone actually asks: where might the index
- * go, how far could it fall, is the market behaving normally. Each section
- * names the model behind it and links to its full write-up, so the depth is
- * still one click away for anyone who wants it.
- *
- * Every panel fetches on its own and reports its own failure. One model being
- * down leaves a labelled gap rather than an empty page.
+ * This one runs across. A three-column grid takes the panels that are
+ * naturally compact — a column of horizons, a three-bar range, a network map —
+ * and sets them beside the wide one they belong with, so each row is a pair
+ * that answers one question and the page is five rows instead of nine blocks.
  */
 
-const COPY = {
-  vi: {
-    forecastTitle: "Chỉ số có thể đi tới đâu",
-    forecastLead:
-      "Mô hình ước lượng một phạm vi kết quả cho từng thời hạn, không phải một con số duy nhất. Phạm vi rộng ra khi nhìn xa hơn là biểu hiện của mức không chắc chắn.",
-    riskTitle: "Có thể mất bao nhiêu",
-    riskLead:
-      "Mô hình mô phỏng hàng chục nghìn kịch bản giá để ước lượng khả năng xảy ra từng mức sụt giảm. Đây là xác suất mô phỏng, không phải điều chắc chắn.",
-    networkTitle: "Thị trường đang vận hành ra sao",
-    networkLead:
-      "Mô hình đo các cổ phiếu VN30 đang biến động cùng nhau chặt tới đâu. Liên kết càng chặt thì đa dạng hóa càng ít tác dụng — đây là mô tả cấu trúc, không phải dự báo giá.",
-    deep: "Xem báo cáo nghiên cứu đầy đủ",
-    by: "Mô hình",
-  },
-  en: {
-    forecastTitle: "Where the index could go",
-    forecastLead:
-      "The model estimates a range of outcomes for each period rather than a single number. A range that widens with the horizon is the model reporting its own uncertainty.",
-    riskTitle: "How much could be lost",
-    riskLead:
-      "The model simulates tens of thousands of price paths to estimate how likely each size of fall is. These are simulated probabilities, not certainties.",
-    networkTitle: "How the market is behaving",
-    networkLead:
-      "The model measures how tightly VN30 stocks move together. Tighter links mean diversification helps less — this describes structure, it does not forecast prices.",
-    deep: "Read the full research report",
-    by: "Model",
-  },
-} as const;
+/** Column spans, only from the desktop breakpoint; narrower screens stack. */
+const SPAN: Record<number, string> = {
+  1: "",
+  2: "desk:col-span-2",
+  3: "desk:col-span-3",
+};
 
-function SectionHead({
-  title,
-  lead,
+/**
+ * One panel in the grid, tagged with the model behind it.
+ *
+ * The tag is deliberately the smallest thing on the panel, and it is a label
+ * rather than a link: this page is the whole story now. It used to link out
+ * to a per-model report, which split the reader's attention across four
+ * pages for the sake of a question — "which model made this?" — that the
+ * tag already answers.
+ */
+function Panel({
   model,
-  slug,
-  locale,
+  cols = 1,
+  children,
 }: {
-  title: string;
-  lead: string;
   model: string;
-  slug: string;
-  locale: "vi" | "en";
+  cols?: 1 | 2 | 3;
+  children: React.ReactNode;
 }) {
-  const t = COPY[locale];
   return (
-    <div className="max-w-3xl">
-      <p className="figure text-xs uppercase tracking-[0.08em] text-brand">
-        {t.by} · {model}
+    <section
+      // Several of these components carry their own top margin, which is what
+      // separates them when they are stacked on a model's detail page. Here
+      // the grid owns the spacing, and an inherited margin would drop one
+      // half of a row below the other.
+      //
+      // A column flex with the child stretched: the grid already makes both
+      // halves of a row the same height, and this passes that height down so
+      // a chart that wants to grow (the scatter) can take it. Block content is
+      // unaffected — it just sits at the top of a slightly taller box.
+      className={cn(
+        "flex min-w-0 flex-col [&>section]:mt-0! [&>section]:flex-1",
+        SPAN[cols],
+      )}
+    >
+      <p className="figure mb-2 text-[11px] uppercase tracking-[0.08em] text-dim">
+        {model}
       </p>
-      <h2 className="title-md mt-2">{title}</h2>
-      <p className="mt-3 leading-relaxed text-ink">{lead}</p>
-      <Link
-        href={`/models/${slug}`}
-        className="arrow-link mt-4 inline-flex items-center gap-2 text-[13px] font-medium text-brand underline-offset-4 hover:text-brand-strong hover:underline"
-      >
-        {t.deep}{" "}
-        <span aria-hidden="true" data-arrow>
-          →
-        </span>
-      </Link>
-    </div>
+      {children}
+    </section>
   );
 }
 
 export function AllInOne({ names }: { names: Record<string, string> }) {
   const locale = useLocale() as "vi" | "en";
-  const t = COPY[locale];
+  const msdp = names.msdp ?? "MSDP";
+  const rarf = names["rarf-fhe"] ?? "RARF-FHE";
+  const graph = names["dynamic-graph"] ?? "DynamicGraph";
+  const raemf = names["raemf-mc"] ?? "Tempus VNI";
 
   return (
-    <div className="space-y-16 desk:space-y-20">
+    <div className="space-y-12">
       <MarketBrief />
 
-      <section aria-labelledby="aio-forecast">
-        <SectionHead
-          title={t.forecastTitle}
-          lead={t.forecastLead}
-          model={names.msdp ?? "MSDP"}
-          slug="msdp"
-          locale={locale}
-        />
-        <div className="mt-8 space-y-10">
+      {/* Each row reads left to right: the compact panel states the numbers,
+          the wide one beside it shows them. */}
+      <div className="grid gap-x-8 gap-y-14 desk:grid-cols-3">
+        <Panel model={msdp}>
           <CurrentOutput modelSlug="msdp" symbol="VNINDEX" />
+        </Panel>
+        {/* The forecast is what a reader comes for, so it takes two thirds of
+            the row — enough width for the interval to visibly open out. */}
+        <Panel model={msdp} cols={2}>
           <ForecastChart modelSlug="msdp" symbol="VNINDEX" />
+        </Panel>
+
+        {/* Two answers to "how bad could it get", side by side: the forecast
+            range by horizon, and the chance of a fall of a given size. */}
+        <Panel model={msdp}>
           <ForecastFan slug="msdp" symbol="VNINDEX" locale={locale} />
-        </div>
-      </section>
-
-      <section aria-labelledby="aio-risk" className="border-t border-border pt-16">
-        <SectionHead
-          title={t.riskTitle}
-          lead={t.riskLead}
-          model={names["rarf-fhe"] ?? "RARF-FHE"}
-          slug="rarf-fhe"
-          locale={locale}
-        />
-        <div className="mt-8">
+        </Panel>
+        <Panel model={rarf} cols={2}>
           <RiskProfile locale={locale} />
-        </div>
-      </section>
+        </Panel>
 
-      <section
-        aria-labelledby="aio-network"
-        className="border-t border-border pt-16"
-      >
-        <SectionHead
-          title={t.networkTitle}
-          lead={t.networkLead}
-          model={names["dynamic-graph"] ?? "DynamicGraph"}
-          slug="dynamic-graph"
-          locale={locale}
-        />
-        <div className="mt-8 space-y-10">
-          <NetworkRanking locale={locale} />
-          <NetworkClusters locale={locale} />
+        {/* The same risk figures with the arithmetic done. Full width: three
+            money cards across read at a glance, stacked they read as a list. */}
+        <Panel model={rarf} cols={3}>
+          <RiskInMoney />
+        </Panel>
+
+        {/* The fourth model's table, present and sealed. Leaving it off the
+            page would hide that a model is under review; showing its current
+            figures would publish numbers that fail a basic sanity check. */}
+        <Panel model={raemf} cols={3}>
+          <RaemfRiskTable />
+        </Panel>
+
+        {/* The map is a force layout: it pushes its nodes apart until it runs
+            out of canvas, and in a third of a row the outer ones fall off the
+            edge. It is also the one view here worth looking at whole. */}
+        <Panel model={graph} cols={3}>
           <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
             <DynamicNetwork locale={locale} />
           </div>
-        </div>
-      </section>
+        </Panel>
+
+        {/* The groups the model found, beside where those stocks sit. The
+            scatter needs the wide half: thirty tickers in a narrow box print
+            over each other however the points are spread. */}
+        <Panel model={graph}>
+          <ClusterBreakdown locale={locale} />
+        </Panel>
+        <Panel model={graph} cols={2}>
+          <InfluenceScatter locale={locale} />
+        </Panel>
+
+        {/* Eight columns of figures; anything narrower scrolls sideways. */}
+        <Panel model={graph} cols={3}>
+          <NetworkRanking locale={locale} />
+        </Panel>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { DisclosureBanner } from "@/components/layout/disclosure-banner";
 import { SystemIntro } from "@/components/performance/system-intro";
 import { ModusOverview } from "@/components/performance/modus-overview";
 import { ModusCharts } from "@/components/performance/modus-charts";
+import { Sealed } from "@/components/sealed";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function PerformancePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("performance");
+  const seal = await getTranslations("seal");
 
   return (
     <main>
@@ -56,11 +58,16 @@ export default async function PerformancePage({
         </div>
       </div>
       <div className="container-qp py-12 desk:py-16">
-        <SystemIntro systemSlug="model-modus" />
+        {/* The whole report is sealed while Modus is re-examined. The head
+            above still says what the page is and why it is closed, so a
+            reader is never looking at dimmed charts without the reason. */}
+        <Sealed title={seal("title")} note={seal("modus")} sticky>
+          <SystemIntro systemSlug="model-modus" />
 
-        <ModusOverview />
+          <ModusOverview />
 
-        <ModusCharts />
+          <ModusCharts />
+        </Sealed>
       </div>
     </main>
   );
