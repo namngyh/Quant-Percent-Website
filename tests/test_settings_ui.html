@@ -154,6 +154,19 @@
           && S.all().display.timezone === 'vn' && S.all().chart.bars === 180
           && S.all().data.adjustSplits === true);
 
+  /* 9. The live feed can be ASKED where it stands, not only listened to.
+
+     The socket announces a stream once; a client that missed it — or whose
+     socket never opened — has to be able to ask, which is the whole point of
+     §2.5. This drives the frontend wrapper, so the query it builds and the
+     endpoint that answers stay in step. */
+  const feed = await w.eval('API').liveStatus({ symbol: 'BTCUSDT', timeframe: '1m' });
+  check('the feed status can be asked for over HTTP',
+        Array.isArray(feed?.streams), JSON.stringify(feed).slice(0, 120));
+  check('and asking about one series answers about that series',
+        feed.stream === null || feed.stream?.symbol === 'BTCUSDT',
+        JSON.stringify(feed.stream));
+
   say(failed ? `\n${failed} failed` : '\nsettings checks hold');
 })();
 </script>
