@@ -1132,3 +1132,175 @@ html[lang="en"] {
     transform: translateY(0) scale(1);
   }
 }
+
+/*
+ * Article bodies. Written by hand rather than with the typography plugin so
+ * the measure, the colours and the heading scale come from this file's own
+ * tokens — an article should read as part of the site, not as a pasted
+ * document.
+ */
+@layer components {
+  .article-prose {
+    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.75;
+    overflow-wrap: break-word;
+  }
+
+  .article-prose > * + * {
+    margin-top: 1.15em;
+  }
+
+  .article-prose h1,
+  .article-prose h2,
+  .article-prose h3,
+  .article-prose h4 {
+    color: var(--foreground);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    line-height: 1.3;
+    scroll-margin-top: 6rem;
+  }
+
+  .article-prose h1,
+  .article-prose h2 {
+    margin-top: 2.2em;
+    font-size: 1.5em;
+  }
+
+  .article-prose h3 {
+    margin-top: 1.9em;
+    font-size: 1.25em;
+  }
+
+  .article-prose h4 {
+    margin-top: 1.6em;
+    font-size: 1.05em;
+  }
+
+  .article-prose > :first-child {
+    margin-top: 0;
+  }
+
+  .article-prose strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .article-prose a {
+    color: var(--brand-strong);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  .article-prose a:hover {
+    color: var(--brand);
+  }
+
+  .article-prose ul,
+  .article-prose ol {
+    padding-left: 1.4em;
+  }
+
+  .article-prose ul {
+    list-style: disc;
+  }
+
+  .article-prose ol {
+    list-style: decimal;
+  }
+
+  .article-prose li + li {
+    margin-top: 0.35em;
+  }
+
+  .article-prose li::marker {
+    color: var(--dim);
+  }
+
+  .article-prose blockquote {
+    border-left: 3px solid var(--brand-soft);
+    padding-left: 1.1em;
+    color: var(--dim);
+  }
+
+  .article-prose hr {
+    margin: 2.5em 0;
+    border-color: var(--border);
+  }
+
+  .article-prose img {
+    margin-inline: auto;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  .article-prose :not(pre) > code {
+    border-radius: 5px;
+    background: var(--surface-2);
+    padding: 0.12em 0.4em;
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    color: var(--foreground);
+  }
+
+  .article-prose pre {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1em 1.2em;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .article-table {
+    overflow-x: auto;
+  }
+
+  .article-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .article-table th,
+  .article-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.55em 0.8em;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .article-table th {
+    color: var(--foreground);
+    font-weight: 600;
+    background: var(--surface);
+  }
+
+  .article-table th[align="right"],
+  .article-table td[align="right"] {
+    text-align: right;
+  }
+
+  .article-table th[align="center"],
+  .article-table td[align="center"] {
+    text-align: center;
+  }
+
+  /* Display formulas wider than the column scroll inside themselves. */
+  .article-prose .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.4em 0;
+  }
+
+  .article-prose .katex {
+    font-size: 1.08em;
+  }
+}

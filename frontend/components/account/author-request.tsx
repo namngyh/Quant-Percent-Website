@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/fetcher";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -11,10 +12,11 @@ interface AuthResponse {
 }
 
 /**
- * Lets an ordinary member ask an admin for author access.
+ * Lets an ordinary member ask an admin for author access, and points an
+ * approved author at the editor.
  *
- * Publishing itself does not exist yet — this only moves the account into the
- * queue an admin reviews, so the wording promises a decision and nothing more.
+ * Asking only moves the account into the queue an admin reviews, so the
+ * wording promises a decision and nothing more.
  */
 export function AuthorRequest() {
   const t = useTranslations("auth.author");
@@ -51,12 +53,14 @@ export function AuthorRequest() {
 
       <div className="mt-7">
         {role !== "user" ? (
-          <p
-            role="status"
-            className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-ink"
-          >
-            {t("granted")}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3">
+            <p role="status" className="text-sm text-ink">
+              {t("granted")}
+            </p>
+            <Button asChild size="sm">
+              <Link href="/articles/new">{t("write")}</Link>
+            </Button>
+          </div>
         ) : request === "pending" ? (
           <p
             role="status"

@@ -126,3 +126,27 @@ async def get_admin_user(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(get_admin_user)]
+
+
+AUTHOR_ROLES = ("author", "admin")
+
+
+def is_author(user: User | None) -> bool:
+    return user is not None and user.role in AUTHOR_ROLES
+
+
+async def get_author_user(user: CurrentUser) -> User:
+    """Signed in AND allowed to publish. Admins count: they grant the role,
+    and making them grant it to themselves first would be ceremony.
+
+    On CurrentUser, not VerifiedUser, for the reason given on get_admin_user —
+    an author request already required a confirmed address."""
+    if user.role not in AUTHOR_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "author_only"},
+        )
+    return user
+
+
+AuthorUser = Annotated[User, Depends(get_author_user)]

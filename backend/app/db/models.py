@@ -24,10 +24,13 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -220,6 +223,156 @@ class InvestorInterest(Base):
     locale: Mapped[str] = mapped_column(String(5), nullable=False)
     consent: Mapped[bool] = mapped_column(Boolean, nullable=False)
     ip: Mapped[str | None] = mapped_column(INET)
+    created_at: Mapped[datetime] = utcnow_column()
+
+
+# ===========================================================================
+# web — articles written by authors, voted and discussed by members
+# ===========================================================================
+
+
+class Article(Base):
+    """A research article. What the author role was granted for.
+
+    The vote and comment totals are stored on the row rather than counted per
+    request: the list sorts by them, and an ORDER BY over a subquery count
+    reads every vote of every article to show twenty cards. They are recounted
+    from the child tables inside the same transaction as each change, so they
+    cannot drift from what the children say.
+
+    Deletion is soft. A removed article can still be looked up by whoever has
+    to answer for removing it, and its comments and votes are not lost.
+    """
+
+    __tablename__ = "articles"
+    __table_args__ = (
+        CheckConstraint("char_length(body) <= 100000", name="body_length"),
+        Index(
+            "ix_articles_live_created",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_articles_live_score",
+            "score",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_articles_live_comments",
+            "comment_count",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    slug: Mapped[str] = mapped_column(String(220), unique=True, nullable=False)
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str | None] = mapped_column(String(400))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    upvotes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    downvotes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    score: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    comment_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    created_at: Mapped[datetime] = utcnow_column()
+    updated_at: Mapped[datetime] = utcnow_column()
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    author: Mapped[User] = relationship(lazy="joined")
+
+
+class ArticleVote(Base):
+    """One vote per member per article. No row means no vote, so taking a
+    vote back is a delete rather than a third value."""
+
+    __tablename__ = "article_votes"
+    __table_args__ = (
+        CheckConstraint("value IN (-1, 1)", name="value_valid"),
+        {"schema": WEB_SCHEMA},
+    )
+
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.articles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    value: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    created_at: Mapped[datetime] = utcnow_column()
+    updated_at: Mapped[datetime] = utcnow_column()
+
+
+class ArticleComment(Base):
+    """A short comment. The hundred-word rule is enforced in the request
+    schema, where it can be explained; the character ceiling here is only the
+    backstop that keeps a bypass from storing a novel."""
+
+    __tablename__ = "article_comments"
+    __table_args__ = (
+        CheckConstraint("char_length(body) <= 1000", name="body_length"),
+        Index("ix_article_comments_article_created", "article_id", "created_at"),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.articles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = utcnow_column()
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    author: Mapped[User] = relationship(lazy="joined")
+
+
+class ArticleImage(Base):
+    """Figures uploaded for articles, kept in the database itself.
+
+    The nightly pg_dump is the only backup this deployment has. Files on a
+    volume would need a second backup path that nobody has built, and an
+    article whose charts vanished after a restore is worse than one that was
+    never restored. At a two-megabyte ceiling per image, bytea is fine.
+    """
+
+    __tablename__ = "article_images"
+    __table_args__ = (
+        CheckConstraint(
+            "content_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/gif')",
+            name="content_type_valid",
+        ),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    uploader_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = utcnow_column()
 
 
