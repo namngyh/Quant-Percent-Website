@@ -15,8 +15,8 @@ const Paper = (() => {
   // The request waiting on the settings dialog, if one is open.
   let pending = null;
 
-  const money = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+  const money = (v) => Fmt.money(v);
+  const pct = (v) => Fmt.pct(v);
   const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
   function esc(value) {
@@ -99,6 +99,17 @@ const Paper = (() => {
   }
 
   const signedMoney = (v) => `${v > 0 ? '+' : ''}${money(v)}`;
+
+  /* Open P&L in the mode the reader chose. Percent is on the notional at entry
+     — the price move, signed by side — which is the same convention the figure
+     on the entry line uses, so the panel and the chart agree. */
+  const openProfit = (s) => Fmt.profit({
+    money: s.unrealized_pnl,
+    pct: s.quantity && Number.isFinite(s.entry_price)
+      ? (s.unrealized_pnl / (Math.abs(s.quantity) * s.entry_price)) * 100 : null,
+    points: s.position && Number.isFinite(s.entry_price) && Number.isFinite(s.last_price)
+      ? (s.last_price - s.entry_price) * Math.sign(s.position) : null,
+  });
 
   /* A price as it goes into a field. A level dragged on the chart can arrive
      with float noise (1935.2365200241713), and a box that shows sixteen digits
@@ -233,7 +244,7 @@ const Paper = (() => {
             ${figure(L('Lợi nhuận', 'Return'), pct(s.return_pct), sign(s.return_pct))}
             ${figure(L('Vị thế', 'Position'), positionTag(s))}
             ${open
-              ? figure(L('Lãi/lỗ mở', 'Open P&L'), signedMoney(s.unrealized_pnl), sign(s.unrealized_pnl))
+              ? figure(L('Lãi/lỗ mở', 'Open P&L'), openProfit(s), sign(s.unrealized_pnl))
               : figure(L('Đã chốt', 'Realised'), signedMoney(s.realized_pnl), sign(s.realized_pnl))}
             ${open
               ? figure(L('Giá vào', 'Entry'), money(s.entry_price))

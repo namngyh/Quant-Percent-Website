@@ -741,11 +741,13 @@ async function render(label, kind, payload) {
          && F.pct(3.769) === '+3.77%' && F.points(-10) === '-10');
   const figures = { money: 2940000, pct: 3.769, points: 10, unit: 'VND' };
   const shown = (mode) => { S.patch({ display: { profit: mode } }); return F.profit(figures); };
-  tsay('the profit mode picks which figure is shown',
-       shown('money') === '2,940,000 VND' && shown('percent') === '+3.77%'
+  tsay('the profit mode picks which figure is shown, and each carries its sign',
+       shown('money') === '+2,940,000 VND' && shown('percent') === '+3.77%'
          && shown('points') === '+10');
   tsay('points fall back to money where there is no single instrument',
-       F.profit({ money: 500, pct: 1, points: null, unit: 'USDT' }) === '500 USDT');
+       F.profit({ money: 500, pct: 1, points: null, unit: 'USDT' }) === '+500 USDT');
+  tsay('a balance is not a direction, so plain money stays unsigned',
+       F.money(500, { unit: 'USDT' }) === '500 USDT');
   S.patch({ display: { profit: 'money', locale: 'vi-VN' } });
   tsay('the number format follows the chosen locale', F.number(1234.5).startsWith('1.234'));
   S.reset();

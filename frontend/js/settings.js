@@ -327,38 +327,51 @@ const Settings = (() => {
 const Fmt = (() => {
   const display = () => Settings.all().display;
 
-  function number(value, digits) {
+  function number(value, digits, min = 0) {
     if (!Number.isFinite(value)) return '—';
     const d = display();
+    const max = digits === undefined ? d.decimals : digits;
     return value.toLocaleString(d.locale, {
-      maximumFractionDigits: digits === undefined ? d.decimals : digits,
-      minimumFractionDigits: 0,
+      maximumFractionDigits: max,
+      minimumFractionDigits: Math.min(min, max),
     });
   }
 
-  const money = (value, { unit, digits } = {}) => {
-    const text = number(value, digits);
+  const money = (value, { unit, digits, min } = {}) => {
+    const text = number(value, digits, min);
     return unit ? `${text} ${unit}` : text;
   };
 
-  const signed = (value, digits) =>
-    (Number.isFinite(value) && value >= 0 ? `+${number(value, digits)}` : number(value, digits));
+  const signed = (value, digits, min) =>
+    (Number.isFinite(value) && value >= 0
+      ? `+${number(value, digits, min)}` : number(value, digits, min));
 
+  /* A ratio keeps its trailing zeros: 3.7% and 3.70% are the same number, but
+     a column where some rows show two decimals and others one is harder to
+     read down than one that does not move. */
   const pct = (value, digits = 2) =>
-    (Number.isFinite(value) ? `${signed(value, digits)}%` : '—');
+    (Number.isFinite(value) ? `${signed(value, digits, digits)}%` : '—');
 
-  const points = (value, digits) => signed(value, digits);
+  const upct = (value, digits = 2) =>
+    (Number.isFinite(value) ? `${number(value, digits, digits)}%` : '—');
+
+  const points = (value, digits, min) => signed(value, digits, min);
 
   /* Profit in the mode the reader chose. A caller passes every quantity it can
      compute, because only the caller knows how; where it cannot compute one
      (points across a basket of symbols) it passes null, and the figure falls
-     back to money — one honest quantity beats a dash. */
-  function profit({ money: amount, pct: percent, points: pts, unit } = {}) {
+     back to money — one honest quantity beats a dash.
+
+     Signed in every mode: a profit figure without its direction is the one
+     thing about it nobody can infer. `money()` on its own stays unsigned,
+     because a balance is not a direction. */
+  function profit({ money: amount, pct: percent, points: pts, unit, digits, min } = {}) {
     const mode = display().profit;
-    if (mode === 'points' && Number.isFinite(pts)) return points(pts);
+    if (mode === 'points' && Number.isFinite(pts)) return points(pts, digits, min);
     if (mode === 'percent' && Number.isFinite(percent)) return pct(percent);
-    return money(amount, { unit });
+    if (!Number.isFinite(amount)) return '—';
+    return `${signed(amount, digits, min)}${unit ? ` ${unit}` : ''}`;
   }
 
-  return { number, money, pct, points, profit };
+  return { number, money, pct, upct, points, profit, mode: () => display().profit };
 })();

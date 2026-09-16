@@ -17,10 +17,12 @@ const Strategy = (() => {
   let params = {};
   let sweep = {}; // paramName -> {enabled, start, stop, step}
 
-  const money = (v) =>
-    v.toLocaleString('en-US', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
-  const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
-  const num = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '—');
+  /* Numbers go through the one formatter (settings.js), which holds the
+     reader's separators and decimals. The local names stay so the render code
+     reads as it did. */
+  const money = (v) => Fmt.money(v, { digits: 0 });
+  const pct = (v) => Fmt.pct(v);
+  const num = (v, d = 2) => Fmt.number(v, d, d);
 
   function esc(value) {
     return String(value ?? '').replace(
@@ -295,6 +297,13 @@ const Strategy = (() => {
     };
   }
 
+  /* The last result, drawn again. A display setting (profit in points, other
+     separators) changes how these numbers read, not what they are, so there is
+     nothing to re-run. */
+  function refreshView() {
+    if (lastBacktest) renderResult(lastBacktest);
+  }
+
   // ---------- Backtest ----------
 
   async function runBacktest() {
@@ -370,9 +379,14 @@ const Strategy = (() => {
     }
 
     html += '<div class="metrics">';
+    /* The headline follows the profit mode; whichever quantity it does not
+       show moves into the line underneath, so neither reading is lost. */
+    const profitCaption = Fmt.mode() === 'money'
+      ? `${money(m.initial_capital)} → ${money(m.final_equity)} (${pct(m.total_return_pct)})`
+      : `${money(m.initial_capital)} → ${money(m.final_equity)}`;
     html += metricCard(L('Tổng lợi nhuận', 'Total return'),
-      pct(m.total_return_pct), sign(m.total_return_pct),
-      `${money(m.initial_capital)} → ${money(m.final_equity)}`);
+      Fmt.profit({ money: m.final_equity - m.initial_capital, pct: m.total_return_pct }),
+      sign(m.total_return_pct), profitCaption);
     html += metricCard(L('Mua và giữ', 'Buy and hold'),
       pct(m.buy_hold_return_pct), sign(m.buy_hold_return_pct),
       L(`chênh ${pct(m.vs_buy_hold_pct)}`, `${pct(m.vs_buy_hold_pct)} difference`));
@@ -673,7 +687,7 @@ const Strategy = (() => {
   }
 
   return {
-    init, load, runBacktest, runOptimize, startPaper, snapshot, restore,
+    init, load, runBacktest, runOptimize, startPaper, snapshot, restore, refreshView,
     // Exported so tests/test_render.js can drive the optimiser panel without
     // standing up a server: the panel is where the sweep's two most important
     // verdicts are shown, and nothing else checks that they render.

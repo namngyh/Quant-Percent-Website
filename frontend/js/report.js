@@ -33,17 +33,13 @@ const Report = (() => {
   const nf = (value, digits = 2) =>
     Number.isFinite(value) ? value.toFixed(digits) : '—';
 
-  const pct = (value, digits = 2) =>
-    Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%` : '—';
+  const pct = (value, digits = 2) => Fmt.pct(value, digits);
 
   /** Unsigned percent, for quantities with no direction (exposure, win rate). */
   const upct = (value, digits = 1) =>
     Number.isFinite(value) ? `${value.toFixed(digits)}%` : '—';
 
-  const money = (value) =>
-    Number.isFinite(value)
-      ? value.toLocaleString(I18n.locale(), { maximumFractionDigits: 0 })
-      : '—';
+  const money = (value) => Fmt.money(value, { digits: 0 });
 
   const ratio = (value) => {
     if (!Number.isFinite(value)) return value === Infinity ? '∞' : '—';
@@ -58,7 +54,7 @@ const Report = (() => {
     : ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']);
 
   const day = (seconds) =>
-    new Date((seconds + 7 * 3600) * 1000).toISOString().slice(0, 10);
+    new Date((seconds + Settings.tzOffsetSeconds()) * 1000).toISOString().slice(0, 10);
 
   /** Bars into a human span, so "482 bars" also reads as "80 days". */
   function span(bars, timeframe) {

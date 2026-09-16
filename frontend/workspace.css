@@ -49,9 +49,11 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
   background: var(--surface); border-bottom: 1px solid var(--border); z-index: 20;
 }
 .brand { flex-shrink: 0; }
-.brand-mark { width: 18px; height: 18px; padding: 6px; box-sizing: content-box; border-radius: 3px; background: #edf2ff; }
-.brand-mark rect { fill: #2859d8; }
-.brand-mark path { stroke: #2859d8; }
+.brand-mark { width: 18px; height: 18px; padding: 6px; box-sizing: content-box; border-radius: 3px; background: #f1f2f4; }
+/* The Quant Percent mark stays black wherever it appears (Nam, 2026-09-16):
+   a logo that changes colour with the theme is a second logo. */
+.brand-mark rect { fill: #000; }
+.brand-mark path { stroke: #000; }
 /* The feed state is a dot. Its words are the tooltip and stay in the DOM for
    screen readers. */
 .connection-state { position: relative; display: inline-grid; place-items: center; width: 14px; height: 14px; flex-shrink: 0; }
@@ -282,12 +284,24 @@ body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-ch
 .toast { background: #17273f; color: #f2f6ff; border: 1px solid #35475f; border-radius: 3px; box-shadow: var(--shadow-lg); font-size: 12px; }
 .toast.bad { background: #fff5f5; border-color: #f3d4d8; color: #ad3c4c; }
 .splash { background: #f7f9fd; }
-.splash-mark rect { fill: var(--accent); }
-.splash-mark path { stroke: var(--accent); }
+.splash-mark rect { fill: #000; }
+.splash-mark path { stroke: #000; }
 .splash-word { color: #8b98b0; font-size: 15px; letter-spacing: 2px; }
 .splash-word strong { color: #263e63; }
 .splash-bar { background: #e0e8f7; }
 .splash-bar span { background: var(--accent); }
+
+/* The settings box. Five groups, each a heading over its rows, separated by a
+   rule rather than stacked as cards: the panels around it already read that
+   way, and a card inside a dialog is one more edge for no information. */
+#settings-dialog .dialog-body { max-height: min(68dvh, 620px); overflow-y: auto; }
+.set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.set-group h3 { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 10px; }
+.set-group .param-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+.set-group .param-row > span { color: var(--text-dim); }
+.set-group .param-row select, .set-group .param-row input { width: 210px; flex: 0 0 auto; }
+.set-group .hint { margin: -2px 0 10px; }
+.set-group .callout { margin-top: 10px; }
 
 /* Quick navigation, with a native dialog for focus containment. */
 .command-dialog { width: min(560px, calc(100vw - 32px)); max-height: min(620px, calc(100dvh - 60px)); margin: 12vh auto auto; padding: 0; border: 1px solid #dfe6f2; border-radius: 4px; background: white; color: var(--text); box-shadow: 0 30px 100px #101e3a40; overflow: hidden; }

@@ -1467,6 +1467,50 @@ def signals(df, params):
     el.formatDialog.hidden = false;
   }
 
+  /* The gear: one box for how the platform reads and what a derivative costs.
+     Controls write through as they change (settings.js), so this only has to
+     open the box and apply what came back.
+
+     A timezone change rebuilds the series, because the offset is baked into
+     each point when the chart is fed; the grid, the separators and the profit
+     mode are applied where they show without refetching anything. */
+  let shownTimezone = null;
+
+  function applySettings() {
+    const badge = document.querySelector('.tz-badge');
+    if (badge) badge.textContent = Settings.timezoneLabel();
+    ChartManager.applyDisplay();
+    Strategy.refreshView();
+    Paper.refresh();
+    const timezone = Settings.all().display.timezone;
+    const moved = shownTimezone !== null && shownTimezone !== timezone;
+    shownTimezone = timezone;
+    if (moved) loadCandles();
+  }
+
+  function setupSettings() {
+    const dialog = document.getElementById('settings-dialog');
+    const body = document.getElementById('settings-body');
+    const close = () => { dialog.hidden = true; };
+    document.getElementById('settings-open')?.addEventListener('click', () => {
+      Settings.panel(body);
+      dialog.hidden = false;
+    });
+    document.getElementById('settings-close')?.addEventListener('click', close);
+    dialog?.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && dialog && !dialog.hidden) close();
+    });
+    document.getElementById('settings-reset')?.addEventListener('click', () => {
+      Settings.reset();
+      Settings.panel(body);
+    });
+    applySettings();
+    Settings.subscribe(applySettings);
+  }
+
   function setupFormatHelp() {
     for (const btn of document.querySelectorAll('[data-format-help]')) {
       btn.addEventListener('click', () => showFormatHelp(btn.dataset.formatHelp));
@@ -1983,6 +2027,7 @@ def signals(df, params):
     setupNavigation();
     setupImport();
     setupFormatHelp();
+    setupSettings();
     setupStars();
     setupNotify();
     /* Telegram settings open as a dialog now (see index.html): they are a

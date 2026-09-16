@@ -24,10 +24,8 @@ const Markets = (() => {
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
 
-  const num = (v, digits = 2) =>
-    (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) : '—');
-  const pct = (v, digits = 2) =>
-    (typeof v === 'number' && Number.isFinite(v) ? `${v.toFixed(digits)}%` : '—');
+  const num = (v, digits = 2) => Fmt.number(v, digits, digits);
+  const pct = (v, digits = 2) => Fmt.upct(v, digits);
   const sign = (v) => (typeof v !== 'number' ? '' : v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
   function context() {

@@ -17,12 +17,15 @@ function createChartManager() {
      is UTC+7 all year: no daylight saving: so a fixed offset is exact, and a
      timezone library would buy nothing.
 
-     Everything stored, compared and sent by the backend stays UTC; this offset
-     exists only so the axis reads in the time the market actually traded. */
-  const TZ_OFFSET_SECONDS = 7 * 3600;
-  const TZ_LABEL = 'GMT+7';
+     Which offset is a setting (settings.js): Vietnam time by default, UTC for
+     anyone reading the series as the backend stores it. Everything stored,
+     compared and sent stays UTC; this offset exists only so the axis reads in
+     the time the market actually traded. The series is redrawn when the
+     setting changes — an axis that changed meaning while the candles did not
+     would be two frames of reference on one screen. */
+  const tzOffset = () => Settings.tzOffsetSeconds();
 
-  const toChart = (epochSeconds) => epochSeconds + TZ_OFFSET_SECONDS;
+  const toChart = (epochSeconds) => epochSeconds + tzOffset();
 
   /* The axis speaks the interface's typeface, not a monospace one.
 
@@ -31,6 +34,14 @@ function createChartManager() {
      Be Vietnam Pro's figures are tabular when asked, so the scale's digits
      still line up column by column. Grid and borders are the same greys the
      stylesheet uses, so the plot does not read as a pasted-in widget. */
+  /* No grid behind the candles by default (Nam, 2026-09-14) — the price axis
+     and the crosshair already say where a value is — and a setting for anyone
+     who reads a lattice faster. */
+  function gridLines() {
+    const visible = Settings.all().chart.grid;
+    return { vertLines: { visible }, horzLines: { visible } };
+  }
+
   const THEME = {
     layout: {
       background: { color: '#ffffff' },
@@ -40,10 +51,7 @@ function createChartManager() {
     },
     // No grid behind the candles (Nam, 2026-09-14). The price axis and the
     // crosshair already say where a value is; the lattice was only noise.
-    grid: {
-      vertLines: { visible: false },
-      horzLines: { visible: false },
-    },
+    grid: gridLines(),
     rightPriceScale: { borderColor: '#ececee' },
     timeScale: { borderColor: '#ececee' },
     crosshair: {
@@ -161,7 +169,7 @@ function createChartManager() {
      `bars` is a count rather than a zoom factor because the right amount of
      history is a number of bars, not a ratio: 180 candles is a readable
      screenful whether the series holds 500 of them or 20 000. */
-  function focusRecent(bars = 180) {
+  function focusRecent(bars = Settings.all().chart.bars) {
     if (!mainChart || !candleData.length) return;
     const scale = mainChart.timeScale();
     const last = candleData.length - 1;
@@ -273,7 +281,7 @@ function createChartManager() {
          Sending the shifted value asked for a page ending seven hours after the
          oldest bar actually held. The overlap was filtered out, so it looked
          harmless, but every page re-fetched bars the chart already had. */
-      Promise.resolve(onNeedHistory(oldest - TZ_OFFSET_SECONDS))
+      Promise.resolve(onNeedHistory(oldest - tzOffset()))
         .finally(() => { historyPending = false; });
     });
 
@@ -390,6 +398,10 @@ function createChartManager() {
     onSeriesChanged?.(candleSeries);
     if (range) scale.setVisibleLogicalRange(range);
     return priceType;
+  }
+
+  function applyDisplay() {
+    for (const chart of allCharts()) chart.applyOptions({ grid: gridLines() });
   }
 
   function setCandles(candles, volumes, { timeVisible, key = null }) {
@@ -705,12 +717,18 @@ function createChartManager() {
   function levelTitle(key, price) {
     const pnl = Number.isFinite(price) && levels.quantity && Number.isFinite(levels.entry)
       ? levels.quantity * (price - levels.entry) : null;
-    const money = pnl === null ? '' : `${signedAmount(pnl)}${levels.unit ? ` ${levels.unit}` : ''}`;
-    if (key !== 'entry') return money ? `${LEVEL_STYLE[key].title} ${money}` : LEVEL_STYLE[key].title;
-    if (pnl === null) return levels.label;
     // Percent of the position's notional at entry: the price move, signed by side.
-    const pct = pnl / (Math.abs(levels.quantity) * levels.entry) * 100;
-    return `${levels.label}  ${money} (${signedAmount(pct)}%)`;
+    const pct = pnl === null ? null : pnl / (Math.abs(levels.quantity) * levels.entry) * 100;
+    const points = pnl === null ? null
+      : (price - levels.entry) * Math.sign(levels.quantity);
+    // Two decimals here whatever the setting says: this label sits on the
+    // price axis, where a figure that changes width every tick is unreadable.
+    const figure = pnl === null ? ''
+      : Fmt.profit({ money: pnl, pct, points, unit: levels.unit, digits: 2, min: 2 });
+    if (key !== 'entry') return figure ? `${LEVEL_STYLE[key].title} ${figure}` : LEVEL_STYLE[key].title;
+    if (pnl === null) return levels.label;
+    return `${levels.label}  ${figure}${
+      Fmt.mode() === 'money' ? ` (${signedAmount(pct)}%)` : ''}`;
   }
 
   function latestClose() {
@@ -1341,7 +1359,8 @@ function createChartManager() {
            get markersVisible() { return markersVisible; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
-           screenshot, refreshSize, timezoneLabel: TZ_LABEL, toChartTime: toChart,
+           screenshot, refreshSize, applyDisplay, toChartTime: toChart,
+           get timezoneLabel() { return Settings.timezoneLabel(); },
            destroy,
            get barCount() { return candleData.length; },
            get lastClose() { return candleData.length ? candleData[candleData.length - 1].close : null; },
