@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
-import { publicModels } from "@/config/models";
 import { SITE_URL } from "@/lib/seo";
 
 const STATIC_PATHS = [
@@ -20,7 +19,6 @@ const STATIC_PATHS = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const paths = [
     ...STATIC_PATHS,
-    ...publicModels().map((m) => `/models/${m.slug}`),
   ];
   const now = new Date();
   return paths.flatMap((path) =>

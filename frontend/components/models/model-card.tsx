@@ -1,6 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ModelCardData } from "@/config/models";
-import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/market/badges";
 import { MetricStrip } from "@/components/models/metric-strip";
 import { Sparkline } from "@/components/sparkline";
@@ -24,7 +23,6 @@ export async function ModelCard({
 }) {
   const locale = (await getLocale()) as "vi" | "en";
   const t = await getTranslations("models");
-  const tc = await getTranslations("common");
 
   // The date a reader wants here is "when did this model last produce
   // something", and only quant.model_forecasts can answer it. The row used to
@@ -174,12 +172,6 @@ export async function ModelCard({
       </dl>
       )}
 
-      <Link
-        href={`/models/${model.slug}`}
-        className="arrow-link mt-6 inline-flex items-center gap-2 text-[13px] font-medium text-brand underline-offset-4 hover:text-brand-strong hover:underline"
-      >
-        {tc("viewDetails")} <span aria-hidden="true" data-arrow>→</span>
-      </Link>
     </article>
   );
 }

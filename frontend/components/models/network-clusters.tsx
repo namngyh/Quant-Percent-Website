@@ -262,18 +262,3 @@ function ClusterBreakdown({ locale }: { locale: "vi" | "en" }) {
 }
 
 export { ClusterBreakdown, InfluenceScatter };
-
-/**
- * Both views together, for the model's own page, where they have the room to
- * sit side by side. The combined page places them separately instead, each
- * against the panel it belongs with.
- */
-export function NetworkClusters({ locale }: { locale: "vi" | "en" }) {
-  return (
-    <div className="grid gap-8 desk:grid-cols-2 [&>section]:mt-0">
-      <InfluenceScatter locale={locale} />
-      <ClusterBreakdown locale={locale} />
-    </div>
-  );
-}
-

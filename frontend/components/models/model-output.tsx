@@ -1,21 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { EChartsCoreOption } from "echarts/core";
 import { useApi } from "@/lib/api/fetcher";
-import type {
-  ForecastHistory,
-  ForecastRecord,
-  History,
-} from "@/lib/api/types";
+import type { ForecastRecord, History } from "@/lib/api/types";
 import { CHART, EChart } from "@/components/charts/echart";
 import { DataState } from "@/components/states/data-state";
-import { DataFreshnessLabel } from "@/components/states/data-freshness-label";
 import { RegimeBadge, RiskBadge } from "@/components/market/badges";
-import { InfoTip } from "@/components/info-tip";
-import { Button } from "@/components/ui/button";
-import { fmtDate, fmtPercent, fmtPrice, fmtSignedPercent } from "@/lib/format";
+import { fmtPercent, fmtPrice, fmtSignedPercent } from "@/lib/format";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { cn } from "@/lib/utils";
 
@@ -329,151 +322,6 @@ export function ForecastChart({
               className="h-[26rem] desk:h-[34rem]"
             />
           </div>
-        )}
-      </DataState>
-    </section>
-  );
-}
-
-const HISTORY_PAGE = 10;
-
-/** Historical forecasts vs realized values with interval coverage (§9.2). */
-export function HistoricalForecasts({
-  modelSlug,
-  symbol,
-}: {
-  modelSlug: string;
-  symbol: string;
-}) {
-  const t = useTranslations("models.detail");
-  const tc = useTranslations("common");
-  const g = useTranslations("glossary");
-  const locale = useLocale();
-  const [page, setPage] = useState(0);
-  const { data, error, isLoading, mutate } = useApi<ForecastHistory>(
-    `/api/v1/models/${modelSlug}/history?symbol=${symbol}`
-  );
-
-  const points = useMemo(
-    () => [...(data?.points ?? [])].reverse(),
-    [data]
-  );
-  const pageCount = Math.max(1, Math.ceil(points.length / HISTORY_PAGE));
-  const current = Math.min(page, pageCount - 1);
-  const visible = points.slice(
-    current * HISTORY_PAGE,
-    (current + 1) * HISTORY_PAGE
-  );
-
-  return (
-    <section>
-      <h2 className="title-md">{t("historicalForecasts")}</h2>
-      <p className="mt-2 max-w-2xl text-sm text-dim">
-        {t("historicalDescription")}
-      </p>
-      <DataState
-        className="mt-5"
-        loading={isLoading}
-        error={error}
-        onRetry={() => mutate()}
-        empty={data && points.length === 0}
-        freshness={data}
-        skeletonRows={8}
-      >
-        {data && (
-          <>
-            <p className="flex items-center gap-2 text-sm">
-              <span className="font-medium">
-                {t("coverage", {
-                  level: fmtPercent(data.interval_level, locale, 0),
-                })}
-                :
-              </span>
-              <span className="figure">{fmtPercent(data.coverage, locale)}</span>
-              <InfoTip text={g("coverage")} />
-            </p>
-
-            <div className="mt-4 overflow-x-auto rounded-lg border border-border shadow-sm">
-              <table className="w-full min-w-[560px] text-[13px]">
-                <thead>
-                  <tr className="border-b border-border bg-surface text-left">
-                    <th scope="col" className="px-4 py-3 font-medium text-dim">
-                      {t("forecastAt")}
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right font-medium text-dim">
-                      {t("predicted")}
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right font-medium text-dim">
-                      {t("actual")}
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right font-medium text-dim">
-                      {t("error")}
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-center font-medium text-dim">
-                      {t("inInterval")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((p) => (
-                    <tr
-                      key={p.forecast_at}
-                      className="border-b border-border last:border-0"
-                    >
-                      <td className="figure px-4 py-2.5">
-                        {fmtDate(p.forecast_at, locale)} (+{p.horizon}d)
-                      </td>
-                      <td className="figure px-4 py-2.5 text-right">
-                        {fmtPrice(p.predicted, locale)}
-                      </td>
-                      <td className="figure px-4 py-2.5 text-right">
-                        {fmtPrice(p.actual, locale)}
-                      </td>
-                      <td
-                        className={cn(
-                          "figure px-4 py-2.5 text-right",
-                          Math.abs(p.error_percent) > 2 && "text-negative"
-                        )}
-                      >
-                        {fmtSignedPercent(p.error_percent / 100, locale)}
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span aria-hidden="true">{p.in_interval ? "✓" : "✗"}</span>
-                        <span className="sr-only">
-                          {p.in_interval ? "yes" : "no"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {pageCount > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={current === 0}
-                  onClick={() => setPage(current - 1)}
-                >
-                  {tc("previous")}
-                </Button>
-                <p className="figure text-xs text-dim">
-                  {tc("page", { page: current + 1, total: pageCount })}
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={current >= pageCount - 1}
-                  onClick={() => setPage(current + 1)}
-                >
-                  {tc("next")}
-                </Button>
-              </div>
-            )}
-            <DataFreshnessLabel freshness={data} />
-          </>
         )}
       </DataState>
     </section>
