@@ -64,6 +64,10 @@ const API = (() => {
 
     health: () => request('/api/health'),
 
+    // The team's own forecast, its record, the VN30 network and the ingestion
+    // log — four views this platform reads but does not produce.
+    teamModels: () => request('/api/markets/vn/team-models'),
+
     /* Where the live feed stands, asked rather than waited for.
 
        The socket announces a stream coming up once. A client that was not

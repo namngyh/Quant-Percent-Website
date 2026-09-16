@@ -97,6 +97,10 @@
       <button id="command-open" class="icon-button command-trigger" type="button" aria-haspopup="dialog" data-i18n-title="ws.search" data-i18n-aria="ws.search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
       </button>
+      <button id="team-open" class="icon-button" type="button" aria-haspopup="dialog"
+              data-i18n-title="team.title" data-i18n-aria="team.title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="17.5" r="2.4"/><path d="M8.4 7h7.2M7.2 9.1 10.8 15.5M16.8 9.1 13.2 15.5"/></svg>
+      </button>
       <button id="settings-open" class="icon-button" type="button" aria-haspopup="dialog"
               data-i18n-title="set.title" data-i18n-aria="set.title">
         <!-- A cog: teeth standing on a ring around a hub. The first version was a
@@ -669,6 +673,19 @@
        derivative costs. Controls write through as they change; there is no
        Save, because a settings box with unsaved state is a way to lose a
        change. Rendered by settings.js. -->
+  <!-- The team's own models. A second opinion from another method, read-only
+       and reached over the VPN, so it fails as its own window rather than
+       taking anything else with it. Rendered by team.js. -->
+  <div id="team-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog dialog-wide" role="dialog" aria-modal="true" aria-labelledby="team-title">
+      <div class="dialog-head">
+        <h2 id="team-title" data-i18n="team.title">Mô hình của team</h2>
+        <button id="team-close" class="btn btn-quiet btn-sm" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body" id="team-body"></div>
+    </div>
+  </div>
+
   <div id="settings-dialog" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="dialog-head">
@@ -734,6 +751,7 @@
   <script src="/static/js/session.js"></script>
   <script src="/static/js/i18n.js"></script>
   <script src="/static/js/settings.js"></script>
+  <script src="/static/js/team.js"></script>
   <script src="/static/js/explain.js"></script>
   <script src="/static/js/favourites.js"></script>
   <script src="/static/js/resize.js"></script>

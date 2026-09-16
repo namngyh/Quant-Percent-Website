@@ -1554,6 +1554,24 @@ def signals(df, params):
     if (moved) loadCandles();
   }
 
+  function setupTeamModels() {
+    const dialog = document.getElementById('team-dialog');
+    if (!dialog) return;
+    Team.init({ root: document.getElementById('team-body'), onToast: toast });
+    const close = () => { dialog.hidden = true; };
+    document.getElementById('team-open')?.addEventListener('click', () => {
+      dialog.hidden = false;
+      Team.open();
+    });
+    document.getElementById('team-close')?.addEventListener('click', close);
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !dialog.hidden) close();
+    });
+  }
+
   function setupSettings() {
     const dialog = document.getElementById('settings-dialog');
     const body = document.getElementById('settings-body');
@@ -2094,6 +2112,7 @@ def signals(df, params):
     setupImport();
     setupFormatHelp();
     setupSettings();
+    setupTeamModels();
     setupStars();
     setupNotify();
     /* Telegram settings open as a dialog now (see index.html): they are a

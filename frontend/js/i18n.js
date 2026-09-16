@@ -319,6 +319,7 @@ const I18n = (() => {
     'mm.profitable':      { vi: 'Thị trường có lãi', en: 'Profitable markets' },
     'mm.medianReturn':    { vi: 'Lợi nhuận trung vị', en: 'Median return' },
     'set.title':          { vi: 'Cài đặt', en: 'Settings' },
+    'team.title':         { vi: 'Mô hình của team', en: "The team's models" },
     'set.reset':          { vi: 'Về mặc định', en: 'Reset to defaults' },
     'exec.contractOff':   { vi: 'Mô hình hợp đồng chưa bật: lãi/lỗ tính tuyến tính, chưa áp dụng hệ số nhân hợp đồng.',
                             en: 'Contract model off: profit and loss are computed linearly, without the contract multiplier.' },

@@ -294,6 +294,12 @@ body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-ch
 /* The settings box. Five groups, each a heading over its rows, separated by a
    rule rather than stacked as cards: the panels around it already read that
    way, and a card inside a dialog is one more edge for no information. */
+/* A window for tables: the settings box is a column of short rows, this one
+   carries a graph's worth of names and pairs. */
+.dialog-wide { width: min(880px, calc(100vw - 32px)); }
+#team-dialog .dialog-body { max-height: min(74dvh, 700px); overflow-y: auto; }
+#team-dialog .set-group .data-table { font-size: 11.5px; }
+
 #settings-dialog .dialog-body { max-height: min(68dvh, 620px); overflow-y: auto; }
 .set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
 .set-group h3 { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 10px; }

@@ -34,13 +34,13 @@ global.document = window.document;
 
 /* One eval for all four files plus the stub: each file declares its module
    with `const`, and separate evals do not share a lexical scope. */
-const sources = ['i18n.js', 'settings.js', 'explain.js', 'api.js', 'validation.js', 'strategy.js',
+const sources = ['i18n.js', 'settings.js', 'explain.js', 'api.js', 'team.js', 'validation.js', 'strategy.js',
   'paper.js', 'report.js', 'portfolio.js']
   .map((f) => fs.readFileSync(path.join(ROOT, 'frontend/js', f), 'utf8'));
 let nextPayload = null;
 window.eval(sources.join(String.fromCharCode(10, 59, 10)) + `
   ;window.I18n = I18n; window.Explain = Explain; window.Validation = Validation;
-  window.Settings = Settings; window.Fmt = Fmt;
+  window.Settings = Settings; window.Fmt = Fmt; window.Team = Team;
   window.Strategy = Strategy; window.Paper = Paper; window.Report = Report; window.Portfolio = Portfolio;
   window.API = API;
   // Only the network is stubbed; everything downstream is the real module.
@@ -708,6 +708,88 @@ async function render(label, kind, payload) {
   tsay('a paper session says the contract model is off',
        psel('paper-sessions').textContent.includes('hệ số nhân'));
 
+  // ---------- The team's own models ----------
+  //
+  // A window of other people's numbers: a forecast, its record, a correlation
+  // graph and an ingestion log. The figures below are the real ones measured on
+  // 2026-09-16, so the checks read like the panel does.
+  const teamPayload = {
+    forecast: {
+      items: [{
+        symbol: 'VNINDEX', horizon: 5, forecast_value: 1779.77, forecast_return_pct: -0.47,
+        probability_up_pct: 51.89, interval_level: 0.9, interval_lower: 1679.5,
+        interval_upper: 1871.3, model_id: 'msdp', model_version: '20260722_gpu',
+        status: 'experimental', data_as_of: 1789344000000, generated_at: 1789344000000,
+      }],
+      notes: [{ vi: 'Mô hình đang **thử nghiệm**.', en: 'The model is **experimental**.' }],
+    },
+    scoring: {
+      scored: 21, pending: 45, team_scored: 0,
+      horizons: [{
+        horizon: 5, forecasts: 22, scored: 17, mean_abs_error_pct: 2.3, bias_pct: -1.47,
+        interval_hit_pct: 88.24, directional_hit_pct: 29.41, directional_error_pct: 11.06,
+        directional_scored: 17,
+      }, {
+        horizon: 60, forecasts: 22, scored: 0, mean_abs_error_pct: null, bias_pct: null,
+        interval_hit_pct: null, directional_hit_pct: null, directional_error_pct: null,
+        directional_scored: 0,
+      }],
+      notes: [{ vi: 'Chấm theo giá của nền tảng.', en: "Scored against the platform's prices." }],
+    },
+    network: {
+      available: true, index_name: 'VN30', node_count: 30, edge_count: 84, graph_window: 60,
+      stress_score: 68.28, stress_label: 'normal', stress_percentile_pct: 67.83,
+      nodes: [{ id: 'VIC', pagerank: 0.0763, degree: 6, community: 3,
+                return_20d_pct: 11.35, volatility_20d_pct: 40.2 }],
+      edges: [{ source: 'GAS', target: 'PLX', weight: 0.5154, stability: 1 }],
+      communities: [{ id: 0, size: 7, members: ['BCM', 'BVH'] }],
+      notes: [{ vi: 'Cạnh là quan hệ thống kê.', en: 'An edge is a statistical relationship.' }],
+    },
+    pipeline: {
+      total: 226, in_session: 49, unclosed: 60, longer_than_a_minute: 75,
+      by_symbol: [{ symbol: 'VN30F1M', count: 200 }],
+      recent: [{ symbol: 'VN30F1M', disconnected_at: 1789344000000,
+                 reconnected_at: 1789344120000, seconds: 120, in_session: true }],
+      notes: [{ vi: 'Đây là nhật ký rớt kết nối.', en: 'This is a disconnect log.' }],
+    },
+  };
+
+  for (const lang of ['vi', 'en']) {
+    window.I18n.set(lang);
+    const html = window.Team.render(teamPayload);
+    const holder = window.document.createElement('div');
+    holder.innerHTML = html;
+    const text = holder.textContent;
+    const hits = BAD.filter(([, re]) => re.test(text)).map(([n2]) => n2);
+    tsay(`the team window renders without holes [${lang}]`, hits.length === 0, hits.join(', '));
+    // The point estimate, the band beside it, and the record underneath.
+    tsay(`it carries the forecast, its band and its record [${lang}]`,
+         text.includes('1,779.8') && text.includes('1,871')
+           && text.includes('17 / 22') && text.includes('29.4'));
+    // A hit rate this small is printed with its error, never bare.
+    tsay(`the direction hit rate carries its error [${lang}]`, text.includes('± 11.1'));
+  }
+  window.I18n.set('vi');
+
+  // A horizon nothing has come due for shows dashes, not zeros: zero error on
+  // zero forecasts would read as a perfect model.
+  {
+    const holder = window.document.createElement('div');
+    holder.innerHTML = window.Team.render(teamPayload);
+    const row = [...holder.querySelectorAll('tbody tr')][1];
+    tsay('a horizon with nothing scored yet shows dashes, not zeros',
+         row.textContent.includes('—') && !/0\.00%/.test(row.textContent), row.textContent);
+  }
+
+  {
+    const partial = { ...teamPayload, network: { error: { vi: 'Không đọc được mạng.', en: 'The network could not be read.' } } };
+    const holder = window.document.createElement('div');
+    holder.innerHTML = window.Team.render(partial);
+    tsay('a block that failed says so, and the others still render',
+         holder.textContent.includes('Không đọc được mạng')
+           && holder.textContent.includes('1,779.8'));
+  }
+
   // ---------- A restated price series says so ----------
   for (const [lang, word] of [['vi', 'chia tách'], ['en', 'split']]) {
     window.I18n.set(lang);
@@ -811,6 +893,7 @@ async function render(label, kind, payload) {
   pure('paper ticket', window.Paper.ticket(fakeSession({ position: 1 })));
   window.Settings.panel(psel('settings-body'));
   pure('settings panel', psel('settings-body').innerHTML);
+  pure('team models', window.Team.render(teamPayload));
 
   $('optimize-results').innerHTML = '';
   window.Strategy.renderOptimize(payloads.opt);

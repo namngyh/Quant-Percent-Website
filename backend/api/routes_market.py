@@ -12,7 +12,7 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from backend.data import market_vn, sources
+from backend.data import market_vn, sources, team_models
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/markets/vn", tags=["market-vn"])
@@ -36,6 +36,12 @@ _coverage_cache: dict[str, tuple[float, dict]] = {}
 # costs nothing and keeps tab-flipping off the VPN.
 _RISK_CACHE_SECONDS = 300
 _risk_cache: dict[str, tuple[float, dict]] = {}
+
+# The forecast is written once a session and the network once a day, but the
+# scoring walks the whole VNINDEX history to find each target session, so this
+# is the one worth not repeating on every open.
+_TEAM_CACHE_SECONDS = 300.0
+_team_cache: dict[str, tuple[float, dict]] = {}
 
 
 @router.get("/symbols")
@@ -136,6 +142,30 @@ def risk() -> dict:
         raise HTTPException(503, str(exc)) from exc
 
     _risk_cache["vnindex"] = (now, report)
+    return report
+
+
+@router.get("/team-models")
+def team_models_overview() -> dict:
+    """What the team's own pipeline publishes: a forecast, its record, a
+    correlation network, and the ingestion log.
+
+    Four views that nothing here read until now. Each block carries either its
+    content or its own error, so a missing network snapshot does not withhold
+    the forecast beside it. The scoring is done against this platform's own
+    closes, because the team's `actual_value` column is empty on every row —
+    see backend/data/team_models.py.
+    """
+    if not market_vn.configured():
+        raise HTTPException(503, "Chưa cấu hình MARKET_DSN.")
+
+    now = time.monotonic()
+    hit = _team_cache.get("all")
+    if hit and now - hit[0] < _TEAM_CACHE_SECONDS:
+        return hit[1]
+
+    report = team_models.overview()
+    _team_cache["all"] = (now, report)
     return report
 
 
