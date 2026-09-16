@@ -28,10 +28,8 @@ const PaperDash = (() => {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 
-  const money = (v) => (Number.isFinite(v)
-    ? v.toLocaleString(I18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '—');
-  const pct = (v) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : '—');
+  const money = (v) => Fmt.money(v, { digits: 2, min: 2 });
+  const pct = (v) => Fmt.pct(v);
   const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
   const when = (ts) => (ts
     ? new Date(ts * 1000).toLocaleString(I18n.locale(), {

@@ -30,10 +30,8 @@ const Portfolio = (() => {
 
   const nf = (value, digits = 2) =>
     Number.isFinite(value) ? value.toFixed(digits) : '—';
-  const pct = (value, digits = 2) =>
-    Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%` : '—';
-  const upct = (value, digits = 1) =>
-    Number.isFinite(value) ? `${value.toFixed(digits)}%` : '—';
+  const pct = (value, digits = 2) => Fmt.pct(value, digits);
+  const upct = (value, digits = 1) => Fmt.upct(value, digits);
   const cls = (value) => (value > 0 ? 'pos' : value < 0 ? 'neg' : '');
 
   /* The backend grades risk with a Vietnamese word. Translating at the edge

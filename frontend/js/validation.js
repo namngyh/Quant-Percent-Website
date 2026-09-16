@@ -17,9 +17,9 @@ const Validation = (() => {
 
   let lastResult = null;   // whatever was produced most recently, for export
 
-  const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
-  const num = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '—');
-  const money = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const pct = (v) => Fmt.pct(v);
+  const num = (v, d = 2) => Fmt.number(v, d, d);
+  const money = (v) => Fmt.money(v, { digits: 0 });
   const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
   function esc(value) {
@@ -30,7 +30,8 @@ const Validation = (() => {
   }
 
   const vnTime = (epochSeconds) =>
-    new Date((epochSeconds + 7 * 3600) * 1000).toISOString().slice(0, 16).replace('T', ' ');
+    new Date((epochSeconds + Settings.tzOffsetSeconds()) * 1000)
+      .toISOString().slice(0, 16).replace('T', ' ');
 
   function card(label, value, cls = '', sub = '') {
     return `<div class="metric">

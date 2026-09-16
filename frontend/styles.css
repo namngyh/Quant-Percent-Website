@@ -244,8 +244,8 @@ html, body {
 
 .brand { display: flex; align-items: center; gap: 10px; user-select: none; }
 .brand-mark { width: 20px; height: 20px; flex-shrink: 0; }
-.brand-mark rect { fill: var(--accent); }
-.brand-mark path { stroke: var(--accent); }
+.brand-mark rect { fill: #000; }
+.brand-mark path { stroke: #000; }
 .brand-name {
   font-size: 14px;
   letter-spacing: 0.06em;
@@ -1175,7 +1175,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 
 .splash-mark { width: 132px; height: 132px; overflow: visible; }
 .splash-mark rect {
-  fill: var(--accent);
+  fill: #000;
   opacity: 0;
   transform-origin: center;
   animation: markSquare 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
@@ -1183,7 +1183,7 @@ input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
 .splash-mark rect:nth-of-type(1) { animation-delay: 0.05s; }
 .splash-mark rect:nth-of-type(2) { animation-delay: 0.52s; }
 .splash-mark path {
-  stroke: var(--accent);
+  stroke: #000;
   stroke-width: 16;
   fill: none;
   stroke-dasharray: 124;

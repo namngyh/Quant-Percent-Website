@@ -34,12 +34,13 @@ global.document = window.document;
 
 /* One eval for all four files plus the stub: each file declares its module
    with `const`, and separate evals do not share a lexical scope. */
-const sources = ['i18n.js', 'explain.js', 'api.js', 'validation.js', 'strategy.js',
+const sources = ['i18n.js', 'settings.js', 'explain.js', 'api.js', 'validation.js', 'strategy.js',
   'paper.js', 'report.js', 'portfolio.js']
   .map((f) => fs.readFileSync(path.join(ROOT, 'frontend/js', f), 'utf8'));
 let nextPayload = null;
 window.eval(sources.join(String.fromCharCode(10, 59, 10)) + `
   ;window.I18n = I18n; window.Explain = Explain; window.Validation = Validation;
+  window.Settings = Settings; window.Fmt = Fmt;
   window.Strategy = Strategy; window.Paper = Paper; window.Report = Report; window.Portfolio = Portfolio;
   window.API = API;
   // Only the network is stubbed; everything downstream is the real module.
@@ -175,6 +176,9 @@ async function render(label, kind, payload) {
       select: $('strategy-select'), mode: $('opt-mode'),
       samples: $('opt-samples'), samplesRow: $('opt-samples-row'),
       optimize: $('optimize-results'),
+      // The real cost inputs, so execution() can be read as the app builds it.
+      capital: $('exec-capital'), size: $('exec-size'), leverage: $('exec-leverage'),
+      fee: $('exec-fee'), slippage: $('exec-slippage'),
     },
     context: () => ({ symbol: 'BTCUSDT', timeframe: '1h', limit: 6000 }),
     onResult: () => {},
@@ -696,6 +700,69 @@ async function render(label, kind, payload) {
   tsay('a paper session says the contract model is off',
        psel('paper-sessions').textContent.includes('hệ số nhân'));
 
+  // ---------- Settings, and the one formatter ----------
+  const S = window.Settings;
+  const F = window.Fmt;
+  S.reset();
+  tsay('settings open at their documented defaults',
+       S.all().display.profit === 'money' && S.all().display.timezone === 'vn'
+         && S.all().display.decimals === 2);
+  tsay('the timezone option is the only source of the display offset',
+       S.tzOffsetSeconds() === 25200);
+  S.patch({ display: { timezone: 'utc' } });
+  tsay('UTC means no offset, and a patch keeps the settings it does not name',
+       S.tzOffsetSeconds() === 0 && S.all().display.profit === 'money');
+  S.patch({ display: { timezone: 'vn' } });
+
+  let heard = 0;
+  const unsubscribe = S.subscribe(() => { heard += 1; });
+  S.patch({ chart: { grid: true } });
+  unsubscribe();
+  S.patch({ chart: { grid: false } });
+  tsay('a subscriber hears the change it asked for and stops when told', heard === 1);
+
+  // The contract block: nothing is guessed, so it travels only when complete.
+  tsay('an incomplete contract block is not sent, and names what is missing',
+       S.contractPayload() === null
+         && S.contractMissing().join(',')
+            === 'initial_margin_rate,maintenance_threshold,fee_per_contract');
+  S.patch({ trading: { contract: {
+    initial_margin_rate: 0.2, maintenance_threshold: 0.5, fee_per_contract: 20000 } } });
+  tsay('a complete contract block goes out whole',
+       S.contractMissing().length === 0
+         && S.contractPayload().initial_margin_rate === 0.2
+         && S.contractPayload().multiplier === 100000
+         && S.contractPayload().fee_mode === 'per_contract');
+  tsay('the strategy sends the contract block with its costs',
+       window.Strategy.execution().contract.maintenance_threshold === 0.5);
+
+  tsay('money, percent and points each read as themselves',
+       F.money(1234567.5, { unit: 'VND' }) === '1,234,567.5 VND'
+         && F.pct(3.769) === '+3.77%' && F.points(-10) === '-10');
+  const figures = { money: 2940000, pct: 3.769, points: 10, unit: 'VND' };
+  const shown = (mode) => { S.patch({ display: { profit: mode } }); return F.profit(figures); };
+  tsay('the profit mode picks which figure is shown, and each carries its sign',
+       shown('money') === '+2,940,000 VND' && shown('percent') === '+3.77%'
+         && shown('points') === '+10');
+  tsay('points fall back to money where there is no single instrument',
+       F.profit({ money: 500, pct: 1, points: null, unit: 'USDT' }) === '+500 USDT');
+  tsay('a balance is not a direction, so plain money stays unsigned',
+       F.money(500, { unit: 'USDT' }) === '500 USDT');
+  S.patch({ display: { profit: 'money', locale: 'vi-VN' } });
+  tsay('the number format follows the chosen locale', F.number(1234.5).startsWith('1.234'));
+  S.reset();
+
+  // The panel writes straight through: a settings box with unsaved state is a
+  // way to lose a change.
+  window.Settings.panel(psel('settings-body'));
+  const control = psel('settings-body').querySelector('[data-setting="display.profit"]');
+  control.value = 'points';
+  control.dispatchEvent(new window.Event('change', { bubbles: true }));
+  tsay('changing a control writes the setting', S.all().display.profit === 'points');
+  tsay('the panel says which contract settings are still missing',
+       psel('settings-body').textContent.includes('ký quỹ'));
+  S.reset();
+
   // ---------- Language purity ----------
   //
   // Every panel is bilingual by construction, but a string added in a hurry as
@@ -720,6 +787,8 @@ async function render(label, kind, payload) {
          window.Report.renderTab(id, id === 'ml' ? payloads.report_ml : payloads.report));
   }
   pure('paper ticket', window.Paper.ticket(fakeSession({ position: 1 })));
+  window.Settings.panel(psel('settings-body'));
+  pure('settings panel', psel('settings-body').innerHTML);
 
   $('optimize-results').innerHTML = '';
   window.Strategy.renderOptimize(payloads.opt);

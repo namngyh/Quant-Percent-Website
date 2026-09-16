@@ -97,6 +97,10 @@
       <button id="command-open" class="icon-button command-trigger" type="button" aria-haspopup="dialog" data-i18n-title="ws.search" data-i18n-aria="ws.search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
       </button>
+      <button id="settings-open" class="icon-button" type="button" aria-haspopup="dialog"
+              data-i18n-title="set.title" data-i18n-aria="set.title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/></svg>
+      </button>
       <div class="lang-switch" role="group" data-i18n-aria="top.lang">
         <button class="lang-btn" data-lang="vi" type="button">VI</button>
         <button class="lang-btn" data-lang="en" type="button">EN</button>
@@ -659,6 +663,23 @@
        it had actually been started with. A session freezes its costs at start
        (the server keeps its own config object), so the settings shown on a
        running session are the ones it is really trading. -->
+  <!-- One box for every choice about how the platform reads and what a
+       derivative costs. Controls write through as they change; there is no
+       Save, because a settings box with unsaved state is a way to lose a
+       change. Rendered by settings.js. -->
+  <div id="settings-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="dialog-head">
+        <h2 id="settings-title" data-i18n="set.title">Cài đặt</h2>
+        <button id="settings-close" class="btn btn-quiet btn-sm" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body" id="settings-body"></div>
+      <div class="dialog-foot">
+        <button id="settings-reset" class="btn" data-i18n="set.reset">Về mặc định</button>
+      </div>
+    </div>
+  </div>
+
   <div id="paper-settings" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true">
       <div class="dialog-head">
@@ -710,6 +731,7 @@
   <script src="/static/vendor/lightweight-charts.js"></script>
   <script src="/static/js/session.js"></script>
   <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/settings.js"></script>
   <script src="/static/js/explain.js"></script>
   <script src="/static/js/favourites.js"></script>
   <script src="/static/js/resize.js"></script>

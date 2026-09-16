@@ -210,6 +210,97 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 — Bánh răng cài đặt, một bộ định dạng số, và logo màu đen
+
+**355 test Python**, **184 render check** (thêm 13), i18n 2/2, và bốn nhóm kiểm
+trên Chrome: cài đặt **17/17 (mới)**, kéo mức giá 22/22, đáp ứng 14/14, không
+gian làm việc 8/8; `boot`, `persist`, `stay` không hồi quy. Backend không đổi
+trong đợt này. Thiết kế: `docs/superpowers/specs/2026-09-16-settings-gear-design.md`.
+
+#### 1. Một hộp cài đặt, năm nhóm
+
+Nút bánh răng ở đầu trang mở `#settings-dialog`: **Lợi nhuận** (tiền / phần trăm
+/ điểm giá), **Định dạng số** (dấu phân cách, số chữ số thập phân), **Múi giờ**
+(GMT+7 hoặc UTC), **Mặc định giao dịch** (thông số hợp đồng phái sinh của phần
+1), **Biểu đồ** (lưới nền, số nến khi vào chế độ làm việc).
+
+Không có nút Lưu: mỗi điều khiển ghi thẳng khi đổi, vì một hộp cài đặt có trạng
+thái chưa lưu là một cách làm mất thay đổi. Cài đặt nằm trong `localStorage`
+(`qp.settings.v1`), và khoá nào bản mặc định không khai báo thì bị bỏ khi nạp —
+cùng quy tắc `session.js` đang theo.
+
+#### 2. Thông số hợp đồng: phần 1 giờ bấm được
+
+Trước đợt này, mô hình hợp đồng đã chạy ở backend nhưng **không có chỗ nhập**,
+nên mọi mã phái sinh vẫn tính tuyến tính. Giờ nhập trong nhóm "Mặc định giao
+dịch"; khi còn thiếu, hộp gọi tên đúng thứ còn thiếu thay vì báo "chưa đủ".
+
+Đo trên app đang chạy (`tests/test_settings_ui.html`, nhóm 6):
+
+| Trạng thái | Kết quả |
+|---|---|
+| Chưa nhập gì | `execution().contract` = **null**; kết quả phái sinh mang `contract_model_off` |
+| Đã nhập tỷ lệ ký quỹ và ngưỡng | hộp ghi "Còn thiếu **phí mỗi hợp đồng**" |
+| Nhập nốt phí 20.000 đ | hộp ghi đã đủ; lệnh chạy gửi đúng khối `{initial_margin_rate: 0.2, maintenance_threshold: 0.5, fee_per_contract: 20000, multiplier: 100000, …}` |
+
+#### 3. Một bộ định dạng thay cho 8 bản chép tay
+
+`strategy.js`, `paper.js`, `paper-dash.js`, `report.js`, `validation.js`,
+`markets.js`, `portfolio.js` mỗi file giữ một `money`/`pct` riêng, mỗi bản làm
+tròn một kiểu và hai bản lấy locale từ hai nguồn khác nhau. Tất cả giờ gọi
+`Fmt` trong `settings.js`; tên gọi tại chỗ giữ nguyên nên phần thân không phải
+sửa. Chế độ lợi nhuận có hiệu lực ở ba nơi một con số lãi/lỗ hiện ra: thẻ trên
+đường vào lệnh, ô "Lãi/lỗ mở" của panel Paper, và thẻ Tổng lợi nhuận của panel
+Kết quả (quantity nào không hiện thì chuyển xuống dòng phụ, không mất).
+
+Cùng một vị thế giả (mua 0,5 đơn vị, giá chạy +10 điểm), đo trong app:
+
+| Chế độ | Thẻ trên đường vào lệnh |
+|---|---|
+| Điểm giá | `LONG 0.5  +10.00` |
+| Phần trăm | `LONG 0.5  +0.01%` |
+| Tiền | `LONG 0.5  +5.00 USDT (+0.01%)` |
+
+*§2.2 — bản đầu của tôi sai và trang test bắt được:* `Fmt.profit` ở chế độ tiền
+gọi `Fmt.money`, vốn **không mang dấu**, nên thẻ in `5.00 USDT` thay vì
+`+5.00 USDT` — mất đúng thứ không ai suy ra được từ con số. Giờ lãi/lỗ mang dấu
+ở **cả ba** chế độ, còn `Fmt.money` trần vẫn không dấu vì một số dư không phải
+một chiều. Hai check của trang kéo mức giá là thứ phát hiện ra, không phải đọc
+lại code.
+
+#### 4. Múi giờ và lưới, đo được chứ không chỉ khai báo
+
+`charts.js` cứng `7 * 3600`, `report.js` và `validation.js` mỗi nơi một bản chép
+`+ 7 * 3600`. Cả ba giờ đọc `Settings.tzOffsetSeconds()`. Đổi múi giờ thì nến
+được **vẽ lại**, vì độ lệch được nướng vào từng điểm lúc nạp chuỗi; một trục đổi
+nghĩa mà nến không đổi là hai hệ quy chiếu trên cùng màn hình.
+
+| Đo | Kết quả |
+|---|---|
+| Nến đầu tiên trước/sau khi chuyển sang UTC | 1782280800 → 1782255600, **đúng 7 giờ** |
+| Nhãn múi giờ trên đầu trang | `GMT+7` → `UTC` → về `GMT+7` |
+| Lưới nền, mặc định và sau khi bật | `gridVisible` false → **true**, không dựng lại biểu đồ |
+| Tải lại trang | cài đặt còn nguyên; nút "Về mặc định" trả lại toàn bộ |
+
+#### 5. Logo màu đen
+
+Dấu hiệu Quant Percent ở đầu trang và ở màn hình mở đầu chuyển từ `var(--accent)`
+(xanh dương) sang **đen**, ở cả `styles.css` lẫn `workspace.css`. Nền ô vuông sau
+dấu hiệu đổi từ xanh nhạt `#edf2ff` sang xám trung tính `#f1f2f4`, vì một nền
+xanh sau một dấu hiệu đen đọc như hai thương hiệu.
+
+#### Giới hạn (§2.7)
+
+- Cài đặt thuộc **một trình duyệt**: mở trên máy khác là bắt đầu lại từ mặc
+  định. Không đồng bộ, không gửi lên server.
+- Chế độ "điểm" chỉ có nghĩa với một mã. Chỗ gộp nhiều mã (thẻ Tổng lợi nhuận,
+  bảng tài khoản Paper) không có đại lượng điểm nên hiện bằng tiền.
+- Thẻ trên đường vào lệnh luôn giữ **2 chữ số thập phân** bất kể cài đặt: nó nằm
+  trên trục giá, nơi một con số đổi bề rộng mỗi tick thì không đọc được.
+- Múi giờ chỉ đổi cách hiển thị; mọi thứ lưu, so sánh và gửi đi vẫn là UTC.
+- Chưa có: đồng bộ cài đặt giữa máy, nhập số hợp đồng ngay trên bảng lệnh Paper,
+  đơn vị tiền trong tin nhắn Telegram.
+
 ### 2026-09-15 (khuya) — Mô hình vị thế theo hợp đồng cho phái sinh
 
 Nhánh `contract-model`. **355 test Python** (trước 326: +18
