@@ -410,6 +410,7 @@
     cell.manager.onNeedHistory = (oldest) => pageCell(cell, oldest);
     cell.manager.onLevelDragged = onLevelDragged;
     cell.manager.onPositionClose = closePaperPosition;
+    cell.manager.onFillMismatch = reportFillMismatch;
     cell.manager.onMarkersChanged = (count, visible) => {
       if (MultiChart.activeCell === cell) paintMarkerTools(count, visible);
     };
@@ -602,7 +603,7 @@
   const INCIDENT_CAP = 20;
   let lastSeriesKey = null;
 
-  function recordIncident(report) {
+  function recordIncident(report, message = 'QP: the chart came up without candles') {
     let stored = [];
     try {
       stored = JSON.parse(localStorage.getItem(INCIDENT_KEY) || '[]');
@@ -615,7 +616,7 @@
     } catch {
       // Storage blocked or full: the console line below is still evidence.
     }
-    console.warn('QP: the chart came up without candles', report);
+    console.warn(message, report);
   }
 
   function checkChartAfterLoad(requested) {
@@ -1297,10 +1298,41 @@
 
     // A running session usually holds a position: an entry with no exit yet.
     // Without it a live session looks like it had never traded.
-    const open = session.position !== 0 && session.entry_time
-      ? { side: session.position, entry_time: session.entry_time }
+    ChartManager.setTradeMarkers(session.trades || [], openFill(session),
+      { tolerance: fillTolerance(session.config) });
+  }
+
+  function openFill(session) {
+    return session.position !== 0 && session.entry_time
+      ? { side: session.position, entry_time: session.entry_time, entry_price: session.entry_price }
       : null;
-    ChartManager.setTradeMarkers(session.trades || [], open);
+  }
+
+  /* How far outside its bar a fill may legitimately sit: the adverse slippage
+     the run was configured with. A fraction of price for the linear model,
+     index points for the contract model. Unknown costs mean no audit, rather
+     than an audit against zero that would flag every correct fill. */
+  function fillTolerance(config) {
+    if (!config || !Number.isFinite(Number(config.slippage))) return null;
+    if (config.contract) return { points: Number(config.contract.slippage_points) || 0 };
+    return { fraction: Number(config.slippage) };
+  }
+
+  /* A fill outside the bar that contains it is a wrong price, not a drawing
+     problem (charts.js, checkFills). It is recorded with the bar it was
+     measured against, so the case can be read after the session is gone —
+     the 75 343.31 short of 2026-09-16 could not be. */
+  function reportFillMismatch(mismatches) {
+    for (const m of mismatches) {
+      recordIncident({ type: 'fill_outside_bar', ...m, at: Date.now() },
+        'QP: a fill lies outside the bar that contains it');
+    }
+    const m = mismatches[0];
+    toast(L(
+      `Giá khớp ${m.price} nằm ngoài biên độ nến chứa nó (${m.bar.low}–${m.bar.high}). `
+      + 'Đã ghi chẩn đoán vào localStorage `qp.chart-incidents.v1` — gửi lại giúp tôi.',
+      `Fill price ${m.price} lies outside the range of its bar (${m.bar.low}–${m.bar.high}). `
+      + 'The diagnosis is recorded in localStorage `qp.chart-incidents.v1` — please send it over.'), true);
   }
 
   /* Horizontal lines for the open position, which the arrows cannot give.
@@ -1379,7 +1411,8 @@
       Paper.apply(result.snapshot);
       drawPaperMarkers();
       drawPositionLines();
-      toast(L('Đã đóng vị thế', 'Position closed'));
+      toast(L('Lệnh đóng vị thế sẽ khớp ở giá mở của nến kế tiếp',
+              'The close will fill at the next candle\'s open'));
     } catch (err) {
       toast(tp(err.detail?.message) || err.message, true);
     } finally {
@@ -2321,7 +2354,8 @@ def signals(df, params):
         if (ctx.cell?.destroyed || ctx.cell?.loadToken !== ctx.loadToken
             || ctx.manager.seriesKey !== `${ctx.symbol}|${ctx.timeframe}`) return;
         if (ChartHub.active === ctx.manager) markerSource = 'backtest';
-        ctx.manager.setTradeMarkers(result.trades);
+        ctx.manager.setTradeMarkers(result.trades, null,
+          { tolerance: fillTolerance(result.config) });
       },
     });
 
@@ -2338,8 +2372,8 @@ def signals(df, params):
           MultiChart.cells.forEach((cell, index) => {
             if (cell.symbol !== session.symbol || cell.timeframe !== session.timeframe) return;
             const manager = MultiChart.managerAt(index);
-            manager.setTradeMarkers(session.trades || [], session.position && session.entry_time
-              ? { side: session.position, entry_time: session.entry_time } : null);
+            manager.setTradeMarkers(session.trades || [], openFill(session),
+              { tolerance: fillTolerance(session.config) });
             manager.setMarkersVisible(true);
           });
           openPaperSession(session);
@@ -2406,6 +2440,16 @@ def signals(df, params):
                   `Paper: position closed, P&L ${event.trade.pnl.toFixed(2)}`));
         } else if (event.type === 'liquidation') {
           toast(L('Paper: bị thanh lý', 'Paper: liquidated'), true);
+        } else if (event.type === 'order_rejected') {
+          toast(`Paper: ${tp(event.message)}`, true);
+        }
+        // A queued stop or target the open had already gapped past was not
+        // armed; saying nothing would leave the user trusting a level that
+        // does not exist.
+        for (const level of event.dropped_levels || []) {
+          toast(L(
+            `Paper: giá mở ${event.open} đã vượt qua ${level.level === 'stop_loss' ? 'cắt lỗ' : 'chốt lời'} ${level.price}, mức này không được đặt.`,
+            `Paper: the open ${event.open} was already past the ${level.level === 'stop_loss' ? 'stop' : 'target'} ${level.price}; it was not set.`), true);
         }
       },
     });

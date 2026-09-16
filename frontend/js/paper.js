@@ -109,6 +109,10 @@ const Paper = (() => {
       s.position > 0 ? 'LONG' : 'SHORT'}</span>${size} ${unit(quantityUnit(s))}`;
   }
 
+  function orderName(action) {
+    return action === 'long' ? L('MUA', 'BUY') : action === 'short' ? L('BÁN', 'SELL') : L('ĐÓNG', 'CLOSE');
+  }
+
   /** One ledger row. `value` must already be safe HTML. */
   function figure(label, value, tone = '') {
     return `<div class="pp-fig"><dt>${esc(label)}</dt><dd${
@@ -152,18 +156,20 @@ const Paper = (() => {
     const open = s.position !== 0;
     const id = esc(s.id);
     const costPct = (s.config.fee * 2 + s.config.slippage * 2) * 100;
+    // One waiting order at a time: the server refuses a second (order_pending).
+    const waiting = Boolean(s.pending_order);
     const draft = drafts.get(s.id) || {};
     const value = (key, fallback) => esc(draft[key] ?? fallback);
 
     return `<div class="pp-ticket" data-ticket="${id}">
       <div class="pp-order">
         <button type="button" class="pp-order-btn buy${long ? ' held' : ''}"
-                data-order="long" data-session="${id}"${long ? ' disabled' : ''}>
+                data-order="long" data-session="${id}"${long || waiting ? ' disabled' : ''}>
           <span>${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
           <strong>${priceText(s)}</strong>
         </button>
         <button type="button" class="pp-order-btn sell${short ? ' held' : ''}"
-                data-order="short" data-session="${id}"${short ? ' disabled' : ''}>
+                data-order="short" data-session="${id}"${short || waiting ? ' disabled' : ''}>
           <span>${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
           <strong>${priceText(s)}</strong>
         </button>
@@ -197,12 +203,14 @@ const Paper = (() => {
           esc(L('Áp dụng cắt lỗ / chốt lời', 'Apply stop and target'))}</button>` : ''}
         ${s.manual_override ? `<button type="button" class="pp-link" data-resume-strategy="${id}">${
           esc(L('Trả lại chiến lược', 'Back to strategy'))}</button>` : ''}
+        ${waiting ? `<button type="button" class="pp-link" data-order="cancel" data-session="${id}">${
+          esc(L('Huỷ lệnh chờ', 'Cancel waiting order'))}</button>` : ''}
         <button type="button" class="pp-link pp-close" data-order="close" data-session="${id}"${
-          open ? '' : ' disabled'}>${esc(L('Đóng vị thế', 'Close position'))}</button>
+          open && !waiting ? '' : ' disabled'}>${esc(L('Đóng vị thế', 'Close position'))}</button>
       </div>
       <p class="pp-hint">${esc(L(
-        `Khớp ngay ở giá hiện tại. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
-        `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
+        `Lệnh khớp ở giá mở của nến kế tiếp, không phải giá lúc bấm. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
+        `Orders fill at the next candle's open, not at the price when clicked. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
         open ? ` ${esc(L(
           'Đòn bẩy đã chọn áp dụng cho lần vào lệnh tiếp theo. Kéo từ đường vào lệnh để đặt chốt lời / cắt lỗ.',
           'Selected leverage applies to the next entry. Drag from the entry line to set a target or stop.'))}` : ''}</p>
@@ -284,7 +292,13 @@ const Paper = (() => {
             `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}${open ? ` · ${Fmt.number(leverageFor(s))}×` : ''}</p>
           ${s.execution_model === 'contract_model_off'
             ? `<p class="pp-meta">${esc(t('exec.contractOff'))}</p>` : ''}
-          ${s.pending_signal !== s.position
+          ${s.pending_order
+            ? `<p class="pp-meta pp-waiting">${esc(L('Lệnh chờ khớp ở giá mở nến kế tiếp: ',
+                'Order waiting for the next candle\'s open: '))}<strong>${esc(
+                orderName(s.pending_order.action))}</strong>${
+                s.pending_order.stop_loss ? ` · SL ${money(s.pending_order.stop_loss)}` : ''}${
+                s.pending_order.take_profit ? ` · TP ${money(s.pending_order.take_profit)}` : ''}</p>`
+            : s.pending_signal !== s.position
             ? `<p class="pp-meta">${esc(L('Chờ khớp ở nến kế tiếp: ',
                 'Waiting to fill at the next candle: '))}<strong>${esc(
                 s.pending_signal > 0 ? L('MUA', 'BUY')
@@ -314,6 +328,16 @@ const Paper = (() => {
       stopLoss: read(`[data-stop="${CSS.escape(id)}"]`),
       takeProfit: read(`[data-target="${CSS.escape(id)}"]`),
     };
+  }
+
+  function orderToast(events) {
+    const event = events[0] || {};
+    if (event.type === 'order_cancelled') return L('Đã huỷ lệnh chờ', 'Waiting order cancelled');
+    if (event.type === 'order_pending') {
+      return L(`Lệnh ${orderName(event.order.action)} sẽ khớp ở giá mở của nến kế tiếp`,
+               `${orderName(event.order.action)} order will fill at the next candle's open`);
+    }
+    return L('Đã gửi lệnh', 'Order sent');
   }
 
   function bind() {
@@ -356,10 +380,11 @@ const Paper = (() => {
         const action = btn.dataset.order;
         if (submitting.has(id)) return;
         const ticket = btn.closest('.pp-ticket');
-        if (action !== 'close' && [...ticket.querySelectorAll('input')].some(input => !input.reportValidity())) return;
+        const entering = action === 'long' || action === 'short';
+        if (entering && [...ticket.querySelectorAll('input')].some(input => !input.reportValidity())) return;
         const leverageInput = ticket.querySelector('[data-leverage]');
         const leverage = leverageInput?.readOnly ? undefined : Number(leverageInput?.value);
-        if (action !== 'close' && !leverageInput?.readOnly && !(leverage >= 1 && leverage <= 125)) return;
+        if (entering && !leverageInput?.readOnly && !(leverage >= 1 && leverage <= 125)) return;
         const sizeInput = elements.list.querySelector(`[data-size="${CSS.escape(id)}"]`);
         const raw = Number(sizeInput?.value);
         const exits = exitsFor(id);
@@ -377,19 +402,16 @@ const Paper = (() => {
         try {
           const result = await API.paperOrder(
             id, action,
-            action === 'close' ? undefined : sizePct,
-            action === 'close' ? undefined : exits,
-            action === 'close' ? undefined : leverage,
+            entering ? sizePct : undefined,
+            entering ? exits : undefined,
+            entering ? leverage : undefined,
           );
           submitting.delete(id);
-          drafts.delete(id);
+          if (action !== 'cancel') drafts.delete(id);
           apply(result.snapshot);
           elements.onOrderFilled?.(result.snapshot);
-          const filled = (result.events || []).find((e) => e.type === 'entry');
-          onToast(filled
-            ? L(`Đã khớp ${filled.side === 'long' ? 'MUA' : 'BÁN'} ở ${money(filled.price)}`,
-                `Filled ${filled.side === 'long' ? 'BUY' : 'SELL'} at ${money(filled.price)}`)
-            : L('Đã đóng vị thế', 'Position closed'));
+          // Rendered from the event code, never from its text (§2.4).
+          onToast(orderToast(result.events || []));
         } catch (err) {
           submitting.delete(id);
           // The server sends {code, message:{vi,en}} for a refusal, so the

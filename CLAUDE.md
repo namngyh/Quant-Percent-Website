@@ -114,6 +114,13 @@ Mọi kết quả backtest đứng trên các giả định này:
 - Thanh lý **trong nến** khi lỗ chạm ký quỹ, kiểm tra theo giá thấp nhất (mua)
   hoặc cao nhất (bán).
 - Một vị thế tại một thời điểm; đảo chiều đóng và mở lại trong cùng nến.
+- **Lệnh tay trong Paper cũng khớp ở giá mở nến kế tiếp** (Nam, 2026-09-16;
+  thay cho ngoại lệ "khớp ngay ở giá hiện tại" có từ 2026-09-09). Bấm trong
+  nến `i` được coi như tín hiệu ở giá đóng nến `i` và khớp ở giá mở nến `i+1`,
+  cùng trượt giá và phí. Lệnh nằm ở `pending_order` cho tới lúc khớp; mỗi phiên
+  chỉ một lệnh chờ, huỷ được. Cắt lỗ/chốt lời vẫn khớp trong nến, tại mức đã đặt.
+- Mọi giá khớp phải nằm trong `[thấp − trượt giá, cao + trượt giá]` của nến chứa
+  nó. Biểu đồ tự kiểm điều này và ghi sự cố vào `qp.chart-incidents.v1`.
 
 ### 3.2 Song ngữ
 
@@ -209,6 +216,74 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 ## 4. Báo cáo
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
+
+### 2026-09-16 (tối) — Lệnh tay khớp ở giá mở nến kế tiếp; tự kiểm giá khớp
+
+**395 test Python** (Paper 36 → **46**), render đạt, i18n 2/2, test phiếu JS 5
+nhóm; Chrome: **`test_fill_marks.html` 12/12 (mới)**, layout 16/16, kéo mức giá
+đạt.
+
+#### 1. Hai lệnh "lệch" đều khớp đúng — dấu lệnh không chỉ vào giá
+
+Nam gửi hai ảnh: đường xanh không khớp với mũi tên. Đo trên server:
+
+| Lệnh | Bấm lúc | Giá lúc bấm | Nến chứa nó | Giá vào (× trượt giá 0,02%) |
+|---|---|---|---|---|
+| LONG | 21:16:43 | 75.698,48 | 21:16, L 75.627 – H 75.709 | **75.713,62** = đường xanh |
+| SHORT | 21:19:39 | 75.543,73 | 21:19, **L 75.543,72** – H 75.666 | **75.528,62** = đường xanh |
+
+Lightweight Charts chỉ đặt dấu *trên đỉnh* hoặc *dưới đáy* nến, nên lệnh SHORT
+khớp ở đáy nến bị vẽ trên đỉnh, cách đường vào lệnh 150 điểm.
+
+*Đã thử ba cách vẽ dấu tại giá khớp và bỏ cả ba theo ý Nam.* Mũi tên đặt đúng
+giá luôn **đè lên nến**, vì giá khớp luôn nằm trong biên độ nến; mũi tên rỗng và
+nét đứt nối lệnh thì mờ; ghi giá cạnh mũi tên thì chữ rộng hơn một nến nên đè
+nến bên cạnh. **Giữ dấu gốc của thư viện**: mũi tên cạnh nến, chấm tròn khi
+đóng. Giá chính xác nằm ở đường vào lệnh; phần tự kiểm dưới đây canh giá khớp.
+
+#### 2. Tự kiểm giá khớp
+
+Mọi giá khớp của nền tảng là một giá thị trường đã giao dịch, chỉ lệch thêm
+trượt giá bất lợi, nên phải nằm trong `[thấp − trượt giá, cao + trượt giá]` của
+nến chứa nó. Biểu đồ kiểm mỗi lần vẽ dấu, bỏ qua nến đang chạy, và ghi sự cố
+(`fill_outside_bar`, kèm OHLC của nến) cùng một toast. Lệnh SHORT 75.343,31 hôm
+nay không giải thích được vì phiên đã mất; lần sau sẽ có bằng chứng. Phá thử
+(vẽ lại ở mép nến; kiểm cả nến đang chạy): test đỏ đúng 4 và 1 check.
+
+#### 3. Lệnh tay khớp ở giá mở nến kế tiếp — theo yêu cầu, thay ngoại lệ §3.1
+
+"Tín hiệu close ở nến 1 thì lệnh được tính bằng open nến +1." Bấm là xếp một
+lệnh chờ; lệnh khớp ở giá mở của nến đầu tiên mở **sau** nến đang chạy lúc bấm:
+
+- Binance: khớp ngay ở cập nhật đầu tiên của nến mới (nó mang giá mở), không
+  đợi nến đó đóng.
+- VN chỉ phát nến đã đóng, nên nến đang chạy lúc bấm chưa từng được thấy.
+  Mốc "nến chứa lúc bấm" là giá trị lớn hơn giữa nến mới nhất đã thấy và đồng
+  hồ làm tròn xuống theo khung; nếu chỉ dùng feed, lệnh sẽ khớp ở giá mở của
+  chính nến có trước lúc bấm (test bắt được khi phá thử).
+- Nến lúc bấm đóng *sau* khi lệnh đã khớp ở nến kế tiếp thì không được dùng để
+  kích cắt lỗ/thanh lý: vị thế chưa tồn tại trong nến đó.
+
+Kiểm tại lúc bấm (từ chối ngay): hướng, cỡ, đòn bẩy, cắt lỗ/chốt lời, ký quỹ
+theo giá hiện tại. Kiểm lại lúc khớp: vị thế đã đổi (ví dụ cắt lỗ chạy trước)
+→ `order_rejected` có mã; không đủ ký quỹ ở giá mở → `order_rejected`; giá mở
+đã vượt qua cắt lỗ/chốt lời → mức đó **không được đặt** và sự kiện ghi
+`dropped_levels`, vì một cắt lỗ nằm trên giá khớp của lệnh mua sẽ đóng ngay và
+ghi một khoản lãi mang nhãn "stop loss". Chiến lược bị khoá từ lúc bấm, không
+phải lúc khớp. Lệnh chờ được lưu qua khởi động lại. Giao diện hiện dòng "Lệnh
+chờ khớp ở giá mở nến kế tiếp", nút **Huỷ lệnh chờ**, và khoá Mua/Bán/Đóng trong
+lúc chờ.
+
+10 test mới; phá thử bốn chỗ (khớp ngay; bỏ chốt thời điểm vào lệnh; bỏ đồng
+hồ; bỏ khoá chiến lược) đều làm test đỏ.
+
+#### Giới hạn (§2.7)
+
+- Đồng hồ máy chủ lệch với sàn quá một nến thì mốc "nến lúc bấm" lệch theo.
+- Trên khung lớn (1h, 1d) lệnh có thể chờ tới gần hết một nến; đó là hệ quả
+  của quy tắc, không phải độ trễ.
+- **Cần khởi động lại backend** để server nhận quy tắc mới; frontend đã đổi thì
+  chỉ cần tải lại trang.
 
 ### 2026-09-16 — Đơn vị, dấu lệnh tay và đòn bẩy trên phiếu Paper
 

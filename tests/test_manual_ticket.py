@@ -14,6 +14,22 @@ from backend.strategy.position_model import ContractConfig
 import pandas as pd
 
 
+def order(session, action, **kwargs):
+    """Place a hand order and deliver the next bar, whose open fills it.
+
+    Hand orders fill at the next bar's open (2026-09-16), so a test that wants
+    the fill must hand the session that bar. Its open is the session's last
+    price, which keeps every cost figure below measured at an unchanged price.
+    A refusal at placement raises before any bar is delivered.
+    """
+    placed = session.place_order(action, now=0, **kwargs)
+    bar_open = (session.last_bar_open + 60) * 1000
+    price = session.last_price
+    events = session.on_forming_candle(
+        {"open_time": bar_open, "open": price, "high": price, "low": price, "close": price})
+    return {"placed": placed, "events": events, "snapshot": session.snapshot()}
+
+
 def session():
     return PaperSession('manual', 'BTCUSDT', '1m',
                         config=BacktestConfig(initial_capital=10000, size_pct=.5,
@@ -22,28 +38,28 @@ def session():
 
 def sizing_and_reversal():
     s = session()
-    first = s.place_order('long', leverage=3)
+    first = order(s, 'long', leverage=3)
     assert s.quantity == 150 and s.margin == 5000
     assert first['events'][0]['leverage'] == 3
     assert s.model.liquidation_price(100, 1) == 100 * (1 - 1 / 3)
     s.last_price = 110
-    s.place_order('short', leverage=5)
+    order(s, 'short', leverage=5)
     assert s.trades[0].pnl == 1500 and s.trades[0].leverage == 3
     assert abs(s.quantity + 11500 * .5 * 5 / 110) < 1e-9
     assert s.config.leverage == 5
-    s.place_order('close', leverage=100)
+    order(s, 'close', leverage=100)
     assert s.trades[-1].leverage == 5 and s.config.leverage == 5
 
 
 def refusals_are_atomic():
-    s = session(); s.place_order('long', leverage=3)
+    s = session(); order(s, 'long', leverage=3)
     before = s.snapshot()
     for leverage in [0, 126, float('nan'), float('inf')]:
-        try: s.place_order('short', leverage=leverage)
+        try: order(s, 'short', leverage=leverage)
         except OrderRefused as error: assert error.code == 'bad_leverage'
         else: raise AssertionError('invalid leverage accepted')
         assert s.snapshot() == before
-    try: s.place_order('short', leverage=5, stop_loss=90)
+    try: order(s, 'short', leverage=5, stop_loss=90)
     except OrderRefused: pass
     else: raise AssertionError('invalid short stop accepted')
     assert s.snapshot() == before
@@ -53,14 +69,14 @@ def contract_terms_are_not_overridden():
     s = session()
     s.config.contract = ContractConfig(multiplier=100000, initial_margin_rate=.2,
                                       maintenance_threshold=.5, fee_per_contract=20000)
-    try: s.place_order('long', leverage=10)
+    try: order(s, 'long', leverage=10)
     except OrderRefused as error: assert error.code == 'contract_leverage'
     else: raise AssertionError('contract margin silently changed')
     assert s.position == 0 and s.config.contract.initial_margin_rate == .2
 
 
 def restart_keeps_selected_leverage():
-    s = session(); s.place_order('long', leverage=7); s.place_order('short', leverage=2)
+    s = session(); order(s, 'long', leverage=7); order(s, 'short', leverage=2)
     with patch('backend.paper.manager.sources.get_candles', return_value=pd.DataFrame()):
         restored = manager._from_payload(manager._to_payload(s))
     assert restored.config.leverage == 2 and restored.quantity == s.quantity

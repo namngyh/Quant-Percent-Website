@@ -163,7 +163,8 @@ class PaperManager:
         result = session.place_order(action, size_pct, stop_loss, take_profit, leverage)
         await asyncio.to_thread(self._persist, session)
         log.info(
-            "paper session %s: manual %s at %.8g", session_id, action, session.last_price
+            "paper session %s: manual %s queued for the next open (last %.8g)",
+            session_id, action, session.last_price,
         )
         return result
 
@@ -245,7 +246,11 @@ class PaperManager:
 
         for session in targets:
             if not closed:
-                session.on_tick(float(candle["close"]))
+                # A queued hand order fills on the first update of a new bar.
+                events = session.on_forming_candle(candle)
+                if events:
+                    await asyncio.to_thread(self._persist, session)
+                    await self._publish(session, events)
                 continue
 
             # Strategy evaluation is pandas work; keep it off the event loop so
@@ -254,24 +259,27 @@ class PaperManager:
                 session.on_closed_candle, candle, self._signal_fn(session)
             )
             await asyncio.to_thread(self._persist, session)
+            await self._publish(session, events)
 
-            # Push to the phone as well. Failures are logged inside the
-            # notifier and never interrupt trading.
-            if events and telegram.configured():
-                snapshot = session.snapshot()
-                for event in events:
-                    text = telegram.format_paper_event(snapshot, event)
-                    if text:
-                        await telegram.send(text)
+    async def _publish(self, session: PaperSession, events: list[dict]) -> None:
+        """Send a session's events to Telegram and the browser, then its snapshot."""
+        # Push to the phone as well. Failures are logged inside the
+        # notifier and never interrupt trading.
+        if events and telegram.configured():
+            snapshot = session.snapshot()
+            for event in events:
+                text = telegram.format_paper_event(snapshot, event)
+                if text:
+                    await telegram.send(text)
 
-            if self._notify:
-                for event in events:
-                    await self._notify(
-                        {"type": "paper_event", "session_id": session.id, "event": event}
-                    )
+        if self._notify:
+            for event in events:
                 await self._notify(
-                    {"type": "paper_update", "session": session.snapshot()}
+                    {"type": "paper_event", "session_id": session.id, "event": event}
                 )
+            await self._notify(
+                {"type": "paper_update", "session": session.snapshot()}
+            )
 
     # ----------------------------------------------------------- persistence
 
@@ -312,6 +320,9 @@ class PaperManager:
             # then reverses it on the next bar.
             "stop_loss": s.stop_loss, "take_profit": s.take_profit,
             "manual_override": s.manual_override,
+            # A queued hand order survives a restart; losing it would leave the
+            # user believing an order is on its way that no longer exists.
+            "pending_order": s.pending_order, "last_bar_open": s.last_bar_open,
             "trades": [t.as_dict() for t in s.trades],
         }
 
@@ -338,6 +349,8 @@ class PaperManager:
         session.stop_loss = d.get("stop_loss")
         session.take_profit = d.get("take_profit")
         session.manual_override = d.get("manual_override", False)
+        session.pending_order = d.get("pending_order")
+        session.last_bar_open = d.get("last_bar_open", 0)
         session.trades = [PaperTrade(**t) for t in d.get("trades", [])]
 
         history = sources.get_candles(session.symbol, session.timeframe, limit=WARMUP_BARS)

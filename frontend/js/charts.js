@@ -659,56 +659,132 @@ function createChartManager() {
      wrong shape entirely. `clearTradeMarkers` is the one that forgets. */
   let storedMarkers = [];
   let markersVisible = true;
+  // Each marker attached to the bar that contains it, with that bar's index.
+  let anchoredFills = [];
+  // How far a fill may sit outside its bar: the session's adverse slippage.
+  let fillTolerance = null;
+  let onFillMismatch = null;
+  const reportedMismatches = new Set();
+
+  /* The library's own markers: an arrow under the bar for a buy entry, over
+     it for a sell, a circle for the exit.
+
+     They sit beside the bar, not at the fill price — a short filled at a bar's
+     low is drawn over its high. Three versions drawn at the price were tried
+     and dropped on 2026-09-16: an arrow on the price always covers the candle,
+     since a fill is inside its bar, and Nam preferred these as cleaner and
+     sharper. The exact price is on the entry line, and `checkFills` below is
+     what guards it. */
+  function libraryMarker(fill) {
+    const isLong = fill.side > 0;
+    if (fill.kind === 'exit') {
+      return {
+        time: fill.time,
+        position: isLong ? 'aboveBar' : 'belowBar',
+        color: fill.reason === 'liquidation' ? '#c8372d' : '#949ca6',
+        shape: 'circle',
+        text: fill.reason === 'liquidation' ? 'LIQ' : '',
+      };
+    }
+    return {
+      time: fill.time,
+      position: isLong ? 'belowBar' : 'aboveBar',
+      color: isLong ? '#12805c' : '#c8372d',
+      shape: isLong ? 'arrowUp' : 'arrowDown',
+      text: fill.open ? (isLong ? 'LONG ●' : 'SHORT ●') : (isLong ? 'L' : 'S'),
+    };
+  }
 
   function applyMarkers() {
     if (!candleSeries) return;
     // A manual fill happens between candle opens. Attach it to the containing
     // bar, including the current forming bar, rather than the next candle.
-    const anchored = storedMarkers.flatMap(marker => {
+    anchoredFills = storedMarkers.flatMap((marker) => {
       let lo = 0, hi = candleData.length;
       while (lo < hi) {
         const mid = (lo + hi) >>> 1;
         if (candleData[mid].time <= marker.time) lo = mid + 1;
         else hi = mid;
       }
-      return lo ? [{ ...marker, time: candleData[lo - 1].time }] : [];
+      return lo
+        ? [{ ...marker, fillTime: marker.time, time: candleData[lo - 1].time, index: lo - 1 }]
+        : [];
     });
-    candleSeries.setMarkers(markersVisible ? anchored : []);
+    candleSeries.setMarkers(markersVisible ? anchoredFills.map(libraryMarker) : []);
+    auditFills();
   }
 
-  function setTradeMarkers(trades, openPosition = null) {
+  /* A fill must lie inside the bar that contains it.
+
+     Every fill this platform makes is a price the market traded (a next-bar
+     open, a stop touched inside the bar, the live price at a click) moved only
+     by adverse slippage. So `low − slippage ≤ fill ≤ high + slippage` holds for
+     every one, and a fill outside that band is a wrong price, not a display
+     question: the 75 343.31 short (2026-09-16) matched no bar within three
+     hours and could not be explained after the fact.
+
+     The newest bar is skipped. It is still forming, and a fill made after the
+     last bar the chart has received sits on that bar until the next one
+     arrives; judging it early would report a correct fill. */
+  function checkFills() {
+    if (!fillTolerance) return [];
+    const { fraction = 0, points = 0 } = fillTolerance;
+    const out = [];
+    for (const fill of anchoredFills) {
+      if (!Number.isFinite(fill.price) || fill.index >= candleData.length - 1) continue;
+      const bar = candleData[fill.index];
+      const eps = Math.abs(fill.price) * 1e-6;
+      const lowest = bar.low * (1 - fraction) - points - eps;
+      const highest = bar.high * (1 + fraction) + points + eps;
+      if (fill.price >= lowest && fill.price <= highest) continue;
+      out.push({
+        kind: fill.kind, side: fill.side, price: fill.price,
+        fillTime: fill.fillTime - tzOffset(), barTime: bar.time - tzOffset(),
+        bar: { open: bar.open, high: bar.high, low: bar.low, close: bar.close },
+        tolerance: { fraction, points }, series: seriesKey,
+      });
+    }
+    return out;
+  }
+
+  function auditFills() {
+    if (!onFillMismatch) return;
+    const fresh = checkFills().filter((m) => {
+      const key = `${m.series}|${m.kind}|${m.fillTime}|${m.price}`;
+      if (reportedMismatches.has(key)) return false;
+      reportedMismatches.add(key);
+      return true;
+    });
+    if (fresh.length) onFillMismatch(fresh);
+  }
+
+  function overlayActive() {
+    return Boolean(levels.side);
+  }
+
+  function setTradeMarkers(trades, openPosition = null, options = {}) {
     const markers = [];
 
-    for (const t of trades) {
-      const isLong = t.side === 'long';
+    const price = (value) => (value === null || value === undefined ? NaN : Number(value));
+    trades.forEach((t, trade) => {
+      const side = t.side === 'long' ? 1 : -1;
+      markers.push({ time: toChart(t.entry_time), price: price(t.entry_price), kind: 'entry', side, trade });
       markers.push({
-        time: toChart(t.entry_time),
-        position: isLong ? 'belowBar' : 'aboveBar',
-        color: isLong ? '#12805c' : '#c8372d',
-        shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: isLong ? 'L' : 'S',
+        time: toChart(t.exit_time), price: price(t.exit_price),
+        kind: 'exit', side, reason: t.exit_reason, trade,
       });
-      markers.push({
-        time: toChart(t.exit_time),
-        position: isLong ? 'aboveBar' : 'belowBar',
-        color: t.exit_reason === 'liquidation' ? '#c8372d' : '#949ca6',
-        shape: 'circle',
-        text: t.exit_reason === 'liquidation' ? 'LIQ' : '',
-      });
-    }
+    });
 
     if (openPosition && openPosition.entry_time) {
-      const isLong = openPosition.side > 0;
+      const side = openPosition.side > 0 ? 1 : -1;
       markers.push({
-        time: toChart(openPosition.entry_time),
-        position: isLong ? 'belowBar' : 'aboveBar',
-        color: isLong ? '#12805c' : '#c8372d',
-        shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: isLong ? 'LONG ●' : 'SHORT ●',
+        time: toChart(openPosition.entry_time), price: price(openPosition.entry_price),
+        kind: 'entry', side, open: true,
       });
     }
+    fillTolerance = options.tolerance || null;
 
-    // Markers must be sorted by time or the library drops them silently.
+    // Sorted by time: anchoring and the visible-range scan both rely on it.
     markers.sort((a, b) => a.time - b.time);
     storedMarkers = markers;
     applyMarkers();
@@ -824,7 +900,7 @@ function createChartManager() {
     if (levelDrag) { deferredLevels = { side: 0 }; return; }
     for (const key of Object.keys(positionLines)) removeLevelLine(key);
     levels = { ...NO_LEVELS };
-    stopWatchingLevels();
+    if (!overlayActive()) stopWatchingLevels();
     paintLevels();
   }
 
@@ -978,9 +1054,13 @@ function createChartManager() {
      scale without moving that price, and the stop and target bands would then
      be painted at the old scale. */
   function mappingSignature() {
-    const at = levelY(levels.entry);
-    if (at === null || !candleSeries) return '';
-    return `${at}|${candleSeries.priceToCoordinate(levels.entry + 1)}`;
+    if (!candleSeries || !mainChart) return '';
+    // Without a position the fills still need the mapping: any price will do.
+    const ref = levels.side ? levels.entry : latestClose();
+    const at = levelY(ref);
+    if (at === null) return '';
+    const range = mainChart.timeScale().getVisibleLogicalRange();
+    return `${at}|${candleSeries.priceToCoordinate(ref + 1)}|${range?.from}|${range?.to}`;
   }
 
   /* Repaint when the price mapping has actually moved.
@@ -992,7 +1072,7 @@ function createChartManager() {
      squeeze of the axis (Nam, 2026-09-16). Autoscale jumping on a new extreme
      is the same class of change. */
   function syncLevels() {
-    if (!levelOverlay || !levels.side) return;
+    if (!levelOverlay || !overlayActive()) return;
     const signature = mappingSignature();
     if (signature === watchedMapping) return;
     watchedMapping = signature;
@@ -1017,7 +1097,7 @@ function createChartManager() {
     }
     if (levelWatch !== null || typeof requestAnimationFrame !== 'function') return;
     const tick = () => {
-      if (!levelOverlay || !levels.side) { levelWatch = null; return; }
+      if (!levelOverlay || !overlayActive()) { levelWatch = null; return; }
       syncLevels();
       levelWatch = requestAnimationFrame(tick);
     };
@@ -1051,6 +1131,7 @@ function createChartManager() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
     lastZones = null;
+    watchedMapping = mappingSignature();
 
     const entryY = levels.side && mode !== 'overview' ? levelY(levels.entry) : null;
     if (entryY === null) {
@@ -1089,7 +1170,6 @@ function createChartManager() {
     chip.style.top = `${entryY}px`;
     zones.chip = { text: label.textContent, top: entryY, left, width: chipWidth, hidden: chip.hidden };
     lastZones = zones;
-    watchedMapping = mappingSignature();
   }
 
   function bindLevelDragging(container) {
@@ -1205,7 +1285,7 @@ function createChartManager() {
   /* Entries only. Every trade contributes an entry and an exit marker, and
      "37 markers" for 18 trades and one open position reads as a bug. */
   const markerCount = () =>
-    storedMarkers.filter((m) => m.shape !== 'circle').length;
+    storedMarkers.filter((m) => m.kind === 'entry').length;
 
   let onMarkersChanged = () => {};
 
@@ -1305,6 +1385,9 @@ function createChartManager() {
 
     if (lastBarTime === null || time > lastBarTime) {
       lastBarTime = time;
+      // A fill made after the previous newest bar belongs to this one, and the
+      // bar it was provisionally drawn on is now closed and can be audited.
+      if (storedMarkers.length) applyMarkers();
       for (const seriesList of overlays.values()) {
         for (const entry of seriesList) reserveSlot(entry, time);
       }
@@ -1501,6 +1584,10 @@ function createChartManager() {
            set onLevelDragged(fn) { onLevelDragged = fn || null; },
            get markerCount() { return markerCount(); },
            get markersVisible() { return markersVisible; },
+           // For probes: fills anchored to the bars that contain them.
+           get tradeFills() { return anchoredFills.map((f) => ({ ...f })); },
+           checkFills,
+           set onFillMismatch(fn) { onFillMismatch = fn || null; },
            set onMarkersChanged(fn) { onMarkersChanged = fn || (() => {}); },
            updateCandle, lastCandleTime,
            screenshot, refreshSize, applyDisplay, diagnose, toChartTime: toChart,

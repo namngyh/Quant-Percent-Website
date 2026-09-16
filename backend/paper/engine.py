@@ -42,6 +42,17 @@ from backend.strategy.position_model import execution_model_for, model_for
 MANUAL_STRATEGY_ID = "manual"
 
 
+_TF_UNITS = {"m": 60, "h": 3600, "d": 86_400, "w": 604_800}
+
+
+def timeframe_seconds(timeframe: str) -> int:
+    """Length of a bar in seconds, or 0 when the timeframe is not a fixed length."""
+    try:
+        return int(timeframe[:-1]) * _TF_UNITS[timeframe[-1]]
+    except (KeyError, ValueError, IndexError):
+        return 0
+
+
 class OrderRefused(Exception):
     """A hand order that will not be filled, and why.
 
@@ -116,6 +127,15 @@ class PaperSession:
     # A signal is computed when a candle closes and filled at the next open,
     # so it waits here in between.
     pending_signal: int = 0
+
+    # A hand order waiting for the next bar's open. None when nothing waits.
+    # Keys: action, target, size_pct, stop_loss, take_profit, leverage,
+    # placed_at (clock seconds) and after_bar (a bar open, seconds: the order
+    # fills at the open of the first bar that opens later than this).
+    pending_order: dict | None = None
+    # Open time, in seconds, of the newest bar this session has seen, forming
+    # or closed.
+    last_bar_open: int = 0
 
     # Set the moment a hand order is placed on a session that has a strategy.
     # Two things must not both be steering one position: if the strategy kept
@@ -214,23 +234,52 @@ class PaperSession:
         stop_loss: float | None = None,
         take_profit: float | None = None,
         leverage: float | None = None,
+        now: float | None = None,
     ) -> dict:
-        """Open, reverse or close a position by hand, at the live price.
+        """Queue an order to open, reverse or close a position by hand.
 
-        ``action`` is "long", "short" or "close". Returns the events booked, in
-        the same shape ``on_closed_candle`` returns them, so both paths reach
-        the interface identically.
+        ``action`` is "long", "short", "close" or "cancel" (withdraw the order
+        still waiting).
+
+        **The order fills at the open of the next bar, not at the live price**
+        (Nam, 2026-09-16). A click during bar i is treated exactly like a
+        strategy signal at the close of bar i: it fills at the open of bar i+1,
+        with the same adverse slippage and fees (§3.1). Until then it waits in
+        ``pending_order``; the fill arrives through ``on_forming_candle`` or
+        ``on_closed_candle`` and is reported as the usual entry/exit events.
+
+        The checks below run at placement against the live price, so a
+        refusal a person can act on is immediate. The ones that depend on the
+        fill price run again when it fills (see ``_fill_pending``).
 
         Raises ValueError with a reason a person can act on. Refusing loudly
         matters more here than anywhere else in the system: this is the one
         place a user's own money-shaped intention enters, and a silently
         swallowed order looks exactly like an order that was filled.
         """
-        if action not in ("long", "short", "close"):
+        if action not in ("long", "short", "close", "cancel"):
             raise OrderRefused(
                 "unknown_action",
                 f"Lệnh không hợp lệ: '{action}'. Chọn long, short hoặc close.",
                 f"Unknown order: '{action}'. Choose long, short or close.",
+            )
+        if action == "cancel":
+            if self.pending_order is None:
+                raise OrderRefused(
+                    "no_pending_order",
+                    "Không có lệnh nào đang chờ khớp.",
+                    "There is no order waiting to fill.",
+                )
+            cancelled = self.pending_order
+            self.pending_order = None
+            self.updated_at = int(time.time())
+            return {"events": [{"type": "order_cancelled", "order": cancelled}],
+                    "snapshot": self.snapshot()}
+        if self.pending_order is not None:
+            raise OrderRefused(
+                "order_pending",
+                "Đang có một lệnh chờ khớp ở giá mở nến kế tiếp. Huỷ lệnh đó trước khi đặt lệnh khác.",
+                "An order is already waiting for the next bar's open. Cancel it before placing another.",
             )
         if not self.active:
             raise OrderRefused(
@@ -297,37 +346,113 @@ class PaperSession:
                     "Not enough margin for this position at the current price.",
                 )
 
-        when = int(time.time())
-        events: list[dict] = []
+        clock = time.time() if now is None else float(now)
+        self.pending_order = {
+            "action": action,
+            "target": target,
+            "size_pct": size_pct,
+            "stop_loss": stop_loss,
+            "take_profit": take_profit,
+            "leverage": None if target == 0 or self.config.contract else (
+                float(leverage) if leverage is not None else None),
+            "placed_at": int(clock),
+            "after_bar": self._bar_containing(clock),
+        }
+        self.manual_orders += 1
+        if not self.is_manual:
+            # From the click on, the strategy must not trade this position:
+            # otherwise the bar that closes before the fill could reverse it.
+            self.manual_override = True
+            self.pending_signal = self.position
+        self.updated_at = int(clock)
+        return {"events": [{"type": "order_pending", "order": dict(self.pending_order)}],
+                "snapshot": self.snapshot()}
 
+    # ------------------------------------------------------ the queued order
+
+    def _bar_containing(self, clock: float) -> int:
+        """Open time (seconds) of the bar in progress at ``clock``.
+
+        The newest bar the feed has shown, or the clock floored to the
+        timeframe, whichever is later. The feed alone is not enough: the VN
+        feed delivers closed bars only, so the bar in progress has not been
+        seen yet, and filling on its open would fill at a price from before
+        the click. The clock alone is not enough either: a slightly fast
+        server clock must not skip a bar the exchange has not opened.
+        """
+        seconds = timeframe_seconds(self.timeframe)
+        floored = int(clock // seconds * seconds) if seconds else 0
+        return max(int(self.last_bar_open), floored)
+
+    def _fill_pending(self, open_price: float, when: int) -> list[dict]:
+        """Fill the queued order at ``open_price``, the open of the bar at ``when``."""
+        order = self.pending_order
+        self.pending_order = None
+        target = int(order["target"])
+
+        def rejected(code: str, vi: str, en: str) -> list[dict]:
+            return [{"type": "order_rejected", "order": order, "code": code,
+                     "message": {"vi": vi, "en": en}, "time": when}]
+
+        # A stop or target can close the position between the click and the
+        # fill, so what the order asks for is checked again here.
+        if target == self.position:
+            return rejected(
+                "already_flat" if target == 0 else "already_in_position",
+                "Lệnh chờ không còn gì để làm: vị thế đã đổi trước khi đến giá mở nến kế tiếp.",
+                "The waiting order had nothing left to do: the position changed before the next open.",
+            )
+
+        next_config = self.config
+        if target != 0 and order.get("leverage") is not None:
+            next_config = replace(self.config, leverage=float(order["leverage"]))
+        if target != 0:
+            equity_after_close = self.equity
+            if self.position != 0:
+                equity_after_close += self.model.pnl(
+                    self._sizing(), self.entry_price, self._fill_price(open_price, -self.position))
+            fill = self._fill_price(open_price, target)
+            if equity_after_close <= 0 or model_for(next_config).size(
+                    equity_after_close, fill, target, order.get("size_pct")) is None:
+                return rejected(
+                    "insufficient_margin",
+                    "Không đủ ký quỹ cho vị thế này ở giá mở nến kế tiếp; lệnh không khớp.",
+                    "Not enough margin for this position at the next open; the order did not fill.",
+                )
+
+        events: list[dict] = []
         # Close first, then open — a reversal is two fills, and both pay their
         # own fee. Netting them into one would understate the cost of flipping.
         if self.position != 0:
-            trade = self._close(
-                self._fill_price(self.last_price, -self.position), when, "manual"
-            )
-            events.append({"type": "exit", "trade": trade.as_dict()})
+            trade = self._close(self._fill_price(open_price, -self.position), when, "manual")
+            events.append({"type": "exit", "trade": trade.as_dict(), "manual": True})
 
         if target != 0:
-            if self.equity <= 0:
-                raise OrderRefused(
-                    "no_equity",
-                    "Tài khoản đã hết vốn.",
-                    "The account has no equity left.",
-                )
-            # The old position closes under its original terms. Only the new
+            # The old position closed under its original terms. Only the new
             # entry uses the selected leverage; config is persisted with it.
             self.config = next_config
-            self._open(
-                self._fill_price(self.last_price, target), when, target,
-                size_pct=size_pct,
-            )
-            self.stop_loss = stop_loss
-            self.take_profit = take_profit
+            self._open(self._fill_price(open_price, target), when, target,
+                       size_pct=order.get("size_pct"))
+            # A level that the open has already gapped past is not armed: a
+            # stop above a long's fill would close it at once and book a gain
+            # labelled "stop loss". It is dropped and the event says so.
+            dropped = []
+            for key, code in (("stop_loss", "bad_stop"), ("take_profit", "bad_target")):
+                level = order.get(key)
+                if level is None:
+                    continue
+                try:
+                    self._validate_exits(target, self.entry_price,
+                                         level if key == "stop_loss" else None,
+                                         level if key == "take_profit" else None)
+                    setattr(self, key, level)
+                except OrderRefused:
+                    dropped.append({"level": key, "price": level, "code": code})
             events.append({
                 "type": "entry",
                 "side": "long" if target > 0 else "short",
                 "price": self.entry_price,
+                "open": open_price,
                 "quantity": abs(self.quantity),
                 "time": when,
                 "manual": True,
@@ -335,15 +460,30 @@ class PaperSession:
                              if self.config.contract else self.config.leverage),
                 "stop_loss": self.stop_loss,
                 "take_profit": self.take_profit,
+                "dropped_levels": dropped,
             })
 
-        self.manual_orders += 1
-        if not self.is_manual:
-            self.manual_override = True
         # Whatever the strategy last wanted is no longer what the account holds.
         self.pending_signal = self.position
-        self.updated_at = when
-        return {"events": events, "snapshot": self.snapshot()}
+        return events
+
+    def _due(self, bar_open: int) -> bool:
+        return self.pending_order is not None and bar_open > int(self.pending_order["after_bar"])
+
+    def on_forming_candle(self, candle: dict) -> list[dict]:
+        """A forming bar: marks to market, and fills a queued order on a new bar.
+
+        The first update of a bar carries that bar's open, which is the price
+        the queued order is owed, so it fills as soon as the bar exists rather
+        than waiting for the bar to close.
+        """
+        bar_open = int(candle["open_time"]) // 1000
+        self.last_bar_open = max(self.last_bar_open, bar_open)
+        events = self._fill_pending(float(candle["open"]), bar_open) if self._due(bar_open) else []
+        self.last_price = float(candle["close"])
+        if events:
+            self.updated_at = int(time.time())
+        return events
 
     def _exit_level_hit(self, candle: dict) -> tuple[float, str] | None:
         """Which of stop loss / take profit this candle reached, if either.
@@ -476,6 +616,13 @@ class PaperSession:
         events: list[dict] = []
         when = int(candle["open_time"]) // 1000
         open_price = float(candle["open"])
+        self.last_bar_open = max(self.last_bar_open, when)
+
+        # 0. A queued hand order that no forming update has filled yet (the VN
+        #    feed has none) fills at this bar's open, before anything else
+        #    happens on the bar — the same place a strategy signal fills.
+        if self._due(when):
+            events.extend(self._fill_pending(open_price, when))
 
         # 1. Fill the signal that was decided at the previous close, using this
         #    candle's open — the price a real order placed then would have got.
@@ -502,7 +649,11 @@ class PaperSession:
 
         # 2. Liquidation, checked against this candle's adverse extreme. None
         #    means the model has no forced-close price (linear at leverage 1).
-        liq = self.model.liquidation_price(self.entry_price, self.position) if self.position != 0 else None
+        #    A position opened after this bar began (a queued order filled on
+        #    the next bar's first update, before this bar's close arrived)
+        #    did not exist for this bar's range, so the bar cannot touch it.
+        held = self.position != 0 and self.entry_time <= when
+        liq = self.model.liquidation_price(self.entry_price, self.position) if held else None
         if liq is not None:
             hit = float(candle["low"]) <= liq if self.position > 0 else float(candle["high"]) >= liq
             if hit:
@@ -513,7 +664,7 @@ class PaperSession:
         #    reason: both are resting orders, and a resting order fills when
         #    the price *reaches* it, not when the candle happens to close past
         #    it. Checking the close would miss every level touched and left.
-        exit_hit = self._exit_level_hit(candle)
+        exit_hit = self._exit_level_hit(candle) if self.entry_time <= when else None
         if exit_hit is not None:
             price, reason = exit_hit
             trade = self._close(price, when, reason)
@@ -600,6 +751,7 @@ class PaperSession:
             "take_profit": self.take_profit,
             "last_price": self.last_price,
             "pending_signal": self.pending_signal,
+            "pending_order": dict(self.pending_order) if self.pending_order else None,
             "is_manual": self.is_manual,
             "manual_override": self.manual_override,
             "manual_orders": self.manual_orders,

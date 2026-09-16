@@ -101,13 +101,13 @@ const L = (vi, en) => I18n.lang === 'en' ? en : vi;
   const markerManager = cells[1].manager;
   markerManager.setTradeMarkers([], { side: 1, entry_time: candles.at(-1).time + 25 });
   check('a manual entry inside the last candle is anchored to that candle',
-    markerManager.priceSeries.markers()[0].time === markerManager.toChartTime(candles.at(-1).time));
+    markerManager.tradeFills[0].time === markerManager.toChartTime(candles.at(-1).time));
   markerManager.setTradeMarkers([{ side: 'long', entry_time: candles.at(-2).time + 20,
     exit_time: candles.at(-1).time + 30, exit_reason: 'manual' }],
     { side: -1, entry_time: candles.at(-1).time + 30 });
   check('manual reversal keeps the closed entry, exit and new entry marks',
-    markerManager.priceSeries.markers().length === 3
-    && markerManager.priceSeries.markers()[2].time === markerManager.toChartTime(candles.at(-1).time));
+    markerManager.tradeFills.length === 3
+    && markerManager.tradeFills[2].time === markerManager.toChartTime(candles.at(-1).time));
   cells.forEach(c => c.manager.destroy());
   check('destroying charts releases every chart instance', cells.every(c => c.manager.chart === null));
   out.textContent += `\n${passed} passed, ${failed} failed`;
