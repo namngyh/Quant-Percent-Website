@@ -210,6 +210,34 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-16 — Rà soát toàn bộ và bảo vệ bản nháp trong trình soạn thảo
+
+Chạy lại **380 test Python / 21 script**, toàn bộ bộ render Việt/Anh, 4 mẫu
+code qua loader Python, và **25 nhóm Chrome**: workspace, responsive, layout,
+types, guards, panels, charttype, pickerflip, async, backtest, persist, resize,
+multichart, stay, tools, switching, autoscale, history, picker, boot, markets,
+selfcheck, settings, levels, editor. Các kiểm tra đạt sau sửa. Không đổi công thức
+backtest hay trạng thái các phiên Paper đang có.
+
+**8 tình huống lỗi editor được tái hiện trên HEAD trước sửa: 0/8 đạt.** Sau
+sửa: **8/8 đạt** (`node tests/test_editor_async.js`). Bao gồm đóng editor lúc
+đang lấy danh sách/kiểm cú pháp; kết quả kiểm cũ về sau kết quả mới; sửa tiếp
+khi đang lưu; mở editor khác trước khi lưu xong; Ctrl+S lặp (trước 2 request,
+sau 1); gõ trong khi file hoặc danh sách ban đầu đang tải. Trước sửa có cả
+`querySelector` trên null, nhầm loại strategy/indicator và mất nội dung vừa gõ.
+
+Mỗi phản hồi giờ kiểm tra cửa sổ, tài liệu và thứ tự yêu cầu. Lưu thành công
+chỉ xóa trạng thái chưa lưu nếu bản nháp vẫn là bản đã gửi; callback vẫn cập
+nhật catalog sau khi lưu xong dù người dùng đã đóng editor. Luồng lưu/nạp thật
+qua Chrome kiểm được đường dẫn, catalog cập nhật và đóng không lỗi.
+
+Sửa thêm bộ kiểm tra: `test_chart_layout.html` thiếu dependency Settings từ
+bản mới nên chết trước kiểm tra; runner chưa nhận câu kết thúc của selfcheck,
+settings, levels nên báo timeout giả. Bổ sung ba nhóm này vào runner, nhận
+đúng kết thúc và dừng sớm khi có exception. Probe chuyển ô trước đây đếm cả
+high/low realtime là thay đổi ngoài ý muốn; giờ so trạng thái biểu đồ và chỉ
+so trục giá khi dữ liệu đầu vào không đổi, đồng thời báo FAIL nếu bị reset.
+
 ### 2026-09-16 (tiếp) — Danh sách tồn đọng: dấu vị thế bán, chứng quyền, mô hình của team, nợ i18n
 
 **380 test Python** (trước 368; mới: `test_team_models.py` 10, `test_corporate_actions.py`

@@ -1289,11 +1289,18 @@ async function pick(doc, symbol, timeframe) {
       await until('active ' + target, () => mc().active === target, 100);
       await sleep(900);
       const now = [state(0), state(1)];
-      const diff = [0, 1].filter((i) => JSON.stringify(now[i]) !== JSON.stringify(before[i]));
+      const diff = [0, 1].filter((i) => {
+        const fields = ['range', 'bars', 'panes', 'key', 'h', 'markers'];
+        // A live candle can extend its high/low while the user switches cells.
+        // Only compare the autoscaled price range when that input stayed put.
+        if (now[i].last === before[i].last) fields.push('price', 'span');
+        return fields.some(key => now[i][key] !== before[i][key]);
+      });
       changed += diff.length;
       log(`  bam ${k} -> o ${target} dang lam viec | o doi: ${diff.length ? diff.map((i) => 'o' + i + ' ' + text(now[i])).join(' ; ') : 'khong'} | panel chi bao: ${doc.querySelectorAll('#active .active-item').length}`);
     }
     log(`  tong so lan mot bieu do bi doi: ${changed}; request nen trong 6 lan bam: ${reqs() - requests0}`);
+    if (changed) log('FAIL switching cells changed chart state');
   } catch (e) {
     log('  LOI: ' + e.message);
   }

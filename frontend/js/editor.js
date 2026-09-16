@@ -20,6 +20,13 @@ const Editor = (() => {
   let onSaved = () => {};
   let state = { kind: 'indicator', filename: '', dirty: false };
   let checkTimer = null;
+  // Requests belong to one dialog/document. Revisions also keep edits made
+  // during a save dirty, even when the older snapshot saves successfully.
+  let documentToken = {};
+  let revision = 0;
+  let checkRequest = 0;
+  let readRequest = 0;
+  let listRequest = 0;
 
   const esc = (value) =>
     String(value ?? '').replace(/[&<>"']/g, (c) => (
@@ -189,15 +196,22 @@ def signals(df, params):
     document.addEventListener('keydown', onKey, true);
     host.querySelector('[data-ed="kind"]').value = kind;
 
-    await refreshFileList();
+    const owner = host;
     if (filename) await load(kind, filename);
     else newFile();
+    if (host !== owner) return;
+    await refreshFileList();
+    if (host !== owner) return;
     code.focus();
   }
 
   function close() {
     host?.remove();
     host = null;
+    documentToken = {};
+    checkRequest++;
+    readRequest++;
+    listRequest++;
     clearTimeout(checkTimer);
     document.removeEventListener('keydown', onKey, true);
   }
@@ -251,12 +265,14 @@ def signals(df, params):
 
   function newFile() {
     state.filename = '';
+    host.querySelector('[data-ed="path"]').textContent = '';
     host.querySelector('[data-ed="name"]').value = '';
     host.querySelector('[data-ed="file"]').value = '';
     loadTemplate();
   }
 
   function loadTemplate() {
+    documentToken = {};
     const pack = TEMPLATE();
     codeArea().value = pack[state.kind] || pack.indicator;
     state.dirty = true;
@@ -265,8 +281,12 @@ def signals(df, params):
   }
 
   async function load(kind, filename) {
+    const owner = host;
+    const request = ++readRequest;
     try {
       const file = await API.pluginRead(kind, filename);
+      if (host !== owner || request !== readRequest) return;
+      documentToken = {};
       codeArea().value = file.content;
       state.kind = kind;
       state.filename = file.filename;
@@ -276,19 +296,23 @@ def signals(df, params):
       renderGutter();
       scheduleCheck();
     } catch (err) {
-      onToast(err.message, true);
+      if (host === owner && request === readRequest) onToast(err.message, true);
     }
   }
 
   async function refreshFileList() {
+    const owner = host;
+    const kind = state.kind;
+    const request = ++listRequest;
     let listing;
     try {
       listing = await API.pluginFiles();
     } catch {
       return;                       // the editor still works for new files
     }
+    if (!host || host !== owner || kind !== state.kind || request !== listRequest) return;
     const select = host.querySelector('[data-ed="file"]');
-    const files = listing.files?.[state.kind] || [];
+    const files = listing.files?.[kind] || [];
     select.innerHTML = `<option value="">${esc(t('ed.newFile'))}</option>`
       + files.map((f) => `<option value="${esc(f.filename)}">${esc(f.filename)}</option>`).join('');
     if (state.filename) select.value = state.filename;
@@ -311,21 +335,29 @@ def signals(df, params):
      execution happens once, on save, through the import path that loads from a
      scratch copy first. */
   function scheduleCheck() {
+    revision++;
+    checkRequest++;
+    readRequest++;
     clearTimeout(checkTimer);
     checkTimer = setTimeout(runCheck, 500);
   }
 
   async function runCheck() {
+    const owner = host;
+    const request = ++checkRequest;
+    const source = codeArea()?.value;
     const status = host?.querySelector('[data-ed="status"]');
     if (!status) return;
     let result;
     try {
-      result = await API.pluginCheck(codeArea().value);
+      result = await API.pluginCheck(source);
     } catch (err) {
+      if (host !== owner || request !== checkRequest) return;
       status.className = 'editor-status bad';
       status.textContent = err.message;
       return;
     }
+    if (host !== owner || request !== checkRequest || source !== codeArea()?.value) return;
     if (result.ok) {
       status.className = 'editor-status ok';
       status.textContent = t(result.kind === 'strategy' ? 'ed.okStrategy' : 'ed.okIndicator');
@@ -343,6 +375,12 @@ def signals(df, params):
   // ---------- saving ----------
 
   async function save() {
+    if (!host) return;
+    const button = host.querySelector('[data-ed="save"]');
+    if (button.disabled) return;
+    const owner = host;
+    const documentAtSave = documentToken;
+    const savedRevision = revision;
     const name = host.querySelector('[data-ed="name"]').value.trim();
     if (!name) {
       onToast(t('ed.needName'), true);
@@ -350,7 +388,6 @@ def signals(df, params):
       return;
     }
 
-    const button = host.querySelector('[data-ed="save"]');
     const original = button.textContent;
     button.disabled = true;
     button.textContent = t('ed.saving');
@@ -362,11 +399,13 @@ def signals(df, params):
         // mean the editor could only ever create.
         overwrite: true,
       });
-      state.dirty = false;
-      state.filename = report.filename;
-      host.querySelector('[data-ed="path"]').textContent = report.path;
+      if (host === owner && documentToken === documentAtSave) {
+        state.dirty = revision !== savedRevision || host.querySelector('[data-ed="name"]').value.trim() !== name;
+        state.filename = report.filename;
+        host.querySelector('[data-ed="path"]').textContent = report.path;
+        await refreshFileList();
+      }
       onToast(t('ed.saved', { name: report.filename }));
-      await refreshFileList();
       await onSaved(report);
     } catch (err) {
       onToast(err.message, true);

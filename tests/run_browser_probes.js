@@ -52,6 +52,7 @@ async function main() {
   });
   const groups = process.argv.slice(2);
   if (!groups.length) groups.push('async', 'multichart', 'resize', 'persist', 'tools');
+  const completed = output => /DONE|\d+ failed|all .+ passed|(?:checks?|guards|level drag) holds?/i.test(output);
   let failures = 0;
   try {
     for (const group of groups) {
@@ -65,10 +66,11 @@ async function main() {
         await send('Emulation.setDeviceMetricsOverride', {
           width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false,
         }, sessionId);
-        if (['types', 'guards', 'layout'].includes(group)) {
+        if (['types', 'guards', 'layout', 'selfcheck', 'settings', 'levels'].includes(group)) {
           // Existing HTML tests use /static assets and need the app's origin.
           const filename = { types: 'test_chart_types.html', guards: 'test_chart_guards.html',
-            layout: 'test_chart_layout.html' }[group];
+            layout: 'test_chart_layout.html', selfcheck: 'test_chart_selfcheck.html',
+            settings: 'test_settings_ui.html', levels: 'test_level_drag.html' }[group];
           testPages.set(sessionId, fs.readFileSync(path.join(__dirname, filename)).toString('base64'));
           await send('Fetch.enable', {
             patterns: [{ urlPattern: `${app}/__browser_test__`, requestStage: 'Request' }],
@@ -84,10 +86,10 @@ async function main() {
             expression: 'document.getElementById("out")?.textContent || ""', returnByValue: true,
           }, sessionId);
           output = response.result?.value || '';
-          if (/DONE|PROBE ERROR:|\d+ failed|all .+ passed|chart guards hold/i.test(output)) break;
+          if (completed(output) || /PROBE ERROR:/i.test(output) || errors.get(sessionId).length) break;
           await new Promise(resolve => setTimeout(resolve, 500));
         }
-        const complete = /DONE|\d+ failed|all .+ passed|chart guards hold/i.test(output);
+        const complete = completed(output);
         const failed = !complete || /\bFAIL\b|\bLOI:|KHONG nap|[1-9]\d* failed/i.test(output)
           || errors.get(sessionId).length > 0;
         if (failed) failures++;
