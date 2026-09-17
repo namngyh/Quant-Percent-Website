@@ -30,7 +30,7 @@ class StartRequest(BaseModel):
 class OrderRequest(BaseModel):
     """A hand order on a paper session."""
 
-    action: str                       # "long" | "short" | "close" | "cancel"
+    action: str                       # "long" | "short" | "close"
     # Share of equity to stake, 0-1. Omitted means the session's own size.
     size_pct: float | None = Field(default=None, gt=0, le=1)
     leverage: float | None = Field(default=None, ge=1, le=125, allow_inf_nan=False)
@@ -84,6 +84,8 @@ async def start(request: StartRequest) -> dict:
         )
     except StrategyError as exc:
         raise HTTPException(422, str(exc)) from exc
+    except OrderRefused as exc:
+        raise HTTPException(422, detail=exc.as_dict()) from exc
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
@@ -95,7 +97,7 @@ async def start(request: StartRequest) -> dict:
 
 @router.post("/{session_id}/order")
 async def order(session_id: str, request: OrderRequest) -> dict:
-    """Queue a hand order; it fills at the open of the next bar (§3.1)."""
+    """Buy, sell or close by hand, filled at the live price."""
     try:
         return await manager.order(
             session_id, request.action, request.size_pct,

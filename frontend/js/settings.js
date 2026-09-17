@@ -20,10 +20,13 @@ const Settings = (() => {
      exact and a timezone library would buy nothing (see charts.js). */
   const VN_OFFSET_SECONDS = 7 * 3600;
 
-  /* The contract values with no default are the ones an exchange and a broker
-     set: the margin rate, the forced-close threshold and the fee. A guessed
-     one is an invented cost sitting on the account, so the interface asks
-     instead (part 1 design, 2026-09-15). */
+  /* Contract terms for VN30F/VN100F.
+
+     The margin defaults are DNSE's published rates, chosen by Nam on
+     2026-09-17: initial margin 18.48% and force sell 17.35%, both as a share
+     of the contract's value, and both editable here. The fee is the broker's
+     and stays the user's to enter; 0 means no fee is charged, and the panel
+     says so rather than letting a free trade pass unnoticed. */
   const defaults = () => ({
     display: { profit: 'money', locale: 'en-US', decimals: 2, timezone: 'vn' },
     chart: { grid: false, bars: 180 },
@@ -33,11 +36,11 @@ const Settings = (() => {
         sizing: 'margin',
         contracts: 1,
         multiplier: 100000,
-        initial_margin_rate: null,
-        maintenance_threshold: null,
+        initial_margin_pct: 18.48,
+        force_sell_pct: 17.35,
         fee_mode: 'per_contract',
-        fee_per_contract: null,
-        fee_rate: null,
+        fee_per_contract: 0,
+        fee_rate: 0,
         slippage_points: 0,
       },
     },
@@ -55,7 +58,9 @@ const Settings = (() => {
       const value = stored ? stored[key] : undefined;
       if (fallback && typeof fallback === 'object') {
         out[key] = graft(fallback, value && typeof value === 'object' ? value : {});
-      } else if (value === undefined) {
+      } else if (value === undefined || (value === null && fallback !== null)) {
+        // A null stored by an older build, where the field had no default,
+        // must not blank a default that now exists.
         out[key] = fallback;
       } else if (fallback !== null && value !== null && typeof value !== typeof fallback) {
         out[key] = fallback;
@@ -125,10 +130,31 @@ const Settings = (() => {
   function contractMissing() {
     const c = data.trading.contract;
     const missing = [];
-    if (c.initial_margin_rate === null) missing.push('initial_margin_rate');
-    if (c.maintenance_threshold === null) missing.push('maintenance_threshold');
-    if (c[feeField()] === null) missing.push(feeField());
+    if (!(c.initial_margin_pct > 0 && c.initial_margin_pct <= 100)) missing.push('initial_margin_pct');
+    // Force sell sits below the initial rate: at or above it a position would
+    // be closed the moment it opened.
+    if (!(c.force_sell_pct >= 0 && c.force_sell_pct < c.initial_margin_pct)) missing.push('force_sell_pct');
+    if (c[feeField()] === null || !(c[feeField()] >= 0)) missing.push(feeField());
     return missing;
+  }
+
+  /* The engine's two numbers from the broker's two percentages.
+
+     The engine closes a position when its remaining margin falls to
+     `maintenance_threshold` × the initial margin. DNSE quotes both rates as a
+     share of the contract value, so the threshold is their ratio: at 18.48% and
+     17.35% a position is closed after an adverse move of 1.13% of its value,
+     which at 1 978 points is 22.4 points. */
+  function contractRates(c = data.trading.contract) {
+    return {
+      initial_margin_rate: c.initial_margin_pct / 100,
+      maintenance_threshold: c.force_sell_pct / c.initial_margin_pct,
+    };
+  }
+
+  /** Margin one contract needs at `price`, in VND. */
+  function marginPerContract(price, c = data.trading.contract) {
+    return price * c.multiplier * c.initial_margin_pct / 100;
   }
 
   /* Sent with a run only when it is complete. The backend refuses a partial
@@ -141,8 +167,7 @@ const Settings = (() => {
       sizing: c.sizing,
       contracts: c.contracts,
       multiplier: c.multiplier,
-      initial_margin_rate: c.initial_margin_rate,
-      maintenance_threshold: c.maintenance_threshold,
+      ...contractRates(c),
       fee_mode: c.fee_mode,
       fee_per_contract: c.fee_per_contract === null ? 0 : c.fee_per_contract,
       fee_rate: c.fee_rate === null ? 0 : c.fee_rate,
@@ -191,13 +216,16 @@ const Settings = (() => {
   function contractState() {
     const missing = contractMissing();
     if (!missing.length) {
+      const c = data.trading.contract;
+      const move = c.initial_margin_pct - c.force_sell_pct;
+      const free = c[feeField()] === 0;
       return `<div class="callout">${esc(L(
-        'Đã đủ thông số: mã phái sinh VN30F/VN100F sẽ chạy theo mô hình hợp đồng.',
-        'Complete: VN30F/VN100F symbols will run on the contract model.'))}</div>`;
+        `Mã phái sinh VN30F/VN100F chạy theo mô hình hợp đồng. Vị thế bị buộc đóng khi giá đi ngược ${move.toFixed(2)}% giá trị hợp đồng. Nên có vốn lớn hơn ký quỹ một hợp đồng (giá × hệ số nhân × ${c.initial_margin_pct}%) để kết quả sát thực tế nhất.${free ? ' Phí đang là 0: lệnh chưa bị trừ phí.' : ''}`,
+        `VN30F/VN100F symbols run on the contract model. A position is force-closed after an adverse move of ${move.toFixed(2)}% of the contract value. Hold more capital than one contract's margin (price × multiplier × ${c.initial_margin_pct}%) for the most accurate result.${free ? ' The fee is 0: orders are not charged.' : ''}`))}</div>`;
     }
     const names = {
-      initial_margin_rate: L('tỷ lệ ký quỹ ban đầu', 'initial margin rate'),
-      maintenance_threshold: L('ngưỡng buộc đóng', 'forced-close threshold'),
+      initial_margin_pct: L('tỷ lệ ký quỹ ban đầu (0–100%)', 'initial margin rate (0–100%)'),
+      force_sell_pct: L('tỷ lệ force sell (phải nhỏ hơn ký quỹ ban đầu)', 'force-sell rate (below the initial margin)'),
       fee_per_contract: L('phí mỗi hợp đồng', 'fee per contract'),
       fee_rate: L('phí theo giá trị danh nghĩa', 'fee on notional'),
     };
@@ -244,14 +272,16 @@ const Settings = (() => {
         <h3>${esc(L('Mặc định giao dịch — hợp đồng phái sinh',
                     'Trading defaults — index futures'))}</h3>
         <p class="hint">${esc(L(
-          'Áp cho VN30F/VN100F. Tỷ lệ ký quỹ, ngưỡng buộc đóng và phí do sở giao dịch và công ty chứng khoán quy định, nên nền tảng không đoán thay.',
-          'Applies to VN30F/VN100F. The margin rate, the forced-close threshold and the fee are set by the exchange and the broker, so the platform does not guess them.'))}</p>
+          'Áp cho VN30F/VN100F. Mặc định theo DNSE: ký quỹ ban đầu 18,48%, force sell 17,35% giá trị hợp đồng. Phí do công ty chứng khoán của bạn quy định.',
+          'Applies to VN30F/VN100F. Defaults follow DNSE: initial margin 18.48% and force sell 17.35% of the contract value. The fee is set by your broker.'))}</p>
         ${row(L('Hệ số nhân (đ/điểm)', 'Multiplier (VND per point)'),
               field('trading.contract.multiplier', 'min="1" step="1000"'))}
-        ${row(L('Tỷ lệ ký quỹ ban đầu', 'Initial margin rate'),
-              field('trading.contract.initial_margin_rate', 'min="0.01" max="1" step="0.01"'))}
-        ${row(L('Ngưỡng buộc đóng', 'Forced-close threshold'),
-              field('trading.contract.maintenance_threshold', 'min="0" max="0.99" step="0.05"'))}
+        ${row(L('Tỷ lệ ký quỹ ban đầu (%)', 'Initial margin rate (%)'),
+              field('trading.contract.initial_margin_pct', 'min="0.01" max="100" step="0.01"'))}
+        ${row(L('Tỷ lệ force sell (%)', 'Force-sell rate (%)'),
+              field('trading.contract.force_sell_pct', 'min="0" max="100" step="0.01"'),
+              L('Theo giá trị hợp đồng. Vị thế bị đóng khi ký quỹ còn lại xuống dưới mức này.',
+                'Of the contract value. A position is closed when its remaining margin falls below this.'))}
         ${row(L('Số hợp đồng', 'Contract count'), options('trading.contract.sizing', [
           ['margin', L('Theo vốn và ký quỹ', 'From equity and margin')],
           ['fixed', L('Cố định', 'Fixed')],
@@ -328,7 +358,7 @@ const Settings = (() => {
 
   return {
     all, patch, subscribe, reset, panel,
-    contractPayload, contractMissing, tzOffsetSeconds, timezoneLabel,
+    contractPayload, contractMissing, marginPerContract, tzOffsetSeconds, timezoneLabel,
   };
 })();
 

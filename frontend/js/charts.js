@@ -805,6 +805,7 @@ function createChartManager() {
   let positionLines = { entry: null, stop: null, target: null };
   const NO_LEVELS = {
     side: 0, entry: null, stop: null, target: null, quantity: 0, label: '', unit: '', entryTime: null,
+    multiplier: 1, moneyScale: 1,
   };
   let levels = { ...NO_LEVELS };
   let onLevelDragged = null;
@@ -856,16 +857,19 @@ function createChartManager() {
 
   function levelTitle(key, price) {
     const quantity = signedQuantity();
+    // A contract is worth `multiplier` of account money per point; without it
+    // the chip on a futures position read 3 contracts x 10 points as 30 dong.
     const pnl = Number.isFinite(price) && quantity && Number.isFinite(levels.entry)
-      ? quantity * (price - levels.entry) : null;
+      ? quantity * (price - levels.entry) * levels.multiplier : null;
     // Percent of the position's notional at entry: the price move, signed by side.
-    const pct = pnl === null ? null : pnl / (Math.abs(quantity) * levels.entry) * 100;
+    const pct = pnl === null ? null
+      : pnl / (Math.abs(quantity) * levels.entry * levels.multiplier) * 100;
     const points = pnl === null ? null
       : (price - levels.entry) * Math.sign(quantity);
     // Two decimals here whatever the setting says: this label sits on the
     // price axis, where a figure that changes width every tick is unreadable.
     const figure = pnl === null ? ''
-      : Fmt.profit({ money: pnl, pct, points, unit: levels.unit, digits: 2, min: 2 });
+      : Fmt.profit({ money: pnl / levels.moneyScale, pct, points, unit: levels.unit, digits: 2, min: 2 });
     if (key !== 'entry') return figure ? `${LEVEL_STYLE[key].title} ${figure}` : LEVEL_STYLE[key].title;
     if (pnl === null) return levels.label;
     return `${levels.label}  ${figure}${
@@ -908,13 +912,16 @@ function createChartManager() {
   function setPositionLines(spec = {}) {
     if (levelDrag) { deferredLevels = spec; return; }
     const { side = 0, entry = null, stop = null, target = null,
-            label = '', quantity = 0, unit = '', entryTime = null } = spec;
+            label = '', quantity = 0, unit = '', entryTime = null,
+            multiplier = 1, moneyScale = 1 } = spec;
     clearPositionLines();
     if (!candleSeries || !side) return;
     levels = {
       side, entry, stop: finiteOrNull(stop), target: finiteOrNull(target),
       quantity: Number(quantity) || 0, label: label || (side > 0 ? 'LONG' : 'SHORT'), unit,
       entryTime: finiteOrNull(Number(entryTime)),
+      multiplier: Number(multiplier) > 0 ? Number(multiplier) : 1,
+      moneyScale: Number(moneyScale) > 0 ? Number(moneyScale) : 1,
     };
     positionLines.entry = makeLevelLine('entry', entry);
     positionLines.stop = makeLevelLine('stop', levels.stop);

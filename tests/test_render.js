@@ -239,6 +239,8 @@ async function render(label, kind, payload) {
   window.Paper.init({
     elements: {
       list: psel('paper-sessions'), refresh: psel('refresh-paper'),
+      // The chart's latest price, which the futures margin check reads.
+      context: () => ({ symbol: 'VN:VN30F1M', timeframe: '1m', price: 1978 }),
       onOpenSession: (session) => openedSessions.push(session.id),
       settings: {
         root: psel('paper-settings'), close: psel('paper-settings-close'),
@@ -317,11 +319,42 @@ async function render(label, kind, payload) {
          psel('ps-currency').textContent === 'USDT');
   window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VIC',
                               timeframe: '1d', params: {} });
-  expect('a HOSE account is denominated in VND',
-         psel('ps-currency').textContent === 'VND');
+  expect('a HOSE account is denominated in millions of VND',
+         /^(triệu|million) VND$/.test(psel('ps-currency').textContent));
   expect('currencyFor agrees with the dialog',
          window.Paper.currencyFor('VN:VN30F1M') === 'VND'
            && window.Paper.currencyFor('BTCUSDT') === 'USDT');
+
+  // Futures on DNSE's margin (Nam, 2026-09-17): capital in millions, one
+  // contract's margin named, and an account that cannot hold one refused.
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'VN:VN30F1M',
+                              timeframe: '1m', params: {} });
+  const futures = psel('ps-summary').textContent;
+  expect('a VND account is entered in millions, 100 by default',
+         /^(triệu|million) VND$/.test(psel('ps-currency').textContent) && Number(psel('ps-capital').value) === 100);
+  expect('the dialog names the margin of one contract and how many the capital holds',
+         /36\.55 (triệu|million) VND/.test(futures) && /2 (hợp đồng|contracts)/.test(futures));
+  expect('leverage and percentage costs do not apply to a contract',
+         psel('ps-leverage').disabled && psel('ps-fee').disabled && psel('ps-slippage').disabled);
+  psel('ps-capital').value = '30';
+  psel('ps-capital').dispatchEvent(new window.Event('input'));
+  expect('30 million cannot start a session that cannot margin one contract',
+         psel('ps-start').disabled === true && /không đủ ký quỹ|cannot cover one contract/.test(psel('ps-warning').textContent));
+  psel('ps-capital').value = '100';
+  psel('ps-capital').dispatchEvent(new window.Event('input'));
+  let futuresStart = null;
+  const realStart = window.API.paperStart;
+  window.API.paperStart = async (req) => { futuresStart = req; return { id: 'f', status: 'running' }; };
+  expect('100 million can', psel('ps-start').disabled === false);
+  psel('ps-start').dispatchEvent(new window.Event('click'));
+  await new Promise((r) => setTimeout(r, 0));
+  expect('the server receives dong, not millions, with the DNSE rates',
+         futuresStart && futuresStart.execution.initial_capital === 100e6
+           && Math.abs(futuresStart.execution.contract.initial_margin_rate - 0.1848) < 1e-12);
+  window.API.paperStart = realStart;
+  window.Paper.openSettings({ strategyId: 'manual', symbol: 'BTCUSDT', timeframe: '1m', params: {} });
+  expect('back on crypto the capital returns to 10 000 USDT',
+         Number(psel('ps-capital').value) === 10000 && psel('ps-currency').textContent === 'USDT');
 
   // A venue preset fills the fee in. Back on crypto, where spot is offered.
   window.I18n.set('en');
@@ -825,20 +858,27 @@ async function render(label, kind, payload) {
   S.patch({ chart: { grid: false } });
   tsay('a subscriber hears the change it asked for and stops when told', heard === 1);
 
-  // The contract block: nothing is guessed, so it travels only when complete.
-  tsay('an incomplete contract block is not sent, and names what is missing',
-       S.contractPayload() === null
-         && S.contractMissing().join(',')
-            === 'initial_margin_rate,maintenance_threshold,fee_per_contract');
-  S.patch({ trading: { contract: {
-    initial_margin_rate: 0.2, maintenance_threshold: 0.5, fee_per_contract: 20000 } } });
-  tsay('a complete contract block goes out whole',
+  // The contract block defaults to DNSE's rates (Nam, 2026-09-17): 18.48%
+  // initial margin and 17.35% force sell, both of the contract value.
+  const close = (a, b) => Math.abs(a - b) < 1e-12;
+  tsay('the default contract block is DNSE\'s and goes out complete',
        S.contractMissing().length === 0
-         && S.contractPayload().initial_margin_rate === 0.2
-         && S.contractPayload().multiplier === 100000
-         && S.contractPayload().fee_mode === 'per_contract');
+         && close(S.contractPayload().initial_margin_rate, 0.1848)
+         && close(S.contractPayload().maintenance_threshold, 17.35 / 18.48)
+         && S.contractPayload().fee_per_contract === 0
+         && S.contractPayload().multiplier === 100000);
+  tsay('one contract at 1978 needs 36.55 million VND of margin',
+       Math.abs(S.marginPerContract(1978) - 36553440) < 1e-6);
+  S.patch({ trading: { contract: { force_sell_pct: 18.48 } } });
+  tsay('a force-sell rate not below the initial margin is refused, and named',
+       S.contractPayload() === null && S.contractMissing().join(',') === 'force_sell_pct');
+  S.patch({ trading: { contract: { initial_margin_pct: 20, force_sell_pct: 10, fee_per_contract: 20000 } } });
+  tsay('edited rates go out as the engine\'s rate and threshold',
+       close(S.contractPayload().initial_margin_rate, 0.2)
+         && close(S.contractPayload().maintenance_threshold, 0.5)
+         && S.contractPayload().fee_per_contract === 20000);
   tsay('the strategy sends the contract block with its costs',
-       window.Strategy.execution().contract.maintenance_threshold === 0.5);
+       close(window.Strategy.execution().contract.maintenance_threshold, 0.5));
 
   tsay('money, percent and points each read as themselves',
        F.money(1234567.5, { unit: 'VND' }) === '1,234,567.5 VND'

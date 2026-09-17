@@ -114,11 +114,18 @@ Mọi kết quả backtest đứng trên các giả định này:
 - Thanh lý **trong nến** khi lỗ chạm ký quỹ, kiểm tra theo giá thấp nhất (mua)
   hoặc cao nhất (bán).
 - Một vị thế tại một thời điểm; đảo chiều đóng và mở lại trong cùng nến.
-- **Lệnh tay trong Paper cũng khớp ở giá mở nến kế tiếp** (Nam, 2026-09-16;
-  thay cho ngoại lệ "khớp ngay ở giá hiện tại" có từ 2026-09-09). Bấm trong
-  nến `i` được coi như tín hiệu ở giá đóng nến `i` và khớp ở giá mở nến `i+1`,
-  cùng trượt giá và phí. Lệnh nằm ở `pending_order` cho tới lúc khớp; mỗi phiên
-  chỉ một lệnh chờ, huỷ được. Cắt lỗ/chốt lời vẫn khớp trong nến, tại mức đã đặt.
+- **Lệnh tay trong Paper khớp ngay ở giá hiện tại, cộng trượt giá bất lợi.**
+  Chỉ tín hiệu chiến lược (bot) khớp ở giá mở nến `i+1` (Nam, 2026-09-17; bản
+  "lệnh tay cũng chờ nến kế tiếp" ngày 2026-09-16 đã bỏ). Cắt lỗ/chốt lời khớp
+  trong nến, tại mức đã đặt.
+- **Phái sinh VN chạy theo mô hình hợp đồng mặc định**, tỷ lệ của DNSE: ký quỹ
+  ban đầu **18,48%**, force sell **17,35%** giá trị hợp đồng, sửa được trong
+  bánh răng. Engine giữ `maintenance_threshold = force sell / ký quỹ ban đầu`,
+  nên vị thế bị đóng khi giá đi ngược 1,13% giá trị hợp đồng. Lệnh không đủ ký
+  quỹ bị từ chối kèm số tiền; phiên có vốn dưới ký quỹ một hợp đồng không được
+  tạo. Người dùng nên có vốn lớn hơn ký quỹ một hợp đồng để kết quả sát thực tế.
+- Tài khoản Paper bằng VND nhập và hiển thị theo **triệu VND**; server vẫn giữ
+  và tính bằng đồng.
 - Mọi giá khớp phải nằm trong `[thấp − trượt giá, cao + trượt giá]` của nến chứa
   nó. Biểu đồ tự kiểm điều này và ghi sự cố vào `qp.chart-incidents.v1`.
 
@@ -216,6 +223,74 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 ## 4. Báo cáo
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
+
+### 2026-09-17 — Lệnh tay khớp ngay trở lại; VN30F1M theo ký quỹ DNSE, vốn tính bằng triệu VND
+
+**389 test Python** (Paper: bỏ 10 test lệnh chờ, thêm 4), render đạt, i18n 2/2,
+phiếu lệnh JS 5 nhóm; Chrome: kéo mức giá đạt (thêm check hợp đồng), cài đặt đạt.
+
+#### 1. Lệnh tay khớp ngay + trượt giá; chiến lược vẫn nến +1
+
+Theo yêu cầu, bỏ cơ chế lệnh chờ của ngày 16/09: `place_order` lại khớp ở
+`last_price` cộng trượt giá bất lợi. Tín hiệu chiến lược không đổi (giá mở nến
+kế tiếp). Phần tự kiểm giá khớp trên biểu đồ giữ nguyên.
+
+#### 2. Ảnh của Nam: phiên VN30F1M "9.995,52 VND", "5,055373 đơn vị"
+
+Phiên đó chạy **tuyến tính** vì thông số hợp đồng trong bánh răng để trống
+(mặc định cũ là `null`, cố ý không đoán). Vốn 10.000 đ chia cho giá 1.978 ra
+5,05 "đơn vị" — một vị thế không tồn tại trên sàn.
+
+Giờ mặc định là tỷ lệ DNSE Nam chọn. Đo trên engine, giá 1.978, hệ số nhân
+100.000 đ/điểm:
+
+| Vốn | Kết quả |
+|---|---|
+| 1.000 đ | từ chối: "1 hợp đồng cần 36,55 triệu VND …, vốn dành cho lệnh này chỉ có 0,00 triệu VND" |
+| 36 triệu | từ chối (thiếu 0,55 triệu) |
+| 100 triệu | **2 hợp đồng**, ký quỹ 73,11 triệu; buộc đóng ở 1.955,65 (−1,13%) |
+| 100 triệu, cố định 100 HĐ | từ chối: "100 hợp đồng cần 3.655,34 triệu VND" |
+| Tạo phiên với 30 triệu | server từ chối `capital_below_margin`; hộp thoại khoá nút Bắt đầu |
+
+*Giả định trước đó của tôi sai một chỗ:* ghi 36.554.400 đ cho một hợp đồng; tính
+lại 1.978 × 100.000 × 18,48% = **36.553.440 đ**. Test render bắt được.
+
+`maintenance_threshold` = 17,35 / 18,48 = 0,9389: engine đóng vị thế khi ký quỹ
+còn lại bằng tỷ lệ đó của ký quỹ ban đầu, tức giá đi ngược 18,48% − 17,35% =
+1,13% giá trị hợp đồng lúc vào lệnh.
+
+Bản lưu cài đặt cũ có `null` ở các ô này; khi nạp, `null` giờ nhường cho mặc
+định mới thay vì xoá nó.
+
+#### 3. Đơn vị: triệu VND
+
+Ô vốn của hộp thoại Paper nhập theo triệu (mặc định 100) cho mọi mã VND; server
+nhận đồng. Vốn, lãi/lỗ mở, đã chốt trên panel và thẻ trên đường vào lệnh hiện
+theo triệu VND. **Thẻ trên biểu đồ còn một lỗi có sẵn:** nó bỏ qua hệ số nhân
+hợp đồng, nên 2 HĐ × 10 điểm hiện "+20" thay vì 2.000.000 đ. Đã sửa; check mới
+trong `test_level_drag.html` đòi `+2.00 triệu VND`.
+
+Với hợp đồng, ô đòn bẩy, phí % và trượt giá % trong hộp thoại bị khoá: đòn bẩy
+là 1 / tỷ lệ ký quỹ, phí và trượt giá (điểm) lấy từ bánh răng. Hộp thoại ghi ký
+quỹ một hợp đồng ở giá hiện tại, số hợp đồng tối đa và mức giá bị buộc đóng.
+
+#### Giới hạn (§2.7)
+
+- **Backtest phái sinh cũng dùng mô hình hợp đồng** vì chung bánh răng. Ô vốn
+  backtest giờ cũng theo triệu VND cho mã VND (mặc định 100 triệu). Đo trên
+  server thật, VN30F1M 5m, EMA cross, 2.000 nến: vốn 10.000 đ → **0 lệnh**;
+  100 triệu → **34 lệnh**, 2 hợp đồng mỗi lệnh. Trên Chrome
+  (`tests/test_backtest_capital.html`, 5/5): BTCUSDT 10.000; VN30F1M 100 triệu
+  VND, gửi đi 100.000.000 đ; gõ 250 gửi 250.000.000 đ; đổi đơn vị thì ô về mặc
+  định của đơn vị mới. Quét nhiều thị trường vẫn dùng chung một con số vốn cho
+  cả mã USDT lẫn VND.
+- Buộc đóng tính trên giá trị hợp đồng **lúc vào lệnh**; DNSE tính trên giá thị
+  trường hiện tại, lệch nhỏ khi giá đã đi xa.
+- Phí mặc định 0 (Nam tự nhập); panel ghi rõ "lệnh chưa bị trừ phí".
+- Bảng tài khoản Paper gộp nhiều phiên vẫn hiện số tiền thô, chưa theo triệu,
+  và cộng lẫn USDT với VND.
+- Phiên VN30F1M đang chạy vẫn là tuyến tính (vốn 10.000 đ); cần mở phiên mới.
+  Server đã khởi động lại; tạo phiên với 30 triệu trả `422 capital_below_margin`.
 
 ### 2026-09-16 (tối) — Lệnh tay khớp ở giá mở nến kế tiếp; tự kiểm giá khớp
 

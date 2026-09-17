@@ -15,7 +15,19 @@ const Paper = (() => {
   const drafts = new Map();
   const submitting = new Set();
   const unit = value => `<small class="pp-unit">${esc(value)}</small>`;
-  const accountUnit = s => currencyFor(s.symbol) || L('đơn vị vốn', 'account units');
+  /* A VND account is entered and read in millions (Nam, 2026-09-17).
+     "9,995.52 VND" is not an account anyone trades futures with, and a full
+     count of dong on every row is unreadable. Only the display is scaled:
+     the server holds and computes in dong. */
+  const VND_MILLION = 1e6;
+  function accountView(symbol) {
+    const currency = currencyFor(symbol);
+    return currency === 'VND'
+      ? { scale: VND_MILLION, unit: L('triệu VND', 'million VND') }
+      : { scale: 1, unit: currency || L('đơn vị vốn', 'account units') };
+  }
+  const accountUnit = s => accountView(s.symbol).unit;
+  const accountMoney = (v, s) => money(v / accountView(s.symbol).scale);
   function priceUnit(s) {
     if (!s.symbol.startsWith('VN:')) return accountUnit(s);
     if (venuesFor(s.symbol)[0] === 'hose') return L('nghìn VND', 'k VND');
@@ -109,23 +121,19 @@ const Paper = (() => {
       s.position > 0 ? 'LONG' : 'SHORT'}</span>${size} ${unit(quantityUnit(s))}`;
   }
 
-  function orderName(action) {
-    return action === 'long' ? L('MUA', 'BUY') : action === 'short' ? L('BÁN', 'SELL') : L('ĐÓNG', 'CLOSE');
-  }
-
   /** One ledger row. `value` must already be safe HTML. */
   function figure(label, value, tone = '') {
     return `<div class="pp-fig"><dt>${esc(label)}</dt><dd${
       tone ? ` class="${tone}"` : ''}>${value}</dd></div>`;
   }
 
-  const signedMoney = (v, s) => `${v > 0 ? '+' : ''}${money(v)} ${unit(accountUnit(s))}`;
+  const signedMoney = (v, s) => `${v > 0 ? '+' : ''}${accountMoney(v, s)} ${unit(accountUnit(s))}`;
 
   /* Open P&L in the mode the reader chose. Percent is on the notional at entry
      — the price move, signed by side — which is the same convention the figure
      on the entry line uses, so the panel and the chart agree. */
   const openProfit = (s) => Fmt.profit({
-    money: s.unrealized_pnl,
+    money: s.unrealized_pnl / accountView(s.symbol).scale,
     pct: s.quantity && Number.isFinite(s.entry_price)
       ? (s.unrealized_pnl / (Math.abs(s.quantity) * s.entry_price * (s.multiplier || 1))) * 100 : null,
     points: s.position && Number.isFinite(s.entry_price) && Number.isFinite(s.last_price)
@@ -156,20 +164,18 @@ const Paper = (() => {
     const open = s.position !== 0;
     const id = esc(s.id);
     const costPct = (s.config.fee * 2 + s.config.slippage * 2) * 100;
-    // One waiting order at a time: the server refuses a second (order_pending).
-    const waiting = Boolean(s.pending_order);
     const draft = drafts.get(s.id) || {};
     const value = (key, fallback) => esc(draft[key] ?? fallback);
 
     return `<div class="pp-ticket" data-ticket="${id}">
       <div class="pp-order">
         <button type="button" class="pp-order-btn buy${long ? ' held' : ''}"
-                data-order="long" data-session="${id}"${long || waiting ? ' disabled' : ''}>
+                data-order="long" data-session="${id}"${long ? ' disabled' : ''}>
           <span>${esc(long ? L('ĐANG MUA', 'LONG') : L('MUA', 'BUY'))}</span>
           <strong>${priceText(s)}</strong>
         </button>
         <button type="button" class="pp-order-btn sell${short ? ' held' : ''}"
-                data-order="short" data-session="${id}"${short || waiting ? ' disabled' : ''}>
+                data-order="short" data-session="${id}"${short ? ' disabled' : ''}>
           <span>${esc(short ? L('ĐANG BÁN', 'SHORT') : L('BÁN', 'SELL'))}</span>
           <strong>${priceText(s)}</strong>
         </button>
@@ -203,14 +209,12 @@ const Paper = (() => {
           esc(L('Áp dụng cắt lỗ / chốt lời', 'Apply stop and target'))}</button>` : ''}
         ${s.manual_override ? `<button type="button" class="pp-link" data-resume-strategy="${id}">${
           esc(L('Trả lại chiến lược', 'Back to strategy'))}</button>` : ''}
-        ${waiting ? `<button type="button" class="pp-link" data-order="cancel" data-session="${id}">${
-          esc(L('Huỷ lệnh chờ', 'Cancel waiting order'))}</button>` : ''}
         <button type="button" class="pp-link pp-close" data-order="close" data-session="${id}"${
-          open && !waiting ? '' : ' disabled'}>${esc(L('Đóng vị thế', 'Close position'))}</button>
+          open ? '' : ' disabled'}>${esc(L('Đóng vị thế', 'Close position'))}</button>
       </div>
       <p class="pp-hint">${esc(L(
-        `Lệnh khớp ở giá mở của nến kế tiếp, không phải giá lúc bấm. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
-        `Orders fill at the next candle's open, not at the price when clicked. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
+        `Khớp ngay ở giá hiện tại. Mỗi vòng tốn ${costPct.toFixed(3)}% giá trị danh nghĩa.`,
+        `Fills now at the live price. A round trip costs ${costPct.toFixed(3)}% of notional.`))}${
         open ? ` ${esc(L(
           'Đòn bẩy đã chọn áp dụng cho lần vào lệnh tiếp theo. Kéo từ đường vào lệnh để đặt chốt lời / cắt lỗ.',
           'Selected leverage applies to the next entry. Drag from the entry line to set a target or stop.'))}` : ''}</p>
@@ -276,7 +280,7 @@ const Paper = (() => {
             </div>
           </header>
           <dl class="pp-figures">
-            ${figure(L('Vốn', 'Equity'), `${money(s.equity)} ${unit(accountUnit(s))}`, sign(pnl))}
+            ${figure(L('Vốn', 'Equity'), `${accountMoney(s.equity, s)} ${unit(accountUnit(s))}`, sign(pnl))}
             ${figure(L('Lợi nhuận', 'Return'), pct(s.return_pct), sign(s.return_pct))}
             ${figure(L('Vị thế', 'Position'), positionTag(s))}
             ${open
@@ -292,13 +296,7 @@ const Paper = (() => {
             `${s.num_trades} trades · ${s.win_rate_pct.toFixed(0)}% won · last bar ${ago(s.last_closed_time)}`))}${open ? ` · ${Fmt.number(leverageFor(s))}×` : ''}</p>
           ${s.execution_model === 'contract_model_off'
             ? `<p class="pp-meta">${esc(t('exec.contractOff'))}</p>` : ''}
-          ${s.pending_order
-            ? `<p class="pp-meta pp-waiting">${esc(L('Lệnh chờ khớp ở giá mở nến kế tiếp: ',
-                'Order waiting for the next candle\'s open: '))}<strong>${esc(
-                orderName(s.pending_order.action))}</strong>${
-                s.pending_order.stop_loss ? ` · SL ${money(s.pending_order.stop_loss)}` : ''}${
-                s.pending_order.take_profit ? ` · TP ${money(s.pending_order.take_profit)}` : ''}</p>`
-            : s.pending_signal !== s.position
+          ${s.pending_signal !== s.position
             ? `<p class="pp-meta">${esc(L('Chờ khớp ở nến kế tiếp: ',
                 'Waiting to fill at the next candle: '))}<strong>${esc(
                 s.pending_signal > 0 ? L('MUA', 'BUY')
@@ -328,16 +326,6 @@ const Paper = (() => {
       stopLoss: read(`[data-stop="${CSS.escape(id)}"]`),
       takeProfit: read(`[data-target="${CSS.escape(id)}"]`),
     };
-  }
-
-  function orderToast(events) {
-    const event = events[0] || {};
-    if (event.type === 'order_cancelled') return L('Đã huỷ lệnh chờ', 'Waiting order cancelled');
-    if (event.type === 'order_pending') {
-      return L(`Lệnh ${orderName(event.order.action)} sẽ khớp ở giá mở của nến kế tiếp`,
-               `${orderName(event.order.action)} order will fill at the next candle's open`);
-    }
-    return L('Đã gửi lệnh', 'Order sent');
   }
 
   function bind() {
@@ -380,11 +368,10 @@ const Paper = (() => {
         const action = btn.dataset.order;
         if (submitting.has(id)) return;
         const ticket = btn.closest('.pp-ticket');
-        const entering = action === 'long' || action === 'short';
-        if (entering && [...ticket.querySelectorAll('input')].some(input => !input.reportValidity())) return;
+        if (action !== 'close' && [...ticket.querySelectorAll('input')].some(input => !input.reportValidity())) return;
         const leverageInput = ticket.querySelector('[data-leverage]');
         const leverage = leverageInput?.readOnly ? undefined : Number(leverageInput?.value);
-        if (entering && !leverageInput?.readOnly && !(leverage >= 1 && leverage <= 125)) return;
+        if (action !== 'close' && !leverageInput?.readOnly && !(leverage >= 1 && leverage <= 125)) return;
         const sizeInput = elements.list.querySelector(`[data-size="${CSS.escape(id)}"]`);
         const raw = Number(sizeInput?.value);
         const exits = exitsFor(id);
@@ -402,16 +389,19 @@ const Paper = (() => {
         try {
           const result = await API.paperOrder(
             id, action,
-            entering ? sizePct : undefined,
-            entering ? exits : undefined,
-            entering ? leverage : undefined,
+            action === 'close' ? undefined : sizePct,
+            action === 'close' ? undefined : exits,
+            action === 'close' ? undefined : leverage,
           );
           submitting.delete(id);
-          if (action !== 'cancel') drafts.delete(id);
+          drafts.delete(id);
           apply(result.snapshot);
           elements.onOrderFilled?.(result.snapshot);
-          // Rendered from the event code, never from its text (§2.4).
-          onToast(orderToast(result.events || []));
+          const filled = (result.events || []).find((e) => e.type === 'entry');
+          onToast(filled
+            ? L(`Đã khớp ${filled.side === 'long' ? 'MUA' : 'BÁN'} ở ${money(filled.price)}`,
+                `Filled ${filled.side === 'long' ? 'BUY' : 'SELL'} at ${money(filled.price)}`)
+            : L('Đã đóng vị thế', 'Position closed'));
         } catch (err) {
           submitting.delete(id);
           // The server sends {code, message:{vi,en}} for a refusal, so the
@@ -609,10 +599,15 @@ const Paper = (() => {
     applyPreset(el.preset.value);
   }
 
+  // The session symbol decides the account currency, whatever preset is picked.
+  const capitalScale = () => accountView(pending?.symbol || '').scale;
+  const defaultCapital = (scale) => (scale === VND_MILLION ? 100 : 10000);
+
   function settingsValues() {
     const el = elements.settings || {};
+    const scale = capitalScale();
     return {
-      initial_capital: Number(el.capital?.value) || 10000,
+      initial_capital: (Number(el.capital?.value) || defaultCapital(scale)) * scale,
       size_pct: (Number(el.size?.value) || 100) / 100,
       leverage: Number(el.leverage?.value) || 1,
       fee: (Number(el.fee?.value) || 0) / 100,
@@ -625,14 +620,48 @@ const Paper = (() => {
      fees land on both sides and slippage is always adverse (§3.1). Showing it
      as one number is the difference between "0.04%" and the 0.12% a trade
      really costs before it breaks even. */
+  /* Futures on the contract model: what one contract needs, and how many the
+     capital can hold. The engine refuses an order the margin cannot cover, so
+     the dialog says it before the session exists rather than after the first
+     click fails. */
+  function contractFacts() {
+    const symbol = pending?.symbol || '';
+    if (venuesFor(symbol)[0] !== 'vn_derivatives') return null;
+    const contract = Settings.contractPayload();
+    if (!contract) return { off: true };
+    const ctx = elements.context?.() || {};
+    const price = ctx.symbol === symbol && Number.isFinite(ctx.price) ? ctx.price : null;
+    const v = settingsValues();
+    const perContract = price === null ? null : Settings.marginPerContract(price);
+    const affordable = perContract ? Math.floor(v.initial_capital * v.size_pct / perContract) : null;
+    return { contract, price, perContract, affordable, capital: v.initial_capital };
+  }
+
+  const millions = (v) => `${Fmt.number(v / VND_MILLION, 2)} ${L('triệu VND', 'million VND')}`;
+
   function settingsSummary() {
+    const facts = contractFacts();
+    if (facts && !facts.off) {
+      const c = Settings.all().trading.contract;
+      const move = (c.initial_margin_pct - c.force_sell_pct).toFixed(2);
+      if (facts.perContract === null) {
+        return L(
+          `Ký quỹ một hợp đồng = giá × ${Fmt.number(c.multiplier, 0)} đ × ${c.initial_margin_pct}%. Chưa có giá của mã này trên biểu đồ nên chưa tính được số tiền.`,
+          `One contract's margin = price × ${Fmt.number(c.multiplier, 0)} VND × ${c.initial_margin_pct}%. The chart has no price for this symbol yet, so the amount cannot be computed.`);
+      }
+      return L(
+        `Ở giá ${Fmt.number(facts.price, 1)}, ký quỹ một hợp đồng là <strong>${millions(facts.perContract)}</strong> (${c.initial_margin_pct}%). Vốn này đặt được tối đa <strong>${facts.affordable} hợp đồng</strong>. Vị thế bị buộc đóng khi giá đi ngược ${move}% giá trị hợp đồng (force sell ${c.force_sell_pct}%). Nên có vốn lớn hơn ký quỹ một hợp đồng để kết quả sát thực tế nhất.`,
+        `At ${Fmt.number(facts.price, 1)}, one contract needs <strong>${millions(facts.perContract)}</strong> of margin (${c.initial_margin_pct}%). This capital holds at most <strong>${facts.affordable} contracts</strong>. A position is force-closed after an adverse move of ${move}% of the contract value (force sell ${c.force_sell_pct}%). Hold more capital than one contract's margin for the most accurate result.`);
+    }
     const v = settingsValues();
     const roundTrip = (v.fee * 2 + v.slippage * 2) * 100;
     const notional = v.initial_capital * v.size_pct * v.leverage;
     const perTrade = notional * roundTrip / 100;
+    const scale = capitalScale();
+    const shown = (x) => `${money(x / scale)}${scale === VND_MILLION ? ` ${L('triệu VND', 'million VND')}` : ''}`;
     return L(
-      `Mỗi lệnh khứ hồi tốn <strong>${roundTrip.toFixed(3)}%</strong> giá trị danh nghĩa — phí hai chiều cộng trượt giá hai chiều. Với ${money(notional)} danh nghĩa, đó là <strong>${money(perTrade)}</strong> mỗi lệnh, tức chiến lược phải kiếm hơn ngần đó mới hoà vốn.`,
-      `A round trip costs <strong>${roundTrip.toFixed(3)}%</strong> of notional — fees on both sides plus adverse slippage on both. On ${money(notional)} of notional that is <strong>${money(perTrade)}</strong> per trade, which the strategy has to beat before it breaks even.`);
+      `Mỗi lệnh khứ hồi tốn <strong>${roundTrip.toFixed(3)}%</strong> giá trị danh nghĩa — phí hai chiều cộng trượt giá hai chiều. Với ${shown(notional)} danh nghĩa, đó là <strong>${shown(perTrade)}</strong> mỗi lệnh, tức chiến lược phải kiếm hơn ngần đó mới hoà vốn.`,
+      `A round trip costs <strong>${roundTrip.toFixed(3)}%</strong> of notional — fees on both sides plus adverse slippage on both. On ${shown(notional)} of notional that is <strong>${shown(perTrade)}</strong> per trade, which the strategy has to beat before it breaks even.`);
   }
 
   function applyPreset(key) {
@@ -649,8 +678,20 @@ const Paper = (() => {
   function showCurrency(key) {
     const el = elements.settings || {};
     if (!el.currency) return;
-    // "Custom" has no venue behind it, so there is nothing honest to claim.
-    el.currency.textContent = CURRENCY[key] ?? '';
+    const scale = capitalScale();
+    // "Custom" on a non-VND market has no venue behind it, so there is nothing
+    // honest to claim; a VND market is VND whichever preset is picked.
+    el.currency.textContent = scale === VND_MILLION ? L('triệu VND', 'million VND') : (CURRENCY[key] ?? '');
+    // Moving between a USDT and a VND account: 10 000 USDT is not 10 000
+    // million dong, so an untouched default follows the unit.
+    if (el.capital && Number(el.capital.dataset.scale || 1) !== scale) {
+      if (Number(el.capital.value) === defaultCapital(Number(el.capital.dataset.scale || 1))) {
+        el.capital.value = defaultCapital(scale);
+      }
+      el.capital.min = scale === VND_MILLION ? '1' : '100';
+      el.capital.step = scale === VND_MILLION ? '1' : '100';
+      el.capital.dataset.scale = String(scale);
+    }
   }
 
   function refreshSettings() {
@@ -662,6 +703,24 @@ const Paper = (() => {
     const v = settingsValues();
     const notes = [];
     if (PRESETS[key]) notes.push(PRESETS[key].note());
+
+    const facts = contractFacts();
+    // Leverage, fee % and slippage % do not apply to a contract: its leverage
+    // is 1 / margin rate, and its fee and slippage come from the settings gear.
+    const contractRun = Boolean(facts && !facts.off);
+    for (const field of ['leverage', 'fee', 'slippage']) {
+      if (el[field]) el[field].disabled = contractRun;
+    }
+    let blocked = false;
+    if (facts?.off) {
+      notes.push(L('Thông số hợp đồng trong bánh răng chưa hợp lệ, nên phiên này sẽ tính tuyến tính, không theo hợp đồng.',
+                   'The contract settings in the gear are not valid, so this session will run linearly rather than on contracts.'));
+    } else if (contractRun && facts.affordable !== null && facts.affordable < 1) {
+      blocked = true;
+      notes.push(L(`Vốn ${millions(facts.capital * v.size_pct)} không đủ ký quỹ cho một hợp đồng (${millions(facts.perContract)}). Không lệnh nào khớp được, nên chưa thể bắt đầu phiên.`,
+                   `Capital of ${millions(facts.capital * v.size_pct)} cannot cover one contract's margin (${millions(facts.perContract)}). No order could fill, so the session cannot start.`));
+    }
+    if (el.start) el.start.disabled = blocked;
     if (key === 'binance_spot' && v.leverage > 1) {
       notes.push(L('Bạn đang đặt đòn bẩy trên spot, sàn này không có đòn bẩy.',
                    'You have set leverage on spot, which does not offer it.'));
@@ -714,7 +773,8 @@ const Paper = (() => {
     const from = elements.backtestExecution?.();
     const el = elements.settings || {};
     if (!from || !el.capital) return;
-    el.capital.value = from.initial_capital;
+    // The backtest panel holds account units; a VND dialog reads millions.
+    el.capital.value = from.initial_capital / capitalScale();
     el.size.value = (from.size_pct * 100).toFixed(0);
     el.leverage.value = from.leverage;
     el.fee.value = (from.fee * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
@@ -855,6 +915,6 @@ const Paper = (() => {
 
   return { init, refresh, start, apply, rerender: render,
            openSettings, settingsValues, startManual, ticket, symbolBadge,
-           refreshManualButton, venuesFor, currencyFor, startBasket,
+           refreshManualButton, venuesFor, currencyFor, accountView, startBasket,
            get sessions() { return sessions; } };
 })();

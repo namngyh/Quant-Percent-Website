@@ -115,22 +115,27 @@
   check('the grid follows the setting', w.eval('ChartManager').gridVisible === true);
   pick('chart.grid', 'false');
 
-  // 6. The contract terms. Until they are all in, a run carries nothing and
-  //    the box says which one is missing.
-  check('an unset contract block is not sent',
-        w.eval('Strategy').execution().contract === null);
-  pick('trading.contract.initial_margin_rate', '0.2');
-  pick('trading.contract.maintenance_threshold', '0.5');
-  const stillMissing = doc.querySelector('#settings-body .callout.warn')?.textContent || '';
-  check('the box names the one term still missing',
-        stillMissing.includes('phí') || stillMissing.includes('fee'), stillMissing.slice(0, 80));
+  // 6. The contract terms default to DNSE's (18.48% / 17.35%), and a rate the
+  //    engine cannot use is named rather than sent.
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const defaults = w.eval('Strategy').execution().contract;
+  check('the default contract block is sent with DNSE\'s rates',
+        defaults && near(defaults.initial_margin_rate, 0.1848)
+          && near(defaults.maintenance_threshold, 17.35 / 18.48), JSON.stringify(defaults));
+  pick('trading.contract.force_sell_pct', '19');
+  const invalid = doc.querySelector('#settings-body .callout.warn')?.textContent || '';
+  check('a force sell above the initial margin is named and not sent',
+        (invalid.includes('force sell') || invalid.includes('force-sell'))
+          && w.eval('Strategy').execution().contract === null, invalid.slice(0, 80));
+  pick('trading.contract.initial_margin_pct', '20');
+  pick('trading.contract.force_sell_pct', '10');
   pick('trading.contract.fee_per_contract', '20000');
   const done = doc.querySelector('#settings-body .callout');
   check('the box says the terms are complete',
         !!done && !done.className.includes('warn'), done?.textContent.slice(0, 60));
   const sent = w.eval('Strategy').execution().contract;
   check('a run now carries the contract terms',
-        sent && sent.initial_margin_rate === 0.2 && sent.maintenance_threshold === 0.5
+        sent && near(sent.initial_margin_rate, 0.2) && near(sent.maintenance_threshold, 0.5)
           && sent.fee_per_contract === 20000 && sent.multiplier === 100000,
         JSON.stringify(sent));
 
@@ -150,7 +155,7 @@
   await wait(150);
   doc.getElementById('settings-reset').click();
   check('reset returns every group to its default',
-        S.all().trading.contract.initial_margin_rate === null
+        S.all().trading.contract.initial_margin_pct === 18.48
           && S.all().display.timezone === 'vn' && S.all().chart.bars === 180
           && S.all().data.adjustSplits === true);
 

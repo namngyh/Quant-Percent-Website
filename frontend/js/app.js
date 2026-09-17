@@ -1377,7 +1377,10 @@
       // A magnitude: the snapshot keeps direction in `position`, and the chart
       // takes the sign from `side` above (charts.js, signedQuantity).
       quantity: Math.abs(Number(session.quantity) || 0),
-      unit: Paper.currencyFor(session.symbol),
+      // Contracts carry their multiplier; a VND account reads in millions.
+      multiplier: Number(session.multiplier) || 1,
+      moneyScale: Paper.accountView(session.symbol).scale,
+      unit: Paper.accountView(session.symbol).unit,
       label: `${session.position > 0 ? 'LONG' : 'SHORT'} ${positionSize(session)}`,
     });
     paperLevelSession = session.id;
@@ -1411,8 +1414,7 @@
       Paper.apply(result.snapshot);
       drawPaperMarkers();
       drawPositionLines();
-      toast(L('Lệnh đóng vị thế sẽ khớp ở giá mở của nến kế tiếp',
-              'The close will fill at the next candle\'s open'));
+      toast(L('Đã đóng vị thế', 'Position closed'));
     } catch (err) {
       toast(tp(err.detail?.message) || err.message, true);
     } finally {
@@ -2342,6 +2344,7 @@ def signals(df, params):
         optimize: document.getElementById('optimize-results'),
         equityChart: document.getElementById('equity-chart'),
         capital: document.getElementById('exec-capital'),
+        capitalUnit: document.getElementById('exec-capital-unit'),
         size: document.getElementById('exec-size'),      // % of equity per trade
         leverage: document.getElementById('exec-leverage'),
         fee: document.getElementById('exec-fee'),
@@ -2366,7 +2369,11 @@ def signals(df, params):
         startManual: document.getElementById('start-manual'),
         dash: document.getElementById('paper-dash'),
         // A hand-traded session opens on whatever the chart is showing.
-        context: () => ({ symbol: state.symbol, timeframe: state.timeframe }),
+        context: () => ({ symbol: state.symbol, timeframe: state.timeframe,
+          // The latest price, for the margin one contract needs. Only when the
+          // chart holds this symbol's series, never another instrument's.
+          price: ChartManager.seriesKey === `${state.symbol}|${state.timeframe}`
+            ? ChartManager.lastClose : null }),
         onOpenSession: openPaperSession,
         onOrderFilled: (session) => {
           MultiChart.cells.forEach((cell, index) => {
@@ -2440,16 +2447,6 @@ def signals(df, params):
                   `Paper: position closed, P&L ${event.trade.pnl.toFixed(2)}`));
         } else if (event.type === 'liquidation') {
           toast(L('Paper: bị thanh lý', 'Paper: liquidated'), true);
-        } else if (event.type === 'order_rejected') {
-          toast(`Paper: ${tp(event.message)}`, true);
-        }
-        // A queued stop or target the open had already gapped past was not
-        // armed; saying nothing would leave the user trusting a level that
-        // does not exist.
-        for (const level of event.dropped_levels || []) {
-          toast(L(
-            `Paper: giá mở ${event.open} đã vượt qua ${level.level === 'stop_loss' ? 'cắt lỗ' : 'chốt lời'} ${level.price}, mức này không được đặt.`,
-            `Paper: the open ${event.open} was already past the ${level.level === 'stop_loss' ? 'stop' : 'target'} ${level.price}; it was not set.`), true);
         }
       },
     });
@@ -2469,6 +2466,7 @@ def signals(df, params):
       // refreshed on a symbol *change*, so at start-up it sat disabled reading
       // "pick a market first" with BTCUSDT already on the chart.
       Paper.refreshManualButton();
+      Strategy.syncCapitalUnit();
       SymbolPicker.attach(document.getElementById('mm-add'), {
         placeholder: () => L('Thêm thị trường…', 'Add a market…'),
       });
@@ -2504,6 +2502,8 @@ def signals(df, params):
       refreshStars();
       // The paper button follows the chart, so it always names this market.
       Paper.refreshManualButton();
+      // So does the backtest capital: millions for a VND market.
+      Strategy.syncCapitalUnit();
       buildTimeframeButtons();      // markets differ in what they offer
       loadCandles();
     });

@@ -272,6 +272,15 @@
   check('the same move on a long is still a gain',
         (cm.levelZones?.chip?.text || '').includes('+5.00 USDT'), cm.levelZones?.chip?.text);
 
+  // 11b. Contracts (Nam, 2026-09-17): a point is worth the multiplier, and a
+  // VND account reads in millions. 2 contracts x 10 points x 100 000 dong is
+  // 2 million; without the multiplier the chip read "+20.00".
+  cm.setPositionLines({ side: 1, entry, quantity: 2, multiplier: 100000, moneyScale: 1e6,
+                        unit: 'triệu VND', label: 'LONG 2 HĐ' });
+  const contractChip = cm.levelZones?.chip?.text || '';
+  check('a contract position reads points times multiplier, in millions',
+        contractChip.includes('+2.00 triệu VND'), contractChip);
+
   // 12. No position: no bands, no chip.
   cm.clearPositionLines();
   check('clearing the position removes the bands and the chip',

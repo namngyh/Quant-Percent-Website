@@ -284,9 +284,39 @@ const Strategy = (() => {
     };
   }
 
+  /* The account a backtest runs on, for the symbol on the chart.
+
+     A VND market is entered and read in millions (Nam, 2026-09-17), as the
+     paper dialog is. Left in units, the default 10 000 was 10 000 dong: on
+     VN30F1M, whose one contract needs about 36.5 million of margin, every
+     backtest came back with no trades at all. */
+  function account() {
+    const symbol = context().symbol || '';
+    return typeof Paper !== 'undefined' && Paper.accountView
+      ? Paper.accountView(symbol) : { scale: 1, unit: '' };
+  }
+
+  let capitalScale = 1;
+
+  /** Put the capital box in the unit of the symbol on the chart. */
+  function syncCapitalUnit() {
+    const input = elements.capital;
+    if (!input) return;
+    const { scale, unit } = account();
+    if (elements.capitalUnit) elements.capitalUnit.textContent = scale === 1 ? '' : unit;
+    if (scale === capitalScale) return;
+    // A new currency starts from its own default: 250 million dong has no
+    // meaning as 250 of anything in USDT, and converting it would be worse.
+    input.value = scale === 1 ? 10000 : 100;
+    input.min = scale === 1 ? '100' : '1';
+    input.step = scale === 1 ? '100' : '1';
+    capitalScale = scale;
+  }
+
   function execution() {
+    syncCapitalUnit();
     return {
-      initial_capital: Number(elements.capital.value) || 10000,
+      initial_capital: (Number(elements.capital.value) || (capitalScale === 1 ? 10000 : 100)) * capitalScale,
       size_pct: (Number(elements.size.value) || 100) / 100,
       leverage: Number(elements.leverage.value) || 1,
       fee: (Number(elements.fee.value) || 0) / 100,
@@ -318,6 +348,9 @@ const Strategy = (() => {
       execution: execution(),
       period: period(),
     });
+    // Read in the unit of the account it ran on, not of whatever is on the
+    // chart when it is redrawn later.
+    result.account = account();
     lastBacktest = result;
     renderResult(result);
     onResult(result, ctx);
@@ -365,6 +398,10 @@ const Strategy = (() => {
 
   function renderResult(result) {
     const m = result.metrics;
+    const { scale = 1, unit = '' } = result.account || {};
+    // Money figures of this result, in the account's unit (millions for VND).
+    const cash = (v) => `${Fmt.money(v / scale, { digits: scale === 1 ? 0 : 2 })}${
+      scale === 1 ? '' : ` ${unit}`}`;
     const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
     let html = executionNote(result) + corporateNote(result);
@@ -395,10 +432,11 @@ const Strategy = (() => {
     /* The headline follows the profit mode; whichever quantity it does not
        show moves into the line underneath, so neither reading is lost. */
     const profitCaption = Fmt.mode() === 'money'
-      ? `${money(m.initial_capital)} → ${money(m.final_equity)} (${pct(m.total_return_pct)})`
-      : `${money(m.initial_capital)} → ${money(m.final_equity)}`;
+      ? `${cash(m.initial_capital)} → ${cash(m.final_equity)} (${pct(m.total_return_pct)})`
+      : `${cash(m.initial_capital)} → ${cash(m.final_equity)}`;
     html += metricCard(L('Tổng lợi nhuận', 'Total return'),
-      Fmt.profit({ money: m.final_equity - m.initial_capital, pct: m.total_return_pct }),
+      Fmt.profit({ money: (m.final_equity - m.initial_capital) / scale, pct: m.total_return_pct,
+                   unit: scale === 1 ? '' : unit }),
       sign(m.total_return_pct), profitCaption);
     html += metricCard(L('Mua và giữ', 'Buy and hold'),
       pct(m.buy_hold_return_pct), sign(m.buy_hold_return_pct),
@@ -420,9 +458,9 @@ const Strategy = (() => {
       L(`${m.avg_bars_held.toFixed(0)} nến/lệnh`,
         `${m.avg_bars_held.toFixed(0)} bars per trade`));
     html += metricCard(L('Lãi TB / lỗ TB', 'Avg win / avg loss'),
-      `${money(m.avg_win)} / ${money(m.avg_loss)}`);
+      `${cash(m.avg_win)} / ${cash(m.avg_loss)}`);
     html += metricCard(L('Tốt nhất / tệ nhất', 'Best / worst'),
-      `${money(m.best_trade)} / ${money(m.worst_trade)}`);
+      `${cash(m.best_trade)} / ${cash(m.worst_trade)}`);
     html += '</div>';
 
     elements.metrics.innerHTML = html;
@@ -720,6 +758,7 @@ const Strategy = (() => {
     get catalog() { return catalog; },
     get selected() { return current; },
     get lastResult() { return lastBacktest; },
+    syncCapitalUnit,
     // How many parameter combinations were tried to reach the current values.
     get lastTrials() { return lastTrials; },
     rerender: renderParams,

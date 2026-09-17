@@ -29,22 +29,6 @@ from backend.strategy.engine import BacktestConfig, run_backtest  # noqa: E402
 
 HOUR = 3_600_000
 
-
-def order(session, action, **kwargs):
-    """Place a hand order and deliver the next bar, whose open fills it.
-
-    Hand orders fill at the next bar's open (2026-09-16), so a test that wants
-    the fill must hand the session that bar. Its open is the session's last
-    price, which keeps every cost figure below measured at an unchanged price.
-    A refusal at placement raises before any bar is delivered.
-    """
-    placed = session.place_order(action, now=0, **kwargs)
-    bar_open = (session.last_bar_open + 60) * 1000
-    price = session.last_price
-    events = session.on_forming_candle(
-        {"open_time": bar_open, "open": price, "high": price, "low": price, "close": price})
-    return {"placed": placed, "events": events, "snapshot": session.snapshot()}
-
 CHECKS = []
 
 
@@ -335,8 +319,8 @@ def manual(**over):
 @check("a hand round trip at an unchanged price costs exactly fees plus slippage")
 def _():
     s = manual()
-    order(s, "long")
-    order(s, "close")
+    s.place_order("long")
+    s.place_order("close")
     # Entry fills 0.02% above the price, exit 0.02% below; fees are 0.04% on
     # each side. Measured -0.119976% against a theoretical -0.120000%: the
     # remainder is the fee being charged on the *filled* notional, which is
@@ -351,8 +335,8 @@ def _():
 @check("slippage on a hand order is adverse on both sides")
 def _():
     s = manual()
-    order(s, "short")
-    order(s, "close")
+    s.place_order("short")
+    s.place_order("close")
     t = s.trades[0]
     # A short is entered below the price and covered above it.
     assert t.entry_price < 100.0 < t.exit_price, (t.entry_price, t.exit_price)
@@ -361,13 +345,13 @@ def _():
 @check("a reversal is two fills, not one netted fill")
 def _():
     flip = manual()
-    order(flip, "long")
-    order(flip, "short")
+    flip.place_order("long")
+    flip.place_order("short")
 
     stepwise = manual()
-    order(stepwise, "long")
-    order(stepwise, "close")
-    order(stepwise, "short")
+    stepwise.place_order("long")
+    stepwise.place_order("close")
+    stepwise.place_order("short")
 
     # Flipping must cost the same as closing and reopening: netting them would
     # quietly hand the user one free set of fees.
@@ -380,7 +364,7 @@ def _():
     sizes = {}
     for size in (0.25, 0.5, 1.0):
         s = manual()
-        order(s, "long", size_pct=size)
+        s.place_order("long", size_pct=size)
         sizes[size] = s.margin
     assert sizes[0.25] == 2_500.0, sizes
     assert sizes[0.5] == 5_000.0, sizes
@@ -390,15 +374,15 @@ def _():
 @check("a hand long profits when the price rises, a short when it falls")
 def _():
     up = manual()
-    order(up, "long")
+    up.place_order("long")
     up.last_price = 110.0
-    order(up, "close")
+    up.place_order("close")
     assert up.equity > 10_000.0, up.equity
 
     down = manual()
-    order(down, "short")
+    down.place_order("short")
     down.last_price = 90.0
-    order(down, "close")
+    down.place_order("close")
     assert down.equity > 10_000.0, down.equity
     assert down.trades[0].side == "short"
 
@@ -406,9 +390,9 @@ def _():
 @check("every refusal carries a stable code and both languages")
 def _():
     cases = [
-        ("already_flat", lambda: order(manual(), "close")),
-        ("unknown_action", lambda: order(manual(), "buy")),
-        ("bad_size", lambda: order(manual(), "long", size_pct=1.5)),
+        ("already_flat", lambda: manual().place_order("close")),
+        ("unknown_action", lambda: manual().place_order("buy")),
+        ("bad_size", lambda: manual().place_order("long", size_pct=1.5)),
         ("no_price", lambda: PaperSession(
             strategy_id=MANUAL_STRATEGY_ID, symbol="X", timeframe="1m",
         ).place_order("long")),
@@ -424,9 +408,9 @@ def _():
             raise AssertionError(f"{code} was not refused")
 
     held = manual()
-    order(held, "long")
+    held.place_order("long")
     try:
-        order(held, "long")
+        held.place_order("long")
     except OrderRefused as exc:
         assert exc.code == "already_in_position", exc.code
     else:
@@ -438,7 +422,7 @@ def _():
     s = manual()
     s.active = False
     try:
-        order(s, "long")
+        s.place_order("long")
     except OrderRefused as exc:
         assert exc.code == "session_stopped", exc.code
     else:
@@ -455,7 +439,7 @@ def _():
     s.last_price = 100.0
     assert s.manual_override is False
 
-    order(s, "long")
+    s.place_order("long")
     assert s.manual_override is True, "the strategy is still steering"
     # The strategy now wants the opposite side. It must not get it: otherwise
     # the next candle silently undoes what the user just did, and the trade log
@@ -472,7 +456,7 @@ def _():
     # No strategy, so nothing decides; a signal function that insists on going
     # long must be ignored entirely.
     assert s._decide(lambda history: 1) == 0
-    order(s, "long")
+    s.place_order("long")
     assert s._decide(lambda history: -1) == 1
     try:
         s.resume_strategy()
@@ -489,7 +473,7 @@ def _():
     assert snap["is_manual"] is True, snap
     assert snap["manual_override"] is False, snap
     assert snap["manual_orders"] == 0, snap
-    order(s, "long")
+    s.place_order("long")
     snap = s.snapshot()
     assert snap["manual_orders"] == 1, snap
     assert snap["position"] == 1 and snap["quantity"] > 0, snap
@@ -503,7 +487,7 @@ def bar(o, h, l, c, t=1_700_000_000_000):
 @check("a stop fills at the stop, not at the candle's close")
 def _():
     s = manual()
-    order(s, "long", stop_loss=95.0)
+    s.place_order("long", stop_loss=95.0)
     s.on_closed_candle(bar(100, 101, 94, 99), lambda h: None)
     t = s.trades[0]
     # A resting order fills where it rests. Filling at the close would book 99
@@ -515,7 +499,7 @@ def _():
 @check("a target fills at the target")
 def _():
     s = manual()
-    order(s, "long", take_profit=110.0)
+    s.place_order("long", take_profit=110.0)
     s.on_closed_candle(bar(100, 112, 99, 104), lambda h: None)
     t = s.trades[0]
     assert abs(t.exit_price - 110.0) < 1e-9, t.exit_price
@@ -525,7 +509,7 @@ def _():
 @check("a level the candle never reached does not fire")
 def _():
     s = manual()
-    order(s, "long", stop_loss=90.0, take_profit=120.0)
+    s.place_order("long", stop_loss=90.0, take_profit=120.0)
     s.on_closed_candle(bar(100, 105, 96, 103), lambda h: None)
     assert not s.trades, s.trades
     assert s.position == 1, s.position
@@ -534,7 +518,7 @@ def _():
 @check("when one candle spans both levels, the stop wins")
 def _():
     s = manual()
-    order(s, "long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
     s.on_closed_candle(bar(100, 112, 94, 104), lambda h: None)
     # The bar says the price visited both and not in which order, so the
     # ambiguity is resolved against the account. A paper account that resolves
@@ -546,12 +530,12 @@ def _():
 @check("short exits are mirrored, not copied")
 def _():
     up = manual()
-    order(up, "short", stop_loss=105.0, take_profit=90.0)
+    up.place_order("short", stop_loss=105.0, take_profit=90.0)
     up.on_closed_candle(bar(100, 106, 99, 101), lambda h: None)
     assert up.trades[0].exit_reason == "stop_loss", up.trades[0].exit_reason
 
     down = manual()
-    order(down, "short", stop_loss=105.0, take_profit=90.0)
+    down.place_order("short", stop_loss=105.0, take_profit=90.0)
     down.on_closed_candle(bar(100, 101, 88, 92), lambda h: None)
     assert down.trades[0].exit_reason == "take_profit", down.trades[0].exit_reason
     assert down.trades[0].pnl > 0, down.trades[0].pnl
@@ -567,7 +551,7 @@ def _():
     ]
     for code, kwargs, side in cases:
         try:
-            order(manual(), side, **kwargs)
+            manual().place_order(side, **kwargs)
         except OrderRefused as exc:
             assert exc.code == code, (side, kwargs, exc.code)
             assert exc.message["vi"] and exc.message["en"], exc.message
@@ -578,19 +562,19 @@ def _():
 @check("exit levels are cleared with the position that carried them")
 def _():
     s = manual()
-    order(s, "long", stop_loss=95.0, take_profit=110.0)
-    order(s, "close")
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("close")
     assert s.stop_loss is None and s.take_profit is None, (s.stop_loss, s.take_profit)
     # A level left behind would fire on the next position, which is not the
     # one it was set for.
-    order(s, "short")
+    s.place_order("short")
     assert s.stop_loss is None and s.take_profit is None, (s.stop_loss, s.take_profit)
 
 
 @check("exits can be attached, moved and cleared after the fact")
 def _():
     s = manual()
-    order(s, "long")
+    s.place_order("long")
     s.set_exits(stop_loss=97.0, take_profit=108.0)
     assert (s.stop_loss, s.take_profit) == (97.0, 108.0)
     s.set_exits(stop_loss=None, take_profit=None)
@@ -607,7 +591,7 @@ def _():
 @check("the snapshot reports the levels the position is carrying")
 def _():
     s = manual()
-    order(s, "long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
     snap = s.snapshot()
     assert snap["stop_loss"] == 95.0, snap["stop_loss"]
     assert snap["take_profit"] == 110.0, snap["take_profit"]
@@ -625,7 +609,7 @@ def _():
     from backend.paper.manager import PaperManager
 
     s = manual()
-    order(s, "long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
     s.manual_override = True
 
     manager = PaperManager.__new__(PaperManager)      # no store, no event loop
@@ -643,7 +627,7 @@ def _():
     from backend.paper.manager import PaperManager
 
     s = manual()
-    order(s, "long", stop_loss=95.0, take_profit=110.0)
+    s.place_order("long", stop_loss=95.0, take_profit=110.0)
     manager = PaperManager.__new__(PaperManager)
     payload = manager._to_payload(s)
 
@@ -706,7 +690,7 @@ def _():
                      config=contract_cfg(sizing="fixed", contracts=1000))
     s.on_tick(1300.0)
     try:
-        order(s, "long")
+        s.place_order("long")
     except OrderRefused as exc:
         assert exc.code == "insufficient_margin", exc.code
         assert set(exc.message) == {"vi", "en"}, exc.message
@@ -719,7 +703,7 @@ def _():
 def _():
     s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m", config=contract_cfg())
     s.on_tick(1300.0)
-    order(s, "long")
+    s.place_order("long")
     snap = s.snapshot()
     # Fill at 1300.05: margin per contract 26 010 000 dong -> 3 contracts.
     assert snap["contracts"] == 3 and snap["quantity"] == 3.0, snap
@@ -741,7 +725,7 @@ def _():
 
     s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "1m", config=contract_cfg(sizing="fixed", contracts=2))
     s.on_tick(1300.0)
-    order(s, "long")
+    s.place_order("long")
     manager = PaperManager.__new__(PaperManager)
     payload = manager._to_payload(s)
 
@@ -757,166 +741,78 @@ def _():
         data_sources.get_candles = original
 
 
-# ================================ hand orders fill at the next bar's open
+# ============ VN30F1M on DNSE's margin rates (Nam, 2026-09-17)
 
-MIN = 60_000
-T0 = 1_789_568_340_000          # 21:19 VN on 2026-09-16, a bar open
-
-
-def candle(t, o, h=None, l=None, c=None):
-    h = max(o, c or o) if h is None else h
-    l = min(o, c or o) if l is None else l
-    return {"open_time": t, "open": o, "high": h, "low": l, "close": o if c is None else c, "volume": 1.0}
+def dnse(capital, **contract):
+    values = dict(initial_margin_rate=0.1848, maintenance_threshold=17.35 / 18.48,
+                  fee_per_contract=0.0, slippage_points=0.1)
+    values.update(contract)
+    return BacktestConfig(initial_capital=capital, size_pct=1.0, fee=0.0, slippage=0.0,
+                          contract=ContractConfig(**values))
 
 
-def forming_at(t, price=100.0):
-    """A manual 1m session that has just seen the bar opening at ``t``."""
-    s = manual()
-    s.on_forming_candle(candle(t, price))
-    return s
-
-
-@check("a hand order does not fill on the bar it was placed in")
+@check("a hand order on futures fills now, at the live price plus slippage")
 def _():
-    s = forming_at(T0)
-    s.place_order("long", now=T0 / 1000 + 39)          # 21:19:39
-    assert s.position == 0 and s.pending_order is not None, s.snapshot()
-    # More updates of the same bar, even at a very different price: nothing.
-    assert s.on_forming_candle(candle(T0, 100.0, 104.0, 96.0, 97.0)) == []
-    assert s.position == 0, s.snapshot()
-    snap = s.snapshot()
-    assert snap["pending_order"]["action"] == "long", snap["pending_order"]
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "5m", config=dnse(100e6))
+    s.on_tick(1978.0)
+    s.place_order("long")
+    # 1978 + 0.1 point: no waiting for the next bar.
+    assert s.position == 1 and close_to(s.entry_price, 1978.1), s.snapshot()
+    # One contract needs 1978.1 x 100 000 x 18.48% = 36.56 million: two fit in 100.
+    assert s.snapshot()["contracts"] == 2, s.snapshot()
+    s.on_tick(1988.1)
+    assert close_to(s.unrealized(), 2 * 10 * 100_000.0), s.unrealized()
 
 
-@check("it fills at the next bar's open, with adverse slippage, timed at that open")
+@check("DNSE's force sell closes a long after an adverse move of 1.13% of its value")
 def _():
-    s = forming_at(T0)
-    s.place_order("long", now=T0 / 1000 + 39)
-    s.on_forming_candle(candle(T0, 100.0, 101.0, 95.0, 96.0))   # the click bar runs on
-    events = s.on_forming_candle(candle(T0 + MIN, 103.0))       # first update of 21:20
-    entry = [e for e in events if e["type"] == "entry"]
-    assert len(entry) == 1, events
-    # The open of bar i+1, not the price at the click (96) nor the click bar's open.
-    assert close_to(s.entry_price, 103.0 * 1.0002), s.entry_price
-    assert s.entry_time == (T0 + MIN) // 1000, s.entry_time
-    assert s.pending_order is None
+    s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "5m", config=dnse(100e6, slippage_points=0.0))
+    s.on_tick(2000.0)
+    s.place_order("long")
+    assert close_to(s.model.liquidation_price(2000.0, 1), 2000.0 * (1 - 0.0113)), s.model.liquidation_price(2000.0, 1)
 
 
-@check("a short and a close fill at the next open the same way")
+@check("capital that cannot margin one contract is refused, with both amounts")
 def _():
-    s = forming_at(T0)
-    s.place_order("short", now=T0 / 1000 + 5)
-    s.on_forming_candle(candle(T0 + MIN, 99.0))
-    assert close_to(s.entry_price, 99.0 * 0.9998), s.entry_price
-    s.place_order("close", now=T0 / 1000 + 70)
-    s.on_forming_candle(candle(T0 + MIN, 99.0, 100.0, 98.0, 98.5))
-    assert s.position == -1, "closed inside the bar the close was clicked in"
-    s.on_forming_candle(candle(T0 + 2 * MIN, 101.0))
-    t = s.trades[-1]
-    assert s.position == 0 and close_to(t.exit_price, 101.0 * 1.0002), t
-    assert t.exit_time == (T0 + 2 * MIN) // 1000 and t.exit_reason == "manual", t
+    for capital, extra, wanted in ((1_000.0, {}, "1 hợp đồng"),
+                                   (100e6, {"sizing": "fixed", "contracts": 100}, "100 hợp đồng")):
+        s = PaperSession(MANUAL_STRATEGY_ID, "VN:VN30F1M", "5m", config=dnse(capital, **extra))
+        s.on_tick(1978.0)
+        try:
+            s.place_order("long")
+        except OrderRefused as exc:
+            assert exc.code == "insufficient_margin", exc.code
+            assert wanted in exc.message["vi"] and "triệu VND" in exc.message["vi"], exc.message
+        else:
+            raise AssertionError(f"{capital} VND traded {extra or 'one contract'}")
+        assert s.position == 0 and s.equity == capital
 
 
-@check("a feed of closed bars only (VN) still fills at the next open, never the click bar's")
+@check("a futures session whose capital cannot margin one contract does not start")
 def _():
-    s = manual()
-    # The last bar seen closed at 21:17; the bar in progress (21:19) was never
-    # delivered. The clock is what says the click belongs to 21:19.
-    s.on_closed_candle(candle(T0 - 2 * MIN, 100.0), lambda h: None)
-    s.place_order("long", now=T0 / 1000 + 39)
-    s.on_closed_candle(candle(T0 - MIN, 100.5), lambda h: None)       # 21:18 closes late
-    s.on_closed_candle(candle(T0, 101.0, 101.5, 99.0, 100.0), lambda h: None)   # 21:19
-    assert s.position == 0, ("filled on a bar that opened before the click", s.snapshot())
-    s.on_closed_candle(candle(T0 + MIN, 102.0, 102.5, 101.0, 102.0), lambda h: None)
-    assert s.position == 1 and close_to(s.entry_price, 102.0 * 1.0002), s.snapshot()
-    assert s.entry_time == (T0 + MIN) // 1000
-
-
-@check("the bar a stop is judged on is the fill bar and later, never the click bar")
-def _():
-    s = forming_at(T0)
-    s.place_order("long", now=T0 / 1000 + 10, stop_loss=95.0)
-    # The next bar starts (and fills the order) before the click bar's close
-    # message arrives; that close reached 90 — before the position existed.
-    s.on_forming_candle(candle(T0 + MIN, 100.0))
-    s.on_closed_candle(candle(T0, 100.0, 100.0, 90.0, 99.0), lambda h: None)
-    assert s.position == 1 and not s.trades, ("a bar from before the fill stopped it out", s.trades)
-    s.on_closed_candle(candle(T0 + MIN, 100.0, 100.0, 94.0, 96.0), lambda h: None)
-    assert s.trades and s.trades[0].exit_reason == "stop_loss", s.trades
-
-
-@check("a level the open has gapped past is dropped and reported, not fired")
-def _():
-    s = forming_at(T0)
-    s.place_order("long", now=T0 / 1000 + 10, stop_loss=97.0, take_profit=110.0)
-    events = s.on_forming_candle(candle(T0 + MIN, 96.0))     # gap below the stop
-    entry = next(e for e in events if e["type"] == "entry")
-    assert s.stop_loss is None and s.take_profit == 110.0, (s.stop_loss, s.take_profit)
-    assert [d["level"] for d in entry["dropped_levels"]] == ["stop_loss"], entry
-
-
-@check("an order that has nothing left to do when the bar opens is rejected with a code")
-def _():
-    s = forming_at(T0)
-    order(s, "long", stop_loss=95.0)
-    bar_open = s.last_bar_open * 1000
-    s.place_order("close", now=bar_open / 1000 + 5)
-    # The stop fires when the click bar closes, before the next open.
-    s.on_closed_candle(candle(bar_open, 100.0, 100.0, 94.0, 95.5), lambda h: None)
-    assert s.position == 0
-    events = s.on_forming_candle(candle(bar_open + MIN, 96.0))
-    assert [e["type"] for e in events] == ["order_rejected"], events
-    assert events[0]["code"] == "already_flat" and set(events[0]["message"]) == {"vi", "en"}, events
-
-
-@check("one waiting order at a time, and it can be cancelled")
-def _():
-    s = forming_at(T0)
-    s.place_order("long", now=T0 / 1000 + 1)
-    try:
-        s.place_order("short", now=T0 / 1000 + 2)
-    except OrderRefused as exc:
-        assert exc.code == "order_pending", exc.code
-    else:
-        raise AssertionError("a second order was queued behind the first")
-    result = s.place_order("cancel")
-    assert result["events"][0]["type"] == "order_cancelled" and s.pending_order is None
-    assert s.on_forming_candle(candle(T0 + MIN, 101.0)) == [] and s.position == 0
-    try:
-        s.place_order("cancel")
-    except OrderRefused as exc:
-        assert exc.code == "no_pending_order", exc.code
-    else:
-        raise AssertionError("cancelled an order that did not exist")
-
-
-@check("the strategy cannot trade between the click and the fill")
-def _():
-    s = PaperSession("example_ema_cross", "BTCUSDT", "1m",
-                     config=BacktestConfig(fee=0.0004, slippage=0.0002))
-    s.on_forming_candle(candle(T0, 100.0))
-    s.place_order("long", now=T0 / 1000 + 1)
-    assert s.manual_override is True
-    assert s._decide(lambda history: -1) == s.position == 0
-
-
-@check("a waiting order survives a restart")
-def _():
+    import asyncio
     from backend.data import sources as data_sources
     from backend.paper.manager import PaperManager
 
-    s = forming_at(T0)
-    s.place_order("short", now=T0 / 1000 + 30, take_profit=90.0)
     manager = PaperManager.__new__(PaperManager)
+    manager._sessions = {}
+    manager._lock = asyncio.Lock()
+    manager._streams = None
+    history = pd.DataFrame({"open_time": [1_700_000_000_000], "open": [1978.0], "high": [1980.0],
+                            "low": [1975.0], "close": [1978.0], "volume": [1.0]})
     original = data_sources.get_candles
-    data_sources.get_candles = lambda *a, **k: pd.DataFrame()
+    data_sources.get_candles = lambda *a, **k: history
     try:
-        restored = manager._from_payload(manager._to_payload(s))
+        try:
+            asyncio.run(manager.start(MANUAL_STRATEGY_ID, "VN:VN30F1M", "5m", {}, dnse(30e6)))
+        except OrderRefused as exc:
+            assert exc.code == "capital_below_margin", exc.code
+            assert "36.55" in exc.message["vi"], exc.message
+        else:
+            raise AssertionError("a 30 million account opened a VN30F1M session")
+        assert manager._sessions == {}, "the refused session was kept"
     finally:
         data_sources.get_candles = original
-    assert restored.pending_order == s.pending_order, restored.pending_order
-    restored.on_forming_candle(candle(T0 + MIN, 98.0))
-    assert restored.position == -1 and restored.take_profit == 90.0, restored.snapshot()
 
 
 def main() -> int:
