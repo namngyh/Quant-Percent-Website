@@ -388,3 +388,6 @@ body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-ch
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* Close buttons of the settings and team dialogs (Nam, 2026-09-17): the ×
+   at 12.5px in a 30px button was too small to find and hit. */
+.dialog-close { width: 36px; height: 36px; min-height: 36px; padding: 0; font-size: 26px; line-height: 1; font-weight: 400; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
