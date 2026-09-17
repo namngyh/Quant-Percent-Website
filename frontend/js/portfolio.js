@@ -324,9 +324,7 @@ const Portfolio = (() => {
           <span class="pf-bar-gap ${gapCls}" title="${esc(L('Chênh lệch rủi ro', 'Risk gap'))}">${gapText}</span>
         </div>`;
       }).join('')}
-      <p class="table-note">${esc(L(
-        'Cột phải là chênh lệch giữa phần rủi ro và phần tiền. Số dương (đỏ) nghĩa là vị thế đó gánh nhiều rủi ro hơn tỷ trọng vốn gợi ý, do biến động mạnh hơn hoặc tương quan cao với rổ còn lại.',
-        'The right column is the gap between share of risk and share of money. Positive means the position carries more risk than its size suggests.'))}</p>
+
     </div>`;
   }
 
@@ -451,9 +449,6 @@ const Portfolio = (() => {
 
   function overviewTab(d) {
     let html = '';
-    for (const note of d.notes || []) {
-      html += `<div class="callout">${emph(esc(tp(note) || note))}</div>`;
-    }
 
     html += '<div class="metrics">';
     html += metric(L('Tổng giá trị', 'Total value'), dong(d.total_value), '', '',
@@ -718,9 +713,6 @@ const Portfolio = (() => {
       html += '</div>';
     }
 
-    html += `<p class="table-note">${esc(L(
-      `Mọi con số quy năm theo ${nf(p.trading_days_per_year, 0)} phiên. Lãi suất phi rủi ro dùng ở đây là ${upct(p.risk_free_pct)} — một lựa chọn, không phải một phép bỏ qua.`,
-      `Everything is annualised on ${nf(p.trading_days_per_year, 0)} sessions. The risk-free rate used is ${upct(p.risk_free_pct)}, which is a choice rather than an omission.`))}</p>`;
     return html;
   }
 
@@ -752,18 +744,14 @@ const Portfolio = (() => {
         </tr>`;
       }).join('') +
       `</tbody></table>
-      <p class="table-note">${esc(L(
-        `Sắp xếp theo phần rủi ro, không theo phần tiền, đó là thứ tự quan trọng hơn. Giá là giá đóng cửa phiên ${d.last_session}, quy về đồng (feed niêm yết theo nghìn đồng).`,
-        `Sorted by share of risk rather than share of money: that is the order that matters. Prices are the close of ${d.last_session}, converted to dong (the feed quotes in thousands).`))}</p>
     </div>`;
   }
 
   function diversificationTab(d) {
     const c = d.concentration;
-    let html = `<div class="callout ${c.effective_bets < c.positions * 0.5 ? 'warn' : ''}">
-      ${esc(L(
-        `Danh mục có ${c.positions} mã nhưng chỉ tương đương ${nf(c.effective_bets)} cược độc lập sau khi trừ đi phần tương quan. Tương quan trung bình giữa các cặp là ${nf(c.average_correlation, 3)}.`,
-        `The portfolio holds ${c.positions} names but amounts to only ${nf(c.effective_bets)} independent bets once correlation is taken out. The average pairwise correlation is ${nf(c.average_correlation, 3)}.`))}</div>`;
+    let html = c.effective_bets < c.positions * 0.5 ? `<div class="callout warn">${esc(L(
+      `Danh mục ${c.positions} mã chỉ tương đương ${nf(c.effective_bets)} cược độc lập; tương quan trung bình ${nf(c.average_correlation, 3)}.`,
+      `The ${c.positions}-name portfolio amounts to ${nf(c.effective_bets)} independent bets; average correlation ${nf(c.average_correlation, 3)}.`))}</div>` : '';
 
     html += '<div class="metrics">';
     html += metric(L('Số mã', 'Positions'), c.positions, '', '',
@@ -784,15 +772,6 @@ const Portfolio = (() => {
     // Interactive Correlation Heatmap Matrix
     html += correlationHeatmap(d);
 
-    html += `<p class="table-note" style="margin-top:14px">${esc(L(
-      'Số mã hiệu dụng chỉ đếm tiền: mười mã đều nhau cho 10, mười mã mà một mã chiếm 80% cho khoảng 1,5. Số cược độc lập đi xa hơn và trừ cả phần tương quan: mười mã cùng ngành với tương quan 0,7 hành xử như khoảng ba cược, không phải mười.',
-      'Effective assets counts money only: ten equal names give 10, ten names where one holds 80% give about 1.5. Effective bets goes further and removes correlation: ten names in one sector correlated at 0.7 behave like about three bets, not ten.'))}</p>
-      <p class="table-note">${esc(L('Hiệp phương sai dùng co rút Ledoit–Wolf',
-        'Covariance uses Ledoit–Wolf shrinkage'))}
-      ${Explain.button('p.shrinkage', { title: L('Giải thích co rút', 'Explain shrinkage') })},
-      ${esc(L(
-        `cường độ ${upct(d.shrinkage_intensity * 100)} trên ${d.observations} phiên chung (${d.first_session} → ${d.last_session}).`,
-        `intensity ${upct(d.shrinkage_intensity * 100)} over ${d.observations} shared sessions (${d.first_session} → ${d.last_session}).`))}</p>`;
     return html;
   }
 
@@ -802,13 +781,7 @@ const Portfolio = (() => {
       return `<div class="callout warn">${emph(esc(tp(f.reason) || f.reason))}</div>`;
     }
 
-    const paths = f.paths.toLocaleString(I18n.locale());
-    let html = `<div class="callout"><strong>${esc(L(
-      `Mô phỏng ${f.horizon_days} phiên tới`,
-      `Simulating the next ${f.horizon_days} sessions`))}</strong>
-      ${esc(L(
-        `bằng ${paths} đường đi, lấy mẫu theo khối ${nf(f.block_length, 0)} phiên từ chính ${f.observations} phiên lịch sử của danh mục này. Lấy theo khối chứ không lấy từng ngày độc lập, để giữ lại hiện tượng biến động gom cụm, nếu bỏ nó, xác suất của những đợt sụt sâu bị đánh giá thấp một cách có hệ thống.`,
-        `over ${paths} paths, sampled in blocks of ${nf(f.block_length, 0)} sessions from this portfolio's own ${f.observations} sessions of history. Blocks rather than independent days, to keep volatility clustering: dropping it systematically understates the odds of a deep fall.`))}</div>`;
+    let html = '';
 
     html += '<div class="metrics">';
     html += metric(L('Lợi suất kỳ vọng', 'Expected return'), pct(f.expected_return_pct),
@@ -828,7 +801,7 @@ const Portfolio = (() => {
     html += forwardCharts(f);
 
     html += `<div class="callout warn" style="margin-top:14px"><strong>${esc(L(
-      'Giới hạn của mô phỏng này.', 'What this simulation cannot do.'))}</strong>
+      'Giới hạn của mô phỏng:', 'Limitations of the simulation:'))}</strong>
       ${emph(esc(tp(f.caveat) || f.caveat))}</div>`;
     return html;
   }

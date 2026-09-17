@@ -326,19 +326,15 @@ const Report = (() => {
 
     let html = '';
     if (o.ruined) {
-      html += `<div class="callout bad"><strong>${esc(L(
-        'Tài khoản đã cháy.', 'The account was wiped out.'))}</strong>
-        ${esc(L(
-          'Vốn chạm 0 và mô phỏng dừng lại tại đó. Mọi con số bên dưới chỉ mô tả quãng đường tới lúc đó.',
-          'Equity hit zero and the simulation stopped there. Everything below describes only the road up to that point.'))}</div>`;
+      html += `<div class="callout bad">${esc(L(
+        'Tài khoản cháy; các chỉ số chỉ tính đến thời điểm vốn về 0.',
+        'Account wiped out; the figures cover the period up to the point equity reached zero.'))}</div>`;
     }
-    html += `<div class="callout ${beat ? 'good' : 'warn'}">
-      <strong>${esc(L(
-        `${beat ? 'Thắng' : 'Thua'} mua-và-giữ ${pct(o.vs_buy_hold_pct)}.`,
-        `${beat ? 'Beat' : 'Lost to'} buy-and-hold by ${pct(o.vs_buy_hold_pct)}.`))}</strong>
-      ${esc(L(
-        `Chiến lược ${pct(o.net_profit_pct)} so với ${pct(o.buy_hold_pct)} của việc chỉ mua ở nến đầu rồi giữ tới nến cuối, trên đúng cùng giai đoạn và cùng chi phí vào lệnh.`,
-        `The strategy returned ${pct(o.net_profit_pct)} against ${pct(o.buy_hold_pct)} for simply buying at the first bar and holding to the last, over the identical window and paying the same entry cost.`))}</div>`;
+    if (!beat) {
+      html += `<div class="callout warn">${esc(L(
+        `Lợi nhuận thấp hơn mua và nắm giữ ${pct(o.vs_buy_hold_pct)} (chiến lược ${pct(o.net_profit_pct)}, mua và nắm giữ ${pct(o.buy_hold_pct)}).`,
+        `Return is ${pct(o.vs_buy_hold_pct)} against buy-and-hold (strategy ${pct(o.net_profit_pct)}, buy-and-hold ${pct(o.buy_hold_pct)}).`))}</div>`;
+    }
 
     html += '<div class="metrics">';
     html += card(L('Lãi ròng', 'Net profit'), money(o.net_profit), 'm.total_return',
@@ -365,12 +361,11 @@ const Report = (() => {
         L('so với mua-và-giữ', 'versus buy-and-hold'));
       html += card(L('Tương quan', 'Correlation'), ratio(b.correlation), '',
         Math.abs(b.correlation) < 0.3 ? 'pos' : '',
-        L('thấp là tốt', 'lower is better'));
+        '');
       html += card(L('Alpha (năm)', 'Alpha (annual)'), pct(b.alpha_annual_pct), '',
         cls(b.alpha_annual_pct),
-        L('phần không giải thích được bằng beta', 'the part beta cannot explain'));
+        '');
       html += '</div>';
-      html += `<p class="table-note">${emph(esc(tp(b.note) || b.note))}</p>`;
     }
 
     html += `<table class="data-table rp-table"><tbody>
@@ -385,9 +380,9 @@ const Report = (() => {
     </tbody></table>`;
 
     if (o.years < 1) {
-      html += `<p class="table-note">${esc(L(
-        `Giai đoạn ngắn hơn một năm, nên CAR và RAR đang ngoại suy từ ${nf(o.years * 12, 1)} tháng dữ liệu. Đọc lãi ròng thay vì đọc chúng.`,
-        `The period is under a year, so CAR and RAR extrapolate from ${nf(o.years * 12, 1)} months of data. Read net profit instead.`))}</p>`;
+      html += `<div class="callout warn">${esc(L(
+        `Giai đoạn dưới một năm: CAR và RAR là giá trị ngoại suy từ ${nf(o.years * 12, 1)} tháng dữ liệu.`,
+        `Period under one year: CAR and RAR are extrapolated from ${nf(o.years * 12, 1)} months of data.`))}</div>`;
     }
     return html;
   }
@@ -443,19 +438,14 @@ const Report = (() => {
       const bad = goodLong ? t2.short : t2.long;
       const goodName = goodLong ? L('mua', 'long') : L('bán', 'short');
       const badName = goodLong ? L('bán', 'short') : L('mua', 'long');
-      html += `<div class="callout warn"><strong>${esc(L(
-        'Chỉ một chiều có lãi.', 'Only one side makes money.'))}</strong>
-        ${esc(L(
-          `Chiều ${goodName} lãi ${money(Math.abs(good.net_profit))}, chiều ${badName} lỗ ${money(Math.abs(bad.net_profit))}. Bỏ hẳn chiều ${badName} có thể cho kết quả tốt hơn, nhưng hãy kiểm chứng bằng walk-forward, vì đây cũng có thể chỉ là đặc điểm của đúng giai đoạn này.`,
-          `The ${goodName} side made ${money(Math.abs(good.net_profit))} and the ${badName} side lost ${money(Math.abs(bad.net_profit))}. Dropping the ${badName} side may do better, but check it with walk-forward, because it may equally be a feature of this particular period.`))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Chỉ chiều ${goodName} có lãi (${money(Math.abs(good.net_profit))}); chiều ${badName} lỗ ${money(Math.abs(bad.net_profit))}.`,
+        `Only the ${goodName} side is profitable (${money(Math.abs(good.net_profit))}); the ${badName} side lost ${money(Math.abs(bad.net_profit))}.`))}</div>`;
     }
     if (t2.all.best_trade_share_pct > 40) {
-      html += `<div class="callout warn"><strong>${esc(L(
-        `Một lệnh chiếm ${upct(t2.all.best_trade_share_pct, 0)} tổng lãi.`,
-        `One trade is ${upct(t2.all.best_trade_share_pct, 0)} of gross profit.`))}</strong>
-        ${esc(L(
-          `Hệ số lợi nhuận ${ratio(t2.all.profit_factor)} đang mô tả một lần may chứ không mô tả chiến lược. Bỏ lệnh đó ra thì phần còn lại trông rất khác.`,
-          `A profit factor of ${ratio(t2.all.profit_factor)} is describing one lucky trade rather than the strategy. Take it out and what remains looks very different.`))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Một lệnh chiếm ${upct(t2.all.best_trade_share_pct, 0)} tổng lãi; hệ số lợi nhuận ${ratio(t2.all.profit_factor)} phụ thuộc chủ yếu vào lệnh này.`,
+        `One trade accounts for ${upct(t2.all.best_trade_share_pct, 0)} of gross profit; the profit factor of ${ratio(t2.all.profit_factor)} rests largely on it.`))}</div>`;
     }
 
     html += `<table class="data-table rp-table"><thead><tr>
@@ -521,14 +511,10 @@ const Report = (() => {
       ${card(L('Lệnh lớn nhất / tổng lãi', 'Best trade share'),
         upct(t2.all.best_trade_share_pct, 0), '',
         t2.all.best_trade_share_pct > 40 ? 'neg' : '')}
-    </div>
-    <p class="table-note">${emph(esc(tp(s.note) || s.note))}</p>`;
+    </div>`;
 
     html += title(L('Lãi lỗ cộng dồn theo thứ tự lệnh', 'Cumulative P&L in trade order'));
     html += sequenceChart(r);
-    html += `<p class="table-note">${esc(L(
-      'Trục ngang là thứ tự lệnh, không phải thời gian. Một đường đi lên đều đặn nghĩa là lợi nhuận rải khắp chuỗi; một bậc thang duy nhất nghĩa là gần như toàn bộ đến từ một lệnh, và phần còn lại đi ngang.',
-      'The x-axis is trade order, not time. A steady climb means profit is spread across the sequence; a single step means almost all of it came from one trade and the rest went nowhere.'))}</p>`;
     return html;
   }
 
@@ -605,9 +591,6 @@ const Report = (() => {
 
     html += title(L('Sharpe trên cửa sổ trượt', 'Rolling Sharpe'));
     html += rollingSharpeChart(r);
-    html += `<p class="table-note">${esc(L(
-      'Một Sharpe 1.2 cho toàn giai đoạn có thể là 2.5 trong hai năm đầu và −0.3 trong hai năm sau. Con số tổng hợp không phân biệt được điều đó với một chiến lược đều đặn; đường này thì có.',
-      'A headline Sharpe of 1.2 can be 2.5 for two years and −0.3 for the next two. The single figure cannot tell that apart from a steady strategy; this line can.'))}</p>`;
 
     if (ep.worst?.length) {
       html += title(L('Năm đợt sụt giảm sâu nhất', 'The five deepest drawdowns'));
@@ -650,15 +633,9 @@ const Report = (() => {
 
     if (ep.unrecovered) {
       html += `<div class="callout warn">${esc(L(
-        'Giai đoạn kết thúc khi đường vốn vẫn còn dưới đỉnh, đợt sụt giảm cuối cùng chưa hồi. Nó không có thời gian hồi phục để báo cáo, và độ sâu của nó vẫn còn có thể sâu thêm.',
-        'The period ends with equity still below its peak, the last drawdown never recovered. It has no recovery time to report, and its depth can still get worse.'))}</div>`;
+        'Đợt sụt giảm cuối chưa hồi phục tại thời điểm kết thúc giai đoạn.',
+        'The final drawdown had not recovered by the end of the period.'))}</div>`;
     }
-    if (k?.note) {
-      html += `<p class="table-note">${esc(L('Hệ số K: ', 'K-ratio: '))}${emph(esc(tp(k.note) || k.note))}</p>`;
-    }
-    html += `<p class="table-note">${esc(L(
-      'Sụt giảm trong quá khứ là cận dưới, không phải cận trên. Một giai đoạn dài hơn gần như luôn chứa một đợt sâu hơn đợt tệ nhất ở đây, hãy lấy con số này làm mức tối thiểu phải chịu được, không phải mức tối đa sẽ gặp.',
-      'Past drawdown is a floor, not a ceiling. A longer period almost always contains something deeper than the worst here: read this as the minimum you must be able to sit through, not the maximum you will meet.'))}</p>`;
     return html;
   }
 
@@ -815,9 +792,6 @@ const Report = (() => {
       html += annualChart(p.annual);
     }
 
-    html += `<p class="table-note">${esc(L(
-      `Chia kỳ theo ${p.timezone}, đúng múi giờ hiển thị trên biểu đồ. Lợi suất tháng đầu tiên tính từ vốn ban đầu. Nếu gần như toàn bộ lợi nhuận nằm trong hai hoặc ba ô, chiến lược này bắt được một đợt sóng chứ chưa chắc có lợi thế lặp lại được.`,
-      `Periods are split in ${p.timezone}, the same zone the chart shows. The first month is measured from initial capital. If nearly all the profit sits in two or three cells, this strategy caught one move rather than proving a repeatable edge.`))}</p>`;
     return html;
   }
 
@@ -832,9 +806,6 @@ const Report = (() => {
     html += histogram(r.charts.bar_returns,
       L('lợi suất đường vốn mỗi nến (%)', 'equity return per bar (%)'),
       L('Phân phối lợi suất theo nến', 'Distribution of bar returns'));
-    html += `<p class="table-note">${esc(L(
-      `Độ lệch ${nf(r.risk.ratios?.skew, 2)} và độ nhọn ${nf(r.risk.ratios?.kurtosis, 1)} (phân phối chuẩn có cả hai bằng 0). Đuôi càng dày thì Sharpe càng đánh giá thấp rủi ro, vì Sharpe chỉ nhìn hai mô-men đầu.`,
-      `Skew ${nf(r.risk.ratios?.skew, 2)} and kurtosis ${nf(r.risk.ratios?.kurtosis, 1)} (a normal distribution has both at zero). The fatter the tails, the more Sharpe understates the risk, because Sharpe only looks at the first two moments.`))}</p>`;
 
     if (!e.count) return html;
 
@@ -857,14 +828,6 @@ const Report = (() => {
         <td class="pos">${nf(e.mfe_losers.mean)}%</td></tr>
     </tbody></table>`;
 
-    html += `<div class="callout"><strong>${esc(L('Đặt dừng lỗ ở đâu.', 'Where a stop can go.'))}</strong>
-      ${emph(esc(tp(e.stop_note) || e.stop_note))} ${esc(L(
-        `Ở đây lệnh thắng trung bình chìm ${nf(Math.abs(e.mae_winners.mean))}% trước khi có lãi, nên một mức dừng chặt hơn thế sẽ cắt chính chúng.`,
-        `Here the average winner went ${nf(Math.abs(e.mae_winners.mean))}% under water before it turned, so a stop tighter than that cuts the winners.`))}</div>`;
-    html += `<div class="callout"><strong>${esc(L('Có nên chốt lãi không.', 'Whether to take profit.'))}</strong>
-      ${emph(esc(tp(e.target_note) || e.target_note))} ${esc(L(
-        `Ở đây lệnh thua trung bình từng xanh ${nf(e.mfe_losers.mean)}%.`,
-        `Here the average loser was ${nf(e.mfe_losers.mean)}% in profit at some point.`))}</div>`;
     return html;
   }
 
@@ -880,18 +843,12 @@ const Report = (() => {
         'This strategy publishes no probability, so there is no model to score. This tab is for machine-learning strategies.'))}</p>`;
     }
     if (m.error) {
-      return `<div class="callout warn">${emph(esc(tp(m.error) || m.error))}</div>
-        <p class="table-note">${esc(L(
-          'Phần này chấm tín hiệu như một bộ phân loại hướng của nến kế tiếp. Nó cần đủ số nến vừa có vị thế vừa có nến sau biến động.',
-          'This scores the signal as a classifier of the next bar’s direction. It needs enough bars that both hold a position and are followed by a bar that moved.'))}</p>`;
+      return `<div class="callout warn">${emph(esc(tp(m.error) || m.error))}</div>`;
     }
 
     const c = m.confusion;
-    let html = `<div class="callout ${m.beats_baseline ? 'good' : 'warn'}">
-      <strong>${esc(m.beats_baseline
-        ? L('Vượt đường cơ sở.', 'Beats the baseline.')
-        : L('Chưa vượt đường cơ sở.', 'Does not beat the baseline.'))}</strong>
-      ${emph(esc(tp(m.conclusion) || m.conclusion))}</div>`;
+    let html = m.beats_baseline ? '' : `<div class="callout warn">${esc(L(
+      'Mô hình chưa vượt đường cơ sở.', 'The model does not beat the baseline.'))}</div>`;
 
     html += '<div class="metrics">';
     html += card(L('Độ chính xác', 'Accuracy'), upct(m.accuracy * 100), 'ml.accuracy',
@@ -918,10 +875,7 @@ const Report = (() => {
         `p = ${Explain.pFormat(m.ic_p_value)}`)}
       ${card(L('Độ phủ', 'Coverage'), upct(m.coverage_pct), '', '',
         L('phần nến có dự đoán', 'share of bars with a prediction'))}
-    </div>
-    <p class="table-note">${esc(L(
-      'Độ chính xác coi mọi nến như nhau: đoán đúng một cú tăng 3% và một cú tăng 0.05% đều tính là một lần đúng. Hệ số thông tin thì tính cả độ lớn, nên nó là con số gần với tiền hơn. Trong quản lý quỹ định lượng, IC quanh 0.03 đã là một tín hiệu dùng được.',
-      'Accuracy treats every bar alike: calling a 3% move and a 0.05% move both count as one hit. The information coefficient weights magnitude, so it is the number closer to money. In quantitative fund management an IC around 0.03 is already a usable signal.'))}</p>`;
+    </div>`;
 
     html += title(L('Theo từng chiều', 'By side'));
     html += `<table class="data-table rp-table"><thead><tr>
@@ -965,18 +919,10 @@ const Report = (() => {
             <td>${upct(b.predicted * 100)}</td>
             <td class="${Math.abs(b.predicted - b.observed) < 0.05 ? 'pos' : 'neg'}">${upct(b.observed * 100)}</td>
             <td class="muted">${b.count}</td></tr>`).join('') + '</tbody></table>';
-        html += `<p class="table-note">${esc(L(
-          'Mô hình hiệu chuẩn tốt thì hai cột đầu bám sát nhau: khi nó nói 70%, kết quả đúng khoảng 70% số lần đó.',
-          'A well-calibrated model keeps the first two columns close: when it says 70%, it is right about 70% of the time.'))}</p>`;
       }
-      html += `<p class="table-note">${emph(esc(tp(p.note) || p.note))}</p>`;
     } else {
-      html += `<p class="table-note">${esc(L(
-        'Chiến lược này không công bố xác suất, nên không chấm được phần hiệu chuẩn. Để có phần đó, hãy gán df["ml_probability"] trong hàm signals().',
-        'This strategy publishes no probabilities, so calibration cannot be scored. To get it, assign df["ml_probability"] inside signals().'))}</p>`;
     }
 
-    html += `<p class="table-note">${emph(esc(tp(m.note) || m.note))} ${emph(esc(tp(m.assumptions) || m.assumptions))}</p>`;
     return html;
   }
 
@@ -1067,7 +1013,6 @@ const Report = (() => {
       if (thin.length) {
         html += `<div class="callout warn">${emph(esc(tp(thin[0].note)))}</div>`;
       }
-      html += `<p class="table-note">${emph(esc(tp(tail.method)))}</p>`;
     }
 
     html += `<div class="field-group-title">${esc(L(
@@ -1096,13 +1041,10 @@ const Report = (() => {
     }
     html += '</div>';
 
-    if (!kel.available && kel.reason) {
-      html += `<div class="callout">${emph(esc(tp(kel.reason)))}</div>`;
-    }
     if (bud.available && bud.capped) {
       html += `<div class="callout warn">${esc(L(
-        `Ngân sách ${bud.budget_pct.toFixed(1)}% cần cỡ vị thế lớn hơn 100% vốn, nên nó đã bị chặn ở 100%. Nói cách khác, chiến lược này không đủ rủi ro để tiêu hết ngân sách đó ở cỡ vị thế thường.`,
-        `A ${bud.budget_pct.toFixed(1)}% budget would need a position above 100% of equity, so it is capped at 100%. Put another way, this strategy is not risky enough to spend that budget at ordinary sizing.`))}</div>`;
+        `Ngân sách rủi ro ${bud.budget_pct.toFixed(1)}% đòi hỏi cỡ vị thế trên 100% vốn; đã giới hạn ở 100%.`,
+        `A ${bud.budget_pct.toFixed(1)}% risk budget requires a position above 100% of equity; capped at 100%.`))}</div>`;
     }
 
     if (lev.available) {
@@ -1181,8 +1123,8 @@ const Report = (() => {
     const gap = marketRisk.spacing_days;
     if (gap && gap.max > gap.median * 3) {
       html += `<div class="callout warn">${esc(L(
-        `Đây là ${marketRisk.snapshots.length} ảnh chụp rời rạc, không phải một chuỗi liên tục — khoảng cách lớn nhất giữa hai lần là ${gap.max.toFixed(0)} ngày. Đừng đọc chúng như một đường diễn biến.`,
-        `These are ${marketRisk.snapshots.length} separate snapshots, not a continuous series — the largest gap between two of them is ${gap.max.toFixed(0)} days. Do not read them as a trend.`))}</div>`;
+        `Dữ liệu gồm ${marketRisk.snapshots.length} ảnh chụp rời rạc; khoảng cách lớn nhất ${gap.max.toFixed(0)} ngày.`,
+        `The data are ${marketRisk.snapshots.length} separate snapshots; the largest gap is ${gap.max.toFixed(0)} days.`))}</div>`;
     }
     return html;
   }

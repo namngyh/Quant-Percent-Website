@@ -260,7 +260,12 @@ class PaperManager:
 
         for session in targets:
             if not closed:
-                session.on_tick(float(candle["close"]))
+                # A stop, target or liquidation reached by the live price
+                # fills now, not when the bar closes.
+                events = session.on_tick(float(candle["close"]), candle)
+                if events:
+                    await asyncio.to_thread(self._persist, session)
+                    await self._publish(session, events)
                 continue
 
             # Strategy evaluation is pandas work; keep it off the event loop so
@@ -269,24 +274,28 @@ class PaperManager:
                 session.on_closed_candle, candle, self._signal_fn(session)
             )
             await asyncio.to_thread(self._persist, session)
+            await self._publish(session, events)
 
-            # Push to the phone as well. Failures are logged inside the
-            # notifier and never interrupt trading.
-            if events and telegram.configured():
-                snapshot = session.snapshot()
-                for event in events:
-                    text = telegram.format_paper_event(snapshot, event)
-                    if text:
-                        await telegram.send(text)
+    async def _publish(self, session: PaperSession, events: list[dict]) -> None:
+        """Send a session's events to Telegram and the browser, then its snapshot."""
 
-            if self._notify:
-                for event in events:
-                    await self._notify(
-                        {"type": "paper_event", "session_id": session.id, "event": event}
-                    )
+        # Push to the phone as well. Failures are logged inside the
+        # notifier and never interrupt trading.
+        if events and telegram.configured():
+            snapshot = session.snapshot()
+            for event in events:
+                text = telegram.format_paper_event(snapshot, event)
+                if text:
+                    await telegram.send(text)
+
+        if self._notify:
+            for event in events:
                 await self._notify(
-                    {"type": "paper_update", "session": session.snapshot()}
+                    {"type": "paper_event", "session_id": session.id, "event": event}
                 )
+            await self._notify(
+                {"type": "paper_update", "session": session.snapshot()}
+            )
 
     # ----------------------------------------------------------- persistence
 

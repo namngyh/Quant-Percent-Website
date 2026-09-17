@@ -130,6 +130,13 @@ class PaperSession:
     bars_seen: int = 0
     trades: list[PaperTrade] = field(default_factory=list)
 
+    # Live-price bookkeeping for exits (on_tick). Not persisted: after a
+    # restart the first tick starts a fresh range at the current price.
+    _bar: dict | None = field(default=None, repr=False)
+    _entry_bar: dict | None = field(default=None, repr=False)
+    _reach: tuple | None = field(default=None, repr=False)
+    _reach_bar: int | None = field(default=None, repr=False)
+
     # Rolling candle history the strategy is recomputed over.
     history: pd.DataFrame | None = None
     max_history: int = 3000
@@ -199,6 +206,10 @@ class PaperSession:
         self.entry_time = when
         self.position = direction
         self.equity -= self.model.entry_fee(sizing, price)
+        # The range the position has lived through starts at its own fill,
+        # not at the extremes the bar had already printed before it.
+        self._reach = (price, price)
+        self._entry_bar = dict(self._bar) if self._bar else None
         return True
 
     # ------------------------------------------------------------- hand orders
@@ -468,9 +479,69 @@ class PaperSession:
 
     # ------------------------------------------------------------------ ticks
 
-    def on_tick(self, price: float) -> None:
-        """A price update on the forming candle. Marks to market, never trades."""
+    def on_tick(self, price: float, candle: dict | None = None) -> list[dict]:
+        """A price update on the forming candle: marks to market, and fills a
+        stop, a target or a liquidation the price has reached.
+
+        Until 2026-09-17 this only marked to market and every exit waited for
+        the bar to close: on a 5m chart a short's stop at 76 661.17 was crossed
+        at 76 741 and the position stayed open until 19:15 (Nam's screenshot).
+        A resting order fills when the price reaches it, so it is checked here,
+        and filled at its own level exactly as the closed-bar check does (§3.1).
+
+        ``candle`` is the forming bar the price came with. Its high and low
+        count only from the fill onwards: a bar that opened before the entry
+        has extremes the position never lived through, so for that bar the
+        range is the ticks since the fill, widened by any new high or low the
+        bar prints after it.
+        """
         self.last_price = price
+        bar_open = int(candle["open_time"]) // 1000 if candle else None
+        if candle:
+            self._bar = {"open_time": bar_open, "high": float(candle["high"]),
+                         "low": float(candle["low"])}
+        if self.position == 0:
+            return []
+
+        low, high = self._reach or (price, price)
+        low, high = min(low, price), max(high, price)
+        if candle:
+            if bar_open >= self.entry_time:
+                low, high = min(low, float(candle["low"])), max(high, float(candle["high"]))
+            else:
+                entry_bar = self._entry_bar if (self._entry_bar or {}).get("open_time") == bar_open else None
+                if entry_bar and float(candle["high"]) > entry_bar["high"]:
+                    high = max(high, float(candle["high"]))
+                if entry_bar and float(candle["low"]) < entry_bar["low"]:
+                    low = min(low, float(candle["low"]))
+        self._reach = (low, high)
+        self._reach_bar = bar_open
+
+        events = self._exits_within(low, high, int(time.time()))
+        if events:
+            # Flat now: an old pending signal must not reopen at this bar's
+            # open, which is already in the past. The strategy decides again
+            # at the close.
+            self.pending_signal = self.position
+            self.updated_at = int(time.time())
+        return events
+
+    def _exits_within(self, low: float, high: float, when: int) -> list[dict]:
+        """Liquidation, then stop and target, over a range the position lived through."""
+        events: list[dict] = []
+        if self.position == 0:
+            return events
+        liq = self.model.liquidation_price(self.entry_price, self.position)
+        if liq is not None and (low <= liq if self.position > 0 else high >= liq):
+            trade = self._close(liq, when, "liquidation")
+            events.append({"type": "liquidation", "trade": trade.as_dict()})
+            return events
+        exit_hit = self._exit_level_hit({"low": low, "high": high})
+        if exit_hit is not None:
+            level, reason = exit_hit
+            trade = self._close(level, when, reason)
+            events.append({"type": "exit", "trade": trade.as_dict(), "reason": reason})
+        return events
 
     def unrealized(self) -> float:
         if self.position == 0 or self.last_price == 0.0:
@@ -516,24 +587,37 @@ class PaperSession:
                     }
                 )
 
-        # 2. Liquidation, checked against this candle's adverse extreme. None
-        #    means the model has no forced-close price (linear at leverage 1).
-        liq = self.model.liquidation_price(self.entry_price, self.position) if self.position != 0 else None
-        if liq is not None:
-            hit = float(candle["low"]) <= liq if self.position > 0 else float(candle["high"]) >= liq
-            if hit:
-                trade = self._close(liq, when, "liquidation")
-                events.append({"type": "liquidation", "trade": trade.as_dict()})
-
-        # 3. Stop loss and take profit, checked the same way for the same
-        #    reason: both are resting orders, and a resting order fills when
-        #    the price *reaches* it, not when the candle happens to close past
-        #    it. Checking the close would miss every level touched and left.
-        exit_hit = self._exit_level_hit(candle)
-        if exit_hit is not None:
-            price, reason = exit_hit
-            trade = self._close(price, when, reason)
-            events.append({"type": "exit", "trade": trade.as_dict(), "reason": reason})
+        # 2-3. Liquidation, then stop loss and take profit, against this
+        #    candle's extremes: resting orders fill when the price *reaches*
+        #    them, not when the candle happens to close past them. Live ticks
+        #    usually got there first (on_tick); this catches a feed with no
+        #    ticks (the VN poll) and a wick between two updates.
+        #
+        #    A position opened inside this bar only lived through the part of
+        #    it after the fill. When ticks followed that part, their range is
+        #    used; the bar's full high and low would include prices from
+        #    before the position existed.
+        #
+        #    With no ticks at all for that bar (the VN poll delivers closed
+        #    bars only), nothing is known about the part after the fill, so the
+        #    bar is not judged: judging it measured a short at 1 978 with a
+        #    stop at 1 985 as stopped by a 1 990 high printed before the click.
+        #    The next bar, wholly after the entry, is judged in full.
+        if self.position != 0:
+            low, high = float(candle["low"]), float(candle["high"])
+            judge = True
+            if self.entry_time > when:
+                if self._reach and self._reach_bar == when:
+                    low, high = self._reach
+                    if self._entry_bar and self._entry_bar.get("open_time") == when:
+                        if high < float(candle["high"]) and float(candle["high"]) > self._entry_bar["high"]:
+                            high = float(candle["high"])
+                        if low > float(candle["low"]) and float(candle["low"]) < self._entry_bar["low"]:
+                            low = float(candle["low"])
+                else:
+                    judge = False
+            if judge:
+                events.extend(self._exits_within(low, high, when))
 
         # 4. Append to history and decide what to do at the next open.
         self._append(candle)

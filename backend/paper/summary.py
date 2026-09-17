@@ -83,8 +83,32 @@ def _drawdown(points: list[dict]) -> dict:
     }
 
 
+VN_ACCOUNT_CLASSES = {"equity", "fund", "futures_vn", "warrant"}
+
+
+def account_currency(symbol: str) -> str:
+    """The currency a session's money is counted in.
+
+    Binance symbols settle in USDT; Vietnamese listings and index futures in
+    VND. Anything else on the VN feed (indices, the G- international series)
+    has no account currency of its own and is kept apart as plain units.
+    """
+    name = (symbol or "").strip()
+    if not name.upper().startswith("VN:"):
+        return "USDT"
+    from backend.data.market_vn import classify
+    return "VND" if classify(name[3:]) in VN_ACCOUNT_CLASSES else "units"
+
+
 def build(snapshots: list[dict]) -> dict:
-    """One account-level view over every paper session."""
+    """The account view over every paper session, one per currency.
+
+    Sessions in different currencies are never added together: a 10 000 USDT
+    session and a 100 million VND one summed to a "starting capital" of
+    100 010 000 (2026-09-17), a number in no currency at all. `accounts` holds
+    one full summary per currency, largest by session count first; the top
+    level repeats the first so a single-currency reader is unchanged.
+    """
     if not snapshots:
         return {
             "sessions": 0,
@@ -94,6 +118,18 @@ def build(snapshots: list[dict]) -> dict:
             ),
         }
 
+    groups: dict[str, list[dict]] = {}
+    for snap in snapshots:
+        groups.setdefault(account_currency(snap["symbol"]), []).append(snap)
+    accounts = sorted(
+        ({"currency": currency, **_account(group)} for currency, group in groups.items()),
+        key=lambda a: a["sessions"], reverse=True,
+    )
+    return {**accounts[0], "sessions": len(snapshots), "accounts": accounts}
+
+
+def _account(snapshots: list[dict]) -> dict:
+    """One currency's sessions read as one account."""
     trades: list[dict] = []
     for snap in snapshots:
         trades.extend(_session_rows(snap))

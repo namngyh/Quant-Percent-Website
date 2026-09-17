@@ -23,12 +23,19 @@ const PaperDash = (() => {
   let data = null;
   let onToast = () => {};
   let activeTab = 'equity';
+  // Which currency's account is shown when sessions span more than one.
+  let activeCurrency = null;
+  // The account being painted: its money is divided by `scale` for display.
+  let view = { scale: 1, unit: '' };
 
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 
+  // Prices are shown as quoted; account money is shown in its currency, and a
+  // VND account in millions, as the paper panel reads it.
   const money = (v) => Fmt.money(v, { digits: 2, min: 2 });
+  const cash = (v) => `${Fmt.money(v / view.scale, { digits: 2, min: 2 })}${view.unit ? ` ${view.unit}` : ''}`;
   const pct = (v) => Fmt.pct(v);
   const sign = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
   const when = (ts) => (ts
@@ -88,7 +95,7 @@ const PaperDash = (() => {
         </svg>
         <div class="pd-axis">
           <span>${esc(when(points[0].time))}</span>
-          <span class="muted">${esc(L('vốn ban đầu', 'starting capital'))} ${money(starting)}</span>
+          <span class="muted">${esc(L('vốn ban đầu', 'starting capital'))} ${cash(starting)}</span>
           <span>${esc(when(points[points.length - 1].time))}</span>
         </div>
       </div>`;
@@ -98,13 +105,13 @@ const PaperDash = (() => {
 
   function equityTab(d) {
     let html = '<div class="metrics">';
-    html += card(L('Tổng tài sản', 'Total equity'), money(d.equity), sign(d.return_pct),
-      L(`từ ${money(d.starting_capital)}`, `from ${money(d.starting_capital)}`));
+    html += card(L('Tổng tài sản', 'Total equity'), cash(d.equity), sign(d.return_pct),
+      L(`từ ${cash(d.starting_capital)}`, `from ${cash(d.starting_capital)}`));
     html += card(L('Lợi nhuận', 'Return'), pct(d.return_pct), sign(d.return_pct));
     // Kept apart on purpose: see the note at the top of this file.
-    html += card(L('Đã chốt', 'Realised'), money(d.realized_pnl), sign(d.realized_pnl),
+    html += card(L('Đã chốt', 'Realised'), cash(d.realized_pnl), sign(d.realized_pnl),
       L(`${d.num_trades} lệnh đã đóng`, `${d.num_trades} closed trades`));
-    html += card(L('Chưa chốt', 'Unrealised'), money(d.unrealized_pnl), sign(d.unrealized_pnl),
+    html += card(L('Chưa chốt', 'Unrealised'), cash(d.unrealized_pnl), sign(d.unrealized_pnl),
       L(`${d.open_positions.length} vị thế đang mở`,
         `${d.open_positions.length} open positions`));
     html += card(L('Sụt giảm tối đa', 'Max drawdown'), `-${d.max_drawdown_pct.toFixed(2)}%`,
@@ -116,7 +123,6 @@ const PaperDash = (() => {
     html += '</div>';
 
     html += equityChart(d.equity_curve, d.starting_capital);
-    html += `<p class="table-note">${emph(esc(tp(d.curve_note)))}</p>`;
 
     if (d.open_positions.length) {
       html += `<div class="field-group-title">${esc(L(
@@ -137,7 +143,7 @@ const PaperDash = (() => {
           <td>${money(p.last_price)}</td>
           <td class="muted">${p.stop_loss ? money(p.stop_loss) : '—'}</td>
           <td class="muted">${p.take_profit ? money(p.take_profit) : '—'}</td>
-          <td class="${sign(p.unrealized_pnl)}">${money(p.unrealized_pnl)}</td>
+          <td class="${sign(p.unrealized_pnl)}">${cash(p.unrealized_pnl)}</td>
         </tr>`).join('') + '</tbody></table>';
     }
     return html;
@@ -164,7 +170,7 @@ const PaperDash = (() => {
           t.side === 'long' ? 'LONG' : 'SHORT'}</td>
         <td>${money(t.entry_price)}</td>
         <td>${money(t.exit_price)}</td>
-        <td class="${sign(t.pnl)}">${money(t.pnl)}</td>
+        <td class="${sign(t.pnl)}">${cash(t.pnl)}</td>
         <td class="${sign(t.return_pct)}">${pct(t.return_pct)}</td>
         <td class="muted">${esc(reasonLabel(t.exit_reason))}</td>
       </tr>`).join('') + '</tbody></table>';
@@ -198,7 +204,7 @@ const PaperDash = (() => {
         <td>${esc(r.symbol)}</td>
         <td class="muted">${r.trades}</td>
         <td class="muted">${r.win_rate_pct.toFixed(0)}%</td>
-        <td class="${sign(r.pnl)}">${money(r.pnl)}</td>
+        <td class="${sign(r.pnl)}">${cash(r.pnl)}</td>
         <td style="width:34%">
           <div class="pd-bar"><span class="${sign(r.pnl)}"
             style="width:${(Math.abs(r.pnl) / worst * 100).toFixed(1)}%"></span></div>
@@ -220,6 +226,13 @@ const PaperDash = (() => {
     </div>`;
   }
 
+  function currencyView(currency) {
+    if (currency === 'VND') return { scale: 1e6, unit: L('triệu VND', 'million VND'), label: 'VND' };
+    if (currency === 'USDT') return { scale: 1, unit: 'USDT', label: 'USDT' };
+    if (currency === 'units') return { scale: 1, unit: '', label: L('Đơn vị khác', 'Other units') };
+    return { scale: 1, unit: '', label: '' };
+  }
+
   // ---------- window ----------
 
   function paint() {
@@ -230,11 +243,22 @@ const PaperDash = (() => {
       return;
     }
     const tab = TABS.find(([id]) => id === activeTab) || TABS[0];
+    const accounts = data.accounts?.length ? data.accounts : [{ ...data, currency: '' }];
+    const account = accounts.find((a) => a.currency === activeCurrency) || accounts[0];
+    activeCurrency = account.currency;
+    view = currencyView(account.currency);
+    // One switch per currency: amounts in different currencies are never
+    // added together, so each has its own account view.
+    const switcher = accounts.length > 1
+      ? `<span class="pd-currencies">${accounts.map((a) =>
+        `<button class="rp-tab${a.currency === activeCurrency ? ' active' : ''}" data-pd-currency="${esc(a.currency)}">${
+          esc(currencyView(a.currency).label)} · ${a.sessions}</button>`).join('')}</span>`
+      : '';
     host.querySelector('.pd-tabs').innerHTML = TABS.map(([id, label]) =>
       `<button class="rp-tab${id === activeTab ? ' active' : ''}" data-pd-tab="${id}"
-        role="tab">${esc(label())}</button>`).join('');
+        role="tab">${esc(label())}</button>`).join('') + switcher;
     try {
-      host.querySelector('.pd-body').innerHTML = tab[2](data);
+      host.querySelector('.pd-body').innerHTML = tab[2](account);
     } catch (err) {
       host.querySelector('.pd-body').innerHTML =
         `<div class="callout warn">${esc(err.message)}</div>`;
@@ -276,6 +300,8 @@ const PaperDash = (() => {
       if (event.target === host || event.target.closest('[data-pd-close]')) { close(); return; }
       const tab = event.target.closest('[data-pd-tab]');
       if (tab) { activeTab = tab.dataset.pdTab; paint(); return; }
+      const currency = event.target.closest('[data-pd-currency]');
+      if (currency) { activeCurrency = currency.dataset.pdCurrency; paint(); return; }
       if (event.target.closest('[data-pd-refresh]')) {
         try { data = await API.paperSummary(); paint(); } catch (err) { onToast(err.message, true); }
       }

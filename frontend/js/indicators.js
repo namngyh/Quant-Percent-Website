@@ -228,7 +228,10 @@ const Indicators = (() => {
         .filter((p) => p.type === 'int')
         .slice(0, 2)
         .map((p) => entry.params?.[p.name] ?? p.default);
-      return numbers.length ? `${spec.name} ${numbers.join(',')}` : spec.name;
+      // The caption is a chart corner, not the catalogue: it keeps the
+      // abbreviation that ends a full name ("Relative Strength Index (RSI)").
+      const short = /\(([^()]+)\)\s*$/.exec(spec.name)?.[1] || spec.name;
+      return numbers.length ? `${short} ${numbers.join(',')}` : short;
     });
   }
 

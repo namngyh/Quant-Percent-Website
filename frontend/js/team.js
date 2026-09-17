@@ -30,8 +30,8 @@ const Team = (() => {
     ? new Date(ms + Settings.tzOffsetSeconds() * 1000).toISOString().slice(0, 16).replace('T', ' ')
     : '—');
 
-  const notes = (list) => (list || [])
-    .map((note) => `<div class="callout">${emph(esc(tp(note)))}</div>`).join('');
+  // Remarks are not shown; failures below are.
+  const notes = () => '';
 
   const failed = (block) => (block && block.error
     ? `<div class="callout warn">${esc(tp(block.error))}</div>` : '');

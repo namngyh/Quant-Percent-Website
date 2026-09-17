@@ -190,18 +190,14 @@ const Markets = (() => {
 
   function deflatedBlock(r) {
     const d = r.deflated || {};
-    if (!d.available) {
-      return d.reason ? `<div class="callout">${emph(esc(tp(d.reason)))}</div>` : '';
-    }
+    // Shown only as a warning: a Sharpe that does not survive deflation.
+    if (!d.available) return '';
     const tests = d.tests || {};
     const dsr = tests.deflated_sharpe_ratio;
-    const passed = tests.dsr_significant;
-    return `<div class="callout ${passed ? '' : 'warn'}">
-      <strong>${esc(L('Sharpe khử phồng', 'Deflated Sharpe'))}:</strong>
-      ${typeof dsr === 'number' ? `${(dsr * 100).toFixed(1)}%` : '—'}
-      ${passed ? '' : ` — ${esc(L('chưa đạt ngưỡng', 'below the threshold'))}`}
-      <br>${emph(esc(tp(d.note)))}
-    </div>`;
+    if (tests.dsr_significant) return '';
+    return `<div class="callout warn">${esc(L(
+      `Sharpe đã khử phồng ${typeof dsr === 'number' ? `${(dsr * 100).toFixed(1)}%` : '—'}: chưa đạt ngưỡng ý nghĩa thống kê.`,
+      `Deflated Sharpe ${typeof dsr === 'number' ? `${(dsr * 100).toFixed(1)}%` : '—'}: below the significance threshold.`))}</div>`;
   }
 
   function comparabilityBlock(r) {

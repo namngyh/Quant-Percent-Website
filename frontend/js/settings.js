@@ -235,10 +235,35 @@ const Settings = (() => {
       `Still missing: ${list}. Until these are set, futures run linearly and the results say so.`))}</div>`;
   }
 
+  /* The box is split into sections (Nam, 2026-09-17): one long scroll put the
+     timezone next to the futures margin, and the contract terms alone ran past
+     the fold. The list on the left names the sections; the right side holds
+     only the chosen one. The choice lasts for the page, not across reloads —
+     the box should open where the reader left it a moment ago, and at the
+     top next time. */
+  const SECTIONS = [
+    ['display', () => L('Hiển thị', 'Display')],
+    ['trading', () => L('Giao dịch', 'Trading')],
+    ['data', () => L('Dữ liệu', 'Data')],
+    ['chart', () => L('Biểu đồ', 'Chart')],
+  ];
+  let section = 'display';
+
+  function nav() {
+    return `<nav class="set-nav" role="tablist" aria-orientation="vertical">${SECTIONS.map(([key, label]) =>
+      `<button type="button" role="tab" class="set-nav-item${key === section ? ' active' : ''}"
+               data-set-section="${key}" aria-selected="${key === section}"
+               aria-controls="set-section-${key}">${esc(label())}</button>`).join('')}</nav>`;
+  }
+
+  const open = (key) => `<div class="set-section" id="set-section-${key}" role="tabpanel"${
+    key === section ? '' : ' hidden'}>`;
+
   function html() {
     const c = data.trading.contract;
     const perContract = c.fee_mode === 'per_contract';
-    return `
+    return `${nav()}<div class="set-sections">
+      ${open('display')}
       <section class="set-group">
         <h3>${esc(L('Lợi nhuận', 'Profit'))}</h3>
         ${row(L('Hiển thị lợi nhuận bằng', 'Show profit as'),
@@ -268,9 +293,10 @@ const Settings = (() => {
         ]), L('Chỉ đổi cách hiển thị. Mọi thứ lưu, so sánh và gửi đi vẫn là UTC.',
               'Display only. Everything stored, compared and sent stays UTC.'))}
       </section>
+      </div>
+      ${open('trading')}
       <section class="set-group">
-        <h3>${esc(L('Mặc định giao dịch — hợp đồng phái sinh',
-                    'Trading defaults — index futures'))}</h3>
+        <h3>${esc(L('Hợp đồng phái sinh', 'Index futures'))}</h3>
         <p class="hint">${esc(L(
           'Áp cho VN30F/VN100F. Mặc định theo DNSE: ký quỹ ban đầu 18,48%, force sell 17,35% giá trị hợp đồng. Phí do công ty chứng khoán của bạn quy định.',
           'Applies to VN30F/VN100F. Defaults follow DNSE: initial margin 18.48% and force sell 17.35% of the contract value. The fee is set by your broker.'))}</p>
@@ -303,8 +329,10 @@ const Settings = (() => {
               field('trading.contract.slippage_points', 'min="0" step="0.1"'))}
         ${contractState()}
       </section>
+      </div>
+      ${open('data')}
       <section class="set-group">
-        <h3>${esc(L('Dữ liệu', 'Data'))}</h3>
+        <h3>${esc(L('Giá cổ phiếu Việt Nam', 'Vietnamese equity prices'))}</h3>
         ${row(L('Điều chỉnh chia tách / cổ tức cổ phiếu', 'Adjust for splits and stock dividends'),
               options('data.adjustSplits', [
                 ['true', L('Bật', 'On')], ['false', L('Tắt', 'Off')],
@@ -312,15 +340,19 @@ const Settings = (() => {
               L('Giá cổ phiếu VN được lưu ở dạng thô. Một lần chia tách in ra phiên giảm 50% chưa từng xảy ra, và một backtest đi qua đó sẽ bán, dừng lỗ hoặc bị thanh lý trên một cú sập không có thật. Nền tảng suy ra sự kiện từ bước nhảy vượt biên độ và đưa chuỗi về một thang. Tắt để xem đúng giá database trả về.',
                 'Vietnamese equity prices are stored raw. A split prints as a −50% session that never happened, and a backtest running through it sells, stops out or is liquidated on a crash that does not exist. The platform infers the event from a step past the price band and puts the series back on one scale. Turn this off to see the database\'s own prices.'))}
       </section>
+      </div>
+      ${open('chart')}
       <section class="set-group">
-        <h3>${esc(L('Biểu đồ', 'Chart'))}</h3>
+        <h3>${esc(L('Hiển thị biểu đồ', 'Chart display'))}</h3>
         ${row(L('Lưới nền', 'Background grid'), options('chart.grid', [
           ['false', L('Tắt', 'Off')], ['true', L('Bật', 'On')],
         ], 'bool'))}
         ${row(L('Số nến hiện khi vào chế độ làm việc',
                 'Bars shown when entering the working view'),
               field('chart.bars', 'min="40" max="1000" step="10"'))}
-      </section>`;
+      </section>
+      </div>
+    </div>`;
   }
 
   function coerce(input) {
@@ -338,6 +370,13 @@ const Settings = (() => {
     root.innerHTML = html();
     if (root.dataset.wired) return;
     root.dataset.wired = '1';
+    root.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-set-section]');
+      if (!tab || tab.dataset.setSection === section) return;
+      section = tab.dataset.setSection;
+      panel(root);
+      root.querySelector(`[data-set-section="${section}"]`)?.focus();
+    });
     root.addEventListener('change', (event) => {
       const input = event.target.closest('[data-setting]');
       if (!input) return;

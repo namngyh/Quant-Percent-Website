@@ -389,11 +389,9 @@ const Strategy = (() => {
   function corporateNote(result) {
     const events = result?.corporate_actions || [];
     if (!events.length) return '';
-    return `<div class="callout">${esc(L(
-      `Chuỗi giá đã được điều chỉnh ${events.length} sự kiện chia tách/cổ tức cổ phiếu. `
-      + 'Chạy trên giá thô, một sự kiện như vậy là một cú sập không có thật.',
-      `The price series was adjusted for ${events.length} split/stock-dividend event(s). `
-      + 'On raw prices, such an event reads as a crash that never happened.'))}</div>`;
+    return `<div class="callout warn">${esc(L(
+      `Chuỗi giá đã điều chỉnh ${events.length} sự kiện chia tách/cổ tức cổ phiếu.`,
+      `The price series is adjusted for ${events.length} split/stock-dividend event(s).`))}</div>`;
   }
 
   function renderResult(result) {
@@ -408,24 +406,24 @@ const Strategy = (() => {
 
     if (m.ruined) {
       html += `<div class="callout bad">${esc(L(
-        `Cháy tài khoản. Vốn về 0 sau ${m.liquidations} lần bị thanh lý: hãy hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.`,
-        `Account wiped out. Equity reached zero after ${m.liquidations} liquidation(s): lower the leverage or the share of equity per trade.`))}</div>`;
+        `Tài khoản cháy: vốn về 0 sau ${m.liquidations} lần thanh lý.`,
+        `Account wiped out: equity reached zero after ${m.liquidations} liquidation(s).`))}</div>`;
     } else if (m.liquidations > 0) {
       html += `<div class="callout warn">${esc(L(
-        `${m.liquidations} lần bị thanh lý. Vị thế bị đóng cưỡng bức khi lỗ chạm mức ký quỹ.`,
-        `${m.liquidations} liquidation(s). The position was force-closed when the loss reached the margin.`))}</div>`;
+        `${m.liquidations} lần thanh lý.`,
+        `${m.liquidations} liquidation(s).`))}</div>`;
     }
 
     if (!m.ruined && m.vs_buy_hold_pct < 0) {
       html += `<div class="callout warn">${esc(L(
-        `Chiến lược thua mua-và-giữ ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} điểm % trên cùng khoảng thời gian. Chỉ mua rồi giữ đã tốt hơn.`,
-        `The strategy lost to buy-and-hold by ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} points over the same window. Simply buying and holding did better.`))}</div>`;
+        `Lợi nhuận thấp hơn mua và nắm giữ ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} điểm phần trăm.`,
+        `Return is ${Math.abs(m.vs_buy_hold_pct).toFixed(1)} percentage points below buy-and-hold.`))}</div>`;
     }
 
     if (m.num_trades < 10 && m.num_trades > 0) {
       html += `<div class="callout warn">${esc(L(
-        `Chỉ ${m.num_trades} lệnh — quá ít để kết luận. Kéo dài dữ liệu hoặc nới tham số.`,
-        `Only ${m.num_trades} trades — too few to conclude anything. Widen the data or loosen the parameters.`))}</div>`;
+        `Chỉ có ${m.num_trades} lệnh; mẫu không đủ để kết luận.`,
+        `Only ${m.num_trades} trades; the sample is too small to draw a conclusion.`))}</div>`;
     }
 
     html += '<div class="metrics">';
@@ -603,10 +601,9 @@ const Strategy = (() => {
     let html = '';
 
     if (s.overfit_warning) {
-      html += `<div class="callout warn"><strong>${esc(L(
-        'Cẩn thận overfit.', 'Watch for overfitting.'))}</strong> ${esc(L(
-        `Chỉ ${s.profitable_pct.toFixed(0)}% tổ hợp có lãi, nhưng tổ hợp tốt nhất vượt trung vị ${s.best_z_score.toFixed(1)} độ lệch chuẩn. Dáng này thường là may mắn, không phải lợi thế thật.`,
-        `Only ${s.profitable_pct.toFixed(0)}% of combinations made money, yet the best one sits ${s.best_z_score.toFixed(1)} standard deviations above the median. That shape is usually luck, not an edge.`))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Nguy cơ quá khớp: ${s.profitable_pct.toFixed(0)}% tổ hợp có lãi; tổ hợp tốt nhất cao hơn trung vị ${s.best_z_score.toFixed(1)} độ lệch chuẩn.`,
+        `Overfitting risk: ${s.profitable_pct.toFixed(0)}% of combinations are profitable; the best sits ${s.best_z_score.toFixed(1)} standard deviations above the median.`))}</div>`;
     }
 
     html += '<div class="metrics">';
@@ -651,10 +648,16 @@ const Strategy = (() => {
     }
     html += '</div>';
 
-    for (const block of [rb, dfl]) {
-      if (!block.available || !block.verdict) continue;
-      const tone = (block.code === 'plateau' || block.code === 'survives') ? 'good' : 'warn';
-      html += `<div class="callout ${tone}">${emph(esc(tp(block.verdict)))}</div>`;
+    // Only the warnings: a spike or a Sharpe that does not survive deflation.
+    if (rb.available && rb.code === 'spike') {
+      html += `<div class="callout warn">${esc(L(
+        'Tham số tối ưu nằm trên một đỉnh nhọn: các tổ hợp lân cận kém hơn đáng kể.',
+        'The optimum sits on a spike: neighbouring combinations score markedly lower.'))}</div>`;
+    }
+    if (dfl.available && dfl.code === 'deflated_away') {
+      html += `<div class="callout warn">${esc(L(
+        `Sharpe đã khử phồng ${(dfl.deflated_sharpe_ratio * 100).toFixed(1)}% sau ${dfl.trials} phép thử: không có ý nghĩa thống kê.`,
+        `Deflated Sharpe of ${(dfl.deflated_sharpe_ratio * 100).toFixed(1)}% after ${dfl.trials} trials: not statistically significant.`))}</div>`;
     }
 
     const paramNames = Object.keys(rows[0].params);
@@ -681,10 +684,6 @@ const Strategy = (() => {
     });
     html += '</tbody></table>';
 
-    const metricLabel = METRIC_LABELS[s.metric] || s.metric;
-    html += `<p class="table-note">${esc(L(
-      `Hàng đầu là tổ hợp tốt nhất theo ${metricLabel}. Nhấn một hàng để nạp tham số đó vào bảng bên trái.`,
-      `The top row is the best combination by ${metricLabel}. Click a row to load those parameters into the panel on the left.`))}</p>`;
 
     elements.optimize.innerHTML = html;
 

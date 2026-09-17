@@ -480,7 +480,14 @@ def _():
 
 # ============================================ stop loss and take profit
 
-def bar(o, h, l, c, t=1_700_000_000_000):
+def bar(o, h, l, c, t=None):
+    """A bar that opens after any hand order placed before the call.
+
+    A bar that opened before the fill contains prices the position never saw,
+    and on a feed with no ticks it is not judged at all (2026-09-17)."""
+    if t is None:
+        import time
+        t = (int(time.time()) // 3600 + 1) * 3600 * 1000
     return {"open_time": t, "open": o, "high": h, "low": l, "close": c, "volume": 1.0}
 
 
@@ -813,6 +820,117 @@ def _():
         assert manager._sessions == {}, "the refused session was kept"
     finally:
         data_sources.get_candles = original
+
+
+# ====== exits on the live price, not at the bar close (Nam, 2026-09-17)
+
+M5 = 300_000
+# The 5m bar in progress now: a hand order is timed by the clock, so the
+# fixture bars must sit around the clock too.
+import time as _time  # noqa: E402
+B0 = int(_time.time()) // 300 * 300 * 1000
+
+
+def live(o, h, l, c, t=B0):
+    return {"open_time": t, "open": o, "high": h, "low": l, "close": c, "volume": 1.0}
+
+
+def btc_short(stop=76_661.17, target=76_357.98):
+    """The screenshot: a hand short on BTCUSDT 5m inside a forming bar."""
+    s = manual(slippage=0.0, fee=0.0)
+    s.on_tick(76_520.0, live(76_450.0, 76_560.0, 76_440.0, 76_520.0))
+    s.last_price = 76_512.37
+    s.place_order("short", stop_loss=stop, take_profit=target)
+    return s
+
+
+@check("a short's stop fills on the tick that reaches it, at the stop, before the bar closes")
+def _():
+    s = btc_short()
+    assert s.on_tick(76_600.0, live(76_450.0, 76_600.0, 76_440.0, 76_600.0)) == [] and s.position == -1
+    events = s.on_tick(76_741.74, live(76_450.0, 76_741.74, 76_440.0, 76_741.74))
+    assert s.position == 0, "the stop waited for the bar to close"
+    t = s.trades[-1]
+    assert t.exit_reason == "stop_loss" and close_to(t.exit_price, 76_661.17), t
+    assert [e["type"] for e in events] == ["exit"], events
+
+
+@check("a long's stop and target fill on the live price too")
+def _():
+    s = manual(slippage=0.0, fee=0.0)
+    s.on_tick(100.0, live(100.0, 100.5, 99.5, 100.0))
+    s.place_order("long", stop_loss=98.0)
+    s.on_tick(97.5, live(100.0, 100.5, 97.5, 97.5))
+    assert s.position == 0 and s.trades[-1].exit_reason == "stop_loss" and close_to(s.trades[-1].exit_price, 98.0)
+    s.last_price = 100.0
+    s.place_order("long", take_profit=103.0)
+    s.on_tick(103.2, live(100.0, 103.2, 97.5, 103.2))
+    assert s.position == 0 and s.trades[-1].exit_reason == "take_profit" and close_to(s.trades[-1].exit_price, 103.0)
+
+
+@check("a high the bar printed before the entry does not fire the stop")
+def _():
+    # The bar reached 76 700 before the short was opened at 76 512; a stop at
+    # 76 661 was never touched by this position.
+    s = manual(slippage=0.0, fee=0.0)
+    s.on_tick(76_520.0, live(76_450.0, 76_700.0, 76_440.0, 76_520.0))
+    s.last_price = 76_512.37
+    s.place_order("short", stop_loss=76_661.17)
+    assert s.on_tick(76_530.0, live(76_450.0, 76_700.0, 76_440.0, 76_530.0)) == []
+    assert s.position == -1
+    # Nor when the bar closes with that same pre-entry high.
+    s.on_closed_candle(live(76_450.0, 76_700.0, 76_440.0, 76_540.0), lambda h: None)
+    assert s.position == -1, "the bar's pre-entry high stopped the position at the close"
+    # A new high after the entry does.
+    s.on_tick(76_600.0, live(76_540.0, 76_680.0, 76_530.0, 76_600.0, t=B0 + M5))
+    assert s.position == 0 and s.trades[-1].exit_reason == "stop_loss"
+
+
+@check("a wick past the stop between two updates is caught from the bar's new extreme")
+def _():
+    s = btc_short()
+    # The update after the wick closes back at 76 600, but the bar's high now
+    # reads 76 700: that high happened after the entry.
+    s.on_tick(76_600.0, live(76_450.0, 76_700.0, 76_440.0, 76_600.0))
+    assert s.position == 0 and close_to(s.trades[-1].exit_price, 76_661.17), s.snapshot()
+
+
+@check("a liquidation price reached by the live price closes at once")
+def _():
+    s = manual(slippage=0.0, fee=0.0, leverage=10.0)
+    s.on_tick(100.0, live(100.0, 100.2, 99.8, 100.0))
+    s.place_order("long", leverage=10)
+    liq = s.model.liquidation_price(s.entry_price, 1)
+    events = s.on_tick(liq - 0.01, live(100.0, 100.2, liq - 0.01, liq - 0.01))
+    assert s.position == 0 and events[0]["type"] == "liquidation" and close_to(s.trades[-1].exit_price, liq)
+
+
+@check("a feed of closed bars only does not judge the entry bar, and stops on the next")
+def _():
+    # VN30F1M on the closed-bar poll: a short at 1 978, stop 1 985. The bar in
+    # progress at the click had already printed 1 990 — before the position.
+    s = manual(slippage=0.0, fee=0.0)
+    s.last_price = 1978.0
+    s.place_order("short", stop_loss=1985.0)
+    s.on_closed_candle(live(1980.0, 1990.0, 1975.0, 1978.0), lambda h: None)
+    assert s.position == -1, "stopped by a high printed before the entry"
+    # The next bar is wholly after the entry and reaches the stop.
+    s.on_closed_candle(live(1978.0, 1986.0, 1976.0, 1984.0, t=B0 + M5), lambda h: None)
+    assert s.position == 0 and s.trades[-1].exit_reason == "stop_loss" and close_to(s.trades[-1].exit_price, 1985.0)
+
+
+@check("a stop filled mid-bar does not let an old strategy signal reopen at that bar's open")
+def _():
+    s = PaperSession("example_ema_cross", "BTCUSDT", "5m",
+                     config=BacktestConfig(fee=0.0, slippage=0.0))
+    s.on_tick(100.0, live(100.0, 100.5, 99.5, 100.0))
+    s.place_order("short", stop_loss=102.0)
+    s.manual_override = False            # the strategy is steering and wanted short
+    s.pending_signal = -1
+    s.on_tick(102.5, live(100.0, 102.5, 99.5, 102.5))
+    assert s.position == 0 and s.pending_signal == 0
+    s.on_closed_candle(live(100.0, 102.5, 99.5, 101.0), lambda h: 0)
+    assert s.position == 0 and len(s.trades) == 1, s.trades
 
 
 def main() -> int:

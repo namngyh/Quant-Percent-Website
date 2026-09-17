@@ -117,7 +117,9 @@ Mọi kết quả backtest đứng trên các giả định này:
 - **Lệnh tay trong Paper khớp ngay ở giá hiện tại, cộng trượt giá bất lợi.**
   Chỉ tín hiệu chiến lược (bot) khớp ở giá mở nến `i+1` (Nam, 2026-09-17; bản
   "lệnh tay cũng chờ nến kế tiếp" ngày 2026-09-16 đã bỏ). Cắt lỗ/chốt lời khớp
-  trong nến, tại mức đã đặt.
+  trong nến, tại mức đã đặt, **ngay khi giá live chạm tới** — không đợi nến
+  đóng. Phạm vi giá dùng để xét chỉ tính từ lúc khớp lệnh: đỉnh/đáy nến in ra
+  trước khi vào lệnh không kích hoạt cắt lỗ.
 - **Phái sinh VN chạy theo mô hình hợp đồng mặc định**, tỷ lệ của DNSE: ký quỹ
   ban đầu **18,48%**, force sell **17,35%** giá trị hợp đồng, sửa được trong
   bánh răng. Engine giữ `maintenance_threshold = force sell / ký quỹ ban đầu`,
@@ -223,6 +225,109 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 ## 4. Báo cáo
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
+
+### 2026-09-17 (khuya, tiếp) — Hai lỗi tìm được khi rà soát: tài khoản gộp đồng tiền, cắt lỗ oan trên nến VN
+
+**398 test Python** (Paper 47, tổng hợp Paper 14 → 16), render đạt, i18n 2/2, 8
+trang Chrome đạt; bảng Tài khoản hai đồng tiền kiểm trên Chrome.
+
+#### 1. Bảng Tài khoản Paper cộng USDT với VND
+
+Đo: một phiên 10.000 USDT và một phiên 100 triệu VND cho "vốn ban đầu"
+**100.010.000** — con số không thuộc đồng tiền nào. `summary.build` giờ chia phiên
+theo đồng tiền tài khoản (Binance → USDT; cổ phiếu, chứng quyền, quỹ, phái sinh
+VN → VND; mã khác trên nguồn VN → "đơn vị"), trả `accounts` mỗi đồng tiền một
+bản tổng hợp đầy đủ. Bảng Tài khoản có nút chuyển USDT / VND; tiền VND hiện theo
+triệu. Phá thử (gộp một rổ): test đỏ.
+
+#### 2. Mã VN bị cắt lỗ bởi giá có trước khi vào lệnh
+
+Nguồn VN chỉ phát nến đã đóng, không có tick, nên cây nến chứa lúc bấm lệnh bị
+xét bằng toàn bộ đỉnh/đáy — kể cả phần trước khi vào lệnh. Đo: bán VN30F1M ở
+1.978, cắt lỗ 1.985, nến đó từng lên 1.990 trước lúc bấm → **bị cắt lỗ**. Giờ
+cây nến vào lệnh không có tick nào thì không xét; nến kế tiếp xét đầy đủ. Bốn
+test cũ dựng nến năm 2023 (trước lúc đặt lệnh) rồi chờ cắt lỗ trên chính nến đó
+— đúng lỗi này — nên hàm dựng nến trong test giờ mặc định mở sau lúc đặt lệnh.
+Phá thử (xét cả nến vào lệnh): test đỏ.
+
+*Giới hạn:* với mã VN, cắt lỗ chạm trong chính phút vào lệnh chỉ được xét từ
+nến kế tiếp, vì không có dữ liệu nào cho biết giá sau lúc bấm trong phút đó.
+
+### 2026-09-17 (khuya) — Cắt lỗ chạm mà chưa cắt: engine chỉ xét khi nến đóng
+
+Ảnh của Nam: SHORT BTCUSDT 5m, cắt lỗ 76.661,17, giá lên 76.741,74, vị thế vẫn
+mở. Đo trên server: lệnh đó đóng ở `exit_time 19:10:00` (mở của nến), tức lúc
+nến **đóng**; lệnh SHORT kế tiếp cũng vậy (cắt lỗ đóng ở nến 19:15). Nguyên nhân:
+`on_tick` chỉ cập nhật giá; cắt lỗ, chốt lời và thanh lý chỉ kiểm trong
+`on_closed_candle`. Trên khung 5m, cắt lỗ trễ tối đa 5 phút.
+
+Sửa: mỗi cập nhật nến đang chạy đi qua `on_tick(price, candle)`, xét cắt lỗ,
+chốt lời, thanh lý và khớp **tại mức đã đặt**. Phạm vi xét chỉ tính từ lúc khớp
+lệnh: với nến mở trước lệnh, dùng giá các tick sau lệnh cộng đỉnh/đáy mới mà nến
+in ra sau lệnh (bắt được râu nến nằm giữa hai lần cập nhật); lúc nến đó đóng
+cũng không dùng đỉnh/đáy trước lệnh. Nguồn VN chỉ phát nến đã đóng nên vẫn xét
+khi nến đóng. Sau khi thoát giữa nến, tín hiệu chiến lược cũ bị xoá để không mở
+lại ở giá mở đã qua của nến đó.
+
+Đo: kịch bản đúng như ảnh qua `PaperManager.on_candle` chạy riêng — tick 76.600
+giữ vị thế; tick 76.741,74 đóng ngay ở **76.661,17** `stop_loss`, lưu phiên và
+phát `paper_event:exit` + `paper_update`. 7 test mới trong `test_paper.py`
+(Paper 40 → 47); phá thử bốn chỗ (bỏ xét trên tick; tick dùng cả đỉnh trước lệnh;
+nến đóng dùng cả đỉnh trước lệnh; không xoá tín hiệu cũ) đều làm test đỏ. 396 test
+Python đạt. Server đã khởi động lại.
+
+*Giới hạn:* phạm vi giá sau lệnh giữ trong bộ nhớ, không lưu; khởi động lại giữa
+chừng thì tick đầu tiên bắt đầu lại từ giá hiện tại.
+
+### 2026-09-17 (tối) — Tên chỉ báo đầy đủ; bỏ nhận xét trong kết quả, giữ cảnh báo
+
+**Tên chỉ báo.** Danh mục trước đây hiện mã viết hoa (`RSI`, `CKSP`,
+`CDL_DOJI`). Dòng đầu docstring của pandas-ta không dùng thẳng được: có lỗi
+chính tả ("Chande Forcast", "Jurik Moving Average Average"), ký hiệu thừa ("©
+2013", "*beta*"). `backend/indicators/names.py` giữ tên chuẩn cho **185/185**
+chỉ báo có sẵn, dạng "Relative Strength Index (RSI)"; đo qua API sau khi khởi
+động lại: 0 chỉ báo còn tên viết hoa. Chú thích góc biểu đồ vẫn dùng dạng gọn
+("RSI 14"), lấy từ phần trong ngoặc cuối tên.
+
+**Nhận xét sau kết quả.** Theo yêu cầu "bỏ hết nhận xét, chỉ giữ cảnh báo", áp
+một quy tắc cho Backtest, Tối ưu, Walk-forward, Monte Carlo, So sánh, Thống kê,
+Báo cáo, Nhiều thị trường, Danh mục, Mô hình của team và Tài khoản Paper:
+
+- **Bỏ:** chú thích diễn giải dưới bảng (`table-note`), ô ghi chú trung tính và
+  ô "tốt" (`callout`, `callout good`), lời khuyên ("hãy hạ đòn bẩy", "kiểm chứng
+  bằng walk-forward"), đoạn gợi ý đặt dừng lỗ/chốt lời, phần mô tả phương pháp.
+- **Giữ:** cảnh báo và lỗi (`callout warn/bad`), viết lại thành một câu nêu sự
+  việc và con số, văn phong trang trọng. Kết luận thống kê chỉ hiện khi là cảnh
+  báo (đỉnh nhọn, Sharpe không vượt khử phồng, chưa vượt đường cơ sở…).
+- **Giữ dạng dữ kiện:** cấu hình walk-forward (chế độ, số nến huấn luyện/cách
+  ly/kiểm tra), lý do đóng lệnh, số kiểm định có ý nghĩa trước/sau hiệu chỉnh,
+  thông tin mô hình của team; nút (i) không đổi.
+
+Kiểm tra: render đạt (3 check walk-forward đỏ khi dòng cấu hình bị xoá cùng
+nhận xét, đã khôi phục dòng đó ở dạng dữ kiện), 389 test Python, i18n 2/2.
+
+*Giới hạn:* văn bản do backend sinh ra trong các cảnh báo còn giữ (ghi chú ổn
+định tham số, khả năng so sánh, giới hạn mô phỏng danh mục, đòn bẩy) chưa viết
+lại văn phong. Mô tả "đo gì, đọc thế nào, hỏng ở đâu" (§2.7) giờ chỉ còn trong
+nút (i), không hiện dưới kết quả.
+
+### 2026-09-17 (tiếp) — Hộp Cài đặt chia theo mục
+
+Theo yêu cầu: hộp Cài đặt không còn là một cột cuộn dài. Bên trái là danh sách
+bốn mục — **Hiển thị** (lợi nhuận, định dạng số, múi giờ), **Giao dịch** (hợp
+đồng phái sinh), **Dữ liệu** (giá cổ phiếu Việt Nam), **Biểu đồ** — bên phải chỉ
+hiện mục đang chọn; danh sách đứng yên khi nội dung cuộn. Mục đang chọn giữ
+nguyên khi một ô đổi giá trị làm hộp vẽ lại, và mở lại từ "Hiển thị" khi tải
+lại trang. Dưới 600px danh sách thành hàng tab ngang.
+
+*Lỗi bố cục lộ ra trên ảnh chụp:* ở bề rộng hẹp hộp thoại tràn mép phải, vì
+cột lưới `1fr` nở theo bề rộng tối thiểu của hàng tab không xuống dòng. Đổi sang
+`minmax(0, 1fr)`; đo lại ở khung 512px (mức hẹp nhất Chrome headless dựng được):
+hộp thoại 16–496px, nội dung không cuộn ngang.
+
+Kiểm tra: `test_settings_ui.html` thêm 3 check (bốn mục; mỗi lúc một mục, mặc
+định Hiển thị; chọn Giao dịch hiện đúng thông số hợp đồng) — đạt; kéo mức giá,
+vốn backtest, render, i18n 2/2 đạt.
 
 ### 2026-09-17 — Lệnh tay khớp ngay trở lại; VN30F1M theo ký quỹ DNSE, vốn tính bằng triệu VND
 

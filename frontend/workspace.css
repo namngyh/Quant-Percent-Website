@@ -302,7 +302,25 @@ body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-ch
 #team-dialog .dialog-body { max-height: min(74dvh, 700px); overflow-y: auto; }
 #team-dialog .set-group .data-table { font-size: 11.5px; }
 
-#settings-dialog .dialog-body { max-height: min(68dvh, 620px); overflow-y: auto; }
+#settings-dialog .dialog { width: min(760px, calc(100vw - 32px)); }
+/* A section list and one section's groups (settings.js). The list stays put
+   while the groups scroll, so the sections are always one click away. */
+#settings-dialog .dialog-body { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 0; padding: 0; height: min(68dvh, 560px); overflow: hidden; }
+.set-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; border-right: 1px solid var(--border-soft); background: var(--surface-2); overflow-y: auto; }
+.set-nav-item { text-align: left; padding: 8px 12px; border: 0; border-radius: 3px; background: transparent; color: var(--text-dim); font: 500 13px var(--sans); cursor: pointer; }
+.set-nav-item:hover { color: var(--text); background: var(--surface); }
+.set-nav-item.active { color: var(--text); background: var(--surface); font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
+.set-nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.set-sections { overflow-y: auto; padding: 16px 20px; }
+@media (max-width: 600px) {
+  #settings-dialog .dialog-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .set-nav, .set-sections { min-width: 0; }
+  .set-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border-soft); padding: 6px 8px; }
+  .set-nav-item { white-space: nowrap; }
+  .set-nav-item.active { box-shadow: inset 0 -2px 0 var(--accent); }
+  .set-group .param-row { flex-wrap: wrap; }
+  .set-group .param-row select, .set-group .param-row input { width: 100%; }
+}
 .set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
 .set-group h3 { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 10px; }
 .set-group .param-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
@@ -391,3 +409,5 @@ body[data-mode="overview"] .level-zones, body[data-mode="overview"] .position-ch
 /* Close buttons of the settings and team dialogs (Nam, 2026-09-17): the ×
    at 12.5px in a 30px button was too small to find and hit. */
 .dialog-close { width: 36px; height: 36px; min-height: 36px; padding: 0; font-size: 26px; line-height: 1; font-weight: 400; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+/* Paper account dashboard: one account per currency (paper-dash.js). */
+.pd-currencies { display: inline-flex; gap: 4px; margin-left: auto; padding-left: 12px; border-left: 1px solid var(--border-soft); }

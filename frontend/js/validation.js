@@ -81,7 +81,6 @@ const Validation = (() => {
     return `<div class="pf-bars">
       ${row(L('Trong mẫu', 'In sample'), s.is_mean_normalised_pct, 'weight')}
       ${row(L('Ngoài mẫu', 'Out of sample'), s.oos_mean_normalised_pct, 'risk')}
-      <p class="table-note">${emph(esc(tp(s.measured_on)))}</p>
     </div>`;
   }
 
@@ -94,38 +93,27 @@ const Validation = (() => {
     // statistic's clothing. Say so before any verdict is drawn from them.
     const thin = s.total_folds < 3;
     if (thin) {
-      const need = settings.train_bars + settings.test_bars * 3;
-      html += `<div class="callout warn"><strong>${esc(L(
-        `Chỉ ${s.total_folds} vòng (chưa kết luận được).`,
-        `Only ${s.total_folds} folds, which is not enough to conclude.`))}</strong>
-        ${esc(L(
-          `Cần ít nhất 3-5 vòng thì trung bình mới có nghĩa. Tăng số nến lên khoảng ${need.toLocaleString(I18n.locale())}, hoặc giảm cửa sổ huấn luyện/kiểm tra.`,
-          `Three to five folds are needed before an average means anything. Raise the bar count to about ${need.toLocaleString(I18n.locale())}, or shorten the windows.`))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `Chỉ có ${s.total_folds} vòng; cần tối thiểu 3 vòng để kết luận.`,
+        `Only ${s.total_folds} folds; at least 3 are required to draw a conclusion.`))}</div>`;
     }
 
     if (result.failed_folds?.length) {
-      html += `<div class="callout warn"><strong>${esc(L(
-        `${result.failed_folds.length} vòng không chạy được.`,
-        `${result.failed_folds.length} folds could not run.`))}</strong>
-        ${esc(result.failed_folds[0].error || L('Không tổ hợp nào cho điểm hữu hạn.',
-                                                 'No combination produced a finite score.'))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `${result.failed_folds.length} vòng không chạy được: `,
+        `${result.failed_folds.length} folds could not run: `))}${
+        esc(result.failed_folds[0].error || L('không tổ hợp nào cho điểm hữu hạn.',
+                                              'no combination produced a finite score.'))}</div>`;
     }
 
     if (s.overfit_warning && !thin) {
-      html += `<div class="callout bad"><strong>${esc(L(
-        'Chiến lược không sống sót ngoài mẫu.',
-        'The strategy does not survive out of sample.'))}</strong>
-        ${esc(L(
-          `Trong mẫu ${pct(s.is_mean_normalised_pct)}/vòng, ngoài mẫu ${pct(s.oos_mean_normalised_pct)}/vòng, đo trên cùng độ dài cửa sổ. Tham số đang khớp với nhiễu của quá khứ, không phải với thị trường.`,
-          `In sample ${pct(s.is_mean_normalised_pct)} per fold against ${pct(s.oos_mean_normalised_pct)} out of sample, measured over the same window length. The parameters are fitting past noise rather than the market.`))}</div>`;
+      html += `<div class="callout bad">${esc(L(
+        `Chiến lược không duy trì hiệu quả ngoài mẫu: trong mẫu ${pct(s.is_mean_normalised_pct)}/vòng, ngoài mẫu ${pct(s.oos_mean_normalised_pct)}/vòng.`,
+        `The strategy does not hold up out of sample: ${pct(s.is_mean_normalised_pct)} per fold in sample, ${pct(s.oos_mean_normalised_pct)} out of sample.`))}</div>`;
     } else if (s.degradation_pct > 2 && !thin) {
       html += `<div class="callout warn">${esc(L(
-        `Ngoài mẫu kém trong mẫu ${s.degradation_pct.toFixed(2)} điểm %. Chênh lệch này chính là cái giá của việc chọn tham số bằng hậu nghiệm.`,
-        `Out of sample trails in sample by ${s.degradation_pct.toFixed(2)} points. That gap is the price of having chosen the parameters with hindsight.`))}</div>`;
-    } else if (!thin) {
-      html += `<div class="callout good">${esc(L(
-        `Ngoài mẫu bám sát trong mẫu (chênh ${s.degradation_pct.toFixed(2)} điểm %). Đây là dấu hiệu tốt.`,
-        `Out of sample tracks in sample closely (a gap of ${s.degradation_pct.toFixed(2)} points). That is a good sign.`))}</div>`;
+        `Hiệu quả ngoài mẫu thấp hơn trong mẫu ${s.degradation_pct.toFixed(2)} điểm phần trăm.`,
+        `Out-of-sample performance is ${s.degradation_pct.toFixed(2)} percentage points below in sample.`))}</div>`;
     }
 
     html += '<div class="metrics">';
@@ -202,12 +190,13 @@ const Validation = (() => {
     }
     html += '</tbody></table>';
 
+    // The run's settings, as facts: no reading of them.
     const modeLabel = settings.fold_mode === 'anchored'
       ? L('neo gốc (cửa sổ nở dần)', 'anchored (expanding window)')
       : L('trượt (cửa sổ cố định)', 'rolling (fixed window)');
     html += `<p class="table-note">${esc(L(
-      `Chế độ ${modeLabel}. Mỗi vòng tối ưu trên ${settings.train_bars} nến${settings.purge_bars ? `, bỏ ${settings.purge_bars} nến cách ly` : ''}, rồi áp nguyên tham số đó lên ${settings.test_bars} nến kế tiếp. Chỉ cột "Ngoài mẫu" là ước lượng trung thực; cột "Trong mẫu" thô dài hơn nên cột đã chuẩn hoá mới là cột so sánh được.`,
-      `Mode: ${modeLabel}. Each fold optimises over ${settings.train_bars} bars${settings.purge_bars ? `, drops ${settings.purge_bars} purged bars` : ''}, then applies those parameters unchanged to the next ${settings.test_bars}. Only the out-of-sample column is an honest estimate; the raw in-sample column covers a longer window, so the normalised one is the comparable figure.`))}</p>`;
+      `Chế độ ${modeLabel}; huấn luyện ${settings.train_bars} nến${settings.purge_bars ? `, bỏ ${settings.purge_bars} nến cách ly` : ''}; kiểm tra ${settings.test_bars} nến.`,
+      `Mode: ${modeLabel}; training ${settings.train_bars} bars${settings.purge_bars ? `, drops ${settings.purge_bars} purged bars` : ''}; testing ${settings.test_bars} bars.`))}</p>`;
 
     elements.output.innerHTML = html;
   }
@@ -374,25 +363,16 @@ const Validation = (() => {
     const dd = r.max_drawdown_pct;
     let html = '';
 
-    for (const note of r.notes || []) {
-      html += `<div class="callout">${emph(esc(tp(note)))}</div>`;
-    }
-
     if (r.probability_of_loss_pct > 45) {
-      html += `<div class="callout warn"><strong>${esc(L(
-        'Gần như tung đồng xu.', 'Close to a coin flip.'))}</strong>
-        ${esc(L(
-          `${r.probability_of_loss_pct.toFixed(0)}% số kịch bản kết thúc thua lỗ. Kết quả đơn lẻ ${pct(r.actual_return_pct)} không nói lên nhiều điều.`,
-          `${r.probability_of_loss_pct.toFixed(0)}% of scenarios end in a loss. The single result of ${pct(r.actual_return_pct)} says little on its own.`))}</div>`;
+      html += `<div class="callout warn">${esc(L(
+        `${r.probability_of_loss_pct.toFixed(0)}% kịch bản mô phỏng kết thúc với lỗ.`,
+        `${r.probability_of_loss_pct.toFixed(0)}% of simulated scenarios end in a loss.`))}</div>`;
     }
     if (r.probability_of_ruin_pct > 1) {
       const ruin = block.probability_of_ruin;
-      html += `<div class="callout bad"><strong>${esc(L(
-        `${ruin.pct.toFixed(1)}% kịch bản chạm mức mất ${(100 - r.ruin_threshold_pct).toFixed(0)}% vốn.`,
-        `${ruin.pct.toFixed(1)}% of scenarios touch a ${(100 - r.ruin_threshold_pct).toFixed(0)}% loss of capital.`))}</strong>
-        ${esc(L(
-          `Khoảng tin cậy ${ruin.ci95_low_pct.toFixed(1)}-${ruin.ci95_high_pct.toFixed(1)}%. Đo dọc đường đi, nên một đường chạm đáy rồi hồi lại vẫn được tính là đã cháy. Hạ đòn bẩy hoặc giảm % vốn mỗi lệnh.`,
-          `Confidence interval ${ruin.ci95_low_pct.toFixed(1)}-${ruin.ci95_high_pct.toFixed(1)}%. Measured along the path, so an account that hit bottom and recovered still counts as ruined. Cut the leverage or the size per trade.`))}</div>`;
+      html += `<div class="callout bad">${esc(L(
+        `${ruin.pct.toFixed(1)}% kịch bản chạm mức lỗ ${(100 - r.ruin_threshold_pct).toFixed(0)}% vốn (KTC 95%: ${ruin.ci95_low_pct.toFixed(1)}–${ruin.ci95_high_pct.toFixed(1)}%).`,
+        `${ruin.pct.toFixed(1)}% of scenarios reach a ${(100 - r.ruin_threshold_pct).toFixed(0)}% loss of capital (95% CI: ${ruin.ci95_low_pct.toFixed(1)}–${ruin.ci95_high_pct.toFixed(1)}%).`))}</div>`;
     }
 
     html += '<div class="metrics">';
@@ -427,9 +407,6 @@ const Validation = (() => {
     html += `<div class="field-group-title">${esc(L(
       'Hai cách lấy mẫu', 'Two resamplers'))} ${resamplerExplain(r)}</div>`;
     html += drawdownComparison(r);
-    html += `<p class="table-note">${esc(L(
-      `Lấy mẫu theo khối giữ nguyên các chuỗi thắng/thua liền nhau (khối trung bình ${r.block_length.toFixed(0)} lệnh); lấy mẫu độc lập rút từng lệnh riêng lẻ. Chênh lệch ở p95 là ${r.ordering_effect_pct >= 0 ? '+' : ''}${r.ordering_effect_pct.toFixed(1)} điểm, và đó chính là phần rủi ro đến từ TRẬT TỰ các lệnh chứ không từ bản thân các lệnh.`,
-      `Block sampling keeps runs of consecutive trades together (average block ${r.block_length.toFixed(0)} trades); independent sampling draws each trade separately. The gap at p95 is ${r.ordering_effect_pct >= 0 ? '+' : ''}${r.ordering_effect_pct.toFixed(1)} points, and that is the part of the risk that comes from the ORDER of the trades rather than the trades themselves.`))}</p>`;
 
     html += `<div class="field-group-title">${esc(L('Bảng phân vị', 'Percentile table'))}</div>`;
     html += `<table class="data-table"><thead><tr>
@@ -442,9 +419,6 @@ const Validation = (() => {
         <td class="neg">-${dd[p].toFixed(1)}%</td></tr>`;
     }
     html += '</tbody></table>';
-    html += `<p class="table-note">${esc(L(
-      `Lấy lại chính các lệnh của chiến lược, ${r.simulations.toLocaleString(I18n.locale())} lần, trên ${r.trades_resampled} lệnh. Cái thay đổi là may rủi, cái giữ nguyên là lợi thế của chiến lược. Đại lượng được lấy mẫu là phần thay đổi vốn thực tế của từng lệnh, nên cộng dồn tái tạo đúng đường vốn mà engine đã chạy.`,
-      `The strategy's own trades, resampled ${r.simulations.toLocaleString(I18n.locale())} times over ${r.trades_resampled} trades. What varies is luck; what stays fixed is the edge. The quantity resampled is each trade's actual change in equity, so compounding reproduces exactly the curve the engine ran.`))}</p>`;
 
     (elements.mcOutput || elements.output).innerHTML = html;
   }
@@ -517,8 +491,8 @@ const Validation = (() => {
     let html = '';
     if (!result.beat_buy_hold.length) {
       html += `<div class="callout warn">${esc(L(
-        `Không chiến lược nào vượt mua-và-giữ (${pct(bh)} trên cùng khoảng thời gian). Chỉ mua rồi giữ đã tốt hơn tất cả.`,
-        `No strategy beat buy-and-hold (${pct(bh)} over the same window). Simply buying and holding did better than all of them.`))}</div>`;
+        `Không chiến lược nào vượt mua và nắm giữ (${pct(bh)}).`,
+        `No strategy beats buy-and-hold (${pct(bh)}).`))}</div>`;
     }
     if (result.failures.length) {
       html += `<div class="callout bad">${esc(L(
@@ -553,9 +527,6 @@ const Validation = (() => {
       <td class="${sign(bh)}">${bh.toFixed(1)}%</td>
       <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
     html += '</tbody></table>';
-    html += `<p class="table-note">${esc(L(
-      `Cùng ${result.bars.toLocaleString(I18n.locale())} nến, cùng phí và trượt giá, cùng khoảng thời gian — nếu khác nhau thì bảng này đo cách cài đặt chứ không đo chiến lược.`,
-      `The same ${result.bars.toLocaleString(I18n.locale())} bars, the same fees and slippage, the same window — if any of those differed, this table would be measuring the settings rather than the strategies.`))}</p>`;
 
     elements.output.innerHTML = html;
   }
@@ -636,24 +607,19 @@ const Validation = (() => {
     </div>`;
   }
 
+  /* Only a warning is shown: the headline of a verdict that did not hold. A
+     favourable verdict is already in the figures below it. */
   function verdictCallout(verdict, tone) {
-    if (!verdict) return '';
-    let html = `<div class="callout ${tone}"><strong>${emph(esc(tp(verdict.headline)))}</strong>
-      ${verdict.detail ? ` ${emph(esc(tp(verdict.detail)))}` : ''}</div>`;
-    for (const note of verdict.notes || []) {
-      html += `<div class="callout">${emph(esc(tp(note)))}</div>`;
-    }
-    return html;
+    if (!verdict || tone !== 'warn') return '';
+    return `<div class="callout warn">${emph(esc(tp(verdict.headline)))}</div>`;
   }
 
   function familyNote(family) {
     if (!family || !family.n_tests) return '';
-    return `<p class="table-note">${emph(esc(tp(family.note)))}
-      ${family.n_significant_raw !== undefined
-        ? esc(L(
-            `Trước hiệu chỉnh: ${family.n_significant_raw}/${family.n_tests} kiểm định có ý nghĩa; sau hiệu chỉnh: ${family.n_significant_adjusted}/${family.n_tests}.`,
-            `Before adjustment: ${family.n_significant_raw} of ${family.n_tests} tests were significant; after: ${family.n_significant_adjusted} of ${family.n_tests}.`))
-        : ''}</p>`;
+    if (family.n_significant_raw === undefined) return '';
+    return `<p class="table-note">${esc(L(
+      `Kiểm định có ý nghĩa: ${family.n_significant_raw}/${family.n_tests} trước hiệu chỉnh, ${family.n_significant_adjusted}/${family.n_tests} sau hiệu chỉnh.`,
+      `Significant tests: ${family.n_significant_raw}/${family.n_tests} before adjustment, ${family.n_significant_adjusted}/${family.n_tests} after.`))}</p>`;
   }
 
   async function runSeriesStats() {
@@ -789,10 +755,7 @@ const Validation = (() => {
           <td class="muted">${num(p.z_homoskedastic)}</td>
           <td class="${Math.abs(p.z_heteroskedastic ?? 0) > 1.96 ? 'pos' : ''}">${num(p.z_heteroskedastic)}</td>
           <td>${emph(esc(tp(p.reading)))}</td></tr>`).join('') +
-        `</tbody></table>
-        <p class="table-note">${esc(L(
-          'Cột z bền là cột để đọc: nó không giả định phương sai cố định theo thời gian, còn cột z đồng nhất thì có, và kiểm định ARCH ở bảng trên hầu như luôn bác bỏ giả định đó. Kết luận chung lấy từ thống kê Chow–Denning trên toàn bộ tập kỳ hạn, không phải từ kỳ hạn có p nhỏ nhất.',
-          'The robust z is the column to read: it does not assume variance is constant over time, the homoskedastic one does, and the ARCH test above almost always rejects that assumption. The overall verdict comes from the Chow–Denning statistic across the whole set of horizons, not from whichever horizon had the smallest p.'))}</p>`;
+        `</tbody></table>`;
     }
 
     html += `<p class="table-note">${esc(L(
@@ -945,14 +908,11 @@ const Validation = (() => {
         'Testing the edge: three ways of asking the same question'));
     html += familyNote(r.multiple_testing);
 
-    html += `<p class="table-note">${esc(L(
-      'Ba kiểm định trên đo cùng một thứ với những giả định khác nhau. Nếu chúng cho kết luận khác nhau thì bản thân điều đó là thông tin: kết quả phụ thuộc vào giả định chứ không phải vào dữ liệu, và kiểm định hoán vị — vốn giả định ít nhất — là cái đáng tin nhất.',
-      'The three tests above measure the same thing under different assumptions. If they disagree, that disagreement is itself information: the result depends on the assumptions rather than on the data, and the permutation test, which assumes least, is the one to trust.'))}</p>`;
 
     if (sharpe?.min_track_record_length) {
-      html += `<p class="table-note">${esc(L(
-        `Độ dài lịch sử tối thiểu để Sharpe này đạt mức tin cậy 95% là ${sharpe.min_track_record_length.toLocaleString(I18n.locale())} quan sát; hiện có ${sharpe.n_observations.toLocaleString(I18n.locale())}${sharpe.sufficient_history ? ' — đủ.' : ' — chưa đủ.'}`,
-        `The minimum track record for this Sharpe to reach 95% confidence is ${sharpe.min_track_record_length.toLocaleString(I18n.locale())} observations; there are ${sharpe.n_observations.toLocaleString(I18n.locale())}${sharpe.sufficient_history ? ' — enough.' : ' — not yet enough.'}`))}</p>`;
+      html += `<p class="${sharpe.sufficient_history ? 'table-note' : 'callout warn'}">${esc(L(
+        `Độ dài lịch sử tối thiểu cho Sharpe ở mức tin cậy 95%: ${sharpe.min_track_record_length.toLocaleString(I18n.locale())} quan sát; hiện có ${sharpe.n_observations.toLocaleString(I18n.locale())}.`,
+        `Minimum track record for this Sharpe at 95% confidence: ${sharpe.min_track_record_length.toLocaleString(I18n.locale())} observations; ${sharpe.n_observations.toLocaleString(I18n.locale())} available.`))}</p>`;
     }
 
     elements.stats.innerHTML = html;

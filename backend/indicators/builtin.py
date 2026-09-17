@@ -21,6 +21,7 @@ import pandas as pd
 import pandas_ta_classic as pta
 
 from backend.indicators.base import IndicatorError, IndicatorSpec, ParamSpec
+from backend.indicators.names import full_name
 from backend.indicators.descriptions import describe
 
 log = logging.getLogger(__name__)
@@ -210,7 +211,7 @@ def build_builtin_specs() -> dict[str, IndicatorSpec]:
 
         specs[name] = IndicatorSpec(
             id=name,
-            name=name.upper(),
+            name=full_name(name),
             kind=_classify(name, category),
             category=category,
             source="builtin",

@@ -223,6 +223,32 @@ def _():
     # directory at all would make the server permanently "stale".
     assert not caches or all("__pycache__" in p.parts for p in caches)
 
+@check("sessions in different currencies are never added together")
+def _():
+    # 10 000 USDT and 100 million VND once summed to a starting capital of
+    # 100 010 000 (2026-09-17), a figure in no currency.
+    out = summary.build([
+        session("a", "BTCUSDT", 10_000.0, [trade(100.0, 10)]),
+        session("b", "VN:VN30F1M", 100_000_000.0, [trade(2_000_000.0, 20)]),
+        session("c", "VN:VN30F1M", 50_000_000.0, []),
+    ])
+    by = {a["currency"]: a for a in out["accounts"]}
+    assert set(by) == {"USDT", "VND"}, by.keys()
+    assert by["USDT"]["starting_capital"] == 10_000.0, by["USDT"]
+    assert by["VND"]["starting_capital"] == 150_000_000.0, by["VND"]
+    assert abs(by["VND"]["realized_pnl"] - 2_000_000.0) < 1e-9 and by["VND"]["num_trades"] == 1
+    assert out["accounts"][0]["currency"] == "VND", "the currency with more sessions comes first"
+    assert out["sessions"] == 3 and out["starting_capital"] == 150_000_000.0, out["starting_capital"]
+    assert all(t["symbol"] == "BTCUSDT" for t in by["USDT"]["trades"]), by["USDT"]["trades"]
+
+
+@check("a single currency keeps the old shape, with one account listed")
+def _():
+    out = summary.build([session("a", "BTCUSDT", 5_000.0, [trade(50.0, 10)])])
+    assert len(out["accounts"]) == 1 and out["accounts"][0]["currency"] == "USDT"
+    assert out["starting_capital"] == 5_000.0 and out["sessions"] == 1
+
+
 def main() -> int:
     passed = failed = 0
     for name, fn in CHECKS:
