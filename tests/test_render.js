@@ -176,6 +176,10 @@ async function render(label, kind, payload) {
       select: $('strategy-select'), mode: $('opt-mode'),
       samples: $('opt-samples'), samplesRow: $('opt-samples-row'),
       optimize: $('optimize-results'),
+      // What load() writes to: the list reload is checked below.
+      desc: $('strategy-desc'), count: $('strategy-count'), errors: $('strategy-errors'),
+      params: $('strategy-params'), sweep: $('sweep-ranges'), metric: $('opt-metric'),
+      sweepSize: $('sweep-size'),
       // The real cost inputs, so execution() can be read as the app builds it.
       capital: $('exec-capital'), size: $('exec-size'), leverage: $('exec-leverage'),
       fee: $('exec-fee'), slippage: $('exec-slippage'),
@@ -224,6 +228,32 @@ async function render(label, kind, payload) {
     ['no Vietnamese left in the panel', (() => true)()
       ? /^(?!.*Lợi nhuận).*$/s : /x/],
   ]);
+
+  // Reloading the strategy list (after a save, or a file change on disk) keeps
+  // the strategy being worked on, and a just-saved one is selected (2026-09-17).
+  {
+    const spec = (id, name) => ({ id, name, side: 'both', description: '',
+      params: [{ name: 'n', type: 'int', default: 5, min: 1, max: 50, step: 1 }] });
+    const realStrategies = window.API.strategies;
+    let list = [spec('alpha', 'Alpha'), spec('beta', 'Beta')];
+    window.API.strategies = async () => ({ strategies: list, load_errors: [], rankable_metrics: ['sharpe'] });
+    const ssay = (what, ok, detail = '') => {
+      if (ok) console.log(`  PASS  strategy list: ${what}`);
+      else { console.log(`  FAIL  strategy list: ${what}${detail ? `  -> ${detail}` : ''}`); failures++; }
+    };
+    await window.Strategy.load();
+    $('strategy-select').value = 'beta';
+    $('strategy-select').dispatchEvent(new window.Event('change'));
+    list = [spec('alpha', 'Alpha'), spec('beta', 'Beta'), spec('gamma', 'Gamma')];
+    await window.Strategy.load();
+    ssay('a reload keeps the selected strategy, not the first',
+         window.Strategy.selected?.id === 'beta', window.Strategy.selected?.id);
+    await window.Strategy.load('gamma');
+    ssay('a just-saved strategy is selected',
+         window.Strategy.selected?.id === 'gamma' && $('strategy-select').value === 'gamma',
+         window.Strategy.selected?.id);
+    window.API.strategies = realStrategies;
+  }
 
   await present('monte carlo [en]', 'mc', payloads.mc, 'en', [
     ['fan chart',                   'sel:svg.mc-fan'],

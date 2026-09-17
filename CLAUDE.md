@@ -226,6 +226,29 @@ Thêm chỉ số nào thì thêm (i) cho chỉ số đó trong cùng lần sửa
 
 Ghi theo thứ tự mới nhất trước. Mỗi mục: phát hiện gì, đo được gì, đã sửa chưa.
 
+### 2026-09-17 (khuya, tiếp 2) — Viết xong chỉ báo/chiến lược mà "không thấy hiện ra"
+
+Nam báo viết code chỉ báo hoặc chiến lược rồi vẫn không thấy để áp dụng. Đo
+trước: backend **đã nạp** `plugins/strategies/nam.py` ("Bollinger NIG Mean
+Reversion", không lỗi nạp), trang mở mới cũng liệt kê nó. Lưu thử từ trình soạn
+thảo trên Chrome: file lưu, danh sách có dòng mới — vậy lỗi là **không nhìn
+thấy được**, không phải không nạp:
+
+- chiến lược mới chỉ nối vào cuối ô chọn, không được chọn, panel Chiến lược
+  không mở; tệ hơn, mỗi lần nạp lại danh sách (lưu, hoặc file đổi trên đĩa) ô
+  chọn **nhảy về chiến lược đầu tiên**, mất luôn chiến lược và tham số đang dùng;
+- chỉ báo mới nằm trong nhóm "của bạn (python)" đang **gập**.
+
+Sửa: sau khi lưu hoặc nhập file, chiến lược vừa lưu được chọn và panel Chiến lược
+mở; chỉ báo vừa lưu mở panel Chỉ báo, mở nhóm, cuộn tới và tô sáng dòng đó.
+`Strategy.load()` giữ chiến lược đang chọn (cùng tham số) khi nạp lại.
+
+Đo trên Chrome cùng một trang kiểm (lưu một chiến lược và một chỉ báo thử):
+code cũ **2/6** (giữ lựa chọn khi nạp lại, chọn sẵn, mở panel, nhóm mở đều đỏ);
+code mới **6/6**, và bấm một lần là chỉ báo lên biểu đồ. File thử đã xoá. Trang
+kiểm không giữ lại vì nó ghi file vào `plugins/` và không có API xoá; phần logic
+chọn chiến lược thành 2 check trong `test_render.js` (gỡ bản sửa → 2 check đỏ).
+
 ### 2026-09-17 (khuya, tiếp) — Hai lỗi tìm được khi rà soát: tài khoản gộp đồng tiền, cắt lỗ oan trên nến VN
 
 **398 test Python** (Paper 47, tổng hợp Paper 14 → 16), render đạt, i18n 2/2, 8

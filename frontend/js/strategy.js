@@ -33,7 +33,12 @@ const Strategy = (() => {
 
   // ---------- Catalog ----------
 
-  async function load() {
+  /* Reloaded after every save and every file change. It used to fall back to
+     the first strategy each time, so saving one file threw away the strategy
+     and the parameters being worked on (2026-09-17). Now: the requested one,
+     else the one already selected with its parameters, else the first. */
+  async function load(preferId = null) {
+    const previous = current ? { id: current.id, params: { ...params } } : null;
     const data = await API.strategies();
     catalog = data.strategies || [];
     elements.count.textContent = String(catalog.length);
@@ -49,7 +54,14 @@ const Strategy = (() => {
       .join('');
     elements.metric.value = 'sharpe';
 
-    if (catalog.length) select(catalog[0].id);
+    const has = (id) => id && catalog.some((s) => s.id === id);
+    if (has(preferId)) {
+      elements.select.value = preferId;
+      select(preferId);
+    } else if (previous && has(previous.id)) {
+      elements.select.value = previous.id;
+      select(previous.id, previous.params);
+    } else if (catalog.length) select(catalog[0].id);
     else elements.params.innerHTML = `<p class="empty">${esc(L(
       'Chưa có chiến lược nào.', 'No strategies yet.'))}</p>`;
   }

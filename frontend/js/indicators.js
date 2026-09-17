@@ -35,6 +35,24 @@ const Indicators = (() => {
     renderCatalog();
   }
 
+  /* Bring one indicator into view: open its group, scroll to it and mark it.
+     A saved plugin lands in the "yours (python)" group, which is folded
+     unless something opens it, so it was in the list but out of sight. */
+  function reveal(indicatorId) {
+    const spec = catalog.find((s) => s.id === indicatorId);
+    if (!spec) return false;
+    if (elements.search) elements.search.value = '';
+    openGroups.add(spec.source === 'plugin' ? L('của bạn (python)', 'yours (python)') : spec.category);
+    renderCatalog();
+    const row = elements.catalog.querySelector(`.cat-item[data-id="${CSS.escape(indicatorId)}"]`);
+    if (!row) return false;
+    row.closest('details')?.setAttribute('open', '');
+    row.classList.add('just-saved');
+    row.scrollIntoView({ block: 'center' });
+    setTimeout(() => row.classList.remove('just-saved'), 2400);
+    return true;
+  }
+
   function renderPluginErrors(errors) {
     const box = elements.pluginErrors;
     if (!errors.length) {
@@ -416,6 +434,6 @@ const Indicators = (() => {
     renderActive();
   }
 
-  return { init, setCatalog, recomputeAll, clearAll, active, rerender, snapshot, restore, describe,
+  return { init, setCatalog, reveal, recomputeAll, clearAll, active, rerender, snapshot, restore, describe,
            exportState, importState, buildState, flushPending };
 })();

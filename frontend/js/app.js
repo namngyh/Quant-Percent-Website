@@ -1036,6 +1036,23 @@
     recomputeTimer = setTimeout(() => Indicators.recomputeAll(), 500);
   }
 
+  /* A saved or imported plugin, shown where it can be applied (Nam,
+     2026-09-17: "viết code chỉ báo hoặc chiến lược vẫn chưa thấy hiện ra").
+     The lists did reload, but a strategy was not selected and an indicator sat
+     in a folded group, so neither was visible. The id is the file name: the
+     strategy's own, and `plugin:` before it for an indicator. */
+  async function showSavedPlugin(report) {
+    const stem = String(report.filename || '').replace(/\.py$/, '');
+    if (report.kind === 'indicator') {
+      Indicators.setCatalog(await API.catalog());
+      openPanel('indicators');
+      Indicators.reveal(`plugin:${stem}`);
+    } else {
+      await Strategy.load(stem);
+      openPanel('strategy');
+    }
+  }
+
   async function onPluginsChanged(kind) {
     try {
       if (kind === 'strategies') {
@@ -2104,8 +2121,7 @@ def signals(df, params):
                 `Imported ${result.spec.name} → ${result.path}`));
         // Hot-reload will also fire from the file watcher; refreshing here
         // means the list updates even if the watcher is unavailable.
-        if (result.kind === 'indicator') Indicators.setCatalog(await API.catalog());
-        else await Strategy.load();
+        await showSavedPlugin(result);
       } catch (err) {
         toast(err.message, true);
       }
@@ -2228,11 +2244,8 @@ def signals(df, params):
     PaperDash.init({ onToast: toast });
     Editor.init({
       onToast: toast,
-      // Refresh the saved plugin's catalogue through the same path as import.
-      onSaved: async (report) => {
-        if (report.kind === 'indicator') Indicators.setCatalog(await API.catalog());
-        else await Strategy.load();
-      },
+      // Refresh the catalogue and put the saved plugin where it is applied.
+      onSaved: (report) => showSavedPlugin(report),
     });
     for (const button of document.querySelectorAll('[data-write]')) {
       button.addEventListener('click', () => Editor.open({ kind: button.dataset.write }));
