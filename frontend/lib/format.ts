@@ -52,6 +52,22 @@ export function fmtDateTime(iso: string, locale: string) {
   }).format(new Date(iso));
 }
 
+/**
+ * Dong in millions ("tr") and billions ("tỷ"), because 563.240.000 does not
+ * read at a glance. The unit suffixes are the Vietnamese ones in both
+ * locales: an English reader of a VN portfolio still sees prices in dong.
+ */
+export function fmtVnd(value: number, locale: string) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) {
+    return `${fmtNumber(value / 1_000_000_000, locale, { maximumFractionDigits: 2 })} tỷ`;
+  }
+  if (abs >= 1_000_000) {
+    return `${fmtNumber(value / 1_000_000, locale, { maximumFractionDigits: 1 })} tr`;
+  }
+  return fmtNumber(value, locale, { maximumFractionDigits: 0 });
+}
+
 /** Direction symbol so meaning is never carried by color alone. */
 export function directionSymbol(value: number) {
   if (value > 0) return "▲";

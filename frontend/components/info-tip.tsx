@@ -11,14 +11,24 @@ interface TooltipPosition {
   placement: "top" | "bottom";
 }
 
-/** Small accessible tooltip for metric explanations (spec §7.3, §8.7). */
+/**
+ * Small accessible tooltip for metric explanations (spec §7.3, §8.7).
+ *
+ * `text` may be several paragraphs: a section's assumptions and limits
+ * live behind one icon rather than as a block of small print under the
+ * table. `wide` is for those — a 15rem box wraps a paragraph into a column.
+ */
 export function InfoTip({
   text,
   className,
+  wide = false,
 }: {
-  text: string;
+  text: string | string[];
   className?: string;
+  wide?: boolean;
 }) {
+  const paragraphs = Array.isArray(text) ? text : [text];
+  const label = paragraphs.join(" ");
   const id = useId();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
@@ -34,7 +44,7 @@ export function InfoTip({
 
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = 12;
-      const tooltipHalfWidth = Math.min(120, (window.innerWidth - 24) / 2);
+      const tooltipHalfWidth = Math.min(wide ? 176 : 120, (window.innerWidth - 24) / 2);
       const left = Math.min(
         window.innerWidth - viewportPadding - tooltipHalfWidth,
         Math.max(
@@ -59,7 +69,7 @@ export function InfoTip({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open]);
+  }, [open, wide]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,7 +96,7 @@ export function InfoTip({
         ref={triggerRef}
         type="button"
         aria-describedby={open ? id : undefined}
-        aria-label={text}
+        aria-label={label}
         className="text-dim transition-colors hover:text-foreground focus-visible:text-foreground"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => {
@@ -107,7 +117,7 @@ export function InfoTip({
           }
         }}
       >
-        <Info className="size-3.5" aria-hidden="true" />
+        <Info className={wide ? "size-4" : "size-3.5"} aria-hidden="true" />
       </button>
       {open &&
         position &&
@@ -116,7 +126,10 @@ export function InfoTip({
             ref={tooltipRef}
             id={id}
             role="tooltip"
-            className="pointer-events-none fixed z-[100] w-60 max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-lg border border-border bg-background p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-ink shadow-lg"
+            className={cn(
+              "pointer-events-none fixed z-[100] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-lg border border-border bg-background p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-ink shadow-lg",
+              wide ? "w-[22rem] space-y-2 text-left" : "w-60",
+            )}
             style={{
               left: position.left,
               top: position.top,
@@ -126,7 +139,11 @@ export function InfoTip({
                   : "translate(-50%, 0)",
             }}
           >
-            {text}
+            {paragraphs.map((p, i) => (
+              <span key={i} className="block">
+                {p}
+              </span>
+            ))}
           </span>,
           document.body
         )}

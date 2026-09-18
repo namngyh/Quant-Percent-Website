@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useApi } from "@/lib/api/fetcher";
 import type { PortfolioRequestPayload, TradableSymbols } from "@/lib/api/types";
+import { fmtNumber } from "@/lib/format";
 
 /**
  * Portfolio entry.
@@ -14,8 +15,10 @@ import type { PortfolioRequestPayload, TradableSymbols } from "@/lib/api/types";
  * that then shows up as a profit figure. Leave it blank and the profit
  * columns report nothing rather than something wrong.
  *
- * Money is entered in dong, the unit a reader thinks in. The feed quotes
- * stocks in thousands; the backend does that conversion.
+ * Cash is entered in dong. Cost basis is entered the way a price board
+ * shows it — in thousands, "25.5" for 25,500 — because that is the number a
+ * reader has in front of them; see `costBasisVnd` for how a figure typed in
+ * dong is still accepted. The request carries dong throughout.
  */
 
 interface Row {
@@ -40,13 +43,42 @@ const blankRow = (): Row => ({
   costBasis: "",
 });
 
-function parseNumber(raw: string): number | null {
-  // Accept "1.000" and "1,000" and "1 000": VN keyboards produce all three
-  // and rejecting them would read as the form being broken.
-  const cleaned = raw.replace(/[\s.,]/g, "");
-  if (cleaned === "") return null;
+export function parseNumber(raw: string): number | null {
+  // VN keyboards produce "1.000", "1,000" and "1 000" for a thousand, and
+  // "25.5" or "25,5" for twenty-five and a half. Stripping every separator
+  // read the second kind as 255. The rule that tells them apart: a
+  // separator followed by exactly three digits, possibly repeated, is
+  // grouping; a separator followed by anything else is a decimal point.
+  const compact = raw.replace(/\s/g, "");
+  if (compact === "") return null;
+  const grouped = /^\d{1,3}([.,]\d{3})+$/.test(compact);
+  const cleaned = grouped
+    ? compact.replace(/[.,]/g, "")
+    : compact.replace(",", ".");
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
+}
+
+// No HOSE stock has ever traded near 1,000,000 dong a share, and a price
+// board never shows one below 1 (thousand). So a cost basis under this is
+// in thousands and one at or above it is in dong, and both are accepted.
+// The field echoes the dong figure it understood so the reader can check.
+const COST_BASIS_DONG_FROM = 1_000;
+
+/**
+ * Group a typed integer into thousands as the reader types: "1000000"
+ * becomes "1.000.000". Anything that is not a digit is dropped, so a
+ * pasted "1,000,000" or "1 000 000" lands in the same place.
+ */
+export function groupDigits(raw: string): string {
+  const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+export function costBasisVnd(raw: string): number | null {
+  const value = parseNumber(raw);
+  if (value === null || value <= 0) return null;
+  return value < COST_BASIS_DONG_FROM ? value * 1_000 : value;
 }
 
 export function PortfolioForm({
@@ -57,9 +89,19 @@ export function PortfolioForm({
   pending: boolean;
 }) {
   const t = useTranslations("portfolio.form");
+  const locale = useLocale();
   const [rows, setRows] = useState<Row[]>(() => [blankRow(), blankRow()]);
   const [cash, setCash] = useState("");
   const [horizon, setHorizon] = useState<number>(63);
+  // The loan block is closed until opened: most readers do not borrow, and
+  // an open block of empty fields reads as something they were meant to
+  // fill. Defaults are the common Vietnamese figures and the copy says to
+  // check them against the broker's own.
+  const [marginOpen, setMarginOpen] = useState(false);
+  const [debt, setDebt] = useState("");
+  const [rate, setRate] = useState("12");
+  const [callRatio, setCallRatio] = useState("30");
+  const [forceRatio, setForceRatio] = useState("28");
   const [error, setError] = useState<string | null>(null);
 
   // ~390 HOSE tickers: a native datalist gives type-ahead without shipping a
@@ -89,7 +131,8 @@ export function PortfolioForm({
       const symbol = row.symbol.trim().toUpperCase();
       if (!symbol) continue;
       const quantity = parseNumber(row.quantity);
-      if (quantity === null || quantity <= 0) {
+      // Whole shares: "1.5" is a mistyped "1.500", not a position.
+      if (quantity === null || quantity <= 0 || !Number.isInteger(quantity)) {
         setError(t("errors.quantity", { symbol }));
         return;
       }
@@ -98,11 +141,10 @@ export function PortfolioForm({
         return;
       }
       seen.add(symbol);
-      const costBasis = parseNumber(row.costBasis);
       holdings.push({
         symbol,
         quantity,
-        cost_basis: costBasis !== null && costBasis > 0 ? costBasis : null,
+        cost_basis: costBasisVnd(row.costBasis),
       });
     }
 
@@ -111,9 +153,45 @@ export function PortfolioForm({
       return;
     }
 
+    // A loan only counts when the block is open and a debt was typed; a
+    // closed block with a stale number in it is not a loan.
+    let margin: PortfolioRequestPayload["margin"] = null;
+    const debtValue = parseNumber(debt);
+    if (marginOpen && debtValue !== null && debtValue > 0) {
+      const pct = (raw: string) => {
+        const v = parseNumber(raw);
+        return v === null || v < 0 || v > 100 ? null : v / 100;
+      };
+      const rateValue = pct(rate);
+      const callValue = pct(callRatio);
+      const forceValue = pct(forceRatio);
+      if (rateValue === null) {
+        setError(t("errors.rate"));
+        return;
+      }
+      if (
+        callValue === null ||
+        forceValue === null ||
+        callValue <= 0 ||
+        forceValue <= 0 ||
+        callValue >= 1 ||
+        forceValue >= callValue
+      ) {
+        setError(t("errors.thresholds"));
+        return;
+      }
+      margin = {
+        debt: debtValue,
+        rate: rateValue,
+        call_ratio: callValue,
+        force_ratio: forceValue,
+      };
+    }
+
     onSubmit({
       holdings,
       cash: parseNumber(cash) ?? 0,
+      margin,
       horizon_days: horizon,
     });
   }
@@ -187,7 +265,7 @@ export function PortfolioForm({
                 </span>
                 <input
                   value={row.quantity}
-                  onChange={(e) => update(row.id, { quantity: e.target.value })}
+                  onChange={(e) => update(row.id, { quantity: groupDigits(e.target.value) })}
                   inputMode="numeric"
                   placeholder="1.000"
                   className="figure w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
@@ -201,10 +279,20 @@ export function PortfolioForm({
                 <input
                   value={row.costBasis}
                   onChange={(e) => update(row.id, { costBasis: e.target.value })}
-                  inputMode="numeric"
-                  placeholder={t("optional")}
+                  inputMode="decimal"
+                  placeholder={t("costBasisPlaceholder")}
                   className="figure w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
                 />
+                {(() => {
+                  const vnd = costBasisVnd(row.costBasis);
+                  return vnd === null ? null : (
+                    <span className="figure text-right text-xs text-dim">
+                      {t("costBasisHint", {
+                        amount: fmtNumber(vnd, locale, { maximumFractionDigits: 0 }),
+                      })}
+                    </span>
+                  );
+                })()}
               </label>
 
               <div className="justify-self-end">
@@ -243,7 +331,7 @@ export function PortfolioForm({
           <input
             id="portfolio-cash"
             value={cash}
-            onChange={(e) => setCash(e.target.value)}
+            onChange={(e) => setCash(groupDigits(e.target.value))}
             inputMode="numeric"
             placeholder="50.000.000"
             className="figure mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
@@ -253,7 +341,9 @@ export function PortfolioForm({
 
         <div>
           <span className="text-xs font-medium uppercase tracking-[0.06em] text-dim">
-            {t("horizon")}
+            {marginOpen && (parseNumber(debt) ?? 0) > 0
+              ? t("horizonWithMargin")
+              : t("horizon")}
           </span>
           <div className="mt-2 flex flex-wrap gap-2">
             {HORIZONS.map((h) => (
@@ -274,6 +364,104 @@ export function PortfolioForm({
           </div>
           <p className="mt-1.5 text-xs text-dim">{t("horizonNote")}</p>
         </div>
+      </div>
+
+      <div className="mt-7 rounded-lg border border-border">
+        <button
+          type="button"
+          onClick={() => setMarginOpen((v) => !v)}
+          aria-expanded={marginOpen}
+          aria-controls="portfolio-margin"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-semibold">{t("margin.heading")}</span>
+            <span className="mt-0.5 block text-xs text-dim">{t("margin.lead")}</span>
+          </span>
+          <ChevronDown
+            className={marginOpen ? "h-4 w-4 rotate-180 text-dim" : "h-4 w-4 text-dim"}
+            aria-hidden="true"
+          />
+        </button>
+
+        {marginOpen && (
+          <div
+            id="portfolio-margin"
+            className="grid gap-5 border-t border-border px-4 py-5 sm:grid-cols-2"
+          >
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="portfolio-debt"
+                className="text-xs font-medium uppercase tracking-[0.06em] text-dim"
+              >
+                {t("margin.debt")}
+              </label>
+              <input
+                id="portfolio-debt"
+                value={debt}
+                onChange={(e) => setDebt(groupDigits(e.target.value))}
+                inputMode="numeric"
+                placeholder="300.000.000"
+                className="figure mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
+              />
+              <p className="mt-1.5 text-xs text-dim">{t("margin.debtNote")}</p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="portfolio-rate"
+                className="text-xs font-medium uppercase tracking-[0.06em] text-dim"
+              >
+                {t("margin.rate")}
+              </label>
+              <div className="relative mt-2">
+                <input
+                  id="portfolio-rate"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                  inputMode="decimal"
+                  className="figure w-full rounded-md border border-border bg-background px-3 py-2 pr-16 text-right outline-none focus:border-brand"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-dim">
+                  {t("margin.perYear")}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-medium uppercase tracking-[0.06em] text-dim">
+                {t("margin.thresholds")}
+              </span>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <label className="grid gap-1">
+                  <span className="text-xs text-dim">{t("margin.callRatio")}</span>
+                  <div className="relative">
+                    <input
+                      value={callRatio}
+                      onChange={(e) => setCallRatio(e.target.value)}
+                      inputMode="decimal"
+                      className="figure w-full rounded-md border border-border bg-background px-3 py-2 pr-8 text-right outline-none focus:border-brand"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-dim">%</span>
+                  </div>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-dim">{t("margin.forceRatio")}</span>
+                  <div className="relative">
+                    <input
+                      value={forceRatio}
+                      onChange={(e) => setForceRatio(e.target.value)}
+                      inputMode="decimal"
+                      className="figure w-full rounded-md border border-border bg-background px-3 py-2 pr-8 text-right outline-none focus:border-brand"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-dim">%</span>
+                  </div>
+                </label>
+              </div>
+              <p className="mt-1.5 text-xs text-dim">{t("margin.thresholdsNote")}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (

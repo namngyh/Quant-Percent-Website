@@ -433,9 +433,19 @@ export const HoldingInputSchema = z.object({
 });
 export type HoldingInput = z.infer<typeof HoldingInputSchema>;
 
+export const MarginInputSchema = z.object({
+  debt: z.number().positive(),
+  // Annual rate and the broker's two thresholds, all as fractions.
+  rate: z.number().min(0).max(1),
+  call_ratio: z.number().gt(0).lt(1),
+  force_ratio: z.number().gt(0).lt(1),
+});
+export type MarginInput = z.infer<typeof MarginInputSchema>;
+
 export const PortfolioRequestSchema = z.object({
   holdings: z.array(HoldingInputSchema).min(1).max(50),
   cash: z.number().min(0),
+  margin: MarginInputSchema.nullable().optional(),
   horizon_days: z.number().int().min(21).max(252),
   lookback_days: z.number().int().min(60).max(1000).optional(),
 });
@@ -493,9 +503,80 @@ export const ForwardRiskSchema = z.object({
 });
 export type ForwardRisk = z.infer<typeof ForwardRiskSchema>;
 
+export const UnmeasuredPositionSchema = z.object({
+  symbol: z.string(),
+  quantity: z.number(),
+  price: z.number(),
+  market_value: z.number(),
+  cost_basis: z.number().nullable(),
+  profit: z.number().nullable(),
+  profit_percent: z.number().nullable(),
+  observations: z.number(),
+});
+export type UnmeasuredPosition = z.infer<typeof UnmeasuredPositionSchema>;
+
+export const MarginStatusSchema = z.enum([
+  "above_call",
+  "between",
+  "below_force",
+  "negative_equity",
+]);
+export type MarginStatus = z.infer<typeof MarginStatusSchema>;
+
+export const MarginDistanceSchema = z.object({
+  drop: z.number(),
+  amount: z.number(),
+});
+
+export const MarginHorizonSchema = z.object({
+  horizon_days: z.number(),
+  hit_call_probability: z.number().nullable(),
+  historical_frequency: z.number().nullable(),
+  historical_windows: z.number(),
+  interest: z.number(),
+  interest_pct_equity: z.number().nullable(),
+  breakeven_return: z.number().nullable(),
+});
+export type MarginHorizon = z.infer<typeof MarginHorizonSchema>;
+
+export const MarginScenarioSchema = z.object({
+  drop: z.number(),
+  assets: z.number(),
+  equity: z.number(),
+  margin_ratio: z.number(),
+  status: MarginStatusSchema,
+  top_up: z.number(),
+});
+export type MarginScenario = z.infer<typeof MarginScenarioSchema>;
+
+export const MarginRiskSchema = z.object({
+  assets: z.number(),
+  equity: z.number(),
+  debt: z.number(),
+  rate: z.number(),
+  call_ratio: z.number(),
+  force_ratio: z.number(),
+  leverage: z.number().nullable(),
+  margin_ratio: z.number(),
+  status: MarginStatusSchema,
+  distance_to_call: MarginDistanceSchema.nullable(),
+  distance_to_force: MarginDistanceSchema.nullable(),
+  idle_cash_cost_per_year: z.number().nullable(),
+  equity_var_95: z.number().nullable(),
+  equity_expected_shortfall_95: z.number().nullable(),
+  equity_max_drawdown: z.number().nullable(),
+  by_horizon: z.array(MarginHorizonSchema),
+  scenarios: z.array(MarginScenarioSchema),
+});
+export type MarginRisk = z.infer<typeof MarginRiskSchema>;
+
 export const PortfolioAnalysisSchema = FreshnessSchema.extend({
   total_value: z.number(),
   invested_value: z.number(),
+  // The part of the book the risk figures were measured on. Money
+  // conversions of VaR, ES and drawdown use this, not `invested_value`.
+  // Optional with a fallback so a backend one release behind still parses.
+  measured_value: z.number().optional(),
   cash: z.number(),
   cash_weight: z.number(),
   total_cost: z.number().nullable(),
@@ -513,8 +594,15 @@ export const PortfolioAnalysisSchema = FreshnessSchema.extend({
   positions: z.array(PositionRiskSchema),
   concentration: ConcentrationSchema,
   forward: ForwardRiskSchema.nullable(),
+  // Only when the request carried a loan. Optional so a backend without the
+  // block still parses; the section simply does not render.
+  margin: MarginRiskSchema.nullable().optional().default(null),
+  unmeasured: z.array(UnmeasuredPositionSchema).optional().default([]),
   unpriced: z.array(z.string()),
-});
+}).transform((a) => ({
+  ...a,
+  measured_value: a.measured_value ?? a.invested_value,
+}));
 export type PortfolioAnalysis = z.infer<typeof PortfolioAnalysisSchema>;
 
 export const TradableSymbolSchema = z.object({

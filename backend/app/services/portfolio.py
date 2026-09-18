@@ -22,6 +22,7 @@ and it is applied here rather than left as a refinement.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 
 import numpy as np
@@ -38,7 +39,9 @@ from app.schemas.portfolio import (
     PortfolioAnalysis,
     PortfolioRequest,
     PositionRisk,
+    UnmeasuredPosition,
 )
+from app.services.margin import compute_margin, load_index_history
 
 TRADING_DAYS = 252
 BENCHMARK = "VNINDEX"
@@ -289,34 +292,106 @@ def _exceedance_at(curve: list[tuple[float, float]], depth: float) -> float:
     return max(0.0, min(1.0, extended))
 
 
-async def _forward_risk(
-    session: AsyncSession, beta: float | None, horizon_days: int
-) -> ForwardRisk | None:
-    """Map the published VN-Index Monte-Carlo run onto this portfolio.
+def _split_by_history(
+    closes: dict[str, dict[date, float]], symbols: list[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Sort holdings by how much of them the database can say.
 
-    Two transformations, both stated on the response rather than folded in
-    silently:
+    Three groups, because "not enough history" covers two different cases
+    that the page must not merge:
 
-    * **Beta.** The book takes beta times the index's move, so a fall of `x`
-      here corresponds to a fall of `x / beta` there.
-    * **Square-root-of-time.** The run simulates a fixed 20 sessions. For a
-      driftless diffusion the maximum drawdown over `t` sessions has the same
-      distribution as the 20-session drawdown scaled by `sqrt(t / 20)`, so a
-      63-session question is answered by asking the run about a proportionally
-      shallower fall. It is a first-order approximation — it carries no drift
-      and no volatility clustering — which is why the page names it.
-
-    Together: P(this book falls >= x over t) = P(index falls >= x / beta /
-    sqrt(t / 20) over 20). The thresholds stay fixed and the probabilities
-    move, so two portfolios, or one portfolio over two horizons, can be read
-    against the same axis.
-
-    Returns None when no run is loaded, or when the book tracks the index too
-    weakly for beta scaling to carry any meaning.
+    * **measured** — at least `MIN_OBSERVATIONS` sessions: valued, and in
+      every risk figure.
+    * **unmeasured** — a price, but fewer sessions than that: valued, and
+      *only* valued. A newly listed stock has a last close and a market
+      value; what it does not have is a volatility or a correlation worth
+      reporting. It used to fall into the third group and disappear from the
+      portfolio's value and profit, so a reader with a third of their money
+      in a recent listing saw a total that was a third too small.
+    * **unpriced** — nothing at all: listed by symbol and no more.
     """
-    if beta is None or abs(beta) < MIN_BETA_FOR_SCALING:
-        return None
+    measured, unmeasured, unpriced = [], [], []
+    for s in symbols:
+        n = len(closes.get(s, {}))
+        if n >= MIN_OBSERVATIONS:
+            measured.append(s)
+        elif n > 0:
+            unmeasured.append(s)
+        else:
+            unpriced.append(s)
+    return measured, unmeasured, unpriced
 
+
+def _profit(
+    value: float, quantity: float, cost_basis: float | None
+) -> tuple[float | None, float | None, float | None]:
+    """(total cost, profit, profit fraction), or Nones without a cost basis."""
+    if cost_basis is None:
+        return None, None, None
+    cost = cost_basis * quantity
+    profit = value - cost
+    return cost, round(profit, 2), (round(profit / cost, 6) if cost else None)
+
+
+def _scale_forward(
+    origin: date,
+    index_var_95: float,
+    index_es_95: float,
+    paths: int,
+    curve: list[tuple[float, float]],
+    beta: float,
+    horizon_days: int,
+) -> ForwardRisk:
+    """Apply the beta and square-root-of-time transformations.
+
+    Pure so the arithmetic can be tested without a database; `_forward_risk`
+    only fetches the inputs.
+
+    Beta enters as a magnitude everywhere. The published VaR is a loss
+    (negative) on the index; a book with negative beta still has a loss
+    tail, it just sits on the index's up-moves. Multiplying by the signed
+    beta flipped that tail positive and reported a 95% *gain*. The signed
+    value is still returned as `portfolio_beta`, since the direction is
+    information; it just is not a scale factor.
+    """
+    time_scale = math.sqrt(horizon_days / MC_BASE_HORIZON_DAYS)
+    abs_beta = abs(beta)
+    return ForwardRisk(
+        source_model="rarf-fhe",
+        forecast_origin=origin,
+        horizon_days=horizon_days,
+        base_horizon_days=MC_BASE_HORIZON_DAYS,
+        horizon_scale=round(time_scale, 4),
+        paths=paths,
+        portfolio_beta=round(beta, 4),
+        var_95=round(index_var_95 * abs_beta * time_scale, 6),
+        expected_shortfall_95=round(index_es_95 * abs_beta * time_scale, 6),
+        drawdown_probabilities=[
+            DrawdownBucket(
+                threshold=-depth,
+                probability=round(
+                    _exceedance_at(curve, depth / abs_beta / time_scale), 6
+                ),
+            )
+            for depth in DRAWDOWN_THRESHOLDS
+        ],
+    )
+
+
+@dataclass(frozen=True)
+class McRun:
+    """The latest published VN-Index Monte-Carlo run, as the panels use it."""
+
+    origin: date
+    var_95: float
+    es_95: float
+    paths: int
+    # (depth, probability) pairs, depth positive and ascending.
+    curve: list[tuple[float, float]]
+
+
+async def _load_mc_run(session: AsyncSession) -> McRun | None:
+    """Fetch the run once; both the forward panel and the margin block read it."""
     # These views hold the VN-Index run only and are keyed by timestamp;
     # there is no symbol column to filter on.
     row = (
@@ -354,32 +429,51 @@ async def _forward_risk(
             abs(float(b["bucket"])): float(b["probability"]) for b in buckets
         }.items()
     )
-
-    time_scale = math.sqrt(horizon_days / MC_BASE_HORIZON_DAYS)
-    abs_beta = abs(beta)
-
     origin = row["ts"]
-    return ForwardRisk(
-        source_model="rarf-fhe",
-        forecast_origin=origin.date() if hasattr(origin, "date") else origin,
-        horizon_days=horizon_days,
-        base_horizon_days=MC_BASE_HORIZON_DAYS,
-        horizon_scale=round(time_scale, 4),
+    return McRun(
+        origin=origin.date() if hasattr(origin, "date") else origin,
+        var_95=float(row["var_95"]),
+        es_95=float(row["es_95"]),
         paths=int(row["mc_paths"] or 0),
-        portfolio_beta=round(beta, 4),
-        var_95=round(float(row["var_95"]) * beta * time_scale, 6),
-        expected_shortfall_95=round(
-            float(row["es_95"]) * beta * time_scale, 6
-        ),
-        drawdown_probabilities=[
-            DrawdownBucket(
-                threshold=-depth,
-                probability=round(
-                    _exceedance_at(curve, depth / abs_beta / time_scale), 6
-                ),
-            )
-            for depth in DRAWDOWN_THRESHOLDS
-        ],
+        curve=curve,
+    )
+
+
+def _forward_risk(
+    run: McRun | None, beta: float | None, horizon_days: int
+) -> ForwardRisk | None:
+    """Map the published VN-Index Monte-Carlo run onto this portfolio.
+
+    Two transformations, both stated on the response rather than folded in
+    silently:
+
+    * **Beta.** The book takes beta times the index's move, so a fall of `x`
+      here corresponds to a fall of `x / beta` there.
+    * **Square-root-of-time.** The run simulates a fixed 20 sessions. For a
+      driftless diffusion the maximum drawdown over `t` sessions has the same
+      distribution as the 20-session drawdown scaled by `sqrt(t / 20)`, so a
+      63-session question is answered by asking the run about a proportionally
+      shallower fall. It is a first-order approximation — it carries no drift
+      and no volatility clustering — which is why the page names it.
+
+    Together: P(this book falls >= x over t) = P(index falls >= x / beta /
+    sqrt(t / 20) over 20). The thresholds stay fixed and the probabilities
+    move, so two portfolios, or one portfolio over two horizons, can be read
+    against the same axis.
+
+    Returns None when no run is loaded, or when the book tracks the index too
+    weakly for beta scaling to carry any meaning.
+    """
+    if run is None or beta is None or abs(beta) < MIN_BETA_FOR_SCALING:
+        return None
+    return _scale_forward(
+        origin=run.origin,
+        index_var_95=run.var_95,
+        index_es_95=run.es_95,
+        paths=run.paths,
+        curve=run.curve,
+        beta=beta,
+        horizon_days=horizon_days,
     )
 
 
@@ -394,12 +488,7 @@ async def analyze(
     )
     sectors = await _load_sectors(session, symbols)
 
-    priced = [
-        s
-        for s in symbols
-        if len(closes.get(s, {})) >= MIN_OBSERVATIONS
-    ]
-    unpriced = [s for s in symbols if s not in priced]
+    priced, unmeasured_symbols, unpriced = _split_by_history(closes, symbols)
 
     if not priced:
         raise ValueError("no holding has enough price history to analyse")
@@ -413,14 +502,39 @@ async def analyze(
 
     # Returns are unit-free, so only the levels need converting.
     last_price = {
-        s: closes[s][max(closes[s])] * PRICE_UNIT_VND for s in priced
+        s: closes[s][max(closes[s])] * PRICE_UNIT_VND
+        for s in priced + unmeasured_symbols
     }
     values = np.array(
         [by_symbol[s].quantity * last_price[s] for s in priced]
     )
-    invested = float(values.sum())
+    # Three values, and the page has to use the right one in each place:
+    # `measured` is what the risk figures describe and what a percentage
+    # loss is converted to money against; `invested` is what the reader
+    # holds in stock; `total_value` adds cash.
+    measured = float(values.sum())
+    unmeasured: list[UnmeasuredPosition] = []
+    for s in unmeasured_symbols:
+        h = by_symbol[s]
+        value = h.quantity * last_price[s]
+        _, profit, profit_pct = _profit(value, h.quantity, h.cost_basis)
+        unmeasured.append(
+            UnmeasuredPosition(
+                symbol=s,
+                quantity=h.quantity,
+                price=last_price[s],
+                market_value=round(value, 2),
+                cost_basis=h.cost_basis,
+                profit=profit,
+                profit_percent=profit_pct,
+                observations=len(closes[s]),
+            )
+        )
+    invested = measured + sum(u.market_value for u in unmeasured)
     total_value = invested + request.cash
-    weights = values / invested if invested > 0 else np.zeros_like(values)
+    # Weights are shares of the measured book: they pair with risk
+    # contribution, which is only defined over it.
+    weights = values / measured if measured > 0 else np.zeros_like(values)
 
     cov = _ledoit_wolf(returns)
     # Portfolio variance uses invested weights: cash has no variance, and
@@ -500,12 +614,20 @@ async def analyze(
             )
 
     positions: list[PositionRisk] = []
+    # Profit is reported for the whole valued book or not at all: a total
+    # that quietly skips the positions without a cost basis reads as a
+    # smaller loss (or a larger gain) than the reader actually has.
     total_cost = 0.0
     has_cost = True
+    for u in unmeasured:
+        if u.cost_basis is None:
+            has_cost = False
+        else:
+            total_cost += u.cost_basis * u.quantity
     for i, s in enumerate(priced):
         h = by_symbol[s]
         value = float(values[i])
-        cost = h.cost_basis * h.quantity if h.cost_basis is not None else None
+        cost, profit, profit_pct = _profit(value, h.quantity, h.cost_basis)
         if cost is None:
             has_cost = False
         else:
@@ -518,12 +640,8 @@ async def analyze(
                 market_value=round(value, 2),
                 weight=round(float(weights[i]), 6),
                 cost_basis=h.cost_basis,
-                profit=round(value - cost, 2) if cost is not None else None,
-                profit_percent=(
-                    round((value - cost) / cost, 6)
-                    if cost not in (None, 0)
-                    else None
-                ),
+                profit=profit,
+                profit_percent=profit_pct,
                 volatility=round(float(asset_vol[i]), 6),
                 beta=asset_betas[s],
                 risk_contribution=round(float(risk_shares[i]), 6),
@@ -542,10 +660,41 @@ async def analyze(
         datetime.combine(max(dates), time(0, 0), tzinfo=UTC) if dates else None
     )
 
+    run = await _load_mc_run(session)
+
+    margin = None
+    if request.margin is not None:
+        # Beta scaling for the threshold probability follows the forward
+        # panel's own rule: too weak a beta and the index run says nothing
+        # about this book. The historical frequency is gated the same way.
+        scalable = beta is not None and abs(beta) >= MIN_BETA_FOR_SCALING
+        margin = compute_margin(
+            request.margin,
+            stock_value=invested,
+            cash=request.cash,
+            measured_value=measured,
+            var_95=var_95,
+            expected_shortfall_95=es_95,
+            max_drawdown=max_dd,
+            beta=beta if scalable else None,
+            exceedance=(
+                (lambda depth: _exceedance_at(run.curve, depth))
+                if run is not None
+                else None
+            ),
+            base_horizon_days=MC_BASE_HORIZON_DAYS,
+            index_closes=(
+                await load_index_history(session)
+                if scalable
+                else np.empty(0)
+            ),
+        )
+
     return PortfolioAnalysis(
         **build_freshness(last_session).model_dump(),
         total_value=round(total_value, 2),
         invested_value=round(invested, 2),
+        measured_value=round(measured, 2),
         cash=request.cash,
         cash_weight=round(request.cash / total_value, 6) if total_value else 0.0,
         total_cost=round(total_cost, 2) if has_cost else None,
@@ -566,7 +715,9 @@ async def analyze(
         risk_state=_risk_state(volatility, max_dd),
         positions=positions,
         concentration=concentration,
-        forward=await _forward_risk(session, beta, request.horizon_days),
+        forward=_forward_risk(run, beta, request.horizon_days),
+        margin=margin,
+        unmeasured=unmeasured,
         unpriced=unpriced,
     )
 

@@ -855,11 +855,13 @@
     "scopeNote": "This is a measurement tool, not investment advice. It does not recommend buying or selling anything. Every figure is computed from prices that have already happened, except the one block that names the model it came from.",
     "form": {
       "heading": "Current holdings",
-      "lead": "Enter a ticker and a share count. Every stock listed on HOSE is supported. Cost basis may be left blank when analysing a hypothetical portfolio; the profit columns then remain empty rather than showing inaccurate figures.",
+      "lead": "Enter tickers and share counts. Every stock listed on HOSE is supported. Cost basis is entered in thousands as a price board shows it (25.5 means 25,500 VND) or directly in dong — the field echoes the figure it understood. Leave it blank to analyse a hypothetical portfolio; the profit figures then stay blank rather than showing a wrong number.",
       "symbol": "Ticker",
       "symbolPlaceholder": "FPT",
       "quantity": "Shares",
-      "costBasis": "Cost basis (VND/share)",
+      "costBasis": "Cost basis (thousand VND/share)",
+      "costBasisPlaceholder": "25.5",
+      "costBasisHint": "= {amount} VND/share",
       "optional": "optional",
       "remove": "Remove row",
       "addRow": "Add a stock",
@@ -879,10 +881,25 @@
       "errors": {
         "quantity": "The share count for {symbol} is not valid.",
         "duplicate": "{symbol} was entered twice.",
-        "empty": "At least one stock is needed to analyse."
+        "empty": "At least one stock is needed to analyse.",
+        "rate": "The interest rate is not valid (0–100%/year).",
+        "thresholds": "The warning threshold must be above the forced-sale threshold, and both between 0 and 100%."
       },
       "unknownSymbol": "not in the data",
-      "symbolHint": "Type a ticker or pick from the suggestions."
+      "symbolHint": "Type a ticker or pick from the suggestions.",
+      "horizonWithMargin": "How long you expect to hold the loan",
+      "margin": {
+        "heading": "Borrowing on margin?",
+        "lead": "Enter the loan to see the portfolio from your own equity: leverage, distance to the warning threshold, and interest cost by holding period.",
+        "debt": "Loan outstanding (VND)",
+        "debtNote": "As shown in your broker's app. Enter every position in this margin account — a missing one puts the distance to the threshold off.",
+        "rate": "Interest rate",
+        "perYear": "%/year",
+        "thresholds": "Your broker's thresholds",
+        "callRatio": "Warning (call)",
+        "forceRatio": "Forced sale",
+        "thresholdsNote": "The regulatory minimum maintenance ratio is 30%; each broker sets its own, usually higher. Check your margin agreement."
+      }
     },
     "errors": {
       "notAnalysable": "The holdings do not share enough common price history to measure risk. Please remove recently listed or thinly traded stocks.",
@@ -891,7 +908,9 @@
       "generic": "The analysis could not run just now. Please try again."
     },
     "result": {
-      "unpriced": "{count} ticker(s) lack enough price history and were left out: {symbols}. The figures below cover the rest of the portfolio.",
+      "unpriced": "{count} ticker(s) have no price data and were left out: {symbols}. The figures below cover the rest of the portfolio.",
+      "unmeasured": "{count} ticker(s) have a price but too little history to measure. Their value ({amount}) is included in the portfolio total and profit; the weights, risk figures and money amounts below cover only the rest ({measured}).",
+      "unmeasuredRow": "{symbol}: {value}, only {sessions} sessions",
       "overviewHeading": "Portfolio overview",
       "totalValue": "Portfolio value",
       "totalValueNote": "stocks {invested}, cash {cash}",
@@ -973,6 +992,82 @@
       "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not. The horizontal axis is fixed, so two portfolios — or one portfolio at two periods — can be read against the same scale.",
       "lossScaleTitle": "In money, on your portfolio",
       "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded."
+    },
+    "margin": {
+      "heading": "Capital structure and margin",
+      "lead": "The same portfolio, seen from your own money rather than from the stocks. Every figure is arithmetic on the loan you entered and the measures above; this section does not say how much to borrow.",
+      "status": {
+        "between": "The margin ratio of {ratio} is below the warning threshold of {call} and above the forced-sale threshold of {force}. On the figures entered, the account is in the zone where the broker asks for more collateral.",
+        "below_force": "The margin ratio of {ratio} is below the forced-sale threshold of {force}. On the figures entered, the broker may sell assets to recover the loan.",
+        "negative_equity": "The loan exceeds total assets: equity is negative. The figures below no longer mean anything — check the loan amount or the list of positions."
+      },
+      "assets": "Assets",
+      "funding": "Funding",
+      "stocks": "Stocks",
+      "cash": "Cash",
+      "equity": "Equity",
+      "equityMeasures": {
+        "var95": "One-day VaR 95%",
+        "es95": "One-day ES 95%",
+        "maxDrawdown": "Deepest fall from peak"
+      },
+      "debt": "Margin loan",
+      "ratioTitle": "Margin ratio against the thresholds",
+      "ratioNote": "The simple form: equity over total assets. Brokers compute it on collateral discounted stock by stock, so your real ratio is lower and the thresholds closer than shown here.",
+      "you": "you",
+      "callShort": "warning",
+      "forceShort": "forced sale",
+      "leverage": "Leverage",
+      "leverageNote": "stocks fall 10% → equity falls {equity}",
+      "leverageNone": "equity is negative, not defined",
+      "distanceCall": "Distance to warning",
+      "distanceNote": "a further {amount} fall in the stocks; forced sale at −{force}",
+      "distanceNone": "no stocks to fall",
+      "interest": "Interest per year",
+      "interestNote": "= {pct} of equity per year at {rate}",
+      "interestNoteNoEquity": "at {rate}",
+      "idleCash": "Idle cash costs",
+      "idleCashNote": "per year, because {cash} of cash sits next to a loan that is charging interest",
+      "idleCashNone": "no cash held alongside the loan",
+      "realisedVsDistance": "Over the last {days} sessions this portfolio itself fell {drawdown} from its peak. The distance to the warning threshold is {distance}.",
+      "horizonTitle": "The same loan, held for how long?",
+      "horizonNote": "Two independent estimates of the stocks falling to the warning threshold within the period: the Certus simulation scaled to the portfolio by beta, and how often VN-Index has fallen that far within a window this long since 2000. Interest and break-even are arithmetic.",
+      "horizonNoteNoBeta": "The portfolio does not track the index closely enough to scale a probability from VN-Index, so only the interest cost is shown. Break-even is the rise the stocks need just to cover the interest.",
+      "chart": {
+        "model": "Certus simulation",
+        "history": "VN-Index historical frequency"
+      },
+      "colHorizon": "Held for",
+      "colModel": "Simulation",
+      "colHistory": "History",
+      "colInterest": "Interest accrued",
+      "colInterestPct": "% of equity",
+      "colBreakeven": "Rise to break even",
+      "historyNote": "The historical frequency counts {windows} rolling VN-Index windows since 2000, scaled to the portfolio by beta. A short period is only low-probability on average: in March 2020 the index lost a third in six weeks.",
+      "scenarioTitle": "If the stocks fall",
+      "scenarioNote": "Cash and the loan stay as they are. The last column is the cash that brings the margin ratio back to the warning threshold — the same arithmetic the broker's app shows, not a recommendation.",
+      "colDrop": "Stocks fall",
+      "colAssets": "Assets",
+      "colEquity": "Equity",
+      "colRatio": "Margin ratio",
+      "colStatus": "Status",
+      "colTopUp": "Top-up",
+      "statusShort": {
+        "above_call": "above threshold",
+        "between": "warning",
+        "below_force": "forced sale",
+        "negative_equity": "negative equity"
+      },
+      "equityRiskTitle": "Losses on your equity",
+      "equityRiskNote": "The same measures as above, divided by equity instead of by the value of the stocks: the share of your own money actually lost.",
+      "equityVsStocks": "on the stocks it is {stocks}",
+      "caveat": {
+        "selfReported": "Computed from the loan, rate and thresholds you entered, with prices current to {asOf}. Nothing is verified with the broker.",
+        "collateral": "Brokers compute the margin ratio on collateral discounted per stock; every distance here is an optimistic estimate.",
+        "model": "The simulated probability inherits every limit of the \"Chance of a decline ahead\" section: the 1-year row stretches a 20-session simulation by ×3.5.",
+        "rollover": "Margin loans usually run for about three months and are rolled over; at rollover the broker may change loan ratios or drop a stock from the margin list. That risk is not in any figure above."
+      },
+      "wipedOut": "> 100% — wiped out"
     }
   }
 }
