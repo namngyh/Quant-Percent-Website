@@ -20,7 +20,6 @@ if str(SRC) not in sys.path:
 
 from dynamicgraph.config import load_config  # noqa: E402
 
-
 N_DAYS = 1400
 N_STOCKS = 12
 SECTORS = {

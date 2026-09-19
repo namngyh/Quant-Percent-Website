@@ -101,33 +101,66 @@ def build_lead_lag_snapshot(
     if len(valid) < 5 or len(block) < 30:
         return None
 
-    n = len(valid)
-    best_forward = np.zeros((n, n))
-    best_lag = np.zeros((n, n), dtype=int)
-    best_pvalue = np.ones((n, n))
-
+    correlations: list[np.ndarray] = []
+    pvalue_family: list[np.ndarray] = []
+    valid_lags: list[int] = []
     for lag in lags:
         correlation = lagged_correlation_matrix(block, lag)
         if not np.isfinite(correlation).any():
             continue
         pvalues = fisher_z_pvalues(correlation, len(block) - lag)
-        stronger = np.abs(correlation) > np.abs(best_forward)
-        best_forward = np.where(stronger, correlation, best_forward)
-        best_lag = np.where(stronger, lag, best_lag)
-        best_pvalue = np.where(stronger, pvalues, best_pvalue)
+        # Self-pairs are not hypotheses and must not dilute the BH family.
+        np.fill_diagonal(pvalues, np.nan)
+        correlations.append(correlation)
+        pvalue_family.append(pvalues)
+        valid_lags.append(int(lag))
+
+    if not correlations:
+        return None
+
+    correlation_family = np.stack(correlations, axis=0)
+    pvalues = np.stack(pvalue_family, axis=0)
+    significant_family = benjamini_hochberg(pvalues, alpha=fdr_alpha)
+    n_rejections = int(significant_family.sum())
+
+    # Lag selection happens only after the full ordered-pair x lag family has
+    # passed FDR control. Non-rejected lags cannot win by construction.
+    eligible_magnitude = np.where(
+        significant_family, np.abs(correlation_family), -np.inf
+    )
+    best_index = np.argmax(eligible_magnitude, axis=0)
+    any_significant = significant_family.any(axis=0)
+    best_forward = np.take_along_axis(
+        correlation_family, best_index[None, :, :], axis=0
+    )[0]
+    best_pvalue = np.take_along_axis(pvalues, best_index[None, :, :], axis=0)[0]
+    lag_values = np.asarray(valid_lags, dtype=int)
+    best_lag = lag_values[best_index]
+    best_forward = np.where(any_significant, best_forward, 0.0)
+    best_pvalue = np.where(any_significant, best_pvalue, np.nan)
+    best_lag = np.where(any_significant, best_lag, 0)
 
     np.fill_diagonal(best_forward, 0.0)
     magnitude = np.abs(best_forward)
     reverse = magnitude.T
 
     ratio = magnitude / (reverse + EPS)
-    significant = benjamini_hochberg(best_pvalue, alpha=fdr_alpha)
-
-    keep = (ratio > threshold) & (magnitude >= min_abs_corr) & significant
+    keep = (ratio > threshold) & (magnitude >= min_abs_corr) & any_significant
     np.fill_diagonal(keep, False)
 
     adjacency = np.where(keep, best_forward, 0.0)
     n_edges = int(np.count_nonzero(adjacency))
+    edge_lags = [
+        {
+            "source": valid[source],
+            "target": valid[target],
+            "lag": int(best_lag[source, target]),
+            "correlation": float(best_forward[source, target]),
+            "p_value": float(best_pvalue[source, target]),
+        }
+        for source, target in zip(*np.nonzero(keep))
+    ]
+    n_hypotheses = int(np.isfinite(pvalues).sum())
 
     return DirectedSnapshot(
         date=pd.Timestamp(date),
@@ -141,8 +174,13 @@ def build_lead_lag_snapshot(
             "min_abs_corr": min_abs_corr,
             "fdr_alpha": fdr_alpha,
             "n_edges": n_edges,
-            "n_tests": int(n * (n - 1) * len(lags)),
-            "n_significant_after_fdr": int(significant.sum()),
+            "n_tests": n_hypotheses,
+            "n_hypotheses": n_hypotheses,
+            "n_rejections": n_rejections,
+            "n_significant_after_fdr": n_rejections,
+            "n_significant_pairs": int(any_significant.sum()),
+            "lag_selection_rule": "strongest absolute correlation among FDR rejections",
+            "edge_lags": edge_lags,
             "best_lag_median": float(np.median(best_lag[keep])) if n_edges else float("nan"),
             "disclaimer": LEAD_LAG_DISCLAIMER,
             "nodes": list(valid),

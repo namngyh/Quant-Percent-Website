@@ -26,7 +26,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from dynamicgraph.constants import EPS
 from dynamicgraph.evaluation.ranking import (
     decile_portfolios,
     ic_summary,
@@ -83,7 +82,9 @@ class NodeRankingResult:
     horizon: int
     target: str
     predictions: pd.DataFrame = field(default_factory=pd.DataFrame)   # date x ticker
-    realized: pd.DataFrame = field(default_factory=pd.DataFrame)      # date x ticker
+    predicted_rank: pd.DataFrame = field(default_factory=pd.DataFrame)
+    realized: pd.DataFrame = field(default_factory=pd.DataFrame)      # target rank, date x ticker
+    raw_future_return: pd.DataFrame = field(default_factory=pd.DataFrame)
     metrics: dict[str, Any] = field(default_factory=dict)
     ic_series: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
     n_features_candidate: int = 0
@@ -193,19 +194,19 @@ def _fit_predict_fold(
     # Fold-local feature selection, fitted on training rows only.
     n_candidate = train.shape[1]
     budget = int(getattr(config.training, "max_features", 0) or 0)
-    if budget and n_candidate > budget:
-        selector = FeatureSelector(
-            max_features=budget,
-            redundancy_threshold=float(config.training.feature_redundancy_threshold),
-            seed=seed,
-        )
-        # The selector scores against a binary label; use the top/bottom tercile
-        # of the ranked target as a proxy so the same machinery applies.
-        binary = (y_train > 0.667).astype(float)
-        selector.fit(train, binary)
-        if selector.selected_:
-            train = selector.transform(train)
-            test = selector.transform(test)
+    selector = FeatureSelector(
+        max_features=max(1, budget or n_candidate),
+        redundancy_threshold=float(config.training.feature_redundancy_threshold),
+        seed=seed,
+    )
+    # The selector scores against a binary label; use the top/bottom tercile
+    # of the ranked target as a proxy so the same machinery applies.
+    binary = (y_train > 0.667).astype(float)
+    selector.fit(train, binary)
+    if not selector.selected_:
+        return pd.Series(dtype=float), n_candidate, 0
+    train = selector.transform(train)
+    test = selector.transform(test)
     n_selected = train.shape[1]
 
     if model_name == "hist_gradient_boosting":
@@ -249,12 +250,20 @@ def run_node_ranking(
         logger.warning("Node ranking skipped: no node panel could be assembled.")
         return {}
 
-    target = build_node_target(state, horizon, target_kind)
-    if target.empty:
+    target_rank = build_node_target(state, horizon, target_kind)
+    if target_rank.empty:
         logger.warning("Node ranking skipped: target `%s` unavailable.", target_kind)
         return {}
 
-    realized_wide = target.unstack("ticker")
+    raw_return_column = f"future_return_{horizon}d"
+    node_forward = state.targets.node_forward
+    if node_forward is None or raw_return_column not in node_forward.columns:
+        logger.warning("Node ranking skipped: raw future return `%s` unavailable.", raw_return_column)
+        return {}
+    # `features.targets.future_return` is a log return. Portfolio arithmetic is
+    # performed on simple returns so the spread has an actual return unit.
+    raw_future_return = np.expm1(node_forward[raw_return_column]).unstack("ticker")
+    target_rank_wide = target_rank.unstack("ticker")
     results: dict[str, NodeRankingResult] = {}
 
     for set_name, feature_names in NODE_FEATURE_SETS.items():
@@ -263,7 +272,7 @@ def run_node_ranking(
 
         for fold in folds:
             preds, n_cand, n_sel = _fit_predict_fold(
-                panel, target, fold.train_dates, fold.test_dates,
+                panel, target_rank, fold.train_dates, fold.test_dates,
                 list(feature_names), config, model_name,
             )
             if not preds.empty:
@@ -277,17 +286,28 @@ def run_node_ranking(
 
         stacked = pd.concat(predictions)
         prediction_wide = stacked.unstack("ticker").sort_index()
-        realized = realized_wide.reindex(prediction_wide.index)
+        predicted_rank = prediction_wide.rank(axis=1, pct=True)
+        realized = target_rank_wide.reindex(prediction_wide.index)
+        portfolio_returns = raw_future_return.reindex(prediction_wide.index)
 
         ic = information_coefficient(prediction_wide, realized, "spearman")
         summary = ic_summary(ic, horizon=horizon)
-        portfolios = decile_portfolios(prediction_wide, realized, n_buckets=5)
+        # Evaluate non-overlapping h-day holdings. Daily IC remains useful and
+        # its overlapping inference is handled by Newey-West above.
+        rebalance_predictions = prediction_wide.iloc[::horizon]
+        portfolios = decile_portfolios(
+            rebalance_predictions,
+            portfolio_returns.reindex(rebalance_predictions.index),
+            n_buckets=5,
+        )
 
         metrics: dict[str, Any] = {
             "feature_set": set_name,
             "model": model_name,
             "horizon": horizon,
             "target": target_kind,
+            "ic_outcome": f"cross_sectional_rank_{target_kind}",
+            "portfolio_outcome": "raw_future_simple_return",
             "n_dates": int(len(prediction_wide)),
             "n_folds": len(predictions),
             **{f"ic_{k}": v for k, v in summary.items()},
@@ -330,7 +350,9 @@ def run_node_ranking(
             horizon=horizon,
             target=target_kind,
             predictions=prediction_wide,
+            predicted_rank=predicted_rank,
             realized=realized,
+            raw_future_return=portfolio_returns,
             metrics=metrics,
             ic_series=ic,
             n_features_candidate=int(np.mean(candidates)) if candidates else 0,
@@ -355,6 +377,69 @@ def summarize_node_ranking(results: dict[str, NodeRankingResult]) -> pd.DataFram
     if not baseline.empty:
         base_ic = float(baseline["ic_ic_mean"].iloc[0])
         frame["ic_mean_vs_node_only"] = frame["ic_ic_mean"] - base_ic
+        base_series = results["node"].ic_series
+        comparisons: dict[str, dict[str, float]] = {}
+        for name, result in results.items():
+            if name == "node":
+                continue
+            paired = pd.concat(
+                [base_series.rename("baseline"), result.ic_series.rename("candidate")],
+                axis=1,
+                join="inner",
+            ).dropna()
+            difference = paired["candidate"] - paired["baseline"]
+            if len(difference) < 3:
+                comparisons[name] = {
+                    "effect": np.nan,
+                    "lower": np.nan,
+                    "upper": np.nan,
+                    "p": np.nan,
+                    "effect_size": np.nan,
+                    "n": float(len(difference)),
+                }
+                continue
+            lag = max(0, int(result.horizon) - 1)
+            standard_error = newey_west_se(difference.to_numpy(), lag=lag)
+            effect = float(difference.mean())
+            if np.isfinite(standard_error) and standard_error > 0:
+                from scipy.stats import norm
+
+                statistic = effect / standard_error
+                p_value = float(2.0 * norm.sf(abs(statistic)))
+                lower = effect - 1.96 * standard_error
+                upper = effect + 1.96 * standard_error
+            else:
+                p_value = lower = upper = np.nan
+            dispersion = float(difference.std(ddof=1))
+            comparisons[name] = {
+                "effect": effect,
+                "lower": float(lower),
+                "upper": float(upper),
+                "p": p_value,
+                "effect_size": effect / dispersion if dispersion > 0 else np.nan,
+                "n": float(len(difference)),
+            }
+
+        valid = sorted(
+            ((name, values["p"]) for name, values in comparisons.items() if np.isfinite(values["p"])),
+            key=lambda item: item[1],
+        )
+        adjusted: dict[str, float] = {}
+        running = 0.0
+        total = len(valid)
+        for rank, (name, p_value) in enumerate(valid):
+            running = max(running, min(1.0, (total - rank) * p_value))
+            adjusted[name] = running
+
+        for name, values in comparisons.items():
+            mask = frame["feature_set"] == name
+            frame.loc[mask, "ic_difference"] = values["effect"]
+            frame.loc[mask, "ic_difference_ci_lower"] = values["lower"]
+            frame.loc[mask, "ic_difference_ci_upper"] = values["upper"]
+            frame.loc[mask, "ic_difference_p_value"] = values["p"]
+            frame.loc[mask, "ic_difference_p_adjusted"] = adjusted.get(name, np.nan)
+            frame.loc[mask, "ic_difference_effect_size"] = values["effect_size"]
+            frame.loc[mask, "ic_difference_n"] = values["n"]
     return frame.sort_values("ic_ic_mean", ascending=False).reset_index(drop=True)
 
 
@@ -369,16 +454,32 @@ def node_ranking_verdict(summary: pd.DataFrame) -> dict[str, Any]:
 
     base_ic = float(by_set.loc["node", "ic_ic_mean"])
     base_t = float(by_set.loc["node"].get("ic_ic_t_stat", np.nan))
-    improvements = {
-        name: float(by_set.loc[name, "ic_ic_mean"]) - base_ic
-        for name in by_set.index if name != "node"
-    }
+    improvements = {}
+    for name in by_set.index:
+        if name == "node":
+            continue
+        paired = by_set.loc[name].get("ic_difference", np.nan)
+        improvements[name] = (
+            float(paired)
+            if np.isfinite(paired)
+            else float(by_set.loc[name, "ic_ic_mean"]) - base_ic
+        )
     best_name = max(improvements, key=improvements.get) if improvements else None
     best_ic = float(by_set.loc[best_name, "ic_ic_mean"]) if best_name else np.nan
     best_t = float(by_set.loc[best_name].get("ic_ic_t_stat", np.nan)) if best_name else np.nan
 
-    # A mean IC is only meaningful if it is distinguishable from zero.
-    significant = np.isfinite(best_t) and abs(best_t) > 2.0
+    best_row = by_set.loc[best_name] if best_name else pd.Series(dtype=float)
+    paired_p = float(best_row.get("ic_difference_p_adjusted", np.nan))
+    paired_lower = float(best_row.get("ic_difference_ci_lower", np.nan))
+    paired_upper = float(best_row.get("ic_difference_ci_upper", np.nan))
+    # Incremental value requires a paired improvement over the baseline after
+    # correcting for all network-feature comparisons.
+    significant = (
+        np.isfinite(paired_p)
+        and paired_p < 0.05
+        and np.isfinite(paired_lower)
+        and paired_lower > 0
+    )
     if best_name and improvements[best_name] > 0 and significant:
         verdict = "network_features_improve_ranking"
     elif best_name and improvements[best_name] > 0:
@@ -393,16 +494,20 @@ def node_ranking_verdict(summary: pd.DataFrame) -> dict[str, Any]:
         "best_feature_set": best_name,
         "best_ic_mean": best_ic,
         "best_ic_t_stat": best_t,
+        "paired_effect": improvements.get(best_name, np.nan) if best_name else np.nan,
+        "paired_ci_lower": paired_lower,
+        "paired_ci_upper": paired_upper,
+        "paired_p_adjusted": paired_p,
         "ic_improvements": improvements,
         "interpretation": {
             "network_features_improve_ranking": (
-                "Adding network position and neighbour aggregates improved the mean rank IC over "
-                "per-stock features alone, with an IC t-statistic above 2."
+                "Adding network position and neighbour aggregates produced a positive paired IC "
+                "improvement over per-stock features after multiple-testing correction."
             ),
             "improvement_not_significant": (
-                "Network features raised the mean rank IC, but the IC is not distinguishable from "
-                "zero at conventional levels. This does not support a claim of cross-sectional "
-                "predictive value."
+                "Network features raised the mean rank IC, but the paired IC improvement over the "
+                "node-only baseline is not significant after multiple-testing correction. This "
+                "does not support a claim of incremental cross-sectional predictive value."
             ),
             "no_improvement": (
                 "Network features did not improve cross-sectional ordering over per-stock "

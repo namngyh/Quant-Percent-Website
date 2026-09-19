@@ -12,7 +12,7 @@ shared "was this a quiet year?" variation.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -38,6 +38,22 @@ def _block_indices(
     n_blocks = int(np.ceil(n / block_length))
     starts = rng.integers(0, n - block_length + 1, size=n_blocks)
     return np.concatenate([np.arange(s, s + block_length) for s in starts])[:n]
+
+
+def _grouped_block_indices(
+    groups: np.ndarray,
+    block_length: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Resample blocks inside groups so no synthetic block crosses a fold."""
+    labels = np.asarray(groups)
+    ordered_labels = pd.unique(labels)
+    sampled: list[np.ndarray] = []
+    for label in ordered_labels:
+        positions = np.flatnonzero(labels == label)
+        local = _block_indices(len(positions), block_length, rng)
+        sampled.append(positions[local])
+    return np.concatenate(sampled) if sampled else np.array([], dtype=int)
 
 
 def block_bootstrap_ci(
@@ -105,12 +121,14 @@ def paired_bootstrap_difference(
     alpha: float = 0.05,
     seed: int = 42,
     higher_is_better: bool = True,
+    groups: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """CI and one-sided p-value for `metric(A) - metric(B)` on identical blocks."""
     y = np.asarray(y_true, dtype=float)
     a = np.asarray(pred_a, dtype=float)
     b = np.asarray(pred_b, dtype=float)
     mask = ~np.isnan(y) & ~np.isnan(a) & ~np.isnan(b)
+    group_values = np.asarray(groups)[mask] if groups is not None else None
     y, a, b = y[mask], a[mask], b[mask]
     n = y.size
 
@@ -134,7 +152,11 @@ def paired_bootstrap_difference(
     rng = np.random.default_rng(seed)
     differences: list[float] = []
     for _ in range(n_bootstrap):
-        indices = _block_indices(n, block_length, rng)
+        indices = (
+            _grouped_block_indices(group_values, block_length, rng)
+            if group_values is not None
+            else _block_indices(n, block_length, rng)
+        )
         value_a = _safe(metric_fn, y[indices], a[indices])
         value_b = _safe(metric_fn, y[indices], b[indices])
         if np.isfinite(value_a) and np.isfinite(value_b):
@@ -150,9 +172,16 @@ def paired_bootstrap_difference(
     values = np.asarray(differences)
     lower = float(np.quantile(values, alpha / 2))
     upper = float(np.quantile(values, 1 - alpha / 2))
-    # One-sided bootstrap p-value: how often the resampled difference has the
-    # wrong sign relative to the hypothesis "A is better than B".
-    p_value = float(np.mean(values <= 0) if higher_is_better else np.mean(values >= 0))
+    # Approximate the null distribution by centring bootstrap errors at zero.
+    # Counting the signs of the uncentred distribution is not a valid test: it
+    # remains centred on the observed effect under the alternative.
+    null_values = values - difference
+    extreme = (
+        np.count_nonzero(null_values >= difference)
+        if higher_is_better
+        else np.count_nonzero(null_values <= difference)
+    )
+    p_value = float((extreme + 1) / (len(null_values) + 1))
 
     return {
         "metric_a": point_a,
@@ -233,7 +262,13 @@ def paired_series_bootstrap(
     values = np.asarray(differences)
     lower = float(np.quantile(values, alpha / 2))
     upper = float(np.quantile(values, 1 - alpha / 2))
-    p_value = float(np.mean(values >= 0) if lower_is_better else np.mean(values <= 0))
+    null_values = values - difference
+    extreme = (
+        np.count_nonzero(null_values <= difference)
+        if lower_is_better
+        else np.count_nonzero(null_values >= difference)
+    )
+    p_value = float((extreme + 1) / (len(null_values) + 1))
     return {
         **base,
         "difference_mean": float(values.mean()),

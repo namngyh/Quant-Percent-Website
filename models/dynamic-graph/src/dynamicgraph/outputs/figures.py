@@ -10,10 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+import matplotlib
 import numpy as np
 import pandas as pd
-
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -93,7 +92,7 @@ def plot_network(
     """Spring-layout network coloured by community, sized by strength."""
     import networkx as nx
 
-    graph = snapshot.to_networkx(use_absolute=True)
+    graph = snapshot.to_networkx(use_absolute=True, representation="display")
     figure, ax = plt.subplots(figsize=(9, 8))
 
     labels = getattr(communities, "labels", {}) or {}
@@ -101,7 +100,7 @@ def plot_network(
     colormap = plt.get_cmap("tab10")
     colors = [colormap(community_ids.index(labels.get(n, 0)) % 10) for n in graph.nodes]
 
-    strength = np.abs(snapshot.adjacency).sum(axis=1)
+    strength = np.abs(snapshot.adjacency_raw).sum(axis=1)
     strength_map = dict(zip(snapshot.nodes, strength))
     sizes = [200 + 1400 * (strength_map.get(n, 0) / (strength.max() + 1e-12)) for n in graph.nodes]
 

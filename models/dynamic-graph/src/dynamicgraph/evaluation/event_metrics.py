@@ -25,19 +25,24 @@ logger = get_logger(__name__)
 def event_detection_metrics(
     labels: pd.Series,
     probabilities: pd.Series,
-    threshold: float,
+    threshold: float | pd.Series,
     min_gap_days: int = 20,
     lead_window: int = 40,
 ) -> dict[str, Any]:
     """Episode-level detection rate, warning lead time and false-alarm rate."""
     labels = labels.dropna()
     probabilities = probabilities.reindex(labels.index)
-    valid = probabilities.notna()
-    labels, probabilities = labels[valid], probabilities[valid]
+    thresholds = (
+        pd.Series(float(threshold), index=labels.index)
+        if np.isscalar(threshold)
+        else pd.Series(threshold).reindex(labels.index)
+    )
+    valid = probabilities.notna() & thresholds.notna()
+    labels, probabilities, thresholds = labels[valid], probabilities[valid], thresholds[valid]
     if labels.empty:
         return {"n_events": 0, "note": "no labelled observations"}
 
-    alerts = (probabilities >= threshold).astype(int)
+    alerts = (probabilities >= thresholds).astype(int)
     events = stress_events(labels, min_gap_days=min_gap_days)
     positions = {date: i for i, date in enumerate(labels.index)}
 
@@ -85,7 +90,8 @@ def event_detection_metrics(
         "false_alarm_events_per_year": float(false_alarm_events / years) if years > 0 else np.nan,
         "false_alarm_days_per_year": float(len(false_alarm_positions) / years) if years > 0 else np.nan,
         "alert_rate": float(alerts.mean()),
-        "threshold": float(threshold),
+        "threshold": float(thresholds.iloc[0]) if thresholds.nunique() == 1 else np.nan,
+        "threshold_policy": "fixed" if thresholds.nunique() == 1 else "per_prediction",
         "n_days": n_days,
         "lead_window": lead_window,
     }
@@ -94,7 +100,7 @@ def event_detection_metrics(
 def event_table(
     labels: pd.Series,
     probabilities: pd.Series,
-    threshold: float,
+    threshold: float | pd.Series,
     min_gap_days: int = 20,
     lead_window: int = 40,
 ) -> pd.DataFrame:
@@ -103,7 +109,12 @@ def event_table(
     probabilities = probabilities.reindex(labels.index)
     events = stress_events(labels, min_gap_days=min_gap_days)
     positions = {date: i for i, date in enumerate(labels.index)}
-    alerts = (probabilities >= threshold).astype(int)
+    thresholds = (
+        pd.Series(float(threshold), index=labels.index)
+        if np.isscalar(threshold)
+        else pd.Series(threshold).reindex(labels.index)
+    )
+    alerts = (probabilities >= thresholds).astype(int)
 
     rows = []
     for start, end in events:

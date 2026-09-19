@@ -1,3 +1,17 @@
+data:
+  # Snapshot the batch tier reads. Refreshed by `scripts/sync_source.py`.
+  path: data/raw/VNINDEX_Daily_db.csv
+  # Read-only market data source. Supported backends: csv, sqlite, duckdb,
+  # postgres. The DSN lives in `.env` (gitignored), never here.
+  source:
+    backend: postgres
+    dsn_env: MSDP_MARKET_DSN
+    table: bars_1d
+    symbol: VNINDEX
+    symbol_column: symbol
+    path: data/raw/VNINDEX_Daily.csv
+    column_map: {date: trading_date, open: open, high: high, low: low, close: close, volume: volume}
+    date_unit: null
 seed: 42
 seeds: [42, 123, 2026]
 device: cpu
@@ -11,10 +25,11 @@ calibration_window: 252
 target_coverage: 0.90
 min_feature_nonmissing: 0.70
 split: {development: 0.70, calibration: 0.15, test: 0.15, min_development: 1500, min_calibration: 252, min_test: 252}
-model: {hidden_dim: 64, latent_dim: 48, n_blocks: 2, dropout: 0.10, gate_temperature: 1.0, medium_pool: 5, long_pool: 10}
-training: {epochs: 100, tuning_epochs: 70, patience: 10, batch_size: 64, learning_rate: 0.001, weight_decay: 0.00001, folds: 4, trials: 50, num_workers: 0, seeds: [42, 123, 2026]}
+# Best trial 39 (objective 0.7819) from study msdp_v3_gpu_de60ce39_v1, 50 trials, 2026-07-22
+model: {hidden_dim: 128, latent_dim: 64, n_blocks: 4, dropout: 0.11517540839828096, gate_temperature: 1.229635137393252, medium_pool: 3, long_pool: 10}
+training: {epochs: 100, tuning_epochs: 70, patience: 10, batch_size: 96, learning_rate: 0.0034737820547757017, weight_decay: 0.0003355719254184501, gradient_clip: 1.0, folds: 4, trials: 50, num_workers: 0, seeds: [42, 123, 2026]}
 tuning: {enabled: true, n_trials: 50, n_folds: 4, max_epochs: 70, early_stopping_patience: 10, pruner: hyperband, seed: 42, n_jobs: 1, storage: artifacts/tuning/msdp_optuna.db}
-loss_weights: {return: 1.0, direction: 0.25, mdd: 0.35, volatility: 0.15, balance: 0.01, aux: 0.05, entropy: 0.0}
+loss_weights: {return: 1.0, direction: 0.15, mdd: 0.35, volatility: 0.20, balance: 0.02, aux: 0.05, entropy: 0.0}
 bootstrap_resamples: 1000
 bootstrap: {n_resamples: 1000}
 ablations: [equal, single, no_range, no_conformal, shared_gate]

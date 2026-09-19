@@ -38,7 +38,8 @@ def generate_research_figures(market,pred,metrics,baseline,ablations,seed_result
         path=out.parents[1]/"artifacts/models"/f"training_history_seed_{s['seed']}.csv"
         if path.exists(): histories.append((s["seed"],__import__("pandas").read_csv(path)))
     for filename,column,title in [("training_total_loss_by_seed.png","train_total","Training total loss"),("training_return_loss.png","train_return","Training return loss"),("training_direction_loss.png","train_direction","Training direction loss"),("training_mdd_loss.png","train_mdd","Training MDD loss"),("training_volatility_loss.png","train_volatility","Training volatility loss"),("learning_rate_history.png","learning_rate","Learning-rate history")]:
-        if histories: save(filename,title,histories[0][1].epoch,{f"seed {s}":d[column] for s,d in histories if column in d},"Loss" if column!="learning_rate" else "Learning rate")
+        # Seeds may early-stop at different epochs; NaN-pad to the longest history so every seed keeps its own axis.
+        if histories: n=max(len(d) for _,d in histories); save(filename,title,np.arange(1,n+1),{f"seed {s}":np.pad(d[column].to_numpy(dtype=float),(0,n-len(d)),constant_values=np.nan) for s,d in histories if column in d},"Loss" if column!="learning_rate" else "Learning rate")
     bar("seed_validation_comparison.png","Seed validation comparison",[str(s["seed"]) for s in seed_results],[s["best_validation_loss"] for s in seed_results],"Validation loss")
     for h in hs:
         save(f"predicted_vs_actual_return_h{h}.png",f"Predicted vs actual return h={h}",pdates,{"Actual":pred[f"actual_return_h{h}"],"Median":pred[f"return_q50_h{h}"]},"Return (%)")

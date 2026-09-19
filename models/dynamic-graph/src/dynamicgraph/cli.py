@@ -76,8 +76,6 @@ def _bootstrap(
         overrides.setdefault("graph", {}).update(
             {"edge_filter_method": "stability", "bootstrap_iterations": 100, "snapshot_stride": 1}
         )
-        overrides.setdefault("models", {})["run_temporal_gnn"] = True
-        overrides.setdefault("gnn", {})["enabled"] = True
     if start_date:
         overrides.setdefault("data", {})["start_date"] = start_date
     if end_date:
@@ -288,6 +286,7 @@ def _cmd_generate_latest(config: Any, force: bool = False) -> int:
 
     state = _load_state(config, need="network", force=force)
     state = P.stage_directed(state)
+    state = P.stage_observatory(state)
     state = P.stage_predictive(state)
     state = P.stage_graph_validation(state)
     payload = generate_latest(state)
@@ -305,6 +304,40 @@ def _cmd_generate_latest(config: Any, force: bool = False) -> int:
     return 0
 
 
+def _cmd_init_online_state(config: Any, force: bool = False) -> int:
+    from dynamicgraph.online.runner import initialize_online_state
+
+    _print_online(initialize_online_state(config))
+    return 0
+
+
+def _cmd_update_latest(config: Any, force: bool = False) -> int:
+    from dynamicgraph.online.runner import update_latest_online
+
+    _print_online(update_latest_online(config))
+    return 0
+
+
+def _print_online(result: dict) -> None:
+    """Emit the result as UTF-8 whatever the console code page is.
+
+    The documented deployment is Task Scheduler/cron with stdout redirected to
+    a file, which defaults to cp1252 on Windows and cannot encode the Vietnamese
+    strings these payloads carry.
+    """
+    import json
+    import sys
+
+    text = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:
+        print(text)
+        return
+    sys.stdout.flush()
+    buffer.write((text + "\n").encode("utf-8"))
+    buffer.flush()
+
+
 def _cmd_export_website(config: Any, force: bool = False) -> int:
     return _cmd_generate_latest(config, force=force)
 
@@ -319,6 +352,7 @@ def _cmd_run_all(config: Any, force: bool = False) -> int:
     state = P.stage_graphs(state, force=force)
     state = P.stage_network(state)
     state = P.stage_directed(state)
+    state = P.stage_observatory(state)
     state = P.stage_predictive(state)
     state = P.stage_graph_validation(state)
     state = P.stage_allocation(state)
@@ -466,6 +500,28 @@ if _HAS_TYPER:
         cfg = _bootstrap(config, fast, full, start_date, as_of_date or end_date, log_level, seed)
         raise typer.Exit(_cmd_export_website(cfg, force))
 
+    @app.command("init-online-state")
+    def init_online_state(
+        config: Optional[str] = ConfigOption, fast: bool = FastOption, full: bool = FullOption,
+        start_date: Optional[str] = StartOption, end_date: Optional[str] = EndOption,
+        as_of_date: Optional[str] = AsOfOption, force: bool = ForceOption,
+        log_level: Optional[str] = LogOption, seed: Optional[int] = SeedOption,
+    ) -> None:
+        """Seed the per-session online state from the latest batch run."""
+        cfg = _bootstrap(config, fast, full, start_date, as_of_date or end_date, log_level, seed)
+        raise typer.Exit(_cmd_init_online_state(cfg, force))
+
+    @app.command("update-latest")
+    def update_latest(
+        config: Optional[str] = ConfigOption, fast: bool = FastOption, full: bool = FullOption,
+        start_date: Optional[str] = StartOption, end_date: Optional[str] = EndOption,
+        as_of_date: Optional[str] = AsOfOption, force: bool = ForceOption,
+        log_level: Optional[str] = LogOption, seed: Optional[int] = SeedOption,
+    ) -> None:
+        """Apply every new trading session without refitting any model."""
+        cfg = _bootstrap(config, fast, full, start_date, as_of_date or end_date, log_level, seed)
+        raise typer.Exit(_cmd_update_latest(cfg, force))
+
     @app.command("run-all")
     def run_all(
         config: Optional[str] = ConfigOption, fast: bool = FastOption, full: bool = FullOption,
@@ -503,6 +559,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=[
         "discover-data", "audit-data", "build-features", "build-graphs", "train-baselines",
         "train-gnn", "walk-forward", "allocate", "generate-latest", "export-website", "run-all",
+        "init-online-state", "update-latest",
     ])
     parser.add_argument("--config", "-c", default=None)
     parser.add_argument("--fast", action="store_true")
@@ -532,6 +589,8 @@ def main(argv: list[str] | None = None) -> int:
         "allocate": _cmd_allocate,
         "generate-latest": _cmd_generate_latest,
         "export-website": _cmd_export_website,
+        "init-online-state": _cmd_init_online_state,
+        "update-latest": _cmd_update_latest,
         "run-all": _cmd_run_all,
     }
     return dispatch[args.command](config, args.force)

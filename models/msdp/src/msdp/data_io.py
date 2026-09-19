@@ -47,6 +47,24 @@ def _parse_broken_csv(path: Path) -> pd.DataFrame:
             else: raise ValueError(f"Cannot reconstruct OHLCV at line {line_no}")
     return pd.DataFrame(rows, columns=["Date","Open","High","Low","Close","Volume"])
 
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T].*)?$")
+
+def parse_dates(values: pd.Series) -> pd.Series:
+    """Parse a date column, choosing the convention from the data itself.
+
+    The vendor CSV is `d/m/YYYY`, so `dayfirst=True` is required there. A
+    snapshot exported from the database is ISO, and pandas warns when `dayfirst`
+    is set on unambiguous ISO input. Both now exist in this repository, so detect
+    rather than assume; day-first stays the fallback because it is what every
+    historical file under `data/raw/` needs.
+    """
+    if pd.api.types.is_datetime64_any_dtype(values): return pd.to_datetime(values, errors="coerce")
+    text = values.astype(str).str.strip()
+    populated = text[text.ne("") & text.ne("nan") & text.ne("NaT")]
+    if len(populated) and populated.str.match(ISO_DATE).all():
+        return pd.to_datetime(values, errors="coerce", format="ISO8601")
+    return pd.to_datetime(values, errors="coerce", dayfirst=True)
+
 def load_market_data(path: str | Path) -> pd.DataFrame:
     path = Path(path)
     try:
@@ -61,7 +79,7 @@ def load_market_data(path: str | Path) -> pd.DataFrame:
     except Exception:
         frame = _parse_broken_csv(path)
         frame.columns = [c.lower() for c in frame.columns]
-    frame["date"] = pd.to_datetime(frame["date"], dayfirst=True, errors="coerce")
+    frame["date"] = parse_dates(frame["date"])
     for col in frame.columns.difference(["date"]):
         frame[col] = pd.to_numeric(frame[col], errors="coerce")
     frame = frame.dropna(subset=["date", "close"]).sort_values("date")

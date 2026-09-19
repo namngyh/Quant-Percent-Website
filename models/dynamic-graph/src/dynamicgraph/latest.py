@@ -3,8 +3,8 @@ markdown reports from a completed `PipelineState`."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,7 +12,7 @@ import pandas as pd
 
 from dynamicgraph.logging_config import get_logger
 from dynamicgraph.outputs import figures as F
-from dynamicgraph.outputs.exporters import export_frame, output_formats, write_manifest
+from dynamicgraph.outputs.exporters import write_manifest
 from dynamicgraph.outputs.website_json import (
     build_edges_json,
     build_nodes_json,
@@ -54,34 +54,50 @@ def _model_quality(state: Any, horizon: int) -> dict[str, Any]:
     }
 
 
-def build_stress_probabilities(state: Any, as_of: pd.Timestamp) -> dict[str, dict[str, Any]]:
-    """Live probability per horizon from a model refitted up to `as_of`.
+@dataclass
+class FrozenStressModel:
+    """One horizon's fitted stress classifier plus everything it was fitted with.
 
-    Only horizons whose OOS evaluation actually produced a usable model are
-    published, and each entry carries its own quality metadata.
+    This exists so the online tier can publish a probability without calling
+    `fit_final_model`. Refitting per session would make the published number a
+    function of when it was asked for rather than of the data, and would quietly
+    move the label threshold every day.
+
+    `feature_names` is what `fit_final_model` actually kept: it may narrow the
+    feature space, and the live row has to be projected onto exactly those
+    columns or the model is fed a different matrix from the one it learned on.
     """
+
+    horizon: int
+    model: Any
+    model_name: str
+    feature_set: str
+    feature_names: list[str]
+    label_threshold: float
+    train_end: pd.Timestamp
+    quality: dict[str, Any]
+    stress_quantile: float
+    verdict: str
+
+
+def fit_stress_models(state: Any, as_of: pd.Timestamp) -> dict[int, FrozenStressModel]:
+    """Fit the per-horizon stress classifiers. Batch tier only -- this is the
+    expensive, non-reproducible-across-days half."""
     from dynamicgraph.features.targets import label_by_train_quantile
     from dynamicgraph.models.baselines import build_model_zoo
-    from dynamicgraph.models.registry import FeatureSetBuilder, flatten_graph_metrics
     from dynamicgraph.training.walk_forward import fit_final_model
 
     config = state.config
     experiment = state.experiment
     if experiment is None or experiment.metrics.empty:
-        logger.info("No OOS results; publishing no stress probabilities.")
+        logger.info("No OOS results; no stress model to fit.")
         return {}
 
     index = state.market_features.index
-    graph_features = flatten_graph_metrics(state.metrics_by_key, index)
-    if state.stress_scores is not None:
-        stress = state.stress_scores.reindex(index)
-        for column in ("stress_raw", "stress_score", "stress_change_5d", "stress_change_20d"):
-            if column in stress.columns:
-                graph_features[f"descriptive_{column}"] = stress[column]
-    builder = FeatureSetBuilder(state.market_features, graph_features, index=index)
+    builder = stress_feature_builder(state)
     zoo = build_model_zoo(config, "classification")
 
-    out: dict[str, dict[str, Any]] = {}
+    frozen: dict[int, FrozenStressModel] = {}
     for horizon in [int(h) for h in config.targets.horizons]:
         quality = _model_quality(state, horizon)
         if not quality:
@@ -127,25 +143,78 @@ def build_stress_probabilities(state: Any, as_of: pd.Timestamp) -> dict[str, dic
         if model is None:
             continue
 
-        # `fit_final_model` may have narrowed the feature space; the live row
-        # must be projected onto exactly the same columns.
-        selected = model.feature_names or list(features.columns)
-        latest_row = features.reindex(columns=selected).loc[[as_of]] if as_of in features.index else None
-        if latest_row is None or latest_row.isna().all(axis=1).iloc[0]:
+        frozen[horizon] = FrozenStressModel(
+            horizon=horizon,
+            model=model,
+            model_name=model_name,
+            feature_set=feature_set,
+            feature_names=list(model.feature_names or features.columns),
+            label_threshold=float(label_threshold),
+            train_end=pd.Timestamp(train_end),
+            quality=dict(quality),
+            stress_quantile=float(config.targets.stress_quantile),
+            verdict=str(state.verdict.get("verdict", "unknown")),
+        )
+    logger.info("Fitted stress models for horizons: %s", sorted(frozen))
+    return frozen
+
+
+def stress_feature_builder(state: Any):
+    """The feature matrix the stress classifiers see.
+
+    Factored out so the batch tier and the online tier build it the same way.
+    If these two ever diverge the model is scored on a different matrix from the
+    one it was fitted on, and nothing downstream would notice.
+    """
+    from dynamicgraph.models.registry import FeatureSetBuilder, flatten_graph_metrics
+
+    index = state.market_features.index
+    graph_features = flatten_graph_metrics(state.metrics_by_key, index)
+    if state.stress_scores is not None:
+        stress = state.stress_scores.reindex(index)
+        for column in ("stress_raw", "stress_score", "stress_change_5d", "stress_change_20d"):
+            if column in stress.columns:
+                graph_features[f"descriptive_{column}"] = stress[column]
+    return FeatureSetBuilder(state.market_features, graph_features, index=index)
+
+
+def predict_stress_probabilities(
+    frozen: dict[int, FrozenStressModel],
+    builder: Any,
+    as_of: pd.Timestamp,
+) -> dict[str, dict[str, Any]]:
+    """Score the frozen models on one date. No fitting, no state.
+
+    Both tiers publish through this function, so the payload schema cannot drift
+    between them.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for horizon in sorted(frozen):
+        entry = frozen[horizon]
+        try:
+            features = builder.build(entry.feature_set)
+        except Exception:
+            continue
+        if as_of not in features.index:
+            continue
+        latest_row = features.reindex(columns=entry.feature_names).loc[[as_of]]
+        if latest_row.isna().all(axis=1).iloc[0]:
             continue
         try:
-            probability = float(model.predict_proba(latest_row)[0])
+            probability = float(entry.model.predict_proba(latest_row)[0])
         except Exception as exc:
             logger.warning("Live prediction failed for horizon %d: %s", horizon, exc)
             continue
 
+        quality = entry.quality
         warning = None
-        if quality.get("brier_skill_score", 0) is not None and quality["brier_skill_score"] <= 0:
+        skill = quality.get("brier_skill_score", 0)
+        if skill is not None and skill <= 0:
             warning = (
                 "This horizon's model did not beat a constant base-rate forecast out of sample. "
                 "Treat the probability as uninformative."
             )
-        elif state.verdict.get("verdict") == "no_incremental_value" and feature_set != "market":
+        elif entry.verdict == "no_incremental_value" and entry.feature_set != "market":
             warning = (
                 "Graph features did not show statistically significant incremental value out of "
                 "sample; this probability rests mainly on market-level information."
@@ -158,33 +227,47 @@ def build_stress_probabilities(state: Any, as_of: pd.Timestamp) -> dict[str, dic
 
         out[f"{horizon}d"] = {
             "probability": round(probability, 5),
-            "calibrated": model.method != "none",
-            "calibration_method": model.method,
-            "model_name": model_name,
-            "feature_set": feature_set,
+            "calibrated": entry.model.method != "none",
+            "calibration_method": entry.model.method,
+            "model_name": entry.model_name,
+            "feature_set": entry.feature_set,
             "label_definition": (
                 f"VN30 forward {horizon}-day drawdown at or below the training "
-                f"{int(config.targets.stress_quantile * 100)}th percentile "
-                f"({label_threshold:.4f})"
+                f"{int(entry.stress_quantile * 100)}th percentile "
+                f"({entry.label_threshold:.4f})"
             ),
             "oos_brier_score": quality.get("brier_score"),
             "oos_auprc": quality.get("auprc"),
             "oos_brier_skill_score": quality.get("brier_skill_score"),
             "sample_size": quality.get("n_oos_observations"),
-            "last_retraining_date": str(pd.Timestamp(train_end).date()),
-            "decision_threshold": round(float(model.decision_threshold), 4),
+            "last_retraining_date": str(pd.Timestamp(entry.train_end).date()),
+            "decision_threshold": round(float(entry.model.decision_threshold), 4),
             "confidence_warning": warning,
         }
     logger.info("Published stress probabilities for horizons: %s", list(out))
     return out
 
 
+def build_stress_probabilities(state: Any, as_of: pd.Timestamp) -> dict[str, dict[str, Any]]:
+    """Live probability per horizon, fitting the models first.
+
+    Kept as the batch tier's entry point. The online tier calls
+    `predict_stress_probabilities` directly against the models frozen here.
+    """
+    frozen = fit_stress_models(state, as_of)
+    if not frozen:
+        return {}
+    return predict_stress_probabilities(frozen, stress_feature_builder(state), as_of)
+
+
 def generate_latest(state: Any) -> dict[str, Any]:
     """Build every `artifacts/latest/` file plus the figures and reports."""
     from dynamicgraph.explainability.graph import stress_contribution_breakdown
     from dynamicgraph.network.transmitters import directed_roles, influence_nodes
+    from dynamicgraph.outputs.artifact_contract import validate_publication_state
 
     config = state.config
+    validate_publication_state(state)
     core_key = state.core_key if state.core_key in state.series_by_key else next(iter(state.series_by_key))
     series = state.series_by_key[core_key]
     snapshot = series.latest()
@@ -231,7 +314,14 @@ def generate_latest(state: Any) -> dict[str, Any]:
     last_data_date = pd.Timestamp(state.bundle.panel["date"].max())
     freshness = int((pd.Timestamp(datetime.now().date()) - last_data_date).days)
 
-    probabilities = build_stress_probabilities(state, as_of)
+    # Fit once and keep the models: the online tier republishes this payload
+    # every session and must score the *same* classifiers, not refit its own.
+    frozen_models = fit_stress_models(state, as_of)
+    probabilities = (
+        predict_stress_probabilities(frozen_models, stress_feature_builder(state), as_of)
+        if frozen_models
+        else {}
+    )
     quality = _model_quality(state, int(config.targets.horizons[len(config.targets.horizons) // 2]))
 
     payload = build_website_payload(
@@ -308,7 +398,53 @@ def generate_latest(state: Any) -> dict[str, Any]:
         state.record.save(config.artifact_path("models", "reproducibility.json"))
 
     write_manifest(config.artifacts_dir / "latest", written)
+    _augment_batch_handoff(state, frozen_models, quality, roles)
     return payload
+
+
+def _augment_batch_handoff(
+    state: Any, frozen_models: dict[int, Any], quality: dict[str, Any], roles: Any
+) -> None:
+    """Add the publication-time objects to the handoff the graph stage wrote.
+
+    `stage_network_metrics` writes the handoff before the OOS experiment has
+    run, so the stress models cannot exist yet. Rather than move that write (and
+    break `build-graphs` producing a usable handoff on its own), the bundle is
+    reopened here and the remaining pieces are filled in.
+
+    Never fatal: a research run must not fail because the online bundle could
+    not be updated.
+    """
+    from dynamicgraph.online.handoff import load_batch_handoff, save_batch_handoff
+
+    try:
+        handoff = load_batch_handoff(state.config.artifacts_dir)
+    except Exception as exc:
+        logger.warning("Chưa có batch handoff để bổ sung model dự báo stress: %s", exc)
+        return
+    try:
+        handoff.stress_forecast_models = frozen_models
+        handoff.publication = {
+            "model_quality": dict(quality or {}),
+            "directed_roles": roles,
+            "universe": state.bundle.universe,
+            "warnings": list(state.bundle.warnings),
+            "record": state.record,
+            "node_feature_columns": list(state.node_features.matrix.columns)
+            if getattr(state.node_features, "matrix", None) is not None
+            else [],
+            # Estimated on training folds; the online tier classifies against
+            # these rather than re-deriving them from a series that now includes
+            # the session being published.
+            "stress_state_cutoffs": list(getattr(state, "stress_state_cutoffs", []) or []),
+            "stress_state_labels": list(getattr(state, "stress_state_labels", []) or []),
+        }
+        save_batch_handoff(state.config.artifacts_dir, handoff)
+        logger.info(
+            "Batch handoff bổ sung %d model dự báo stress đã đóng băng.", len(frozen_models)
+        )
+    except Exception as exc:
+        logger.warning("Không bổ sung được batch handoff: %s", exc)
 
 
 def _generate_figures(state: Any, snapshot: Any, communities: Any, core_key: str) -> dict[str, str]:
@@ -393,15 +529,34 @@ def _generate_figures(state: Any, snapshot: Any, communities: Any, core_key: str
             ),
         )
         _record("14_top_influence_nodes_over_time", lambda: F.plot_top_nodes_over_time(pivot))
-        community_pivot = history.pivot_table(index="date", columns="ticker", values="community")
-        _record("12_community_migration", lambda: F.plot_community_migration(community_pivot))
+        if state.community_state is not None and not state.community_state.empty:
+            import json
+
+            aligned_rows = []
+            active = state.community_state[~state.community_state["death"].astype(bool)]
+            for row in active.itertuples():
+                for ticker in json.loads(row.members):
+                    aligned_rows.append(
+                        {
+                            "date": row.date,
+                            "ticker": ticker,
+                            "community": row.community_id,
+                        }
+                    )
+            community_pivot = pd.DataFrame(aligned_rows).pivot_table(
+                index="date", columns="ticker", values="community", aggfunc="last"
+            )
+            _record(
+                "12_community_migration",
+                lambda: F.plot_community_migration(community_pivot),
+            )
 
     correlations = state.correlations_by_key.get(core_key, {})
     if snapshot.date in correlations:
         _record(
             "16_correlation_vs_partial",
             lambda: F.plot_correlation_vs_partial(
-                correlations[snapshot.date], snapshot.adjacency, snapshot.nodes
+                correlations[snapshot.date], snapshot.adjacency_raw, snapshot.nodes
             ),
         )
 
@@ -434,13 +589,16 @@ def _generate_figures(state: Any, snapshot: Any, communities: Any, core_key: str
         if result is not None and not result.predictions.empty:
             from dynamicgraph.evaluation.calibration import reliability_table
             from dynamicgraph.evaluation.classification import (
-                confusion_frame, precision_recall_frame, roc_curve_frame,
+                confusion_frame,
+                precision_recall_frame,
+                roc_curve_frame,
             )
             from dynamicgraph.evaluation.event_metrics import event_table
 
             y = result.predictions["y_true"].to_numpy()
             p = result.predictions["probability"].to_numpy()
-            threshold = float(np.median(list(result.thresholds.values()))) if result.thresholds else 0.5
+            threshold_values = result.predictions["threshold"].to_numpy(dtype=float)
+            threshold = float(np.nanmedian(threshold_values))
 
             _record("19_calibration_curve", lambda: F.plot_calibration_curve(
                 reliability_table(y, p, int(config.evaluation.calibration_bins)),
@@ -450,51 +608,27 @@ def _generate_figures(state: Any, snapshot: Any, communities: Any, core_key: str
                 roc_curve_frame(y, p), precision_recall_frame(y, p), float(np.nanmean(y)), str(best_key)
             ))
             _record("22_confusion_matrix", lambda: F.plot_confusion_matrix(
-                confusion_frame(y, p, threshold), f"Confusion matrix @ {threshold:.2f}"
+                confusion_frame(y, p, threshold_values), "Confusion matrix (fold-local thresholds)"
             ))
             _record("26_oos_probability_timeline", lambda: F.plot_probability_timeline(
                 result.predictions, threshold
             ))
             frame = result.predictions.set_index("date")
-            table = event_table(frame["y_true"], frame["probability"], threshold,
+            table = event_table(
+                               frame["y_true"], frame["probability"], frame["threshold"],
                                int(config.evaluation.event_min_gap_days))
             if not table.empty:
                 _record("27_event_detection", lambda: F.plot_event_detection(table))
 
-            from dynamicgraph.explainability.tabular import permutation_importance_frame
-            from dynamicgraph.models.baselines import build_model_zoo
-
-            try:
-                zoo = build_model_zoo(config, "classification")
-                spec = zoo.get(result.model_name)
-                if spec is not None:
-                    from dynamicgraph.models.registry import FeatureSetBuilder, flatten_graph_metrics
-
-                    graph_features = flatten_graph_metrics(state.metrics_by_key, state.market_features.index)
-                    builder = FeatureSetBuilder(
-                        state.market_features, graph_features, index=state.market_features.index
-                    )
-                    features = builder.build(result.feature_set)
-                    dates = result.predictions["date"]
-                    X = features.reindex(dates)
-                    y_series = pd.Series(result.predictions["y_true"].to_numpy(), index=dates)
-                    estimator = spec.build(seed=int(config.project.seed))
-                    fit_mask = y_series.notna() & X.notna().any(axis=1)
-                    if fit_mask.sum() > 100:
-                        estimator.fit(X[fit_mask], y_series[fit_mask])
-                        importance = permutation_importance_frame(
-                            estimator, X[fit_mask], y_series[fit_mask], n_repeats=5,
-                            seed=int(config.project.seed),
-                        )
-                        if not importance.empty:
-                            importance.to_csv(
-                                config.artifact_path("metrics", "permutation_importance.csv"), index=False
-                            )
-                            _record("23_feature_importance", lambda: F.plot_feature_importance(
-                                importance, title=f"Feature importance - {best_key}"
-                            ))
-            except Exception as exc:
-                writer.skip("23_feature_importance", str(exc))
+            # Do not refit on concatenated OOS labels merely to make an
+            # importance chart. That would turn the test set into training
+            # data and attach an in-sample explanation to OOS performance.
+            # Fold-local importance can be published only when the training
+            # stage persists held-out permutation scores for every fold.
+            writer.skip(
+                "23_feature_importance",
+                "not produced: fold-local held-out importance is not persisted",
+            )
 
         if not experiment.fold_metrics.empty:
             _record("25_walk_forward_performance", lambda: F.plot_walk_forward_performance(
@@ -586,17 +720,14 @@ def _generate_reports(state: Any, payload: dict[str, Any]) -> None:
     reports_dir = config.artifacts_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    inventory_path = config.artifacts_dir / "data_audit" / "data_inventory.json"
-    inventory = None
-    if inventory_path.exists():
-        import json
-
-        try:
-            inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-        except Exception:
-            inventory = None
-
-    reports.write_data_audit_report(reports_dir / "data_audit_report.md", state.bundle, inventory)
+    # The discovery inventory may belong to an older source/configuration.
+    # Reports consume only the current in-memory bundle; discovery keeps its
+    # own standalone inventory for source selection.
+    reports.write_data_audit_report(
+        reports_dir / "data_audit_report.md",
+        state.bundle,
+        inventory=None,
+    )
 
     per_window = {
         s.window: s for k, s in state.series_by_key.items()

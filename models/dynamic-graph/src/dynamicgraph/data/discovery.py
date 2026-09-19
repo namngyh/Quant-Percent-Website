@@ -17,7 +17,7 @@ import json
 import os
 import re
 import sqlite3
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -41,7 +41,8 @@ SKIP_DIR_NAMES = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
     "site-packages", ".mypy_cache", ".pytest_cache", ".ruff_cache",
     "$Recycle.Bin", "System Volume Information", "Windows", "AppData",
-    ".cache", "dist", "build", ".idea", ".vscode",
+    ".cache", "dist", "build", "artifacts", "outputs", "results", "reports",
+    "figures", "predictions", "metrics", "latest", "processed", ".idea", ".vscode",
 }
 
 #: Regexes that indicate a connection string. Only the *scheme* is reported.
@@ -324,6 +325,17 @@ def rank_candidates(candidates: list[DataSourceCandidate]) -> list[DataSourceCan
     return sorted(candidates, key=lambda c: c.score, reverse=True)
 
 
+def _is_viable_market_source(candidate: DataSourceCandidate) -> bool:
+    """Reject plausible-looking derived tables and single-series CSVs."""
+    return bool(
+        candidate.readable
+        and candidate.date_min
+        and candidate.date_max
+        and (candidate.matched_universe_tickers >= 5)
+        and (candidate.n_tickers or 0) >= 5
+    )
+
+
 def default_search_roots(project_root: Path) -> list[Path]:
     """Project tree first, then a conservative set of common data locations."""
     roots = [project_root]
@@ -433,7 +445,7 @@ def discover_data_sources(
         candidates.append(candidate)
 
     ranked = rank_candidates(candidates)
-    relevant = [c for c in ranked if c.score > 0]
+    relevant = [c for c in ranked if c.score > 0 and _is_viable_market_source(c)]
 
     logger.info(
         "Discovery finished: %d candidate file(s), %d readable, %d connection string(s)",

@@ -19,9 +19,8 @@ import argparse
 import sys
 import time
 
-import pandas as pd
-
 import _bootstrap  # noqa: F401  (adds src/ to sys.path)
+import pandas as pd
 
 from dynamicgraph import pipeline as P
 from dynamicgraph.config import load_config

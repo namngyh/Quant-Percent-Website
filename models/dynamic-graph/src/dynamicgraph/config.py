@@ -25,14 +25,25 @@ except Exception:  # pragma: no cover
         """Minimal stand-in used only when pydantic is unavailable."""
 
         def __init__(self, **data: Any) -> None:
+            annotations: dict[str, Any] = {}
+            for cls in reversed(type(self).mro()):
+                annotations.update(getattr(cls, "__annotations__", {}))
+            unknown = sorted(set(data) - set(annotations))
+            if unknown:
+                raise ValueError(f"Unknown configuration field(s): {unknown}")
+            for key in annotations:
+                if hasattr(type(self), key):
+                    setattr(self, key, copy.deepcopy(getattr(type(self), key)))
             for key, value in data.items():
                 setattr(self, key, value)
 
         def model_dump(self) -> dict[str, Any]:
             return {k: v for k, v in vars(self).items() if not k.startswith("_")}
 
-    def Field(default: Any = None, **_: Any) -> Any:  # type: ignore[no-redef]
-        return default
+    def Field(  # type: ignore[no-redef]
+        default: Any = None, *, default_factory: Any = None, **_: Any
+    ) -> Any:
+        return default_factory() if default_factory is not None else default
 
     ConfigDict = dict  # type: ignore[assignment,misc]
 
@@ -46,7 +57,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 # ---------------------------------------------------------------------------
 class _Section(BaseModel):
     if _HAS_PYDANTIC:
-        model_config = ConfigDict(extra="allow")
+        model_config = ConfigDict(extra="forbid")
 
     def get(self, key: str, default: Any = None) -> Any:
         return getattr(self, key, default)
@@ -56,7 +67,17 @@ class ProjectConfig(_Section):
     name: str = "DynamicGraph"
     version: str = "0.1.0"
     seed: int = 42
-    mode: str = "default"
+    mode: str = "structure"
+
+
+class ModulesConfig(_Section):
+    """Top-level research modes; structure analysis is the safe default."""
+
+    structure_analysis: bool = True
+    stress_forecasting: bool = False
+    node_return_ranking: bool = False
+    allocation_validation: bool = False
+    scenario_analysis: bool = False
 
 
 class DataConfig(_Section):
@@ -249,13 +270,16 @@ class AllocationConfig(_Section):
     inherits `graph.core_window` explicitly.
     """
 
-    enabled: bool = True
+    enabled: bool = False
     estimation_window: int = 0
     rebalance_days: int = 20
     max_weight: float = 0.20
     cost_bps_per_side: float = 15.0
     min_assets: int = 10
     rolling_volatility_window: int = 126
+    missing_return_policy: str = "zero"
+    execution_lag_sessions: int = 1
+    execution_convention: str = "next_close"
 
 
 class AblationConfig(_Section):
@@ -285,6 +309,7 @@ class DynamicGraphConfig(_Section):
     """Root configuration object."""
 
     project: ProjectConfig = Field(default_factory=ProjectConfig)
+    modules: ModulesConfig = Field(default_factory=ModulesConfig)
     data: DataConfig = Field(default_factory=DataConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
     graph: GraphConfig = Field(default_factory=GraphConfig)
@@ -384,6 +409,7 @@ def _coerce_int_keys(mapping: Any) -> Any:
 
 _SECTION_TYPES: dict[str, type] = {
     "project": ProjectConfig,
+    "modules": ModulesConfig,
     "data": DataConfig,
     "features": FeaturesConfig,
     "graph": GraphConfig,
@@ -394,6 +420,7 @@ _SECTION_TYPES: dict[str, type] = {
     "models": ModelsConfig,
     "gnn": GNNConfig,
     "evaluation": EvaluationConfig,
+    "allocation": AllocationConfig,
     "ablation": AblationConfig,
     "output": OutputConfig,
     "logging": LoggingConfig,
@@ -424,6 +451,11 @@ def load_config(
     # Environment overrides (never printed, never persisted).
     data_raw = raw.setdefault("data", {})
     env_var = data_raw.get("database_url_env", "DYNAMICGRAPH_DATABASE_URL")
+    if not os.environ.get(env_var):
+        # Task Scheduler starts with a bare environment; `.env` is the fallback.
+        from dynamicgraph.dotenv import load_env_file
+
+        load_env_file(REPO_ROOT)
     env_value = os.environ.get(env_var)
     if env_value:
         data_raw["database_path"] = env_value
@@ -436,13 +468,48 @@ def load_config(
         if key in targets_raw:
             targets_raw[key] = _coerce_int_keys(targets_raw[key])
 
+    unknown_sections = sorted(set(raw) - set(_SECTION_TYPES))
+    if unknown_sections:
+        raise ValueError(f"Unknown configuration section(s): {unknown_sections}")
+
     sections: dict[str, Any] = {}
     for name, model in _SECTION_TYPES.items():
         sections[name] = model(**(raw.get(name) or {}))
 
     config = DynamicGraphConfig(**sections)
+    _apply_run_mode(config)
     object.__setattr__(config, "_source_files", [str(path)])
     return config
+
+
+def _apply_run_mode(config: DynamicGraphConfig) -> None:
+    """Resolve the named mode into explicit module switches."""
+    mode = str(config.project.mode)
+    if mode == "structure":
+        return
+    if mode == "forecast_experimental":
+        config.modules.structure_analysis = True
+        config.modules.stress_forecasting = True
+        config.modules.node_return_ranking = True
+    elif mode == "allocation_validation":
+        config.modules.structure_analysis = True
+        config.modules.allocation_validation = True
+        config.allocation.enabled = True
+    elif mode == "scenario_analysis":
+        config.modules.structure_analysis = True
+        config.modules.scenario_analysis = True
+        config.graph.enable_spillover = True
+    elif mode in {"fast", "full"}:
+        # Backward-compatible research profiles; their YAML files retain the
+        # historical forecasting experiment but never enable the GNN implicitly.
+        config.modules.stress_forecasting = True
+        config.modules.node_return_ranking = True
+        config.modules.allocation_validation = bool(config.allocation.enabled)
+    else:
+        raise ValueError(
+            "Unknown project.mode; expected structure, forecast_experimental, "
+            "allocation_validation, scenario_analysis, fast, or full."
+        )
 
 
 def config_fingerprint(config: DynamicGraphConfig) -> str:

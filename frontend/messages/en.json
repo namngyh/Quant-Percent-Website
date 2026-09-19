@@ -778,7 +778,11 @@
     "sections": [
       {
         "title": "Data we collect",
-        "text": "When you submit the contact form, we collect your name, email, phone and organization (if provided), inquiry type and message. The current version of the website does not require accounts."
+        "text": "When you submit the contact form, we collect your name, email, phone and organization (if provided), inquiry type and message. When you create an account, we store your name, email and a hashed password."
+      },
+      {
+        "title": "The portfolio you enter",
+        "text": "The portfolio tool computes on the tickers, quantities, cash and loan you enter. For visitors who are not signed in, this data is sent only to be computed and then discarded, never written to the database. Signed-in members may press \"Save portfolio\"; only what you entered is then stored under your account — never the analysis. A saved portfolio is visible only to you, can be deleted at any time, and is deleted with the account."
       },
       {
         "title": "How we use it",
@@ -997,11 +1001,13 @@
     "scopeNote": "This is a measurement tool, not investment advice. It does not recommend buying or selling anything. Every figure is computed from prices that have already happened, except the one block that names the model it came from.",
     "form": {
       "heading": "Current holdings",
-      "lead": "Enter a ticker and a share count. Every stock listed on HOSE is supported. Cost basis may be left blank when analysing a hypothetical portfolio; the profit columns then remain empty rather than showing inaccurate figures.",
+      "lead": "Enter tickers and share counts. Every stock listed on HOSE is supported. Cost basis is entered in thousands as a price board shows it (25.5 means 25,500 VND) or directly in dong — the field echoes the figure it understood. Leave it blank to analyse a hypothetical portfolio; the profit figures then stay blank rather than showing a wrong number.",
       "symbol": "Ticker",
       "symbolPlaceholder": "FPT",
       "quantity": "Shares",
-      "costBasis": "Cost basis (VND/share)",
+      "costBasis": "Cost basis (thousand VND/share)",
+      "costBasisPlaceholder": "25.5",
+      "costBasisHint": "= {amount} VND/share",
       "optional": "optional",
       "remove": "Remove row",
       "addRow": "Add a stock",
@@ -1021,10 +1027,35 @@
       "errors": {
         "quantity": "The share count for {symbol} is not valid.",
         "duplicate": "{symbol} was entered twice.",
-        "empty": "At least one stock is needed to analyse."
+        "empty": "At least one stock is needed to analyse.",
+        "rate": "The interest rate is not valid (0–100%/year).",
+        "thresholds": "The warning threshold must be above the forced-sale threshold, and both between 0 and 100%.",
+        "budget": "The maximum loss must be between 0 and 100%."
       },
       "unknownSymbol": "not in the data",
-      "symbolHint": "Type a ticker or pick from the suggestions."
+      "symbolHint": "Type a ticker or pick from the suggestions.",
+      "horizonWithMargin": "How long you expect to hold the loan",
+      "margin": {
+        "heading": "Borrowing on margin?",
+        "lead": "Enter the loan to see the portfolio from your own equity: leverage, distance to the warning threshold, and interest cost by holding period.",
+        "debt": "Loan outstanding (VND)",
+        "debtNote": "As shown in your broker's app. Enter every position in this margin account — a missing one puts the distance to the threshold off.",
+        "rate": "Interest rate",
+        "perYear": "%/year",
+        "thresholds": "Your broker's thresholds",
+        "callRatio": "Warning (call)",
+        "forceRatio": "Forced sale",
+        "thresholdsNote": "The regulatory minimum maintenance ratio is 30%; each broker sets its own, usually higher. Check your margin agreement.",
+        "external": "This loan is not brokerage margin",
+        "externalNote": "A bank loan, a mortgage or a personal loan put into stocks. It has leverage and interest, but no warning or forced-sale threshold."
+      },
+      "privacySignedIn": "A portfolio is stored only when you press \"Save portfolio\" after analysing. Only what you entered is kept — tickers, quantities, cash and the loan — never the result. You can delete it at any time.",
+      "budget": {
+        "heading": "The most you would accept losing (optional)",
+        "lead": "Set a limit for yourself; the page compares it with what the portfolio has been through and could go through.",
+        "maxLoss": "I would accept losing at most",
+        "note": "Of your equity when there is a loan, of the stock value otherwise. For example, 15 means losing 15% of your own money over the horizon chosen above."
+      }
     },
     "errors": {
       "notAnalysable": "The holdings do not share enough common price history to measure risk. Please remove recently listed or thinly traded stocks.",
@@ -1033,7 +1064,9 @@
       "generic": "The analysis could not run just now. Please try again."
     },
     "result": {
-      "unpriced": "{count} ticker(s) lack enough price history and were left out: {symbols}. The figures below cover the rest of the portfolio.",
+      "unpriced": "{count} ticker(s) have no price data and were left out: {symbols}. The figures below cover the rest of the portfolio.",
+      "unmeasured": "{count} ticker(s) have a price but too little history to measure. Their value ({amount}) is included in the portfolio total and profit; the weights, risk figures and money amounts below cover only the rest ({measured}).",
+      "unmeasuredRow": "{symbol}: {value}, only {sessions} sessions",
       "overviewHeading": "Portfolio overview",
       "totalValue": "Portfolio value",
       "totalValueNote": "stocks {invested}, cash {cash}",
@@ -1091,13 +1124,13 @@
       "downside": "Downside volatility",
       "downsideNote": "counting declining sessions only",
       "forwardHeading": "Chance of a decline ahead",
-      "forwardLead": "This takes the simulated VN-Index distribution from {origin} ({paths} scenarios, {baseDays} sessions each) and carries it across to the portfolio: scaled by a beta of {beta} for how closely the book tracks the index, then stretched by square-root-of-time to answer for the {horizonDays} sessions you picked. The decline levels below are fixed — what moves with the portfolio and the period is the probability.",
+      "forwardLead": "This takes the simulated VN-Index distribution ({paths} scenarios, {baseDays} sessions each) and carries it across to the portfolio: scaled by a beta of {beta} for how closely the book tracks the index, then stretched by square-root-of-time to answer for the {horizonDays} sessions you picked. The decline levels below are fixed — what moves with the portfolio and the period is the probability.",
       "colDecline": "Decline",
       "colChance": "Chance",
       "declineRow": "falls more than {pct} (about {amount})",
       "forwardCaveat": "This is an indirect estimate. It carries the index's risk across by beta, so it does not capture risk specific to the individual holdings, and the square-root-of-time stretch ignores both drift and volatility clustering — the further from the {baseDays}-session simulation, the looser it gets. A simulated probability is not a certainty.",
       "provenanceLabel": "Data provenance",
-      "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions, current to {asOf}. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
+      "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
       "glossaryHeading": "How to read these figures",
       "glossaryLead": "Explained using the portfolio just entered.",
       "explain": {
@@ -1114,7 +1147,208 @@
       "exceedanceTitle": "Chance of exceeding each decline",
       "exceedanceNote": "The deeper the decline, the lower its probability. A point above the 50% line is more likely to occur than not. The horizontal axis is fixed, so two portfolios — or one portfolio at two periods — can be read against the same scale.",
       "lossScaleTitle": "In money, on your portfolio",
-      "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded."
+      "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded.",
+      "colSell": "Sessions to sell",
+      "varCheck": "Checked against history: breached {breaches}/{tested} sessions ({rate}).",
+      "varCheckNote": "The \"checked against history\" line under VaR: at each session the VaR is estimated from the previous 126 sessions only, then compared with that session's actual loss. About 1 session in 20 (5%) breaching is normal; clearly more means the VaR figure understates this portfolio's risk."
+    },
+    "margin": {
+      "heading": "Capital structure and margin",
+      "lead": "The same portfolio, seen from your own money rather than from the stocks. Every figure is arithmetic on the loan you entered and the measures above; this section does not say how much to borrow.",
+      "status": {
+        "between": "The margin ratio of {ratio} is below the warning threshold of {call} and above the forced-sale threshold of {force}. If the figures are right, the broker has already asked for more collateral; if you have not been asked, check the loan and the positions entered.",
+        "below_force": "The margin ratio of {ratio} is below the forced-sale threshold of {force}. An account at this level has usually already been sold down by the broker — or the figures are wrong. The numbers below only mean something if the figures are right.",
+        "negative_equity": "The loan of {debt} exceeds total assets of {assets}: equity is negative. With brokerage margin this cannot happen — check for an extra zero, or positions in the account not yet entered. If the loan is from outside the brokerage, tick \"not brokerage margin\"."
+      },
+      "assets": "Assets",
+      "funding": "Funding",
+      "stocks": "Stocks",
+      "cash": "Cash",
+      "equity": "Equity",
+      "equityMeasures": {
+        "var95": "One-day VaR 95%",
+        "es95": "One-day ES 95%",
+        "maxDrawdown": "Deepest fall from peak"
+      },
+      "debt": "Margin loan",
+      "ratioTitle": "Margin ratio against the thresholds",
+      "ratioNote": "The simple form: equity over total assets. Brokers compute it on collateral discounted stock by stock, so your real ratio is lower and the thresholds closer than shown here.",
+      "you": "you",
+      "callShort": "warning",
+      "forceShort": "forced sale",
+      "leverage": "Leverage",
+      "leverageNote": "stocks fall 10% → equity falls {equity}",
+      "leverageNone": "equity is negative, not defined",
+      "distanceCall": "Distance to warning",
+      "distanceNote": "a further {amount} fall in the stocks; forced sale at −{force}",
+      "distanceNone": "no stocks to fall",
+      "interest": "Interest per year",
+      "interestNote": "= {pct} of equity per year at {rate}",
+      "interestNoteNoEquity": "at {rate}",
+      "idleCash": "Idle cash costs",
+      "idleCashNote": "per year, because {cash} of cash sits next to a loan that is charging interest",
+      "idleCashNone": "no cash held alongside the loan",
+      "realisedVsDistance": "Over the last {days} sessions this portfolio itself fell {drawdown} from its peak. The distance to the warning threshold is {distance}.",
+      "horizonTitle": "The same loan, held for how long?",
+      "horizonNote": "Two independent estimates of the stocks falling to the warning threshold within the period: the Certus simulation scaled to the portfolio by beta, and how often VN-Index has fallen that far within a window this long since 2000. Interest and break-even are arithmetic.",
+      "horizonNoteNoBeta": "The portfolio does not track the index closely enough to scale a probability from VN-Index, so only the interest cost is shown. Break-even is the rise the stocks need just to cover the interest.",
+      "chart": {
+        "model": "Certus simulation",
+        "history": "VN-Index historical frequency"
+      },
+      "colHorizon": "Held for",
+      "colModel": "Simulation",
+      "colHistory": "History",
+      "colInterest": "Interest accrued",
+      "colInterestPct": "% of equity",
+      "colBreakeven": "Rise to break even",
+      "historyNote": "The historical frequency counts {windows} rolling VN-Index windows since 2000, scaled to the portfolio by beta. A short period is only low-probability on average: in March 2020 the index lost a third in six weeks.",
+      "scenarioTitle": "If the stocks fall",
+      "scenarioNote": "Cash and the loan stay as they are. The last column is the cash that brings the margin ratio back to the warning threshold — the same arithmetic the broker's app shows, not a recommendation.",
+      "colDrop": "Stocks fall",
+      "colAssets": "Assets",
+      "colEquity": "Equity",
+      "colRatio": "Margin ratio",
+      "colStatus": "Status",
+      "colTopUp": "Top-up",
+      "statusShort": {
+        "above_call": "above threshold",
+        "between": "warning",
+        "below_force": "forced sale",
+        "negative_equity": "negative equity",
+        "no_thresholds": "—"
+      },
+      "equityRiskTitle": "Losses on your equity",
+      "equityRiskNote": "The same measures as above, divided by equity instead of by the value of the stocks: the share of your own money actually lost.",
+      "equityVsStocks": "on the stocks it is {stocks}",
+      "caveat": {
+        "selfReported": "Computed from the loan, rate and thresholds you entered, at the latest close. Nothing is verified with the broker.",
+        "collateral": "Brokers compute the margin ratio on collateral discounted per stock; every distance here is an optimistic estimate.",
+        "model": "The simulated probability inherits every limit of the \"Chance of a decline ahead\" section: the 1-year row stretches a 20-session simulation by ×3.5.",
+        "rollover": "Margin loans usually run for about three months and are rolled over; at rollover the broker may change loan ratios or drop a stock from the margin list. That risk is not in any figure above."
+      },
+      "wipedOut": "> 100% — wiped out",
+      "warnings": {
+        "debt_exceeds_stocks": "The loan of {debt} exceeds the stock value of {stocks}. A broker does not lend beyond the collateral — possibly an extra zero, positions not yet entered, or a loan from outside the brokerage (tick the box in the form).",
+        "high_leverage": "Leverage of {leverage}× — above what brokerage margin normally allows (about 2×). If correct, most of the assets are borrowed.",
+        "rate_unusual": "A rate of {rate} per year is outside the usual 5–25% range for margin in Vietnam. Check the unit (%/year)."
+      },
+      "distanceExternal": "external loan — no brokerage threshold",
+      "horizonNoteExternal": "An external loan has no warning threshold, so only the interest cost is shown. Break-even is the rise the stocks need just to cover the interest.",
+      "horizonNotePast": "The account is already below the warning threshold, so the \"chance of reaching it\" is moot and not shown. Only the interest cost by holding period remains."
+    },
+    "saved": {
+      "heading": "Saved portfolios",
+      "meta": "{count} tickers · updated {date}",
+      "delete": "Delete portfolio",
+      "confirmDelete": "Delete \"{name}\"? This cannot be undone.",
+      "nameLabel": "Portfolio name",
+      "namePlaceholder": "Main account",
+      "defaultName": "Portfolio",
+      "save": "Save portfolio",
+      "update": "Update portfolio",
+      "done": "Saved. Next time you sign in, open it from the list above.",
+      "note": "Only the tickers, quantities, cash and loan you entered are kept; the result is recomputed on every open. {remaining} more can be saved.",
+      "editingNote": "Editing \"{name}\". Update overwrites it.",
+      "limit": "You have saved the maximum of 10 portfolios. Delete an old one to save another."
+    },
+    "network": {
+      "heading": "Your holdings on the VN30 dependency map",
+      "lead": "DynamicGraph measures which stocks move together once the market's common swing is removed, and groups them into communities. Your holdings are highlighted; the rest of VN30 is faded. Several holdings in one community means they answer to the same factor — diversified on paper, not in practice.",
+      "source": "Network estimated on the last {window} sessions. This is the model's descriptive layer, validated as stable from session to session; it is not a price forecast.",
+      "stress": "Current network state: {label}.",
+      "stressLabel": {
+        "low_stress": "sparse links",
+        "normal": "normal",
+        "elevated_stress": "links tightening",
+        "high_stress": "tight links — stocks are moving together more than usual"
+      },
+      "standout": "{share} of the portfolio sits in one community: {count} holdings, {members} (community {community}), move together. When the community falls, they fall at once.",
+      "legendHeld": "Your holdings",
+      "legendOther": "Other VN30 stocks",
+      "together": "Moves together",
+      "opposite": "Moves oppositely",
+      "weightLabel": "Weight",
+      "notHeld": "Not in the portfolio",
+      "communityLabel": "Community",
+      "riskLabel": "Risk score",
+      "communitiesTitle": "Holdings by community",
+      "communityWith": "community {community}, alongside {others}",
+      "uncovered": "The map covers VN30 only. {symbols} ({share} of the portfolio) are outside it and not drawn.",
+      "allCovered": "Every holding is in VN30 and appears on the map."
+    },
+    "outlook": {
+      "heading": "Return range from the Causa model",
+      "lead": "Causa forecasts the distribution of VN-Index returns over 5, 20 and 60 sessions. Each column is the range holding {level} of outcomes according to the model, scaled to the portfolio by beta {beta} — and onto equity when there is a loan. No centre line is drawn: the model's own report says its point forecast has not beaten a baseline; only the range is validated.",
+      "source": "The model runs on VN-Index; scaling to the portfolio by beta ignores each stock's own risk.",
+      "caveat": "The interest line is the rise the stocks need to pay the interest over that period; the warning line is the fall that reaches the warning threshold. Both are arithmetic, not forecasts.",
+      "sessions": "{n} sessions",
+      "band": "{level} range",
+      "index": "VN-Index",
+      "breakeven": "Rise needed to pay interest",
+      "callLine": "Warning threshold",
+      "legendEquity": "Return range on equity",
+      "legendStocks": "Return range on the portfolio"
+    },
+    "stress": {
+      "heading": "If a crisis came back",
+      "lead": "This portfolio, at today's weights, run through the prices of the largest falls since 2008: how deep it would have fallen, against VN-Index over the same sessions. No assumptions — this is what happened to the stocks you hold.",
+      "coverageNote": "Holdings not yet listed at the time are left out and the rest re-weighted; the last column says how much of the portfolio each replay covers.",
+      "equityNote": "The \"on equity\" column multiplies the fall by today's leverage; \"reaches warning\" compares that fall with the distance to the broker's threshold.",
+      "liquidityNote": "Sessions to sell assume {share} of a stock's 20-session average volume can be sold per session.",
+      "crisis": {
+        "gfc_2008": "Crisis of 2008",
+        "y2018": "Correction of 2018",
+        "covid_2020": "Covid — March 2020",
+        "y2022": "Decline of 2022"
+      },
+      "legendIndex": "VN-Index",
+      "legendBook": "This portfolio",
+      "legendEquity": "On equity",
+      "sessions": "{n} sessions",
+      "colCrisis": "Period",
+      "colBook": "Portfolio fall",
+      "colEquity": "On equity",
+      "colIndex": "VN-Index",
+      "colCorr": "Avg correlation",
+      "colCall": "Warning threshold",
+      "colCovered": "Coverage",
+      "reachesCall": "reached",
+      "staysAbove": "not reached",
+      "wipedOut": "> 100% — wiped out",
+      "coveredAll": "whole portfolio",
+      "coveredPart": "{share} of portfolio ({symbols})",
+      "noCrises": "Too few holdings were listed through past falls to replay them.",
+      "noDiv": "If every holding moved in lockstep",
+      "noDivNote": "annual volatility would be this instead of today's {now} — the ceiling once diversification stops helping",
+      "liquidity": "Selling the whole portfolio takes",
+      "underHalfDay": "< half a session",
+      "days": "{n} sessions",
+      "liquiditySlow": "{symbols} ({share} of the portfolio) need more than {days} sessions to sell — a forced sale gets worse prices than the board shows.",
+      "liquidityFine": "every holding sells within a few sessions at {share} of average volume"
+    },
+    "budget": {
+      "heading": "The loss you would accept",
+      "lead": "Your limit, on {basis}, set against the deepest fall the portfolio went through over the last year and through the crisis replays above. The page does not say what to change to fit inside it — that is your decision.",
+      "probabilityNote": "The chance of reaching the limit comes from the Certus simulation scaled to the portfolio by beta, next to how often VN-Index has fallen that far over the same horizon since 2000.",
+      "basis": {
+        "equity": "equity",
+        "portfolio": "stock value"
+      },
+      "summaryWithin": "Limit: {limit} of {basis} ({amount}). Over the last year the portfolio fell at most {realised} — within the limit; {breaches}/{total} replayed crises exceed it.",
+      "summaryOver": "Limit: {limit} of {basis} ({amount}). Over the last year the portfolio fell as much as {realised}, and {breaches}/{total} replayed crises exceed this limit.",
+      "limit": "Your limit",
+      "limitNote": "{pct} of {basis}; a {drop} fall in the stocks reaches it",
+      "realised": "Deepest fall, last year",
+      "realisedWithin": "over the last {days} sessions, within the limit",
+      "realisedOver": "over the last {days} sessions — over the limit",
+      "crises": "Crises over the limit",
+      "crisesOver": "{list}",
+      "crisesWithin": "no replayed crisis exceeds the limit",
+      "probability": "Chance within {horizon}",
+      "probabilityNone": "the portfolio does not track the index closely enough to estimate",
+      "probabilityModelOnly": "Certus simulation scaled to the portfolio",
+      "probabilityWithHistory": "Certus simulation; VN-Index history since 2000: {history} of windows this long"
     }
   },
   "articles": {

@@ -187,17 +187,22 @@ def write_graph_methodology_report(
         "`rho^partial_ij = -Theta_ij / sqrt(Theta_ii Theta_jj)`. Fitting on the correlation rather "
         "than the covariance makes the penalty scale-free; partial correlation is scale invariant "
         "so the result is unchanged.",
-        f"4. **Edge filtering** - method `{graph.edge_filter_method}` "
+        "4. **Representations** - every snapshot keeps three matrices:",
+        "   - `adjacency_raw`: full weighted estimate for dependence, strength and spectral metrics;",
+        "   - `adjacency_inference`: regularised/stability-supported topology for communities, "
+        "bridges, persistence and breaks;",
+        "   - `adjacency_display`: visualization-only reduction.",
+        f"5. **Display filtering** - method `{graph.edge_filter_method}` "
         f"(absolute threshold {graph.absolute_threshold}, top-quantile {graph.top_edge_quantile}, "
         f"stability threshold {graph.edge_stability_threshold}), then a density cap of "
-        f"{graph.max_graph_density}.",
+        f"{graph.max_graph_density}. Display density is not interpreted as a market state.",
         (
-            f"5. **Edge stability** - {graph.bootstrap_iterations} moving-block bootstrap "
+            f"6. **Edge stability** - {graph.bootstrap_iterations} moving-block bootstrap "
             f"resamples (block length {graph.block_length}). Block resampling is used because "
             "i.i.d. row resampling would destroy the serial dependence the covariance estimate "
             "relies on."
             if int(graph.bootstrap_iterations) > 0
-            else "5. **Edge stability** - bootstrap stability selection was DISABLED in this run "
+            else "6. **Edge stability** - bootstrap stability selection was DISABLED in this run "
                  "(`graph.bootstrap_iterations: 0`), so per-edge selection frequencies are not "
                  "available and edges were filtered by weight quantile alone. Run with `--full` "
                  "to enable it."
@@ -742,7 +747,7 @@ def write_model_card(
         f"- Config fingerprint: `{record.config_fingerprint}`",
         f"- Git commit: `{record.git_commit or 'not a git repository'}`",
         f"- Platform: {record.platform_info}",
-        f"- Key package versions: "
+        "- Key package versions: "
         + ", ".join(
             f"{k}={v}" for k, v in record.package_versions.items()
             if k in {"python", "numpy", "pandas", "scikit-learn", "networkx", "scipy"}

@@ -13,16 +13,16 @@ import pytest
 from dynamicgraph.evaluation.bootstrap import block_bootstrap_ci, paired_bootstrap_difference
 from dynamicgraph.evaluation.calibration import calibration_metrics, reliability_table
 from dynamicgraph.evaluation.classification import classification_metrics
-from dynamicgraph.evaluation.event_metrics import event_detection_metrics
-from dynamicgraph.features.node_features import build_node_features
+from dynamicgraph.evaluation.event_metrics import event_detection_metrics, event_table
 from dynamicgraph.features.market_features import build_market_features
+from dynamicgraph.features.node_features import build_node_features
 from dynamicgraph.features.targets import build_targets
 from dynamicgraph.graphs.snapshots import SnapshotBuildConfig, build_snapshot_series
 from dynamicgraph.models.baselines import build_model_zoo
 from dynamicgraph.models.registry import FeatureSetBuilder, flatten_graph_metrics
 from dynamicgraph.network.graph_metrics import compute_metric_series
 from dynamicgraph.network.stress_score import build_descriptive_stress_score
-from dynamicgraph.training.splits import folds_from_config, global_train_mask
+from dynamicgraph.training.splits import folds_from_config
 from dynamicgraph.training.walk_forward import run_walk_forward
 
 
@@ -53,6 +53,8 @@ def test_snapshots_are_built_and_non_degenerate(built):
     densities = [s.density for s in series]
     assert 0.0 < np.mean(densities) < 1.0
     assert all(s.n_nodes >= 5 for s in series)
+    assert "glasso_n_iter" in series.latest().metadata
+    assert series.latest().metadata["glasso_n_iter"] >= 0
 
 
 def test_graph_metrics_are_finite(built):
@@ -167,6 +169,38 @@ def test_metric_suite_runs_on_the_predictions(built, base_config):
     assert ci["lower"] <= ci["point"] <= ci["upper"]
 
 
+def test_event_metrics_apply_each_rows_fold_threshold():
+    index = pd.bdate_range("2020-01-01", periods=80)
+    labels = pd.Series(0.0, index=index)
+    labels.iloc[10:13] = 1.0
+    labels.iloc[50:53] = 1.0
+    probabilities = pd.Series(0.60, index=index)
+    thresholds = pd.Series(
+        np.r_[np.full(40, 0.80), np.full(40, 0.40)],
+        index=index,
+    )
+
+    metrics = event_detection_metrics(
+        labels,
+        probabilities,
+        thresholds,
+        min_gap_days=20,
+        lead_window=0,
+    )
+    table = event_table(
+        labels,
+        probabilities,
+        thresholds,
+        min_gap_days=20,
+        lead_window=0,
+    )
+
+    assert metrics["threshold_policy"] == "per_prediction"
+    assert metrics["n_events"] == 2
+    assert metrics["n_events_detected"] == 1
+    assert table["detected"].tolist() == [False, True]
+
+
 def test_paired_bootstrap_detects_a_real_difference():
     rng = np.random.default_rng(61)
     n = 800
@@ -182,6 +216,30 @@ def test_paired_bootstrap_detects_a_real_difference():
     # `bad` should be worse (higher Brier) than `good`.
     assert result["difference"] > 0
     assert result["upper"] > 0
+
+
+def test_grouped_bootstrap_never_builds_a_block_across_fold_boundaries():
+    from dynamicgraph.evaluation.bootstrap import _grouped_block_indices
+
+    groups = np.array([0] * 7 + [1] * 5 + [2] * 9)
+    indices = _grouped_block_indices(
+        groups, block_length=4, rng=np.random.default_rng(123)
+    )
+
+    assert len(indices) == len(groups)
+    assert np.array_equal(groups[indices[:7]], np.zeros(7))
+    assert np.array_equal(groups[indices[7:12]], np.ones(5))
+    assert np.array_equal(groups[indices[12:]], np.full(9, 2))
+
+
+def test_holm_adjustment_controls_the_full_comparison_family():
+    from dynamicgraph.training.trainer import _holm_adjust
+
+    adjusted = _holm_adjust(np.array([0.01, 0.02, 0.20, np.nan]))
+    assert adjusted[0] == pytest.approx(0.03)
+    assert adjusted[1] == pytest.approx(0.04)
+    assert adjusted[2] == pytest.approx(0.20)
+    assert np.isnan(adjusted[3])
 
 
 def test_feature_sets_are_disjoint_in_the_right_way(built):

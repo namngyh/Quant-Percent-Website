@@ -1,49 +1,44 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raemf-mc"
-version = "0.3.0"
-description = "Regime-Aware Explainable Multi-Horizon Forecasting with Variational Bayes and Monte Carlo for VN-Index"
-readme = "README.md"
+name = "raemf_mc"
+version = "0.1.0"
 requires-python = ">=3.11"
-authors = [{ name = "Nguyen Hoai Nam" }]
-license = { text = "MIT" }
-keywords = ["VN-Index", "regime", "EGARCH", "EBM", "Monte Carlo"]
 dependencies = [
-  "numpy>=2.2,<3",
-  "pandas>=2.3,<3",
-  "scikit-learn>=1.8,<2",
-  "scipy>=1.17,<2",
-  "matplotlib>=3.10,<4",
-  "PyYAML>=6,<7",
-  "xgboost>=3.2,<4",
-  "hmmlearn>=0.3,<0.4",
-  "arch>=8,<9",
-  "interpret-core>=0.7,<0.8",
+    "torch",
+    "numpy",
+    "pandas",
+    "scipy",
+    "pyyaml",
+    "scikit-learn",
+    "statsmodels",
+    "pyarrow",
+    "interpret",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9,<10", "ruff>=0.14,<0.15"]
-ui = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
-# Torch is the production VB backend. PyMC/ArviZ remain an optional reference
-# stack for small NUTS validation runs.
-bayesian-core = ["torch>=2.4"]
-bayesian-reference = ["pymc>=5.20,<7", "arviz>=0.20,<2"]
-bayesian = ["torch>=2.4", "pymc>=5.20,<7", "arviz>=0.20,<2"]
+dev = ["pytest", "ruff"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-addopts = "-q"
-
 [tool.ruff]
-line-length = 160
-target-version = "py310"
+line-length = 100
 
+# Khai bao select TUONG MINH thay vi dua vao mac dinh cua ruff. Ly do cu the:
+# du an nay chay ruff sach tren may phat trien dau tien, nhung ruff 0.16.3
+# tren may GPU bao 40 loi tren dung nhung file khong he thay doi -- cac ban
+# ruff moi bat them nhieu rule vao bo mac dinh. Khong khai bao select nghia
+# la chinh sach lint cua du an tro thanh mot ham cua phien ban ruff dang cai,
+# va "suite sach" mat het y nghia khi chuyen may.
+#
+# ["E4", "E7", "E9", "F"] chinh la bo MAC DINH lich su cua ruff, tuc dung bo
+# ma "suite sach" cua du an nay von duoc do bang. Da kiem chung: chon "E"
+# thay vi "E4/E7/E9" bat them E501 (do dai dong) va lam lo ra 16 vi pham co
+# san trong cac file test -- nghia la chon "E" khong phai khoi phuc hanh vi
+# cu ma la them rule moi. Nang bo rule la mot quyet dinh co y thuc, tach
+# rieng khoi viec cham dut phu thuoc vao phien ban ruff.
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]

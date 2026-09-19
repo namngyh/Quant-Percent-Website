@@ -221,14 +221,18 @@ class DataProSQLiteConnector(BaseConnector):
         best_key: int | None = None
         for key in keys:
             hist: dict[tuple, list[int]] = {}
-            for eid, o, h, l, c, v in self.con.execute(
+            for eid, open_px, high_px, low_px, close_px, volume in self.con.execute(
                 "SELECT EID, OPEN_PX, HIGH_PX, LOW_PX, CLOSE_PX, VOL FROM HIST WHERE TRADING_KEY = ?",
                 (key,),
             ):
-                hist.setdefault((o, h, l, c, v), []).append(int(eid))
+                hist.setdefault(
+                    (open_px, high_px, low_px, close_px, volume), []
+                ).append(int(eid))
             quote_index: dict[tuple, list[str]] = {}
-            for sym, o, h, l, c, v in quotes:
-                quote_index.setdefault((o, h, l, c, v), []).append(str(sym))
+            for sym, open_px, high_px, low_px, close_px, volume in quotes:
+                quote_index.setdefault(
+                    (open_px, high_px, low_px, close_px, volume), []
+                ).append(str(sym))
             mapping = {
                 quote_index[k][0]: hist[k][0]
                 for k in quote_index
@@ -572,6 +576,309 @@ class GenericSQLConnector(BaseConnector):
         return _finalize_contract(frame)
 
 
+#: URL schemes routed to :class:`PostgresConnector`. SQLAlchemy-style driver
+#: suffixes (`postgresql+psycopg`) are accepted because `.env.example` has
+#: documented that spelling since before a Postgres backend existed.
+POSTGRES_SCHEMES = ("postgresql", "postgres", "timescaledb")
+
+
+def is_postgres_url(value: str | None) -> bool:
+    if not value or "://" not in str(value):
+        return False
+    scheme = str(value).partition("://")[0].lower()
+    return scheme.partition("+")[0] in POSTGRES_SCHEMES
+
+
+def normalise_postgres_dsn(value: str) -> str:
+    """Strip the SQLAlchemy driver suffix and alias `timescaledb://`.
+
+    psycopg understands `postgresql://` and `postgres://` only; anything else in
+    the scheme is a SQLAlchemy convention it would reject.
+    """
+    scheme, separator, rest = str(value).partition("://")
+    if not separator:
+        return str(value)
+    base = scheme.lower().partition("+")[0]
+    if base == "timescaledb":
+        base = "postgresql"
+    return f"{base}://{rest}"
+
+
+def _redact_dsn(value: str) -> str:
+    """Hide credentials before the DSN reaches metadata, reports or logs."""
+    from dynamicgraph.config import redact
+
+    return redact(str(value))
+
+
+class PostgresConnector(BaseConnector):
+    """Connector for the QuantPercent TimescaleDB daily panel (`bars_1d`).
+
+    Read-only is enforced by the *server*: the session is opened with
+    ``default_transaction_read_only=on``, so a write is refused even if a future
+    code path asks for one. That is stronger than the client-side discipline the
+    file backends rely on.
+
+    Corporate actions
+    -----------------
+    ``bars_1d.adj_rate`` is a cumulative *divisor* whose most recent value is 1,
+    not the DataPro ``ADJUST_RATE/1e6`` multiplier used by
+    :class:`DataProSQLiteConnector`. Getting this backwards is silent: prices
+    stay plausible and only the returns around corporate actions are wrong.
+
+    The direction was verified, not assumed. Across the 35 symbols with complete
+    ``adj_rate`` coverage, every session where ``adj_rate`` changes is a
+    corporate-action boundary at which the identity
+
+        (ref_px(t) / close(t-1)) * (adj_rate(t-1) / adj_rate(t)) == 1
+
+    must hold. On 375 such events since 2015 the median is 1.000000 and 364 fall
+    within 1% of 1. The 11 that do not are all cases where the vendor left
+    ``ref_px`` unadjusted, which is a defect in ``ref_px`` rather than in
+    ``adj_rate``: the multiplicative form is off by ~9% median and is ruled out.
+    """
+
+    backend = "postgres"
+
+    #: Physical columns of the QuantPercent `bars_1d` table.
+    DEFAULT_COLUMN_MAP = {
+        "date": "trading_date",
+        "ticker": "symbol",
+        "open": "open",
+        "high": "high",
+        "low": "low",
+        "close": "close",
+        "volume": "volume",
+        "turnover": "value",
+        "reference_price": "ref_px",
+        "foreign_buy_value": "frn_buy_val",
+        "foreign_sell_value": "frn_sell_val",
+    }
+    #: Cumulative back-adjustment divisor; absent from generic price tables.
+    ADJUSTMENT_COLUMN = "adj_rate"
+    DEFAULT_TABLE = "bars_1d"
+
+    def __init__(
+        self,
+        dsn: str,
+        config: Any = None,
+        table: str | None = None,
+        column_map: dict[str, str] | None = None,
+        connect_timeout: int = 15,
+    ) -> None:
+        import psycopg
+
+        super().__init__(_redact_dsn(dsn), config)
+        self.table = table or self.DEFAULT_TABLE
+        self.column_map = {**self.DEFAULT_COLUMN_MAP, **(column_map or {})}
+        self.con = psycopg.connect(
+            normalise_postgres_dsn(dsn),
+            connect_timeout=int(connect_timeout),
+            autocommit=True,
+            options="-c default_transaction_read_only=on",
+        )
+        # Validation happens after connecting, so any failure here has to release
+        # the socket. Left to the garbage collector it resurfaces much later as an
+        # unraisable exception inside an unrelated caller.
+        try:
+            self._available = self._table_columns()
+            for required in ("date", "ticker", "close"):
+                physical = self.column_map.get(required)
+                if not physical or physical not in self._available:
+                    raise ValueError(
+                        f"Table `{self.table}` has no `{required}` column "
+                        f"(looked for {physical!r}). Set data.column_map.{required} in the config."
+                    )
+        except Exception:
+            self.close()
+            raise
+        self.metadata.backend = self.backend
+
+    # -- introspection ------------------------------------------------------
+    def _table_columns(self) -> set[str]:
+        schema, _, name = self.table.rpartition(".")
+        with self.con.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = %s AND (%s = '' OR table_schema = %s)",
+                (name, schema, schema),
+            )
+            columns = {row[0] for row in cursor.fetchall()}
+        if not columns:
+            raise ValueError(f"Table `{self.table}` does not exist or is not visible to this role.")
+        return columns
+
+    def _identifier(self, name: str):
+        from psycopg import sql
+
+        schema, _, table = name.rpartition(".")
+        return sql.Identifier(schema, table) if schema else sql.Identifier(table)
+
+    def _query(self, statement, params: list[Any] | None = None) -> pd.DataFrame:
+        """Build the frame from the cursor: `pd.read_sql` warns on non-sqlite DBAPI."""
+        with self.con.cursor() as cursor:
+            cursor.execute(statement, params or None)
+            columns = [description[0] for description in cursor.description]
+            rows = cursor.fetchall()
+        return pd.DataFrame(rows, columns=columns)
+
+    def execute_for_test(self, statement: str) -> None:
+        """Attempt a statement so tests can prove the server rejects writes.
+
+        Asserting this against the live server matters: a mock would only prove
+        that the mock says no, and the read-only guarantee here is a property of
+        the connection options, not of this class.
+        """
+        import psycopg
+
+        try:
+            with self.con.cursor() as cursor:
+                cursor.execute(statement)  # type: ignore[arg-type]
+        except psycopg.Error as error:
+            raise ReadOnlyViolation(f"Postgres source is read-only: {error}") from error
+        raise ReadOnlyViolation(
+            "A write statement was not rejected - the connection is not read-only"
+        )
+
+    def close(self) -> None:
+        try:
+            self.con.close()
+        except Exception:  # pragma: no cover - already closed
+            pass
+
+    # -- BaseConnector ------------------------------------------------------
+    def list_symbols(self) -> pd.DataFrame:
+        from psycopg import sql
+
+        statement = sql.SQL("SELECT DISTINCT {ticker} AS ticker FROM {table}").format(
+            ticker=self._identifier(self.column_map["ticker"]),
+            table=self._identifier(self.table),
+        )
+        frame = self._query(statement)
+        frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
+        frame["sector"] = UNKNOWN_SECTOR
+        frame["is_index"] = frame["ticker"].isin(INDEX_SYMBOL_CANDIDATES)
+        return frame.sort_values("ticker").reset_index(drop=True)
+
+    def detect_index_symbol(self, preferred: str | None = None) -> str | None:
+        symbols = set(self.list_symbols()["ticker"])
+        if preferred and preferred.upper() in symbols:
+            return preferred.upper()
+        return next((c for c in INDEX_SYMBOL_CANDIDATES if c in symbols), None)
+
+    def load(
+        self,
+        tickers: Iterable[str] | None = None,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> pd.DataFrame:
+        from psycopg import sql
+
+        cmap = self.column_map
+        fields = [
+            name
+            for name in (
+                "date", "ticker", "open", "high", "low", "close", "volume", "turnover",
+                "reference_price", "foreign_buy_value", "foreign_sell_value",
+            )
+            if cmap.get(name) in self._available
+        ]
+        selected = [
+            sql.SQL("{} AS {}").format(self._identifier(cmap[name]), sql.Identifier(name))
+            for name in fields
+        ]
+        has_adjustment = self.ADJUSTMENT_COLUMN in self._available
+        if has_adjustment:
+            selected.append(
+                sql.SQL("{} AS adjustment_rate").format(sql.Identifier(self.ADJUSTMENT_COLUMN))
+            )
+
+        clauses: list = []
+        params: list[Any] = []
+        if tickers is not None:
+            wanted = sorted({str(t).strip().upper() for t in tickers})
+            clauses.append(
+                sql.SQL("upper({}) = ANY(%s)").format(self._identifier(cmap["ticker"]))
+            )
+            params.append(wanted)
+        if start:
+            clauses.append(sql.SQL("{} >= %s").format(self._identifier(cmap["date"])))
+            params.append(pd.Timestamp(start).date())
+        if end:
+            clauses.append(sql.SQL("{} <= %s").format(self._identifier(cmap["date"])))
+            params.append(pd.Timestamp(end).date())
+        where = (
+            sql.SQL(" WHERE ") + sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("")
+        )
+
+        statement = sql.SQL("SELECT {columns} FROM {table}{where}").format(
+            columns=sql.SQL(", ").join(selected),
+            table=self._identifier(self.table),
+            where=where,
+        )
+        logger.info("Loading daily panel from Postgres table `%s` ...", self.table)
+        frame = self._query(statement, params)
+        if frame.empty:
+            raise ValueError(
+                f"Postgres query on `{self.table}` returned no rows for the requested selection."
+            )
+
+        frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+        frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
+        for column in frame.columns:
+            if column not in {"date", "ticker"}:
+                frame[column] = pd.to_numeric(frame[column], errors="coerce")
+
+        if has_adjustment:
+            rate = frame.pop("adjustment_rate")
+            # A zero or negative divisor is corrupt, not merely missing: NaN keeps
+            # it out of the adjusted series instead of producing an absurd price.
+            factor = 1.0 / rate.where(rate > 0, np.nan)
+            frame["adjusted_close"] = frame["close"] * factor
+            frame["adjustment_factor"] = factor
+            self.metadata.adjustment_method = (
+                "adjusted_close = close / adj_rate (cumulative back-adjustment divisor, latest "
+                "session = 1). Verified on 375 adj_rate change events across 35 symbols since "
+                "2015: (ref_px/prev_close) * (adj_rate_prev/adj_rate_now) has median 1.000000 "
+                "and lies within 1% of 1 on 364 of them."
+            )
+            self.metadata.assumptions.append(
+                "bars_1d.adj_rate is a DIVISOR whose latest value is 1, unlike the DataPro "
+                "SQLite ADJUST_RATE which is a 1e6-scaled multiplier. Only 35 of 389 symbols "
+                "(the ingestion watchlist: VN30 plus the indices) carry it; the rest were "
+                "backfilled without it and have no adjusted price."
+            )
+        else:
+            self.metadata.warnings.append(
+                f"Table `{self.table}` has no `{self.ADJUSTMENT_COLUMN}` column, so no adjusted "
+                "price is available from this source."
+            )
+
+        frame["sector"] = UNKNOWN_SECTOR
+        frame["is_index"] = frame["ticker"].isin(INDEX_SYMBOL_CANDIDATES)
+
+        self.metadata.tables = [self.table]
+        self.metadata.n_symbols = int(frame["ticker"].nunique())
+        self.metadata.date_min = str(frame["date"].min().date())
+        self.metadata.date_max = str(frame["date"].max().date())
+        self.metadata.has_adjusted_price = bool(
+            "adjusted_close" in frame.columns and frame["adjusted_close"].notna().any()
+        )
+        self.metadata.has_volume = "volume" in frame.columns
+        self.metadata.has_turnover = "turnover" in frame.columns
+        self.metadata.has_sector = False
+
+        if self.metadata.has_adjusted_price:
+            missing = frame.loc[frame["adjusted_close"].isna(), "ticker"].unique()
+            if len(missing):
+                self.metadata.warnings.append(
+                    f"{len(missing)} symbol(s) have no adjustment factor and therefore no adjusted "
+                    f"price: {', '.join(sorted(missing)[:10])}"
+                    + (" ..." if len(missing) > 10 else "")
+                )
+        return _finalize_contract(frame)
+
+
 class FileConnector(BaseConnector):
     """Connector for Parquet / CSV / Feather, either a single file or a
     directory of per-ticker files (ticker taken from the filename stem)."""
@@ -688,6 +995,21 @@ def build_connector(config: Any, cache_dir: Path | None = None) -> BaseConnector
         )
 
     path = str(raw_path)
+    backend_hint = str(config.data.backend or "auto").lower()
+    if is_postgres_url(path) or backend_hint in {"postgres", "postgresql", "timescaledb"}:
+        if not is_postgres_url(path):
+            raise ValueError(
+                f"data.backend is `{backend_hint}` but data.database_path is not a Postgres URL. "
+                "Set DYNAMICGRAPH_DATABASE_URL (or data.database_path) to "
+                "postgresql://user:password@host:5432/dbname."
+            )
+        return PostgresConnector(
+            path,
+            config,
+            table=config.data.table,
+            column_map=dict(config.data.column_map or {}),
+        )
+
     if "://" in path:
         scheme, _, rest = path.partition("://")
         if scheme.startswith("sqlite"):
@@ -698,7 +1020,8 @@ def build_connector(config: Any, cache_dir: Path | None = None) -> BaseConnector
             path = rest.lstrip("/")
         else:
             raise NotImplementedError(
-                f"Backend `{scheme}` is not implemented. Supported: sqlite, duckdb, parquet, csv, feather."
+                f"Backend `{scheme}` is not implemented. Supported: postgresql, sqlite, duckdb, "
+                "parquet, csv, feather."
             )
 
     resolved = Path(path)

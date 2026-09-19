@@ -3,7 +3,7 @@ the optional Temporal GNN."""
 
 from __future__ import annotations
 
-from dynamicgraph.models.baselines import build_model_zoo, available_models
+from dynamicgraph.models.baselines import available_models, build_model_zoo
 from dynamicgraph.models.calibration import CalibratedModel, calibrate
 from dynamicgraph.models.registry import FeatureSetBuilder
 

@@ -5,7 +5,13 @@ import { useTranslations, useLocale } from "next-intl";
 import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
 import type { PortfolioAnalysis } from "@/lib/api/types";
-import { fmtNumber, fmtPercent, fmtSignedPercent } from "@/lib/format";
+import { MarginSection } from "@/components/portfolio/margin-section";
+import { PortfolioNetwork } from "@/components/portfolio/portfolio-network";
+import { PortfolioOutlookSection } from "@/components/portfolio/portfolio-outlook";
+import { StressSection } from "@/components/portfolio/stress-section";
+import { BudgetSection } from "@/components/portfolio/budget-section";
+import { InfoTip } from "@/components/info-tip";
+import { fmtNumber, fmtPercent, fmtSignedPercent, fmtVnd } from "@/lib/format";
 import { sectorLabel } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 
@@ -20,18 +26,6 @@ import { cn } from "@/lib/utils";
  * quarter of the money can be most of the risk. That gap is stated in words,
  * not left for them to spot in a table.
  */
-
-function fmtVnd(value: number, locale: string) {
-  // Millions and billions, because 563.240.000 does not read at a glance.
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) {
-    return `${fmtNumber(value / 1_000_000_000, locale, { maximumFractionDigits: 2 })} tỷ`;
-  }
-  if (abs >= 1_000_000) {
-    return `${fmtNumber(value / 1_000_000, locale, { maximumFractionDigits: 1 })} tr`;
-  }
-  return fmtNumber(value, locale, { maximumFractionDigits: 0 });
-}
 
 function Tile({
   label,
@@ -252,7 +246,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
           type: "bar",
           barWidth: "48%",
           data: buckets.map((b) =>
-            Math.round(Math.abs(b.threshold) * data.invested_value),
+            Math.round(Math.abs(b.threshold) * data.measured_value),
           ),
           itemStyle: {
             color: CHART.signal,
@@ -270,7 +264,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         },
       ],
     };
-  }, [forward, locale, data.invested_value]);
+  }, [forward, locale, data.measured_value]);
 
   return (
     <div className="mt-10 space-y-12">
@@ -284,6 +278,39 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             count: data.unpriced.length,
           })}
         </p>
+      )}
+
+      {/* Holdings that are worth money but not yet measurable. They are in
+          the totals, so the reader has to be told which figures below they
+          are *not* in — otherwise a 100m position looks like it was assessed
+          and found riskless. */}
+      {data.unmeasured.length > 0 && (
+        <div
+          role="alert"
+          className="border-l-4 border-caution bg-caution-soft px-5 py-4 text-sm leading-relaxed text-ink"
+        >
+          <p>
+            {t("unmeasured", {
+              count: data.unmeasured.length,
+              amount: `${fmtVnd(
+                data.unmeasured.reduce((sum, u) => sum + u.market_value, 0),
+                locale,
+              )} đ`,
+              measured: `${fmtVnd(data.measured_value, locale)} đ`,
+            })}
+          </p>
+          <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+            {data.unmeasured.map((u) => (
+              <li key={u.symbol} className="figure text-xs text-dim">
+                {t("unmeasuredRow", {
+                  symbol: u.symbol,
+                  value: `${fmtVnd(u.market_value, locale)} đ`,
+                  sessions: u.observations,
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* 1. What is it worth, and is it up or down. */}
@@ -359,12 +386,10 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
 
       {/* 2. Where the risk actually sits. */}
       <section aria-labelledby="pf-risk-contribution">
-        <h2 id="pf-risk-contribution" className="title-md">
+        <h2 id="pf-risk-contribution" className="title-md inline-flex items-center gap-2">
           {t("contributionHeading")}
+          <InfoTip wide text={t("contributionLead")} />
         </h2>
-        <p className="mt-3 max-w-3xl leading-relaxed text-dim">
-          {t("contributionLead")}
-        </p>
 
         <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2" aria-hidden="true">
           <span className="inline-flex items-center gap-2 text-xs text-dim">
@@ -402,6 +427,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   "colRisk",
                   "colVol",
                   "colBeta",
+                  "colSell",
                   "colProfit",
                 ].map((key, i) => (
                   <th
@@ -452,6 +478,18 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   <td
                     className={cn(
                       "figure py-3 pr-4 text-right",
+                      p.days_to_sell !== null && p.days_to_sell > 5 && "text-caution",
+                    )}
+                  >
+                    {p.days_to_sell === null
+                      ? "—"
+                      : p.days_to_sell < 0.5
+                        ? "< 0,5"
+                        : fmtNumber(p.days_to_sell, locale, { maximumFractionDigits: 1 })}
+                  </td>
+                  <td
+                    className={cn(
+                      "figure py-3 pr-4 text-right",
                       p.profit_percent !== null &&
                         (p.profit_percent >= 0 ? "text-positive" : "text-negative"),
                     )}
@@ -469,17 +507,18 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
 
       {/* 3. Diversification by risk, not by headcount. */}
       <section aria-labelledby="pf-diversification">
-        <h2 id="pf-diversification" className="title-md">
+        <h2 id="pf-diversification" className="title-md inline-flex items-center gap-2">
           {t("diversificationHeading")}
+          <InfoTip
+            wide
+            text={t("diversificationLead", {
+              positions: c.positions,
+              bets: fmtNumber(c.effective_bets, locale, {
+                maximumFractionDigits: 1,
+              }),
+            })}
+          />
         </h2>
-        <p className="mt-3 max-w-3xl leading-relaxed text-dim">
-          {t("diversificationLead", {
-            positions: c.positions,
-            bets: fmtNumber(c.effective_bets, locale, {
-              maximumFractionDigits: 1,
-            }),
-          })}
-        </p>
 
         <dl className="mt-6 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
           <Tile
@@ -532,31 +571,55 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         )}
       </section>
 
+      {/* 3b. The same question as a picture: the holdings on DynamicGraph's
+          VN30 dependency map. */}
+      {data.network && data.network.covered.length > 0 && (
+        <PortfolioNetwork network={data.network} />
+      )}
+
       {/* 4. Loss measured on this book's own history. */}
       <section aria-labelledby="pf-loss">
-        <h2 id="pf-loss" className="title-md">
+        <h2 id="pf-loss" className="title-md inline-flex items-center gap-2">
           {t("lossHeading")}
+          <InfoTip
+            wide
+            text={[
+              t("lossLead", {
+                days: data.observations,
+                months: Math.round(data.observations / 21),
+              }),
+              t("provenance", {
+                days: data.observations,
+                lookback: data.lookback_days,
+              }),
+              t("varCheckNote"),
+            ]}
+          />
         </h2>
-        <p className="mt-3 max-w-3xl leading-relaxed text-dim">
-          {t("lossLead", {
-            days: data.observations,
-            months: Math.round(data.observations / 21),
-          })}
-        </p>
         <dl className="mt-6 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
           <Tile
             label={t("var95")}
             value={fmtPercent(data.var_95, locale)}
-            note={t("var95Note", {
-              amount: `${fmtVnd(Math.abs(data.var_95 * data.invested_value), locale)} đ`,
-            })}
+            note={
+              t("var95Note", {
+                amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
+              }) +
+              (data.stress?.var_check
+                ? " " +
+                  t("varCheck", {
+                    breaches: data.stress.var_check.breaches,
+                    tested: data.stress.var_check.tested,
+                    rate: fmtPercent(data.stress.var_check.breach_rate, locale, 1),
+                  })
+                : "")
+            }
             tone="caution"
           />
           <Tile
             label={t("es95")}
             value={fmtPercent(data.expected_shortfall_95, locale)}
             note={t("es95Note", {
-              amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.invested_value), locale)} đ`,
+              amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.measured_value), locale)} đ`,
             })}
             tone="caution"
           />
@@ -572,6 +635,16 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
           />
         </dl>
       </section>
+
+      {/* 4a. The book replayed through past falls, and how fast it sells. */}
+      {data.stress && <StressSection stress={data.stress} data={data} />}
+
+      {/* 4b. The same book seen from the reader's own money, when they
+          told us about a loan. */}
+      {data.margin && <MarginSection margin={data.margin} data={data} />}
+
+      {/* 4c. The reader's own loss limit against all of the above. */}
+      {data.risk_budget && <BudgetSection budget={data.risk_budget} data={data} />}
 
       {/* Each term defined against this portfolio's own numbers. A generic
           definition of "VaR" tells a reader what the acronym expands to; the
@@ -604,21 +677,21 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                 term: t("var95"),
                 body: t("explain.var95", {
                   pct: fmtPercent(Math.abs(data.var_95), locale),
-                  amount: `${fmtVnd(Math.abs(data.var_95 * data.invested_value), locale)} đ`,
+                  amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
                 }),
               },
               {
                 term: t("es95"),
                 body: t("explain.es95", {
                   pct: fmtPercent(Math.abs(data.expected_shortfall_95), locale),
-                  amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.invested_value), locale)} đ`,
+                  amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.measured_value), locale)} đ`,
                 }),
               },
               {
                 term: t("maxDrawdown"),
                 body: t("explain.maxDrawdown", {
                   pct: fmtPercent(Math.abs(data.max_drawdown), locale),
-                  amount: `${fmtVnd(Math.abs(data.max_drawdown * data.invested_value), locale)} đ`,
+                  amount: `${fmtVnd(Math.abs(data.max_drawdown * data.measured_value), locale)} đ`,
                 }),
               },
               {
@@ -672,27 +745,30 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
       {/* 5. The only forward-looking block, and it says where it came from. */}
       {data.forward && (
         <section aria-labelledby="pf-forward">
-          <h2 id="pf-forward" className="title-md">
+          <h2 id="pf-forward" className="title-md inline-flex items-center gap-2">
             {t("forwardHeading")}
+            <InfoTip
+              wide
+              text={[
+                t("forwardLead", {
+                  beta: fmtNumber(data.forward.portfolio_beta, locale),
+                  paths: fmtNumber(data.forward.paths, locale),
+                  baseDays: data.forward.base_horizon_days,
+                  horizonDays: data.forward.horizon_days,
+                }),
+                t("forwardCaveat", {
+                  baseDays: data.forward.base_horizon_days,
+                }),
+              ]}
+            />
           </h2>
-          <p className="mt-3 max-w-3xl leading-relaxed text-dim">
-            {t("forwardLead", {
-              beta: fmtNumber(data.forward.portfolio_beta, locale),
-              paths: fmtNumber(data.forward.paths, locale),
-              origin: data.forward.forecast_origin,
-              baseDays: data.forward.base_horizon_days,
-              horizonDays: data.forward.horizon_days,
-            })}
-          </p>
           <div className="mt-7 grid gap-6 desk:grid-cols-2">
             <figure className="min-w-0 overflow-hidden rounded-lg border border-border bg-background p-5 shadow-sm">
               <figcaption>
-                <h3 className="text-base font-semibold">
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold">
                   {t("exceedanceTitle")}
+                  <InfoTip wide text={t("exceedanceNote")} />
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-dim">
-                  {t("exceedanceNote")}
-                </p>
               </figcaption>
               <EChart
                 option={exceedanceOption}
@@ -703,12 +779,10 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
 
             <figure className="min-w-0 overflow-hidden rounded-lg border border-border bg-background p-5 shadow-sm">
               <figcaption>
-                <h3 className="text-base font-semibold">
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold">
                   {t("lossScaleTitle")}
+                  <InfoTip wide text={t("lossScaleNote")} />
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-dim">
-                  {t("lossScaleNote")}
-                </p>
               </figcaption>
               <EChart
                 option={lossScaleOption}
@@ -736,7 +810,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                     <th scope="row" className="figure py-3 pr-4 text-left font-normal">
                       {t("declineRow", {
                         pct: fmtPercent(Math.abs(b.threshold), locale),
-                        amount: `${fmtVnd(Math.abs(b.threshold) * data.invested_value, locale)} đ`,
+                        amount: `${fmtVnd(Math.abs(b.threshold) * data.measured_value, locale)} đ`,
                       })}
                     </th>
                     <td className="figure py-3 text-right">
@@ -747,26 +821,15 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
               </tbody>
             </table>
           </div>
-          <p className="mt-5 max-w-4xl text-xs leading-relaxed text-dim">
-            {t("forwardCaveat", {
-              baseDays: data.forward.base_horizon_days,
-            })}
-          </p>
         </section>
       )}
 
-      <section
-        className="border-t border-border pt-6"
-        aria-label={t("provenanceLabel")}
-      >
-        <p className="max-w-4xl text-xs leading-relaxed text-dim">
-          {t("provenance", {
-            days: data.observations,
-            lookback: data.lookback_days,
-            asOf: data.data_as_of.slice(0, 10),
-          })}
-        </p>
-      </section>
+      {/* 6. Causa's calibrated interval on the book, after the drawdown
+          panel it complements, with the interest and call lines from the
+          margin block when there is one. */}
+      {data.outlook && (
+        <PortfolioOutlookSection outlook={data.outlook} hasLoan={data.margin !== null} />
+      )}
     </div>
   );
 }

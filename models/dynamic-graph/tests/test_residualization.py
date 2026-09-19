@@ -115,3 +115,23 @@ def test_sector_return_matrix_averages_members():
     result = sector_return_matrix(frame, sectors)
     assert result.loc[0, "X"] == pytest.approx(0.02)
     assert result.loc[1, "Y"] == pytest.approx(-0.02)
+
+
+def test_leave_one_out_sector_return_excludes_the_stock_itself():
+    frame = pd.DataFrame(
+        {
+            "A": [0.01, 0.02],
+            "B": [0.03, 0.04],
+            "C": [0.05, 0.06],
+            "D": [-0.01, -0.02],
+        }
+    )
+    sectors = {"A": "X", "B": "X", "C": "X", "D": "Y"}
+
+    result = sector_return_matrix(frame, sectors, leave_one_out=True)
+
+    assert list(result.columns) == list(frame.columns)
+    assert result.loc[0, "A"] == pytest.approx(0.04)
+    assert result.loc[0, "B"] == pytest.approx(0.03)
+    assert result.loc[0, "C"] == pytest.approx(0.02)
+    assert result["D"].isna().all(), "a singleton sector has no peer factor"

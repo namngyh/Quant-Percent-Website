@@ -97,18 +97,25 @@ def residualize_returns(
     beta_sector = pd.DataFrame(np.nan, index=stock_returns.index, columns=stock_returns.columns)
     if sector_returns is not None and sector_of:
         method = "market+sector"
-        # Orthogonalise each sector factor against the market factor.
+        # Orthogonalise each sector/leave-one-out ticker factor against the
+        # market factor. A ticker-labelled column takes precedence so a stock
+        # is never included in its own sector benchmark.
         ortho: dict[str, pd.Series] = {}
-        for sector in sector_returns.columns:
-            series = sector_returns[sector].reindex(stock_returns.index)
-            a_s, b_s = rolling_beta(series.to_frame(sector), market, window, min_periods)
-            ortho[sector] = series - (a_s[sector] + b_s[sector] * market)
+        for factor_name in sector_returns.columns:
+            series = sector_returns[factor_name].reindex(stock_returns.index)
+            a_s, b_s = rolling_beta(
+                series.to_frame(factor_name), market, window, min_periods
+            )
+            ortho[factor_name] = (
+                series - (a_s[factor_name] + b_s[factor_name] * market)
+            )
 
         for ticker in stock_returns.columns:
             sector = (sector_of or {}).get(ticker)
-            if sector is None or sector not in ortho:
+            factor_name = ticker if ticker in ortho else sector
+            if factor_name is None or factor_name not in ortho:
                 continue
-            factor = ortho[sector]
+            factor = ortho[factor_name]
             resid_i = residuals[ticker]
             a_i, b_i = rolling_beta(resid_i.to_frame(ticker), factor, window, min_periods)
             beta_sector[ticker] = b_i[ticker]
@@ -179,9 +186,44 @@ def downside_upside_beta(
 
 
 def sector_return_matrix(
-    stock_returns: pd.DataFrame, sector_of: dict[str, str], weights: pd.DataFrame | None = None
+    stock_returns: pd.DataFrame,
+    sector_of: dict[str, str],
+    weights: pd.DataFrame | None = None,
+    leave_one_out: bool = False,
 ) -> pd.DataFrame:
-    """Equal- or weight-averaged sector return series (date x sector)."""
+    """Return equal- or weight-averaged sector factors.
+
+    The default result is ``date x sector`` for backward compatibility. With
+    ``leave_one_out=True`` the result is ``date x ticker`` and each ticker's
+    factor contains only its sector peers. Singleton sectors are undefined.
+    """
+    if leave_one_out:
+        out = pd.DataFrame(
+            np.nan, index=stock_returns.index, columns=stock_returns.columns
+        )
+        for ticker in stock_returns.columns:
+            sector = sector_of.get(ticker)
+            peers = [
+                member
+                for member in stock_returns.columns
+                if member != ticker and sector_of.get(member) == sector
+            ]
+            if not sector or not peers:
+                continue
+            block = stock_returns[peers]
+            if weights is None:
+                out[ticker] = block.mean(axis=1, skipna=True)
+            else:
+                weight_block = weights.reindex(
+                    index=block.index, columns=peers
+                ).where(block.notna())
+                denominator = weight_block.sum(axis=1, min_count=1)
+                normalised = weight_block.div(
+                    denominator.replace(0.0, np.nan), axis=0
+                )
+                out[ticker] = (block * normalised).sum(axis=1, min_count=1)
+        return out
+
     sectors = sorted({s for s in sector_of.values() if s})
     out = pd.DataFrame(index=stock_returns.index, columns=sectors, dtype=float)
     for sector in sectors:

@@ -1,4 +1,4 @@
-# Full mode: multi-scale graphs, bootstrap edge stability, tuning, GNN.
+# Full experimental mode: multi-scale graphs, stability and tuning.
 # Expect a long runtime.
 extends: default.yaml
 
@@ -29,10 +29,10 @@ training:
   n_jobs: -1
 
 models:
-  run_temporal_gnn: true
+  run_temporal_gnn: false
 
 gnn:
-  enabled: true
+  enabled: false
 
 evaluation:
   bootstrap_iterations: 1000

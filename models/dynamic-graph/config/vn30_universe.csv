@@ -18,9 +18,10 @@
 # on this file for research conclusions.
 ticker,effective_from,effective_to,source
 ACB,,,static_snapshot_user_maintained
+BCM,,,static_snapshot_user_maintained
 BID,,,static_snapshot_user_maintained
+BVH,,,static_snapshot_user_maintained
 CTG,,,static_snapshot_user_maintained
-DGC,,,
 FPT,,,static_snapshot_user_maintained
 GAS,,,static_snapshot_user_maintained
 GVR,,,static_snapshot_user_maintained
@@ -28,16 +29,16 @@ HDB,,,static_snapshot_user_maintained
 HPG,,,static_snapshot_user_maintained
 LPB,,,static_snapshot_user_maintained
 MBB,,,static_snapshot_user_maintained
-MCH,,,
 MSN,,,static_snapshot_user_maintained
 MWG,,,static_snapshot_user_maintained
+PLX,,,static_snapshot_user_maintained
 SAB,,,static_snapshot_user_maintained
 SHB,,,static_snapshot_user_maintained
 SSB,,,static_snapshot_user_maintained
 SSI,,,static_snapshot_user_maintained
 STB,,,static_snapshot_user_maintained
 TCB,,,static_snapshot_user_maintained
-TCX,,,
+TPB,,,static_snapshot_user_maintained
 VCB,,,static_snapshot_user_maintained
 VHM,,,static_snapshot_user_maintained
 VIB,,,static_snapshot_user_maintained
@@ -45,5 +46,4 @@ VIC,,,static_snapshot_user_maintained
 VJC,,,static_snapshot_user_maintained
 VNM,,,static_snapshot_user_maintained
 VPB,,,static_snapshot_user_maintained
-VPL,,,
 VRE,,,static_snapshot_user_maintained

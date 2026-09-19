@@ -13,6 +13,7 @@ from dynamicgraph.config import config_fingerprint, load_config, redact
 from dynamicgraph.graphs.snapshots import SnapshotBuildConfig, build_snapshot_series
 from dynamicgraph.training.reproducibility import (
     ReproducibilityRecord,
+    code_fingerprint,
     detect_device,
     package_versions,
     set_global_seed,
@@ -69,10 +70,103 @@ def test_config_fingerprint_is_stable_and_changes_with_content():
     assert config_fingerprint(config) != first
 
 
+def test_code_fingerprint_covers_uncommitted_source_content(tmp_path):
+    source = tmp_path / "src" / "package"
+    source.mkdir(parents=True)
+    module = source / "model.py"
+    module.write_text("VALUE = 1\n", encoding="utf-8")
+    first = code_fingerprint(tmp_path)
+    module.write_text("VALUE = 2\n", encoding="utf-8")
+    assert code_fingerprint(tmp_path) != first
+
+
+def test_default_run_mode_is_structure_only():
+    config = load_config("config/default.yaml")
+    assert config.project.mode == "structure"
+    assert config.modules.structure_analysis
+    assert not config.modules.stress_forecasting
+    assert not config.modules.node_return_ranking
+    assert not config.modules.allocation_validation
+    assert not config.modules.scenario_analysis
+    assert not config.gnn.enabled
+    assert not config.models.run_temporal_gnn
+    assert not config.allocation.enabled
+
+
+@pytest.mark.parametrize(
+    ("mode", "flag"),
+    [
+        ("forecast_experimental", "stress_forecasting"),
+        ("allocation_validation", "allocation_validation"),
+        ("scenario_analysis", "scenario_analysis"),
+    ],
+)
+def test_named_run_modes_enable_only_their_explicit_workflow(mode, flag):
+    config = load_config(
+        "config/default.yaml", overrides={"project": {"mode": mode}}
+    )
+    assert config.modules.structure_analysis
+    assert getattr(config.modules, flag)
+    assert not config.gnn.enabled
+    assert not config.models.run_temporal_gnn
+
+
+def test_cli_full_profile_does_not_implicitly_enable_gnn():
+    from dynamicgraph.cli import _bootstrap
+
+    config = _bootstrap("config/default.yaml", full=True, log_level="CRITICAL")
+    assert config.project.mode == "full"
+    assert not config.gnn.enabled
+    assert not config.models.run_temporal_gnn
+
+
+def test_node_ranking_can_run_without_stress_forecasting(monkeypatch):
+    from dynamicgraph.pipeline import PipelineState, stage_predictive
+    from dynamicgraph.training import node_ranking
+
+    config = load_config(
+        "config/default.yaml",
+        overrides={
+            "modules": {
+                "stress_forecasting": False,
+                "node_return_ranking": True,
+            }
+        },
+    )
+    state = PipelineState(config=config)
+    state.market_features = pd.DataFrame(
+        index=pd.bdate_range("2020-01-01", periods=100)
+    )
+    state.folds = [object()]
+    called = {"ranking": False}
+
+    def fake_run(_state, folds):
+        called["ranking"] = True
+        assert folds is state.folds
+        return {}
+
+    monkeypatch.setattr(node_ranking, "run_node_ranking", fake_run)
+    monkeypatch.setattr(
+        node_ranking,
+        "summarize_node_ranking",
+        lambda results: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        node_ranking,
+        "node_ranking_verdict",
+        lambda summary: {"verdict": "inconclusive"},
+    )
+
+    stage_predictive(state)
+
+    assert called["ranking"]
+    assert state.experiment is None
+    assert "stress_forecasting (disabled by run mode)" in state.skipped_modules
+
+
 def test_config_fingerprint_redacts_the_database_path():
     config = load_config("config/default.yaml")
     config.data.database_path = "postgresql://user:hunter2@db.internal:5432/prices"
-    payload = config.to_dict()
     _ = config_fingerprint(config)
     # `to_dict()` itself is not redacted, but the record and the fingerprint are.
     record = ReproducibilityRecord.build(config, data_fingerprint="abc")

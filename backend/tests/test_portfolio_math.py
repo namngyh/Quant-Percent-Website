@@ -23,7 +23,10 @@ from app.services.portfolio import (
     _exceedance_at,
     _ledoit_wolf,
     _max_drawdown,
+    _profit,
     _risk_state,
+    _scale_forward,
+    _split_by_history,
 )
 
 
@@ -306,6 +309,83 @@ class TestForwardScaling:
         for horizon in (21, 63, 126, 252):
             values = self._probabilities(1.0, horizon)
             assert max(values) - min(values) > 0.4
+
+
+class TestForwardSign:
+    """A loss tail has to come back as a loss whatever the sign of beta."""
+
+    @staticmethod
+    def _forward(beta: float):
+        import datetime as dt
+
+        return _scale_forward(
+            origin=dt.date(2026, 9, 1),
+            index_var_95=-0.05,
+            index_es_95=-0.08,
+            paths=10_000,
+            curve=list(LIVE_CURVE),
+            beta=beta,
+            horizon_days=MC_BASE_HORIZON_DAYS,
+        )
+
+    def test_negative_beta_keeps_var_negative(self):
+        """Signed beta turned the index's 5% loss into a 5% gain."""
+        out = self._forward(-1.0)
+        assert out.var_95 < 0
+        assert out.expected_shortfall_95 < 0
+        assert out.expected_shortfall_95 < out.var_95
+
+    def test_sign_of_beta_does_not_change_magnitudes(self):
+        long, short = self._forward(0.8), self._forward(-0.8)
+        assert long.var_95 == pytest.approx(short.var_95)
+        assert [b.probability for b in long.drawdown_probabilities] == [
+            b.probability for b in short.drawdown_probabilities
+        ]
+
+    def test_direction_is_still_reported(self):
+        assert self._forward(-0.8).portfolio_beta == pytest.approx(-0.8)
+
+
+class TestHoldingsSplit:
+    """A recent listing is worth money even before it is worth measuring."""
+
+    @staticmethod
+    def _closes(n: int) -> dict:
+        import datetime as dt
+
+        base = dt.date(2026, 1, 1)
+        return {base + dt.timedelta(days=i): 100.0 for i in range(n)}
+
+    def test_three_groups(self):
+        closes = {
+            "OLD": self._closes(MIN_OBSERVATIONS),
+            "NEW": self._closes(MIN_OBSERVATIONS - 1),
+            "ONE": self._closes(1),
+        }
+        measured, unmeasured, unpriced = _split_by_history(
+            closes, ["OLD", "NEW", "ONE", "NONE"]
+        )
+        assert measured == ["OLD"]
+        # Fewer than the minimum, down to a single close, still has a price.
+        assert unmeasured == ["NEW", "ONE"]
+        # Only a symbol with nothing behind it is unpriced.
+        assert unpriced == ["NONE"]
+
+    def test_order_follows_the_request(self):
+        closes = {s: self._closes(MIN_OBSERVATIONS) for s in "ABC"}
+        measured, _, _ = _split_by_history(closes, ["C", "A", "B"])
+        assert measured == ["C", "A", "B"]
+
+
+class TestProfit:
+    def test_without_cost_basis(self):
+        assert _profit(1_000.0, 10, None) == (None, None, None)
+
+    def test_with_cost_basis(self):
+        cost, profit, pct = _profit(1_200.0, 10, 100.0)
+        assert cost == 1_000.0
+        assert profit == 200.0
+        assert pct == pytest.approx(0.2)
 
 
 class TestBenchmarkAlignment:

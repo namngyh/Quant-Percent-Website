@@ -171,6 +171,28 @@ def _load_csv(path: Path) -> tuple[pd.DataFrame, list[int]]:
     return frame, malformed
 
 
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T].*)?$")
+
+
+def parse_dates(values: pd.Series) -> pd.Series:
+    """Parse a date column, choosing the convention from the data itself.
+
+    The vendor CSV is ``d/m/YYYY``, so ``dayfirst=True`` is required there. A
+    snapshot exported from the database is ISO, and pandas warns when
+    ``dayfirst`` is set on unambiguous ISO input. Both formats appear in this
+    repository now, and a warning is a build failure here, so detect rather than
+    assume. ``dayfirst`` remains the fallback: it is what every historical file
+    in ``data/raw/`` needs.
+    """
+    if pd.api.types.is_datetime64_any_dtype(values):
+        return pd.to_datetime(values, errors="coerce")
+    text = values.astype(str).str.strip()
+    populated = text[text.ne("") & text.ne("nan") & text.ne("NaT")]
+    if len(populated) and populated.str.match(ISO_DATE).all():
+        return pd.to_datetime(values, errors="coerce", format="ISO8601")
+    return pd.to_datetime(values, errors="coerce", dayfirst=True)
+
+
 def load_price_data(path: str | Path) -> tuple[pd.DataFrame, dict[str, object]]:
     path = Path(path)
     suffix = path.suffix.lower()
@@ -187,7 +209,7 @@ def load_price_data(path: str | Path) -> tuple[pd.DataFrame, dict[str, object]]:
         raise ValueError(f"Định dạng chưa hỗ trợ: {suffix}")
     if "date" not in frame or "close" not in frame:
         raise ValueError("Dữ liệu phải có date và close")
-    frame["date"] = pd.to_datetime(frame["date"], errors="coerce", dayfirst=True)
+    frame["date"] = parse_dates(frame["date"])
     for column in ["open", "high", "low", "close", "volume"]:
         if column in frame:
             frame[column] = pd.to_numeric(frame[column].astype(str).str.replace(",", "", regex=False), errors="coerce")

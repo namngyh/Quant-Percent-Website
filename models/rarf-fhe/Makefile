@@ -1,7 +1,7 @@
 PYTHON := conda run -n eda python
 ENV := PYTHONPATH=src MPLCONFIGDIR=/tmp/matplotlib-vnindex
 
-.PHONY: install test lint quick full forecast report clean
+.PHONY: install test lint quick full forecast report init-online update-latest clean
 install:
 	$(PYTHON) -m pip install -e .
 test:
@@ -16,6 +16,10 @@ forecast:
 	$(ENV) $(PYTHON) -m vnindex_model.cli forecast --config configs/default.yaml
 report:
 	$(ENV) $(PYTHON) -m vnindex_model.cli report --config configs/default.yaml
+init-online:
+	$(ENV) $(PYTHON) -m vnindex_model.cli init-online-state --config configs/default.yaml
+update-latest:
+	$(ENV) $(PYTHON) -m vnindex_model.cli update-latest --config configs/default.yaml
 clean:
 	rm -rf .pytest_cache .ruff_cache build dist *.egg-info src/*.egg-info
 

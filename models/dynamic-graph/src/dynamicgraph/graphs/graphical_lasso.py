@@ -37,6 +37,10 @@ class GraphicalLassoFit:
     alpha: float
     converged: bool
     n_iter: int | None = None
+    dual_gap: float | None = None
+    warning_message: str = ""
+    retry_count: int = 0
+    fallback_reason: str = ""
     note: str = ""
 
 
@@ -53,47 +57,96 @@ def fit_graphical_lasso(
     (last resort) return the plain inverse of a PD-projected covariance. Each
     fallback is recorded in `note` so it shows up in snapshot metadata.
     """
+    import warnings
+
     from sklearn.covariance import graphical_lasso
+    from sklearn.exceptions import ConvergenceWarning
 
     covariance = 0.5 * (covariance + covariance.T)
     note = ""
+    warning_messages: list[str] = []
+    retry_count = 0
 
     for attempt, scale in enumerate((1.0, 2.0, 5.0)):
         try:
-            _, precision = graphical_lasso(
-                covariance,
-                alpha=alpha * scale,
-                max_iter=max_iter,
-                tol=tol,
-                enet_tol=enet_tol,
-            )
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", ConvergenceWarning)
+                estimated_covariance, precision, costs, n_iter = graphical_lasso(
+                    covariance,
+                    alpha=alpha * scale,
+                    max_iter=max_iter,
+                    tol=tol,
+                    enet_tol=enet_tol,
+                    return_costs=True,
+                    return_n_iter=True,
+                )
+            convergence = [
+                str(item.message)
+                for item in caught
+                if issubclass(item.category, ConvergenceWarning)
+            ]
+            dual_gap = float(costs[-1][1]) if costs else None
+            if convergence:
+                warning_messages.extend(convergence)
+                retry_count += 1
+                note = (
+                    f"non-convergence at alpha={alpha * scale:.4g}; "
+                    "retrying with stronger regularisation"
+                )
+                continue
             if attempt:
                 note = f"alpha scaled x{scale} after convergence failure"
             return GraphicalLassoFit(
                 precision=np.asarray(precision),
-                covariance=covariance,
+                covariance=np.asarray(estimated_covariance),
                 alpha=alpha * scale,
                 converged=True,
+                n_iter=int(n_iter),
+                dual_gap=dual_gap,
+                warning_message="; ".join(warning_messages),
+                retry_count=retry_count,
                 note=note,
             )
         except (FloatingPointError, ValueError, ArithmeticError) as exc:
             note = f"graphical_lasso failed at alpha={alpha * scale:.4g}: {exc}"
+            retry_count += 1
             continue
 
     # Diagonal loading, then plain inversion.
     try:
         loaded = nearest_positive_definite(covariance, epsilon=1e-6)
-        from sklearn.covariance import graphical_lasso as _gl
-
-        _, precision = _gl(loaded, alpha=alpha, max_iter=max_iter, tol=tol)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ConvergenceWarning)
+            estimated_covariance, precision, costs, n_iter = graphical_lasso(
+                loaded,
+                alpha=alpha,
+                max_iter=max_iter * 2,
+                tol=tol,
+                return_costs=True,
+                return_n_iter=True,
+            )
+        convergence = [
+            str(item.message)
+            for item in caught
+            if issubclass(item.category, ConvergenceWarning)
+        ]
+        if convergence:
+            warning_messages.extend(convergence)
+            retry_count += 1
+            raise ArithmeticError("PD-projected graphical lasso did not converge")
         return GraphicalLassoFit(
             precision=np.asarray(precision),
-            covariance=loaded,
+            covariance=np.asarray(estimated_covariance),
             alpha=alpha,
             converged=True,
+            n_iter=int(n_iter),
+            dual_gap=float(costs[-1][1]) if costs else None,
+            warning_message="; ".join(warning_messages),
+            retry_count=retry_count,
+            fallback_reason="positive_definite_projection",
             note=note + "; recovered after PD projection",
         )
-    except Exception:
+    except Exception as exc:
         loaded = nearest_positive_definite(covariance, epsilon=1e-6)
         precision = np.linalg.pinv(loaded)
         logger.warning("Graphical lasso failed; fell back to the pseudo-inverse (dense precision).")
@@ -102,7 +155,10 @@ def fit_graphical_lasso(
             covariance=loaded,
             alpha=alpha,
             converged=False,
-            note=note + "; fell back to pseudo-inverse - graph will be dense",
+            warning_message="; ".join(warning_messages),
+            retry_count=retry_count,
+            fallback_reason="pseudo_inverse_after_non_convergence",
+            note=note + f"; {exc}; fell back to pseudo-inverse - graph will be dense",
         )
 
 

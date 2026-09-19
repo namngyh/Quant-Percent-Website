@@ -37,6 +37,7 @@ logger = get_logger(__name__)
 COVARIANCE_ESTIMATORS: tuple[str, ...] = (
     "sample",
     "ledoit_wolf",
+    "ewma",
     "glasso",
     "diagonal",
 )
@@ -123,6 +124,18 @@ def estimate_allocation_covariance(
         shrunk, shrinkage = ledoit_wolf_covariance(standardized)
         correlation = _to_unit_diagonal(shrunk)
 
+    elif estimator == "ewma":
+        decay = 0.94
+        standardized = (returns - returns.mean(axis=0)) / deviation
+        ages = np.arange(n_obs - 1, -1, -1)
+        weights = decay**ages
+        weights = weights / weights.sum()
+        weighted_mean = weights @ standardized
+        centered = standardized - weighted_mean
+        weighted_covariance = centered.T @ (centered * weights[:, None])
+        correlation = _to_unit_diagonal(weighted_covariance)
+        note = f"EWMA correlation with lambda={decay:.2f}; sample marginal variances retained"
+
     else:  # glasso
         from dynamicgraph.graphs.graphical_lasso import fit_graphical_lasso
 
@@ -197,7 +210,12 @@ def covariance_forecast_error(
         realized = realized.reshape(1, -1)
     n_obs, n_assets = realized.shape
     if n_obs == 0 or predicted.shape != (n_assets, n_assets):
-        return {"frobenius": np.nan, "log_likelihood": np.nan, "n": 0}
+        return {
+            "frobenius": np.nan,
+            "log_likelihood": np.nan,
+            "qlike": np.nan,
+            "n": 0,
+        }
 
     realized_covariance = realized.T @ realized / max(n_obs, 1)
     frobenius = float(np.linalg.norm(predicted - realized_covariance, ord="fro"))
@@ -205,14 +223,22 @@ def covariance_forecast_error(
     try:
         cholesky = np.linalg.cholesky(predicted)
     except np.linalg.LinAlgError:
-        return {"frobenius": frobenius, "log_likelihood": np.nan, "n": int(n_obs)}
+        return {
+            "frobenius": frobenius,
+            "log_likelihood": np.nan,
+            "qlike": np.nan,
+            "n": int(n_obs),
+        }
     log_determinant = 2.0 * float(np.log(np.diag(cholesky)).sum())
     solved = np.linalg.solve(predicted, realized.T)
     quadratic = float(np.einsum("ij,ji->", realized, solved)) / n_obs
     log_likelihood = -0.5 * (log_determinant + quadratic + n_assets * np.log(2 * np.pi))
+    realized_covariance = realized.T @ realized / max(n_obs, 1)
+    qlike = float(log_determinant + np.trace(solved @ realized / n_obs))
 
     return {
         "frobenius": frobenius,
         "log_likelihood": float(log_likelihood),
+        "qlike": qlike,
         "n": int(n_obs),
     }

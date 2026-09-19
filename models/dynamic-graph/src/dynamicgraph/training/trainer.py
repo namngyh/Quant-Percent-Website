@@ -155,13 +155,12 @@ def run_experiment(
                             n_bins=int(config.evaluation.calibration_bins),
                         )
                     )
-                    threshold = float(np.median(list(result.thresholds.values()))) if result.thresholds else 0.5
                     series = result.predictions.set_index("date")
                     metrics.update(
                         event_detection_metrics(
                             series["y_true"],
                             series["probability"],
-                            threshold=threshold,
+                            threshold=series["threshold"],
                             min_gap_days=int(config.evaluation.event_min_gap_days),
                         )
                     )
@@ -245,6 +244,7 @@ def compare_feature_sets(experiment: ExperimentResults, config: Any) -> pd.DataF
                     block_length=block_length,
                     seed=seed,
                     higher_is_better=higher_is_better,
+                    groups=merged["fold_base"].to_numpy(),
                 )
                 row[f"{metric_name}_challenger"] = test["metric_a"]
                 row[f"{metric_name}_baseline"] = test["metric_b"]
@@ -257,6 +257,21 @@ def compare_feature_sets(experiment: ExperimentResults, config: Any) -> pd.DataF
 
     frame = pd.DataFrame(rows)
     if not frame.empty:
+        # Each metric is a family across all target/model/challenger choices.
+        # Publication claims use Holm-adjusted p-values, not whichever raw
+        # comparison happened to cross 5%.
+        for metric_name, (_, higher_is_better) in metric_functions.items():
+            raw = frame[f"{metric_name}_p_value"].to_numpy(dtype=float)
+            adjusted = _holm_adjust(raw)
+            frame[f"{metric_name}_p_adjusted"] = adjusted
+            direction = (
+                frame[f"{metric_name}_difference"] > 0
+                if higher_is_better
+                else frame[f"{metric_name}_difference"] < 0
+            )
+            frame[f"{metric_name}_significant"] = (
+                direction & (frame[f"{metric_name}_p_adjusted"] < 0.05)
+            )
         n_significant = int(frame["brier_significant"].sum())
         logger.info(
             "Feature-set comparisons: %d/%d show a statistically significant Brier improvement "
@@ -264,6 +279,22 @@ def compare_feature_sets(experiment: ExperimentResults, config: Any) -> pd.DataF
             n_significant, len(frame),
         )
     return frame
+
+
+def _holm_adjust(p_values: np.ndarray) -> np.ndarray:
+    """Holm step-down family-wise error correction, preserving NaNs."""
+    values = np.asarray(p_values, dtype=float)
+    adjusted = np.full(values.shape, np.nan)
+    valid_positions = np.flatnonzero(np.isfinite(values))
+    if not len(valid_positions):
+        return adjusted
+    ordered = valid_positions[np.argsort(values[valid_positions])]
+    running = 0.0
+    total = len(ordered)
+    for rank, position in enumerate(ordered):
+        running = max(running, min(1.0, (total - rank) * values[position]))
+        adjusted[position] = running
+    return adjusted
 
 
 def summarize_incremental_value(

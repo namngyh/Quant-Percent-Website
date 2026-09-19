@@ -7,7 +7,11 @@ import pandas as pd
 import pytest
 
 from dynamicgraph.models.feature_selection import FeatureSelector
-from dynamicgraph.models.registry import CORE_GRAPH_METRICS, flatten_graph_metrics
+from dynamicgraph.models.registry import (
+    CORE_GRAPH_METRICS,
+    FeatureSetBuilder,
+    flatten_graph_metrics,
+)
 
 
 @pytest.fixture
@@ -78,6 +82,32 @@ def test_selection_ignores_rows_outside_the_training_block(toy):
     after = FeatureSelector(max_features=3, seed=1).fit(corrupted.iloc[:400], y_train).selected_
 
     assert baseline == after, "feature selection changed when only test-period values changed"
+
+
+def test_feature_builder_does_not_use_future_rows_to_choose_the_schema():
+    index = pd.bdate_range("2020-01-01", periods=100)
+    market = pd.DataFrame(
+        {
+            "stable": np.arange(100.0),
+            "future_only": [np.nan] * 80 + list(np.arange(20.0)),
+            "constant_in_full_sample": np.ones(100),
+        },
+        index=index,
+    )
+    graph = pd.DataFrame({"graph_density": np.linspace(0.1, 0.2, 100)}, index=index)
+
+    baseline = FeatureSetBuilder(market, graph).market()
+    changed = market.copy()
+    changed.loc[index[80]:, "future_only"] = np.arange(20.0) * 100.0
+    changed.loc[index[80]:, "constant_in_full_sample"] = np.arange(20.0)
+    perturbed = FeatureSetBuilder(changed, graph).market()
+
+    assert list(baseline.columns) == list(perturbed.columns)
+    assert set(baseline.columns) == {
+        "stable",
+        "future_only",
+        "constant_in_full_sample",
+    }
 
 
 def test_transform_reindexes_to_selected_columns(toy):

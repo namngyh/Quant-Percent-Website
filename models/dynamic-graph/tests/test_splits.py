@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from dynamicgraph.training.splits import (
-    Fold,
     fold_summary,
     generate_walk_forward_folds,
     global_train_mask,
@@ -33,6 +32,39 @@ def test_test_blocks_advance_and_do_not_overlap(index):
     assert starts == sorted(starts)
     for a, b in zip(folds, folds[1:]):
         assert a.test_positions.max() < b.test_positions.min()
+
+
+@pytest.mark.parametrize("expanding", [True, False])
+def test_oos_blocks_are_contiguous_without_duplicates(index, expanding):
+    folds = generate_walk_forward_folds(
+        index,
+        initial_train_days=500,
+        validation_days=100,
+        test_days=73,
+        purge_days=40,
+        embargo_days=5,
+        expanding_window=expanding,
+    )
+    positions = np.concatenate([fold.test_positions for fold in folds])
+    assert len(positions) == len(np.unique(positions))
+    assert np.array_equal(positions, np.arange(positions.min(), positions.max() + 1))
+    for previous, current in zip(folds, folds[1:]):
+        assert current.test_positions.min() == previous.test_positions.max() + 1
+
+
+def test_final_oos_block_may_be_partial_but_has_no_gap():
+    index = pd.bdate_range("2015-01-01", periods=1_177)
+    folds = generate_walk_forward_folds(
+        index,
+        initial_train_days=500,
+        validation_days=100,
+        test_days=73,
+        purge_days=40,
+        embargo_days=5,
+    )
+    positions = np.concatenate([fold.test_positions for fold in folds])
+    assert np.array_equal(positions, np.arange(positions.min(), positions.max() + 1))
+    assert len(folds[-1].test_positions) < 73
 
 
 def test_purge_gap_is_at_least_the_horizon(index):
@@ -103,3 +135,45 @@ def test_no_shuffled_split_exists_in_the_package():
             if pattern in text:
                 offenders.append(f"{path.name}: {pattern}")
     assert not offenders, f"Non-chronological split found: {offenders}"
+
+
+def test_oos_hard_metrics_use_each_rows_fold_threshold():
+    from dynamicgraph.evaluation.classification import classification_metrics
+    from dynamicgraph.training.walk_forward import WalkForwardResult
+
+    probabilities = np.array(
+        [0.25, 0.15, 0.30, 0.10, 0.40, 0.05, 0.75, 0.85, 0.70, 0.90, 0.60, 0.95]
+    )
+    y_true = np.array([1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1])
+    thresholds = np.array([0.20] * 6 + [0.80] * 6)
+    predictions = pd.DataFrame(
+        {
+            "date": pd.bdate_range("2024-01-01", periods=12),
+            "fold": [0] * 6 + [1] * 6,
+            "probability": probabilities,
+            "y_true": y_true,
+            "threshold": thresholds,
+        }
+    )
+    result = WalkForwardResult("model", "market", 5, "target", predictions=predictions)
+    actual = result.oos_metrics()
+    expected = classification_metrics(y_true, probabilities, threshold=thresholds)
+    median_based = classification_metrics(y_true, probabilities, threshold=0.5)
+    assert actual["mcc"] == pytest.approx(expected["mcc"])
+    assert actual["recall"] == pytest.approx(expected["recall"])
+    assert actual["mcc"] != pytest.approx(median_based["mcc"])
+    assert actual["threshold_policy"] == "per_prediction"
+
+
+def test_calibration_and_threshold_blocks_are_disjoint_and_purged():
+    from dynamicgraph.training.walk_forward import _chronological_subsplit
+
+    index = pd.bdate_range("2023-01-01", periods=126)
+    calibration, threshold = _chronological_subsplit(
+        index, gap=20, min_each=20
+    )
+
+    assert len(calibration) >= 20
+    assert len(threshold) >= 20
+    assert set(calibration).isdisjoint(threshold)
+    assert index.get_loc(threshold.min()) - index.get_loc(calibration.max()) > 20

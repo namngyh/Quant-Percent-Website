@@ -14,7 +14,7 @@ Weights default to equal. Learned weights must be fitted on training data only;
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from typing import Mapping
 
 import numpy as np
 import pandas as pd

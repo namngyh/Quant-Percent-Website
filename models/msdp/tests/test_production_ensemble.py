@@ -24,7 +24,7 @@ def test_production_manifest_has_one_model_for_every_seed():
 def test_predict_latest_matches_run_all_latest():
     path,manifest=current_manifest()
     if not path.exists(): pytest.skip("Chưa có production manifest")
-    expected=json.loads(Path("artifacts/predictions/latest_forecast.json").read_text(encoding="utf-8")); actual,_=predict_latest_ensemble("VNINDEX_Daily.csv",path)
+    expected=json.loads(Path("artifacts/predictions/latest_forecast.json").read_text(encoding="utf-8")); actual,_=predict_latest_ensemble("data/raw/VNINDEX_Daily.csv",path)
     assert expected["run_id"]==actual["run_id"]
     for left,right in zip(expected["horizons"],actual["horizons"]):
         for key in ("return_quantiles","calibrated_interval","mdd_quantiles","expert_weights"):

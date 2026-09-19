@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -20,6 +21,93 @@ ARTIFACTS = Path(__file__).resolve().parents[1] / "artifacts"
 def _skip_without(path: Path):
     if not path.exists():
         pytest.skip(f"{path.name} not present; run the pipeline first")
+
+
+def test_invalidation_manifest_blocks_stale_primary_outputs():
+    from dynamicgraph.outputs.artifact_contract import invalidation_for_path
+
+    allocation = ARTIFACTS / "allocation" / "allocation_summary.csv"
+    structure = ARTIFACTS / "market_structure_state.parquet"
+    importance = ARTIFACTS / "metrics" / "permutation_importance.csv"
+    assert "allocation_execution_and_missing_returns" in invalidation_for_path(
+        allocation, ARTIFACTS
+    )
+    assert "walk_forward_oos_gap" in invalidation_for_path(
+        importance, ARTIFACTS
+    )
+    assert invalidation_for_path(structure, ARTIFACTS) == []
+
+
+def test_regenerated_artifact_is_current_but_retains_historical_invalidation(tmp_path):
+    from dynamicgraph.outputs.artifact_contract import artifact_status_row
+
+    artifacts = tmp_path / "artifacts"
+    output = artifacts / "reports" / "old.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("fresh", encoding="utf-8")
+    (artifacts / "invalidation_manifest.json").write_text(
+        json.dumps(
+            {
+                "invalidations": [
+                    {
+                        "id": "old_logic",
+                        "status": "invalid",
+                        "scope": ["artifacts/reports/old.md"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    modified = output.stat().st_mtime
+
+    stale = artifact_status_row(output, artifacts, modified + 10)
+    current = artifact_status_row(output, artifacts, modified)
+
+    assert stale["status"] == "invalidated"
+    assert stale["invalidation_ids"] == ["old_logic"]
+    assert current["status"] == "current_run"
+    assert current["invalidation_ids"] == []
+    assert current["historical_invalidation_ids"] == ["old_logic"]
+
+
+def test_publication_rejects_a_failed_historical_snapshot():
+    from dynamicgraph.config import config_fingerprint, load_config
+    from dynamicgraph.outputs.artifact_contract import validate_publication_state
+    from dynamicgraph.training.reproducibility import git_commit
+
+    class Series(list):
+        def latest(self):
+            return self[-1]
+
+    config = load_config("config/default.yaml")
+    state = SimpleNamespace(
+        config=config,
+        record=SimpleNamespace(
+            data_fingerprint="data",
+            config_fingerprint=config_fingerprint(config),
+            git_commit=git_commit(),
+        ),
+        bundle=SimpleNamespace(fingerprint="data"),
+        core_key="core",
+        series_by_key={
+            "core": Series(
+                [
+                    SimpleNamespace(
+                        date=pd.Timestamp("2020-01-31"),
+                        metadata={"glasso_converged": False},
+                    ),
+                    SimpleNamespace(
+                        date=pd.Timestamp("2020-02-28"),
+                        metadata={"glasso_converged": True},
+                    ),
+                ]
+            )
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="failed convergence"):
+        validate_publication_state(state)
 
 
 def test_oos_metrics_and_fold_metrics_agree_on_keys():

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -131,33 +132,19 @@ def sequential_conformal(
             pool_scores = pool_scores[-int(window) :]
             pool_regimes = pool_regimes[-int(window) :]
             pool_bins = pool_bins[-int(window) :]
-        mask, fallback = _stratum_mask(
-            method,
+        row = interval_from_scores(
+            pool_scores,
             pool_regimes,
             pool_bins,
+            method,
             eval_regime[position],
             eval_bin[position],
+            float(eval_center[position]),
+            float(eval_sigma[position]),
+            alpha_levels,
             minimum_stratum_size,
         )
-        selected_scores = pool_scores[mask]
-        row: dict[str, float | int | str] = {
-            "position": position,
-            "center": eval_center[position],
-            "sigma": eval_sigma[position],
-            "regime": int(eval_regime[position]),
-            "volatility_bin": int(eval_bin[position]),
-            "score_count": int(len(selected_scores)),
-            "stratum_used": fallback,
-        }
-        for miscoverage in alpha_levels:
-            level = 1.0 - float(miscoverage)
-            suffix = str(int(round(level * 100)))
-            multiplier = finite_sample_quantile(np.abs(selected_scores), float(miscoverage))
-            row[f"multiplier_{suffix}"] = multiplier
-            row[f"lower_{suffix}"] = eval_center[position] - multiplier * eval_sigma[position]
-            row[f"upper_{suffix}"] = eval_center[position] + multiplier * eval_sigma[position]
-        row["var_95"] = eval_center[position] + signed_lower_quantile(selected_scores, 0.05) * eval_sigma[position]
-        rows.append(row)
+        rows.append({"position": position, **row})
     return pd.DataFrame(rows)
 
 
@@ -236,3 +223,180 @@ def select_conformal_method(
     selected = table.loc[selected_index]
     selected_window = None if pd.isna(selected["window"]) else int(selected["window"])
     return ConformalSelection(str(selected["method"]), selected_window, table, reason)
+
+
+# ---------------------------------------------------------------------------
+# Online layer: the same conformal machinery driven one session at a time.
+# ---------------------------------------------------------------------------
+
+
+def interval_from_scores(
+    pool_scores: np.ndarray,
+    pool_regimes: np.ndarray,
+    pool_volatility_bins: np.ndarray,
+    method: str,
+    regime: int,
+    volatility_bin: int,
+    center: float,
+    sigma: float,
+    alpha_levels: list[float],
+    minimum_stratum_size: int = 80,
+    effective_alpha: dict[float, float] | None = None,
+) -> dict[str, float | int | str]:
+    """Build one conformal interval from an explicit score pool.
+
+    This is the body of :func:`sequential_conformal`'s loop, extracted so the
+    batch backtest and the online session update share one implementation
+    instead of two that can drift apart. ``effective_alpha`` overrides the
+    nominal miscoverage per level, which is how Adaptive Conformal Inference
+    feeds its running alpha back into the quantile.
+    """
+    pool_scores = np.asarray(pool_scores, dtype=float)
+    mask, fallback = _stratum_mask(
+        method,
+        np.asarray(pool_regimes),
+        np.asarray(pool_volatility_bins),
+        regime,
+        volatility_bin,
+        minimum_stratum_size,
+    )
+    selected_scores = pool_scores[mask]
+    row: dict[str, float | int | str] = {
+        "center": float(center),
+        "sigma": float(sigma),
+        "regime": int(regime),
+        "volatility_bin": int(volatility_bin),
+        "score_count": int(len(selected_scores)),
+        "stratum_used": fallback,
+    }
+    for miscoverage in alpha_levels:
+        suffix = str(int(round((1.0 - float(miscoverage)) * 100)))
+        applied = float((effective_alpha or {}).get(float(miscoverage), miscoverage))
+        multiplier = finite_sample_quantile(np.abs(selected_scores), applied)
+        row[f"multiplier_{suffix}"] = multiplier
+        row[f"lower_{suffix}"] = center - multiplier * sigma
+        row[f"upper_{suffix}"] = center + multiplier * sigma
+    row["var_95"] = center + signed_lower_quantile(selected_scores, 0.05) * sigma
+    return row
+
+
+@dataclass
+class ConformalPool:
+    """Signed conformal scores plus the stratum each score belongs to.
+
+    Scores are kept as three parallel sequences rather than bucketed per
+    stratum label, because :func:`_stratum_mask` resolves a stratum by
+    *unioning* cells with a fallback cascade, and the rolling ``window`` trims
+    the pooled sequence - neither is expressible on pre-bucketed lists.
+    """
+
+    scores: list[float] = field(default_factory=list)
+    regimes: list[int] = field(default_factory=list)
+    volatility_bins: list[int] = field(default_factory=list)
+
+    def append(self, score: float, regime: int, volatility_bin: int) -> None:
+        self.scores.append(float(score))
+        self.regimes.append(int(regime))
+        self.volatility_bins.append(int(volatility_bin))
+
+    def truncate(self, window: int | None) -> None:
+        if window is None or len(self.scores) <= int(window):
+            return
+        keep = int(window)
+        self.scores = self.scores[-keep:]
+        self.regimes = self.regimes[-keep:]
+        self.volatility_bins = self.volatility_bins[-keep:]
+
+    def arrays(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return (
+            np.asarray(self.scores, dtype=float),
+            np.asarray(self.regimes, dtype=int),
+            np.asarray(self.volatility_bins, dtype=int),
+        )
+
+    def __len__(self) -> int:
+        return len(self.scores)
+
+
+@dataclass
+class PendingScore:
+    """A forecast already published whose target has not been observed yet."""
+
+    origin_date: str
+    horizon: int
+    target_end_date: str
+    center: float
+    sigma: float
+    regime: int
+    volatility_bin: int
+    interval_bounds: dict[float, tuple[float, float]] = field(default_factory=dict)
+
+
+@dataclass
+class AdaptiveConformalState:
+    """Adaptive conformal inference (Gibbs and Candes, 2021), one alpha per level."""
+
+    gamma: float
+    alpha_target: dict[float, float]
+    alpha_current: dict[float, float]
+    epsilon: float = 1e-3
+
+    def update(self, level: float, covered: bool) -> float:
+        level = float(level)
+        target = float(self.alpha_target[level])
+        current = float(self.alpha_current[level])
+        updated = current + float(self.gamma) * (target - (0.0 if covered else 1.0))
+        updated = float(np.clip(updated, self.epsilon, 1.0 - self.epsilon))
+        self.alpha_current[level] = updated
+        return updated
+
+    def effective_alpha(self) -> dict[float, float]:
+        return dict(self.alpha_current)
+
+
+def mature_pending_scores(
+    pending: list[PendingScore],
+    pools: dict[int, ConformalPool],
+    as_of_date: pd.Timestamp,
+    realized_return: Callable[[PendingScore], float | None],
+    windows: dict[int, int | None],
+    adaptive: AdaptiveConformalState | None = None,
+    epsilon: float = 1e-8,
+) -> tuple[list[PendingScore], list[dict[str, object]]]:
+    """Move every observable pending forecast into its horizon's score pool.
+
+    A forecast matures only once ``target_end_date <= as_of_date``, the online
+    equivalent of the ``position - horizon + 1`` maturity rule enforced by
+    :func:`sequential_conformal`. When ``realized_return`` cannot supply the
+    outcome yet the item stays pending rather than being scored on a guess.
+    """
+    as_of_date = pd.Timestamp(as_of_date)
+    remaining: list[PendingScore] = []
+    matured: list[dict[str, object]] = []
+    for item in pending:
+        if pd.Timestamp(item.target_end_date) > as_of_date:
+            remaining.append(item)
+            continue
+        realized = realized_return(item)
+        if realized is None or not np.isfinite(realized):
+            remaining.append(item)
+            continue
+        score = float((realized - item.center) / max(float(item.sigma), epsilon))
+        pool = pools.setdefault(item.horizon, ConformalPool())
+        pool.append(score, item.regime, item.volatility_bin)
+        pool.truncate(windows.get(item.horizon))
+        record: dict[str, object] = {
+            "origin_date": item.origin_date,
+            "horizon": item.horizon,
+            "target_end_date": item.target_end_date,
+            "realized": float(realized),
+            "score": score,
+        }
+        if adaptive is not None:
+            for level, (lower, upper) in item.interval_bounds.items():
+                covered = bool(lower <= realized <= upper)
+                suffix = int(round((1 - float(level)) * 100))
+                record[f"covered_{suffix}"] = covered
+                record[f"alpha_{suffix}"] = adaptive.update(level, covered)
+        matured.append(record)
+    return remaining, matured

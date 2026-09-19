@@ -8,3 +8,6 @@ artifacts/tuning/*.db
 data/processed/*
 !data/processed/.gitkeep
 /VNINDEX_Daily.csv
+.env
+data/raw/VNINDEX_Daily_db.csv
+artifacts/online_state/online_state.json

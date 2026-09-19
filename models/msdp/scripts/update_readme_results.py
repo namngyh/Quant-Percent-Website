@@ -22,6 +22,12 @@ def h_from(name):
     for h in hs:
         if f"h{h}" in name: return h
     return None
+# Các kết luận so sánh được tính từ artifact để nhận xét không bao giờ lệch số liệu.
+full_pin=float(np.mean([metrics[f"h{h}"]["return_pinball"] for h in hs])); abl={a["name"]:a["return_pinball_mean"] for a in ablations}
+mae_better=[h for h in hs if metrics[f"h{h}"]["return_mae"]<baseline[f"h{h}"]["zero_point_mae"]]; pin_better=[h for h in hs if metrics[f"h{h}"]["return_pinball"]<baseline[f"h{h}"]["empirical_distribution_pinball"]]; brier_better=[h for h in hs if metrics[f"h{h}"]["brier"]<baseline[f"h{h}"]["historical_frequency_brier"]]
+gate_beats_equal="equal" in abl and full_pin<abl["equal"]
+def _hs_txt(lst): return ", ".join(f"H{h}" for h in lst) if lst else "không kỳ hạn nào"
+def f_h(h): return f"h{h}"
 def comment(name):
     h=h_from(name)
     if "predicted_vs_actual_return" in name: return f"MAE kỳ hạn {h} là {metrics[f'h{h}']['return_mae']:.3f}% và Spearman {metrics[f'h{h}']['spearman']:.3f}. Dự báo trung vị chưa bám sát mạnh biến động thực tế; mô hình phù hợp hơn với mô tả phân phối rủi ro so với dự báo điểm."
@@ -34,18 +40,22 @@ def comment(name):
     if "expert_predictions" in name: return f"Độ lệch chuẩn trung bình giữa auxiliary expert forecasts ở kỳ hạn {h} là {pred[f'expert_disagreement_h{h}'].mean():.3f}%. Đây là bất đồng dự báo, khác với entropy của trọng số gate."
     if "predicted_vs_actual_mdd" in name: return f"MDD MAE kỳ hạn {h} là {metrics[f'h{h}']['mdd_mae']:.3f}%. q10 biểu diễn kịch bản drawdown xấu hơn, còn q90 gần 0 hơn; toàn bộ quantile đã được audit không dương."
     if "coverage" in name or "interval" in name: return "Conformal cải thiện độ bao phủ nhưng làm khoảng rộng hơn, đặc biệt ở kỳ hạn dài. Giá trị chính là mô tả bất định; độ sắc nét của dự báo giảm khi yêu cầu coverage cao."
-    if "brier" in name or "direction_probability" in name: return "Brier giảm so với ZeroReturn ở cả ba kỳ hạn, nhưng balanced accuracy vẫn gần vùng 0,5. Không nên diễn giải xác suất tăng như tín hiệu giao dịch chắc chắn."
-    if "gate" in name or "expert" in name: return "Gate có xu hướng gần trọng số đều; long expert nhận trọng số cao nhất ở cả ba kỳ hạn. Learned gate chưa chứng minh giá trị vượt equal-weight trong quick ablation."
-    if "baseline" in name: return "H5 và H20 có pinball kém ZeroReturn; H60 có pinball tốt hơn nhưng MAE kém hơn. Không có cải thiện nhất quán trên mọi metric và horizon."
-    if "ablation" in name: return f"Equal-weight đạt mean pinball {ablations[0]['return_pinball_mean']:.4f}, thấp hơn Full MSDP khoảng {np.mean([metrics[f'h{h}']['return_pinball'] for h in hs]):.4f}; single-scale đạt {ablations[1]['return_pinball_mean']:.4f}. Learned gate chưa vượt equal-weight."
+    if "brier" in name or "direction_probability" in name: return f"Brier thắng baseline tần suất lịch sử ở {_hs_txt(brier_better)} ({', '.join(f'H{h}: {metrics[f_h(h)]['brier']:.4f} vs {baseline[f_h(h)]['historical_frequency_brier']:.4f}' for h in hs)}). Balanced accuracy vẫn gần vùng 0,5; không nên diễn giải xác suất tăng như tín hiệu giao dịch chắc chắn."
+    if "gate" in name or "expert" in name: return (f"Full MSDP đạt mean pinball {full_pin:.4f} so với equal-weight {abl.get('equal',float('nan')):.4f} — learned gate {'đã vượt' if gate_beats_equal else 'chưa vượt'} equal-weight trong ablation cùng split." if "equal" in abl else "Gate được so sánh trực tiếp với equal-weight ablation trong bảng ablation.")
+    if "baseline" in name: return f"MAE thắng ZeroReturn ở {_hs_txt(mae_better)}; pinball thắng empirical distribution ở {_hs_txt(pin_better)}; Brier thắng historical frequency ở {_hs_txt(brier_better)}. "+("Chưa có cải thiện nhất quán trên mọi metric và horizon." if min(len(mae_better),len(pin_better),len(brier_better))<len(hs) else "Cải thiện nhất quán trên mọi metric và horizon.")
+    if "ablation" in name: return f"Mean pinball: Full MSDP {full_pin:.4f}; "+"; ".join(f"{k} {v:.4f}" for k,v in abl.items())+f". Learned gate {'thấp hơn (tốt hơn)' if gate_beats_equal else 'chưa thấp hơn'} equal-weight; các biến thể đơn giản hơn vẫn cạnh tranh nên kiến trúc còn dư địa tinh giản."
     if "bootstrap" in name: return "Cả ba CI95 của chênh lệch MAE đều chứa 0. Chênh lệch metric chưa có ý nghĩa rõ ràng theo moving-block bootstrap."
-    if "latest" in name: return f"Hồ sơ ngày {latest['data_date']} cho thấy median return dương ở cả ba horizon, nhưng calibrated interval đều bao gồm 0 và mở rộng mạnh theo kỳ hạn. Đây không phải đường giá tương lai hay khuyến nghị mua bán."
-    if "training" in name or "learning_rate" in name or "seed" in name: return f"Quick run dùng {len(seeds)} seed; best epoch là {seeds[0]['best_epoch']} với validation loss {seeds[0]['best_validation_loss']:.4f}. Một seed không đủ đánh giá độ ổn định đa seed."
+    if "latest" in name:
+        meds=[x["return_quantiles"][2] for x in latest["horizons"]]; sign="dương" if all(m>0 for m in meds) else "âm" if all(m<0 for m in meds) else "trái dấu giữa các horizon"
+        return f"Hồ sơ ngày {latest['data_date']} cho thấy median return {sign} ({', '.join(f'{m:+.2f}%' for m in meds)}), nhưng calibrated interval đều bao gồm 0 và mở rộng mạnh theo kỳ hạn. Đây không phải đường giá tương lai hay khuyến nghị mua bán."
+    if "training" in name or "learning_rate" in name or "seed" in name:
+        be=[s["best_epoch"] for s in seeds]; bl=[s["best_validation_loss"] for s in seeds]
+        return f"Run dùng {len(seeds)} seed; best epoch {min(be)}–{max(be)} với validation loss {min(bl):.4f}–{max(bl):.4f}. "+("Best epoch rất sớm cho thấy mô hình hội tụ nhanh ở learning rate đã tune; cần theo dõi overfitting." if max(be)<=3 else "Chênh lệch giữa các seed phản ánh độ ổn định huấn luyện.")
     if "volatility" in name: return "Volatility MAE lần lượt là " + ", ".join("{:.2f}%".format(metrics[f"h{h}"]["volatility_mae"]) for h in hs) + " cho H5/H20/H60. Sai số giảm theo horizon nhưng vẫn đáng kể."
     if "drawdown" in name or "mdd" in name: return "Drawdown lịch sử thể hiện các giai đoạn stress rõ rệt. MDD head đã bị chặn ở miền không dương và không diễn giải q90 là kịch bản nghiêm trọng nhất."
     if "return_distribution" in name or "target_distribution" in name: return "Phân phối lợi suất có đuôi và độ phân tán tăng theo horizon, là lý do dùng quantile regression thay cho giả định Gaussian cố định."
     if "quality" in name: return f"Có {quality['rows']} phiên từ {quality['start']} đến {quality['end']}. Pipeline ghi nhận {quality['issues']} và không âm thầm sửa file nguồn."
-    return "Biểu đồ được sinh trực tiếp từ dữ liệu hoặc artifact của quick pipeline; không sử dụng số liệu minh họa giả."
+    return "Biểu đồ được sinh trực tiếp từ dữ liệu hoặc artifact của pipeline; không sử dụng số liệu minh họa giả."
 
 groups=[("Dữ liệu",manifest[:6]),("Huấn luyện",manifest[6:13]),("Dự báo lợi suất",[x for x in manifest if any(k in x for k in ["predicted_vs_actual_return","return_fan_chart","residual_return"])]),("Hiệu chỉnh conformal",[x for x in manifest if "coverage" in x or "interval_width" in x or "interval_score" in x]),("Xác suất hướng",[x for x in manifest if "direction_" in x or "brier" in x]),("Expert và gate",[x for x in manifest if "gate" in x or "expert" in x]),("Rủi ro",[x for x in manifest if "mdd" in x or "volatility" in x]),("So sánh mô hình",[x for x in manifest if "baseline" in x or "ablation" in x or "bootstrap" in x or "performance" in x or "seed_stability" in x]),("Dự báo mới nhất",[x for x in manifest if "latest" in x])]
 used=set(); figure_sections=[]
@@ -86,9 +96,9 @@ Repository này là phần mềm nghiên cứu, không phải khuyến nghị đ
 
 ## Kết luận chính
 
-**Trong cấu hình và giai đoạn dữ liệu hiện tại, chưa có bằng chứng cho thấy MSDP vượt baseline.** H5 và H20 có pinball kém ZeroReturn. H60 có pinball và Brier tốt hơn nhưng MAE kém hơn. Mọi CI95 bootstrap của chênh lệch MAE đều chứa 0. Equal-weight ablation có pinball trung bình thấp hơn learned gate.
+**Sau tuning đầy đủ, MSDP cải thiện trên phần lớn metric nhưng chưa có bằng chứng thống kê vượt baseline về dự báo điểm.** MAE thắng ZeroReturn ở {_hs_txt(mae_better)}; pinball thắng empirical distribution ở {_hs_txt(pin_better)}; Brier thắng historical frequency ở {_hs_txt(brier_better)}. Mọi CI95 bootstrap của chênh lệch MAE đều chứa 0. Learned gate đạt mean pinball {full_pin:.4f} so với equal-weight ablation {abl.get('equal',float('nan')):.4f} — gate {'đã vượt' if gate_beats_equal else 'chưa vượt'} equal-weight. Phương pháp conformal tốt nhất theo so sánh causal là `{summary.get('headline_calibration_method','static')}`.
 
-Giá trị chính của MSDP hiện nằm ở dự báo phân phối và hiệu chỉnh rủi ro, chưa phải ở dự báo điểm.
+Giá trị chính của MSDP nằm ở dự báo phân phối và hiệu chỉnh rủi ro, chưa phải ở dự báo điểm.
 
 ## Dữ liệu và giao thức ngoài mẫu
 
@@ -97,7 +107,7 @@ Giá trị chính của MSDP hiện nằm ở dự báo phân phối và hiệu 
 - Feature selection và scaler không dùng test.
 - CQR fit trên ensemble calibration prediction.
 - Final test có {len(pred)} origin dự báo.
-- Quick run: {summary['runtime_seconds']:.2f} giây, {len(seeds)} seed, 3 Optuna trials, hai ablation và 50 bootstrap resamples.
+- Run `{summary.get('run_label')}`: {summary['runtime_seconds']:.2f} giây, {len(seeds)} seed, {summary.get('tuning_trials','?')} Optuna trials, {len(ablations)} ablation và {summary.get('bootstrap_resamples','?')} bootstrap resamples.
 
 ## Kiến trúc và tính đúng toán học
 
@@ -142,10 +152,12 @@ python scripts/update_readme_results.py --run-id {args.run_id}
 
 ## Hạn chế
 
-- Artifact hiện tại là quick run một seed, chưa phải default three-seed study.
+- Artifact hiện tại là run `{summary.get('run_label')}` với {len(seeds)} seed và {summary.get('tuning_trials','?')} Optuna trials; full five-seed study (`configs/full.yaml`) chưa chạy.
 - Dữ liệu nguồn có vi phạm OHLC được ghi trong data-quality report.
 - Coverage tăng nhờ conformal nhưng interval dài hạn rất rộng.
-- Gate gần equal-weight và chưa vượt equal-weight ablation.
+- Mọi CI95 bootstrap của chênh lệch MAE đều chứa 0 — chưa có ý nghĩa thống kê so với baseline.
+- Best epoch chỉ {min(s['best_epoch'] for s in seeds)}–{max(s['best_epoch'] for s in seeds)} ở learning rate đã tune: mô hình hội tụ rất nhanh rồi overfit; lịch trình học cần nghiên cứu thêm.
+- Các ablation đơn giản (shared_gate, single) vẫn cạnh tranh với full model.
 - Production full retraining và OOF production calibration chưa hoàn tất.
 
 # Toàn bộ biểu đồ và nhận xét
