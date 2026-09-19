@@ -25,31 +25,41 @@ down_revision = "0010"
 branch_labels = None
 depends_on = None
 
-CREATE = """
-CREATE TABLE IF NOT EXISTS web.portfolios (
-    id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    name varchar(80) NOT NULL,
-    payload jsonb NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT pk_portfolios PRIMARY KEY (id),
-    CONSTRAINT fk_portfolios_user_id_users
-        FOREIGN KEY (user_id) REFERENCES web.users (id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS ix_portfolios_user
-    ON web.portfolios (user_id, updated_at);
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'qp_web') THEN
-        GRANT SELECT, INSERT, UPDATE, DELETE ON web.portfolios TO qp_web;
-    END IF;
-END $$;
-"""
+# One statement per execute: asyncpg runs each as a prepared statement and
+# refuses several commands in one, which is exactly how the first deploy of
+# this migration failed. (psql accepts the batch, so a local dry run hides it.)
+STATEMENTS = (
+    """
+    CREATE TABLE IF NOT EXISTS web.portfolios (
+        id uuid NOT NULL,
+        user_id uuid NOT NULL,
+        name varchar(80) NOT NULL,
+        payload jsonb NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT pk_portfolios PRIMARY KEY (id),
+        CONSTRAINT fk_portfolios_user_id_users
+            FOREIGN KEY (user_id) REFERENCES web.users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS ix_portfolios_user
+        ON web.portfolios (user_id, updated_at)
+    """,
+    """
+    DO $$
+    BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'qp_web') THEN
+            GRANT SELECT, INSERT, UPDATE, DELETE ON web.portfolios TO qp_web;
+        END IF;
+    END $$
+    """,
+)
 
 
 def upgrade() -> None:
-    op.execute(CREATE)
+    for statement in STATEMENTS:
+        op.execute(statement)
 
 
 def downgrade() -> None:
