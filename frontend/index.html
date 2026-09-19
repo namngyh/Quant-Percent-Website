@@ -261,7 +261,7 @@
             </details>
 
             <button id="run-backtest" class="btn btn-primary btn-block" data-i18n="st.runBacktest">Chạy backtest</button>
-            <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy paper trading</button>
+            <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy giao dịch mô phỏng</button>
 
             <!-- The same strategy over several markets at once.
 
@@ -517,21 +517,20 @@
           <!-- Only useful once there is an analysis to carry over, so it stays
                hidden until one exists. -->
           <button id="pf-paper" class="btn btn-block" data-i18n="pf.paper" hidden
-            >Paper trading cả danh mục</button>
+            >Mô phỏng giao dịch cả danh mục</button>
           <p id="pf-message" class="hint"></p>
         </div>
       </section>
 
-      <!-- ---------- Paper trading ---------- -->
+      <!-- ---------- Simulated trading ---------- -->
       <section class="panel" data-panel="paper">
         <div class="panel-head">
-          <h2 data-i18n="paper.title">Paper trading</h2>
+          <h2 data-i18n="paper.title">Giao dịch mô phỏng</h2>
           <div class="panel-head-actions">
             <button id="paper-dash" class="btn btn-quiet btn-sm"
                     data-i18n="paper.account">Tài khoản</button>
             <button id="notify-open" class="btn btn-quiet btn-sm"
                     data-i18n-title="tg.title" data-i18n="tg.short">Thông báo</button>
-            <button id="refresh-paper" class="btn btn-quiet btn-sm" data-i18n="paper.refresh">Làm mới</button>
           </div>
         </div>
         <div class="panel-body">
@@ -702,12 +701,12 @@
   <div id="paper-settings" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true">
       <div class="dialog-head">
-        <h2 data-i18n="ps.title">Cài đặt Paper Trading</h2>
+        <h2 data-i18n="ps.title">Cài đặt giao dịch mô phỏng</h2>
         <button id="paper-settings-close" class="btn btn-quiet btn-sm" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
       </div>
       <div class="dialog-body">
         <p class="hint" data-i18n="ps.hint">
-          Phiên paper sẽ khoá các thông số này lúc bắt đầu. Đổi ở đây không ảnh
+          Phiên mô phỏng sẽ khoá các thông số này lúc bắt đầu. Đổi ở đây không ảnh
           hưởng tới phiên đang chạy, và cũng không ảnh hưởng tới backtest.
         </p>
 

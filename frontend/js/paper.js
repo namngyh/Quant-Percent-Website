@@ -228,10 +228,10 @@ const Paper = (() => {
     if (!sessions.length) {
       elements.list.innerHTML = `<p class="empty">${L(
         'Chưa có phiên nào. Bấm <strong>Giao dịch tay</strong> ở trên để tự đặt lệnh, ' +
-        'hoặc mở tab <strong>Chiến lược</strong> rồi bấm <strong>Chạy paper trading</strong>.',
+        'hoặc mở tab <strong>Chiến lược</strong> rồi bấm <strong>Chạy giao dịch mô phỏng</strong>.',
         'No sessions yet. Press <strong>Manual trading</strong> above to place orders ' +
         'yourself, or open the <strong>Strategy</strong> tab and press ' +
-        '<strong>Run paper trading</strong>.')}</p>`;
+        '<strong>Start simulated trading</strong>.')}</p>`;
       return;
     }
 
@@ -763,7 +763,7 @@ const Paper = (() => {
     closeSettings();
     try {
       await start(request);
-      onToast(L('Đã bắt đầu phiên paper trading.', 'Paper session started.'));
+      onToast(L('Đã bắt đầu phiên giao dịch mô phỏng.', 'Simulated session started.'));
     } catch (err) {
       onToast(err.message, true);
     }
@@ -905,7 +905,7 @@ const Paper = (() => {
   function init(config) {
     elements = config.elements;
     onToast = config.onToast;
-    elements.refresh.addEventListener('click', refresh);
+    elements.refresh?.addEventListener('click', refresh);
     elements.startManual?.addEventListener('click', startManual);
     elements.dash?.addEventListener('click', () => PaperDash.open());
     refreshManualButton();

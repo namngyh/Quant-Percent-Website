@@ -76,6 +76,16 @@ class PaperTrade:
     contracts: int | None = None
     multiplier: float | None = None
     leverage: float | None = None
+    # Settlement breakdown. `pnl` is kept with its historical meaning (price
+    # P&L less the exit fee) so old callers and backtest parity stay intact.
+    # The fields below make the full round trip auditable: the account moves by
+    # `gross_pnl - entry_fee - exit_fee == net_pnl`.
+    gross_pnl: float | None = None
+    entry_fee: float | None = None
+    exit_fee: float | None = None
+    net_pnl: float | None = None
+    balance_before: float | None = None
+    balance_after: float | None = None
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -106,6 +116,10 @@ class PaperSession:
     entry_price: float = 0.0
     entry_time: int = 0
     margin: float = 0.0
+    # Captured at entry so the completed trade can show a balance ledger that
+    # reconciles exactly, with both trading fees displayed separately.
+    entry_fee: float = 0.0
+    entry_balance_before: float = 0.0
 
     # Exit levels attached to the open position, as prices. None means the leg
     # is not armed. They are cleared with the position, because a level for a
@@ -161,8 +175,18 @@ class PaperSession:
     def _close(self, exit_price: float, when: int, reason: str) -> PaperTrade:
         model = self.model
         sizing = self._sizing()
-        pnl = model.pnl(sizing, self.entry_price, exit_price)
+        gross_pnl = model.unrealized(sizing, self.entry_price, exit_price)
+        exit_fee = model.exit_fee(sizing, exit_price)
+        pnl = gross_pnl - exit_fee
         self.equity += pnl
+
+        # A session loaded from an older payload has no stored entry balance.
+        # Its current realised equity has already paid the entry fee, so this
+        # reconstruction preserves the same accounting identity.
+        balance_before = self.entry_balance_before or (
+            self.equity - pnl + self.entry_fee
+        )
+        net_pnl = gross_pnl - self.entry_fee - exit_fee
 
         trade = PaperTrade(
             side="long" if self.position > 0 else "short",
@@ -179,6 +203,12 @@ class PaperSession:
             multiplier=model.multiplier,
             leverage=(1 / self.config.contract.initial_margin_rate
                       if self.config.contract else self.config.leverage),
+            gross_pnl=gross_pnl,
+            entry_fee=self.entry_fee,
+            exit_fee=exit_fee,
+            net_pnl=net_pnl,
+            balance_before=balance_before,
+            balance_after=self.equity,
         )
         self.trades.append(trade)
 
@@ -187,6 +217,8 @@ class PaperSession:
         self.entry_price = 0.0
         self.margin = 0.0
         self.entry_time = 0
+        self.entry_fee = 0.0
+        self.entry_balance_before = 0.0
         self.stop_loss = None
         self.take_profit = None
         return trade
@@ -205,7 +237,9 @@ class PaperSession:
         self.entry_price = price
         self.entry_time = when
         self.position = direction
-        self.equity -= self.model.entry_fee(sizing, price)
+        self.entry_balance_before = self.equity
+        self.entry_fee = self.model.entry_fee(sizing, price)
+        self.equity -= self.entry_fee
         # The range the position has lived through starts at its own fill,
         # not at the extremes the bar had already printed before it.
         self._reach = (price, price)
@@ -496,6 +530,10 @@ class PaperSession:
         bar prints after it.
         """
         self.last_price = price
+        # A tick changes the current account value even when it does not fill
+        # an order. The live socket uses this timestamp and snapshot to keep the
+        # simulated account current without a manual refresh.
+        self.updated_at = int(time.time())
         bar_open = int(candle["open_time"]) // 1000 if candle else None
         if candle:
             self._bar = {"open_time": bar_open, "high": float(candle["high"]),
@@ -523,7 +561,6 @@ class PaperSession:
             # open, which is already in the past. The strategy decides again
             # at the close.
             self.pending_signal = self.position
-            self.updated_at = int(time.time())
         return events
 
     def _exits_within(self, low: float, high: float, when: int) -> list[dict]:
@@ -673,7 +710,10 @@ class PaperSession:
     # --------------------------------------------------------------- snapshot
 
     def snapshot(self) -> dict:
-        pnls = np.array([t.pnl for t in self.trades], dtype="float64")
+        pnls = np.array([
+            t.net_pnl if t.net_pnl is not None else t.pnl - (t.entry_fee or 0.0)
+            for t in self.trades
+        ], dtype="float64")
         wins = pnls[pnls > 0]
         equity = self.equity_now()
 
@@ -710,6 +750,8 @@ class PaperSession:
             "num_trades": len(self.trades),
             "num_wins": int(wins.size),
             "win_rate_pct": (wins.size / len(self.trades) * 100.0) if self.trades else 0.0,
-            "realized_pnl": float(pnls.sum()) if pnls.size else 0.0,
+            # The realised account already paid the entry fee of any open
+            # position, so the balance delta is the authoritative readout.
+            "realized_pnl": self.equity - self.config.initial_capital,
             "trades": [t.as_dict() for t in self.trades],
         }

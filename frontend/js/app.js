@@ -1907,8 +1907,8 @@ def signals(df, params):
     Explain.define('notify.telegram', {
       title: L('Thông báo Telegram', 'Telegram notifications'),
       what: L(
-        'Mỗi khi một phiên paper trading vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
-        'Whenever a paper session opens, closes or is liquidated out of a position, the platform sends a message to your chat.'),
+        'Mỗi khi một phiên giao dịch mô phỏng vào lệnh, đóng lệnh hoặc bị thanh lý, nền tảng gửi một tin nhắn tới chat của bạn.',
+        'Whenever a simulated session opens, closes or is liquidated out of a position, the platform sends a message to your chat.'),
       how: L(
         '1. Nhắn cho @BotFather trên Telegram, gõ /newbot, đặt tên: nó trả về một token dạng 123456789:AA…\n'
         + '2. Nhắn một câu bất kỳ cho chính bot vừa tạo.\n'
@@ -2378,7 +2378,6 @@ def signals(df, params):
     Paper.init({
       elements: {
         list: document.getElementById('paper-sessions'),
-        refresh: document.getElementById('refresh-paper'),
         startManual: document.getElementById('start-manual'),
         dash: document.getElementById('paper-dash'),
         // A hand-traded session opens on whatever the chart is showing.
@@ -2448,18 +2447,19 @@ def signals(df, params):
       onStatus: setLiveState,
       onPaperUpdate: (session) => {
         Paper.apply(session);
+        PaperDash.sync();
         drawPaperMarkers();
       drawPositionLines();
       },
       onPaperEvent: (sessionId, event) => {
         if (event.type === 'entry') {
-          toast(L(`Paper: vào ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`,
-                  `Paper: opened ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`));
+          toast(L(`Mô phỏng: vào ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`,
+                  `Simulation: opened ${event.side === 'long' ? 'LONG' : 'SHORT'} @ ${event.price.toFixed(2)}`));
         } else if (event.type === 'exit') {
-          toast(L(`Paper: đóng lệnh, P&L ${event.trade.pnl.toFixed(2)}`,
-                  `Paper: position closed, P&L ${event.trade.pnl.toFixed(2)}`));
+          toast(L(`Mô phỏng: đóng lệnh, P&L ${event.trade.pnl.toFixed(2)}`,
+                  `Simulation: position closed, P&L ${event.trade.pnl.toFixed(2)}`));
         } else if (event.type === 'liquidation') {
-          toast(L('Paper: bị thanh lý', 'Paper: liquidated'), true);
+          toast(L('Mô phỏng: bị thanh lý', 'Simulation: liquidated'), true);
         }
       },
     });
@@ -2638,7 +2638,7 @@ def signals(df, params):
         openPanel('paper');
         drawPaperMarkers();
       drawPositionLines();
-        toast(L('Đã bắt đầu phiên paper trading', 'Paper session started'));
+        toast(L('Đã bắt đầu phiên giao dịch mô phỏng', 'Simulated session started'));
       }));
 
     // Overview first: the chart is the only thing that had to be fetched to

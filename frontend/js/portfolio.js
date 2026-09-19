@@ -994,8 +994,8 @@ const Portfolio = (() => {
 
     const { started } = await Paper.startBasket(entries, { capital, timeframe: '1d' });
     if (started) {
-      onToast(L(`Đã mở ${started} phiên paper theo tỷ trọng danh mục`,
-                `Opened ${started} paper sessions at the portfolio's weights`));
+      onToast(L(`Đã mở ${started} phiên mô phỏng theo tỷ trọng danh mục`,
+                `Opened ${started} simulated sessions at the portfolio's weights`));
     }
   }
 

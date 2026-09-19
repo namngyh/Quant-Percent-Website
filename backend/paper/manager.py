@@ -265,7 +265,10 @@ class PaperManager:
                 events = session.on_tick(float(candle["close"]), candle)
                 if events:
                     await asyncio.to_thread(self._persist, session)
-                    await self._publish(session, events)
+                # Mark-to-market is account state too. Publishing only when an
+                # order filled left price, open P&L and equity frozen until the
+                # next closed candle or a manual refresh.
+                await self._publish(session, events)
                 continue
 
             # Strategy evaluation is pandas work; keep it off the event loop so
@@ -325,6 +328,8 @@ class PaperManager:
             "created_at": s.created_at, "updated_at": s.updated_at, "active": s.active,
             "equity": s.equity, "position": s.position, "quantity": s.quantity,
             "entry_price": s.entry_price, "entry_time": s.entry_time, "margin": s.margin,
+            "entry_fee": s.entry_fee,
+            "entry_balance_before": s.entry_balance_before,
             "pending_signal": s.pending_signal, "last_price": s.last_price,
             "last_closed_time": s.last_closed_time, "bars_seen": s.bars_seen,
             # The exit levels and who is driving the position. Left out of
@@ -352,6 +357,16 @@ class PaperManager:
         session.entry_price = d["entry_price"]
         session.entry_time = d["entry_time"]
         session.margin = d["margin"]
+        if session.position != 0:
+            # Older rows paid the entry fee but did not save its amount. It is
+            # deterministic from the restored sizing and execution model.
+            inferred_fee = session.model.entry_fee(
+                session._sizing(), session.entry_price
+            )
+            session.entry_fee = d.get("entry_fee", inferred_fee)
+            session.entry_balance_before = d.get(
+                "entry_balance_before", session.equity + session.entry_fee
+            )
         session.pending_signal = d["pending_signal"]
         session.last_price = d["last_price"]
         session.last_closed_time = d["last_closed_time"]

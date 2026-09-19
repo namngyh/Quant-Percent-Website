@@ -25,6 +25,9 @@ const PaperDash = (() => {
   let activeTab = 'equity';
   // Which currency's account is shown when sessions span more than one.
   let activeCurrency = null;
+  let syncTimer = null;
+  let syncing = false;
+  let syncQueued = false;
   // The account being painted: its money is divided by `scale` for display.
   let view = { scale: 1, unit: '' };
 
@@ -122,8 +125,6 @@ const PaperDash = (() => {
       `${d.num_wins}/${d.num_trades}`);
     html += '</div>';
 
-    html += equityChart(d.equity_curve, d.starting_capital);
-
     if (d.open_positions.length) {
       html += `<div class="field-group-title">${esc(L(
         'Vị thế đang mở', 'Open positions'))}</div>`;
@@ -149,6 +150,61 @@ const PaperDash = (() => {
     return html;
   }
 
+  function balanceTab(d) {
+    if (!d.balance_history?.length) {
+      return `<p class="empty">${esc(L(
+        'Chưa có lần kết toán nào.', 'No settlement has been recorded yet.'))}</p>`;
+    }
+    return `<div class="pd-section-head">
+      <div><strong>${esc(L('Lịch sử số dư tài khoản', 'Account balance history'))}</strong>
+      <p class="hint">${esc(L(
+        'Lãi/lỗ giá và phí giao dịch được tách riêng; số dư sau đã trừ cả phí vào và phí ra.',
+        'Price P&L and trading fees are separate; the ending balance deducts both entry and exit fees.'))}</p></div>
+      <span class="badge">${d.balance_history.length}</span>
+    </div>
+    <table class="data-table pd-ledger"><thead><tr>
+      <th>${esc(L('Thời gian', 'Time'))}</th>
+      <th>${esc(L('Số dư trước kết toán', 'Balance before'))}</th>
+      <th>${esc(L('Lãi/Lỗ đã thực hiện', 'Realised P&L'))}</th>
+      <th>${esc(L('Phí giao dịch', 'Trading fees'))}</th>
+      <th>${esc(L('Số dư sau kết toán', 'Balance after'))}</th>
+      <th>${esc(L('Hành động', 'Action'))}</th>
+      </tr></thead><tbody>${d.balance_history.map((row) => `<tr>
+        <td class="muted">${esc(when(row.time))}</td>
+        <td>${cash(row.balance_before)}</td>
+        <td class="${sign(row.gross_pnl)}">${cash(row.gross_pnl)}</td>
+        <td class="${row.fee > 0 ? 'neg' : 'muted'}">${row.fee > 0 ? `−${cash(row.fee)}` : cash(0)}</td>
+        <td class="${sign(row.balance_after - row.balance_before)}">${cash(row.balance_after)}</td>
+        <td><strong>${esc(row.side === 'long' ? L('Đóng LONG', 'Close LONG') : L('Đóng SHORT', 'Close SHORT'))}</strong>
+          <span class="muted"> · ${esc(row.symbol)} · ${esc(reasonLabel(row.exit_reason))}</span></td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  function analysisTab(d) {
+    const factor = d.profit_factor == null ? '—' : Fmt.number(d.profit_factor, 2);
+    const rr = d.avg_rr == null ? '—' : `${Fmt.number(d.avg_rr, 2)}R`;
+    let html = '<div class="metrics pd-analysis">';
+    html += card(L('Giao dịch lãi', 'Profitable trades'), `${d.win_rate_pct.toFixed(1)}%`,
+      d.win_rate_pct >= 50 ? 'pos' : (d.num_trades ? 'neg' : ''),
+      L(`${d.num_wins}/${d.num_trades} lệnh · ${cash(d.profitable_trades_pnl)}`,
+        `${d.num_wins}/${d.num_trades} trades · ${cash(d.profitable_trades_pnl)}`));
+    html += card(L('Hệ số lãi', 'Profit factor'), factor,
+      d.profit_factor != null && d.profit_factor >= 1 ? 'pos' : (d.profit_factor != null ? 'neg' : ''),
+      L('tổng lãi / tổng lỗ', 'gross profits / gross losses'));
+    html += card(L('Kỳ vọng giao dịch', 'Trade expectancy'), cash(d.expectancy_money),
+      sign(d.expectancy_money), pct(d.expectancy_pct));
+    html += card(L('RR trung bình', 'Average RR'), rr,
+      d.avg_rr != null && d.avg_rr >= 1 ? 'pos' : (d.avg_rr != null ? 'neg' : ''),
+      L('lãi trung bình / lỗ trung bình', 'average win / average loss'));
+    html += '</div>';
+    html += `<div class="pd-section-head"><div><strong>${esc(L('Hiệu suất', 'Performance'))}</strong>
+      <p class="hint">${esc(L('Tăng trưởng số dư sau mỗi lần kết toán, đã trừ phí.',
+        'Balance growth after each settlement, net of fees.'))}</p></div>
+      <span class="${sign(d.return_pct)}">${esc(pct(d.return_pct))}</span></div>`;
+    html += equityChart(d.equity_curve, d.starting_capital);
+    return html;
+  }
+
   function tradesTab(d) {
     if (!d.trades.length) {
       return `<p class="empty">${esc(L(
@@ -160,7 +216,8 @@ const PaperDash = (() => {
       <th>${esc(L('Chiều', 'Side'))}</th>
       <th>${esc(L('Vào', 'In'))}</th>
       <th>${esc(L('Ra', 'Out'))}</th>
-      <th>${esc(L('Lãi/Lỗ', 'P&L'))}</th>
+      <th>${esc(L('Lãi/Lỗ ròng', 'Net P&L'))}</th>
+      <th>${esc(L('Phí', 'Fees'))}</th>
       <th>%</th>
       <th>${esc(L('Lý do', 'Reason'))}</th>
       </tr></thead><tbody>` + d.trades.map((t) => `<tr>
@@ -170,7 +227,8 @@ const PaperDash = (() => {
           t.side === 'long' ? 'LONG' : 'SHORT'}</td>
         <td>${money(t.entry_price)}</td>
         <td>${money(t.exit_price)}</td>
-        <td class="${sign(t.pnl)}">${cash(t.pnl)}</td>
+        <td class="${sign(t.net_pnl ?? t.pnl)}">${cash(t.net_pnl ?? t.pnl)}</td>
+        <td class="${t.fee > 0 ? 'neg' : 'muted'}">${t.fee > 0 ? `−${cash(t.fee)}` : cash(0)}</td>
         <td class="${sign(t.return_pct)}">${pct(t.return_pct)}</td>
         <td class="muted">${esc(reasonLabel(t.exit_reason))}</td>
       </tr>`).join('') + '</tbody></table>';
@@ -214,6 +272,8 @@ const PaperDash = (() => {
 
   const TABS = [
     ['equity', () => L('Tài khoản', 'Account'), equityTab],
+    ['balance', () => L('Lịch sử số dư', 'Balance history'), balanceTab],
+    ['analysis', () => L('Phân tích', 'Analysis'), analysisTab],
     ['trades', () => L('Lịch sử lệnh', 'Trade history'), tradesTab],
     ['symbols', () => L('Theo mã', 'By symbol'), symbolsTab],
   ];
@@ -242,6 +302,9 @@ const PaperDash = (() => {
         `<p class="empty">${emph(esc(tp(data.note)))}</p>`;
       return;
     }
+    const count = host.querySelector('[data-pd-count]');
+    if (count) count.textContent = L(
+      `${data.sessions || 0} phiên`, `${data.sessions || 0} sessions`);
     const tab = TABS.find(([id]) => id === activeTab) || TABS[0];
     const accounts = data.accounts?.length ? data.accounts : [{ ...data, currency: '' }];
     const account = accounts.find((a) => a.currency === activeCurrency) || accounts[0];
@@ -279,12 +342,10 @@ const PaperDash = (() => {
     host.innerHTML = `
       <div class="pd-window" role="dialog" aria-modal="true" aria-labelledby="pd-title">
         <div class="pd-head">
-          <h2 id="pd-title">${esc(L('Tài khoản Paper Trading', 'Paper trading account'))}</h2>
+          <h2 id="pd-title">${esc(L('Tài khoản giao dịch mô phỏng', 'Simulated trading account'))}</h2>
           <div class="pd-head-right">
-            <span class="badge">${esc(L(
+            <span class="badge" data-pd-count>${esc(L(
               `${data.sessions || 0} phiên`, `${data.sessions || 0} sessions`))}</span>
-            <button class="btn btn-quiet btn-sm" data-pd-refresh>${
-              esc(L('Làm mới', 'Refresh'))}</button>
             <button class="btn btn-quiet btn-sm" data-pd-close
               aria-label="${esc(t('a11y.close'))}">✕</button>
           </div>
@@ -302,9 +363,6 @@ const PaperDash = (() => {
       if (tab) { activeTab = tab.dataset.pdTab; paint(); return; }
       const currency = event.target.closest('[data-pd-currency]');
       if (currency) { activeCurrency = currency.dataset.pdCurrency; paint(); return; }
-      if (event.target.closest('[data-pd-refresh]')) {
-        try { data = await API.paperSummary(); paint(); } catch (err) { onToast(err.message, true); }
-      }
     });
     document.addEventListener('keydown', onKey);
   }
@@ -317,6 +375,41 @@ const PaperDash = (() => {
     document.removeEventListener('keydown', onKey);
     host?.remove();
     host = null;
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    syncQueued = false;
+  }
+
+  async function refreshLive() {
+    syncTimer = null;
+    if (!host) return;
+    if (syncing) { syncQueued = true; return; }
+    const target = host;
+    syncing = true;
+    try {
+      const latest = await API.paperSummary();
+      if (host === target) {
+        data = latest;
+        paint();
+      }
+    } catch (err) {
+      onToast(err.message, true);
+    } finally {
+      syncing = false;
+      if (syncQueued && host) {
+        syncQueued = false;
+        syncTimer = setTimeout(refreshLive, 120);
+      }
+    }
+  }
+
+  /** Coalesce live ticks so the open dashboard stays current without flooding
+      the summary endpoint when several simulated sessions share a feed. */
+  function sync() {
+    if (!host) return;
+    if (syncing) { syncQueued = true; return; }
+    if (syncTimer) return;
+    syncTimer = setTimeout(refreshLive, 120);
   }
 
   function init(config) {
@@ -324,5 +417,5 @@ const PaperDash = (() => {
     I18n.onChange(() => { if (host) paint(); });
   }
 
-  return { init, open, close, get isOpen() { return host !== null; } };
+  return { init, open, close, sync, get isOpen() { return host !== null; } };
 })();

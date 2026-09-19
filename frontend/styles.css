@@ -2589,8 +2589,28 @@ body[data-mode="overview"] .draw-layer { display: none; }
   gap: 2px;
   padding: 8px 20px 0;
   border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  flex-shrink: 0;
 }
-.pd-body { padding: 18px 20px 22px; overflow-y: auto; }
+.pd-tabs .rp-tab { flex: 0 0 auto; }
+.pd-body { padding: 18px 20px 22px; overflow: auto; }
+.pd-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 2px 0 12px;
+}
+.pd-section-head strong { font-size: 14px; font-weight: 600; }
+.pd-section-head .hint { margin: 4px 0 0; }
+.pd-section-head > .pos, .pd-section-head > .neg {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pd-ledger { min-width: 960px; }
+.pd-ledger td:last-child, .pd-ledger th:last-child { text-align: left; }
+.pd-analysis { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
 
 /* The equity curve. Stepped, and drawn as SVG so it scales with the window
    without a resize observer and cannot outlive it. */
@@ -2618,6 +2638,15 @@ body[data-mode="overview"] .draw-layer { display: none; }
 .pd-bar span { display: block; height: 100%; border-radius: 4px; background: var(--text-faint); }
 .pd-bar span.pos { background: var(--up); }
 .pd-bar span.neg { background: var(--down); }
+
+@media (max-width: 720px) {
+  .pd-backdrop { padding: 8px; }
+  .pd-window { max-height: 94vh; }
+  .pd-head { padding: 13px 14px; }
+  .pd-tabs { padding-left: 12px; padding-right: 12px; }
+  .pd-body { padding: 14px; }
+  .pd-analysis { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+}
 
 
 /* ==================== Many markets ==================== */
