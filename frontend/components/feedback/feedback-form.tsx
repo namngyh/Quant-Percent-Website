@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SkeletonLoader } from "@/components/states/skeleton-loader";
 import { cn } from "@/lib/utils";
+import { VerifyEmailGate } from "@/components/auth/verify-email-gate";
 import { useAuth } from "@/lib/auth/auth-context";
+import { isVerifiedMember } from "@/lib/auth/verified";
 import { ApiError, apiRequest } from "@/lib/api/fetcher";
 
 const CATEGORIES = ["ui", "data_model", "content", "bug", "other"] as const;
@@ -69,6 +71,12 @@ export function FeedbackForm() {
   // would flash "please sign in" at someone who already is.
   if (status === "loading") {
     return <SkeletonLoader rows={5} />;
+  }
+
+  // Signed in but unconfirmed: the server answers 403, so offer the step that
+  // actually unblocks them rather than a sign-in button they cannot use.
+  if (user && !isVerifiedMember(user)) {
+    return <VerifyEmailGate />;
   }
 
   if (!user) {

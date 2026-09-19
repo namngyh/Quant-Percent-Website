@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
+from datetime import date, datetime
+from typing import Any, Literal
 
 from app.schemas.common import (
     ApiModel,
@@ -116,3 +116,31 @@ class ModelStatusRow(ApiModel):
 class ModelStatusReport(ApiModel):
     generated_at: datetime
     models: list[ModelStatusRow]
+
+
+class NetworkSnapshot(ApiModel):
+    """DynamicGraph's view of the basket for one session.
+
+    Nodes and edges are passed through as they were computed rather than
+    reshaped here: the model owns their meaning, and every field the page
+    draws (centrality, risk score, community, edge sign) already exists in
+    its export. Re-declaring them field by field would mean editing three
+    layers whenever the model adds a measure.
+
+    There is no stress *probability* on purpose. The model grades that layer
+    as uninformative, so only the descriptive `stress_score` is published.
+    """
+
+    index_name: str
+    as_of_date: date
+    generated_at: datetime
+    model_version: str
+    graph_layer: str
+    graph_window: int
+    node_count: int
+    stress_score: float
+    stress_label: str
+    stress_percentile: float | None
+    nodes: list[dict[str, Any]]
+    edges: list[dict[str, Any]]
+    communities: list[dict[str, Any]] | None

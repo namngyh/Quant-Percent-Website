@@ -24,10 +24,13 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -47,16 +50,43 @@ def _uuid_pk() -> Mapped[uuid.UUID]:
 
 
 class User(Base):
+    """An account. ``role`` is the switch the admin endpoints gate on; the
+    frontend only reads it to decide which message to show."""
+
     __tablename__ = "users"
-    __table_args__ = {"schema": WEB_SCHEMA}
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'author', 'admin')", name="role_valid"
+        ),
+        CheckConstraint(
+            "status IN ('active', 'disabled')", name="status_valid"
+        ),
+        # NULL means never asked. Approval is read from role = 'author', not
+        # duplicated here, so the two can never disagree.
+        CheckConstraint(
+            "author_request_status IN ('pending', 'rejected')",
+            name="author_request_status_valid",
+        ),
+        {"schema": WEB_SCHEMA},
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Optional, and the same width as contacts.phone so the two agree on what
+    # a phone number is. Nobody needs one to hold an account.
+    phone: Mapped[str | None] = mapped_column(String(40))
     locale: Mapped[str] = mapped_column(String(5), default="vi", nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False
+    )
+    role: Mapped[str] = mapped_column(
+        String(20), default="user", server_default="user", nullable=False
+    )
+    author_request_status: Mapped[str | None] = mapped_column(String(20))
+    author_request_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
     )
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
@@ -226,6 +256,156 @@ class InvestorInterest(Base):
     locale: Mapped[str] = mapped_column(String(5), nullable=False)
     consent: Mapped[bool] = mapped_column(Boolean, nullable=False)
     ip: Mapped[str | None] = mapped_column(INET)
+    created_at: Mapped[datetime] = utcnow_column()
+
+
+# ===========================================================================
+# web — articles written by authors, voted and discussed by members
+# ===========================================================================
+
+
+class Article(Base):
+    """A research article. What the author role was granted for.
+
+    The vote and comment totals are stored on the row rather than counted per
+    request: the list sorts by them, and an ORDER BY over a subquery count
+    reads every vote of every article to show twenty cards. They are recounted
+    from the child tables inside the same transaction as each change, so they
+    cannot drift from what the children say.
+
+    Deletion is soft. A removed article can still be looked up by whoever has
+    to answer for removing it, and its comments and votes are not lost.
+    """
+
+    __tablename__ = "articles"
+    __table_args__ = (
+        CheckConstraint("char_length(body) <= 100000", name="body_length"),
+        Index(
+            "ix_articles_live_created",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_articles_live_score",
+            "score",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_articles_live_comments",
+            "comment_count",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    slug: Mapped[str] = mapped_column(String(220), unique=True, nullable=False)
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str | None] = mapped_column(String(400))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    upvotes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    downvotes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    score: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    comment_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    created_at: Mapped[datetime] = utcnow_column()
+    updated_at: Mapped[datetime] = utcnow_column()
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    author: Mapped[User] = relationship(lazy="joined")
+
+
+class ArticleVote(Base):
+    """One vote per member per article. No row means no vote, so taking a
+    vote back is a delete rather than a third value."""
+
+    __tablename__ = "article_votes"
+    __table_args__ = (
+        CheckConstraint("value IN (-1, 1)", name="value_valid"),
+        {"schema": WEB_SCHEMA},
+    )
+
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.articles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    value: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    created_at: Mapped[datetime] = utcnow_column()
+    updated_at: Mapped[datetime] = utcnow_column()
+
+
+class ArticleComment(Base):
+    """A short comment. The hundred-word rule is enforced in the request
+    schema, where it can be explained; the character ceiling here is only the
+    backstop that keeps a bypass from storing a novel."""
+
+    __tablename__ = "article_comments"
+    __table_args__ = (
+        CheckConstraint("char_length(body) <= 1000", name="body_length"),
+        Index("ix_article_comments_article_created", "article_id", "created_at"),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.articles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = utcnow_column()
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    author: Mapped[User] = relationship(lazy="joined")
+
+
+class ArticleImage(Base):
+    """Figures uploaded for articles, kept in the database itself.
+
+    The nightly pg_dump is the only backup this deployment has. Files on a
+    volume would need a second backup path that nobody has built, and an
+    article whose charts vanished after a restore is worse than one that was
+    never restored. At a two-megabyte ceiling per image, bytea is fine.
+    """
+
+    __tablename__ = "article_images"
+    __table_args__ = (
+        CheckConstraint(
+            "content_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/gif')",
+            name="content_type_valid",
+        ),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    uploader_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = utcnow_column()
 
 
@@ -676,3 +856,45 @@ class ModelRun(Base):
     )
     healthy: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String(200))
+
+
+class NetworkSnapshot(Base):
+    """DynamicGraph's network state for one session.
+
+    The relationship map and the ranking table used to reach the site as two
+    JSON files copied into `frontend/public/research/` and committed, which
+    meant the page could only change when someone deployed. The model runs
+    every session, so the page sat weeks behind its own model with nothing on
+    screen saying so.
+
+    Nodes and edges are stored as JSONB rather than as their own tables. They
+    are read as one whole graph and never queried by field — the whole payload
+    is about thirty kilobytes for a thirty-stock basket — so splitting them
+    into rows would buy nothing and cost a join per view.
+
+    What is deliberately absent is any stress *probability*. The model's own
+    artifact grades that layer AUROC 0.49 with a negative Brier skill score
+    and says to treat it as uninformative; `stress_score` here is the
+    descriptive state, on a 0-100 scale, not a forecast.
+    """
+
+    __tablename__ = "network_snapshots"
+    __table_args__ = {"schema": QUANT_SCHEMA}
+
+    as_of_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    index_name: Mapped[str] = mapped_column(
+        String(20), primary_key=True, default="VN30"
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    model_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    graph_layer: Mapped[str] = mapped_column(String(40), nullable=False)
+    graph_window: Mapped[int] = mapped_column(Integer, nullable=False)
+    node_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    stress_score: Mapped[float] = mapped_column(Float, nullable=False)
+    stress_label: Mapped[str] = mapped_column(String(30), nullable=False)
+    stress_percentile: Mapped[float | None] = mapped_column(Float)
+    nodes: Mapped[list] = mapped_column(JSONB, nullable=False)
+    edges: Mapped[list] = mapped_column(JSONB, nullable=False)
+    communities: Mapped[list | None] = mapped_column(JSONB)

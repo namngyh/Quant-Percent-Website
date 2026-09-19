@@ -6,6 +6,7 @@ that the notification carries the fields somebody needs in order to reply.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -52,8 +53,7 @@ def sent(monkeypatch):
     return calls
 
 
-@pytest.fixture
-def member():
+def _signed_in(*, verified: bool) -> User:
     """Sign the request in without touching the database."""
     user = User(
         id=uuid.uuid4(),
@@ -61,9 +61,22 @@ def member():
         full_name="Nguyen Van A",
         locale="vi",
         status="active",
+        email_verified_at=datetime.now(UTC) if verified else None,
     )
     app.dependency_overrides[get_current_user] = lambda: user
     return user
+
+
+@pytest.fixture
+def member():
+    """A confirmed member — what the feedback endpoint now requires."""
+    return _signed_in(verified=True)
+
+
+@pytest.fixture
+def unverified_member():
+    """Signed in, but the address was never confirmed."""
+    return _signed_in(verified=False)
 
 
 @pytest.fixture
@@ -97,6 +110,14 @@ def test_feedback_rejects_anonymous(client) -> None:
     res = client.post("/api/v1/feedback", json=FEEDBACK)
     assert res.status_code == 401
     assert res.json()["detail"] == {"error": "not_authenticated"}
+
+
+def test_feedback_rejects_unverified_member(client, unverified_member) -> None:
+    """403 rather than 401: the caller has a perfectly good session, so
+    "sign in" would be advice they cannot act on."""
+    res = client.post("/api/v1/feedback", json=FEEDBACK)
+    assert res.status_code == 403
+    assert res.json()["detail"] == {"error": "email_not_verified"}
 
 
 def test_feedback_accepted_from_a_member(client, member, sent) -> None:

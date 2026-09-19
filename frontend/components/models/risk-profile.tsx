@@ -151,7 +151,7 @@ export function RiskProfile({ locale }: { locale: "vi" | "en" }) {
   ];
 
   return (
-    <section className="mt-14">
+    <section className="mt-14 @container">
       <h2 className="title-md">{t.title}</h2>
       <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink">{t.lead}</p>
 
@@ -161,10 +161,15 @@ export function RiskProfile({ locale }: { locale: "vi" | "en" }) {
           {data.mc_paths.toLocaleString(locale)} {t.paths}
         </p>
 
-        <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 desk:grid-cols-4">
+        <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border @md:grid-cols-2 @3xl:grid-cols-4">
           {tiles.map((tile) => (
-            <div key={tile.label} className="bg-background p-4">
-              <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-dim">
+            // The four values read as a row, so they have to sit on one
+            // line. One label is long enough to wrap where the others do
+            // not, and left alone it pushed its own figure a line lower than
+            // its neighbours'; reserving two lines for every label keeps the
+            // figures level whichever ones happen to wrap.
+            <div key={tile.label} className="flex flex-col bg-background p-4">
+              <p className="flex min-h-[2.4em] items-start gap-1.5 text-[11px] uppercase leading-tight tracking-[0.06em] text-dim">
                 {tile.label}
                 {tile.tip && <InfoTip text={tile.tip} />}
               </p>

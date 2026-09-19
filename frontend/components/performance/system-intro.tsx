@@ -1,8 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { ArrowRight } from "lucide-react";
 import { getModel } from "@/config/models";
 import { FEATURED_STRATEGY, strategiesForSystem } from "@/config/strategies";
-import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/market/badges";
 import { ModusMascot } from "@/components/modus-mascot";
 
@@ -62,13 +60,6 @@ export async function SystemIntro({ systemSlug }: { systemSlug: string }) {
             {t("reportsLead")}
           </p>
 
-          <Link
-            href={`/models/${model.slug}`}
-            className="arrow-link mt-6 inline-flex items-center gap-2 text-[13px] font-medium text-brand underline-offset-4 hover:text-brand-strong hover:underline"
-          >
-            {t("learnMore", { name: model.name })}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
         </div>
 
         <div className="flex flex-col justify-between bg-background p-7">

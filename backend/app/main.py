@@ -48,7 +48,11 @@ app.add_middleware(
     # Session cookies travel cross-origin, so credentials must be allowed
     # and the origin list cannot be a wildcard
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # PATCH is here for /auth/me. Production never exercises this middleware —
+    # Caddy serves the API same-origin, so no preflight is ever sent — which is
+    # exactly why the list has to be right: a missing method fails only in
+    # local development, where the frontend does call the API cross-origin.
+    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
     max_age=600,
 )

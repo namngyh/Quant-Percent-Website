@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.v1.routers import (
+    admin,
+    articles,
     auth,
     contact,
     market,
@@ -18,3 +20,5 @@ api_router.include_router(system.router)
 api_router.include_router(contact.router)
 api_router.include_router(auth.router)
 api_router.include_router(portfolio.router)
+api_router.include_router(admin.router)
+api_router.include_router(articles.router)

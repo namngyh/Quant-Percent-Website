@@ -27,6 +27,25 @@ REGISTER = RateLimit(3, 60 * 60)
 PASSWORD_RESET = RateLimit(3, 60 * 60)
 CONTACT = RateLimit(5, 10 * 60)
 
+# Changing a password means proving you know the current one, so this is a
+# password guess like any other and gets LOGIN's shape. Keyed on the account
+# rather than the IP: an office behind one address would otherwise spend a
+# colleague's quota.
+PASSWORD_CHANGE = RateLimit(5, 15 * 60)
+
+# Each attempt sends real mail, so the cost of abuse lands on our sending
+# reputation and on somebody's inbox. Same shape as REGISTER for that reason.
+RESEND_VERIFICATION = RateLimit(3, 60 * 60)
+
+# Articles. All keyed on the account. Publishing is generous for a person and
+# tight for a script; votes allow somebody changing their mind a few times
+# across a page of cards; comments stop a flood without getting in the way of
+# a real conversation.
+ARTICLE_WRITE = RateLimit(10, 60 * 60)
+ARTICLE_IMAGE = RateLimit(40, 60 * 60)
+ARTICLE_VOTE = RateLimit(60, 60)
+ARTICLE_COMMENT = RateLimit(10, 60)
+
 
 def client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")

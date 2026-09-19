@@ -12,15 +12,18 @@ from app.schemas.models import (
     ModelDetail,
     ModelList,
     ModelSummary,
+    NetworkSnapshot,
 )
 
 
-def is_locked(model: Model, authenticated: bool) -> bool:
-    """Members-only output stays closed until the visitor signs in.
+def is_locked(model: Model, verified: bool) -> bool:
+    """Members-only output stays closed until the visitor confirms their email.
 
-    This is the real gate: the frontend blur is presentation only.
+    This is the real gate: the frontend blur is presentation only. The flag is
+    "verified", not merely "signed in" — an unconfirmed address can register
+    and hold a session, so a session alone was never proof of anything.
     """
-    return model.access == "members" and not authenticated
+    return model.access == "members" and not verified
 
 
 async def last_output_by_model(session: AsyncSession) -> dict[str, object]:
@@ -45,7 +48,7 @@ async def last_output_by_model(session: AsyncSession) -> dict[str, object]:
 
 
 async def list_models(
-    session: AsyncSession, *, authenticated: bool
+    session: AsyncSession, *, verified: bool
 ) -> ModelList:
     rows = (
         await session.scalars(
@@ -74,7 +77,7 @@ async def list_models(
                 version=m.version,
                 horizons=m.horizons,
                 access=m.access,
-                locked=is_locked(m, authenticated),
+                locked=is_locked(m, verified),
                 featured=m.featured,
                 tagline=m.tagline,
                 key_output=m.key_output,
@@ -95,7 +98,7 @@ async def get_model(session: AsyncSession, slug: str) -> Model | None:
 
 
 def to_detail(
-    model: Model, *, authenticated: bool, last_output_at: object = None
+    model: Model, *, verified: bool, last_output_at: object = None
 ) -> ModelDetail:
     return ModelDetail(
         slug=model.slug,
@@ -107,7 +110,7 @@ def to_detail(
         version=model.version,
         horizons=model.horizons,
         access=model.access,
-        locked=is_locked(model, authenticated),
+        locked=is_locked(model, verified),
         featured=model.featured,
         show_forecast=model.show_forecast,
         show_performance=model.show_performance,
@@ -245,3 +248,29 @@ async def forecast_history(
         coverage=round(covered / len(points), 3) if points else 0.0,
         points=points,
     )
+
+
+async def latest_network(
+    session: AsyncSession, index_name: str = "VN30"
+) -> NetworkSnapshot | None:
+    """The most recent network snapshot the model published.
+
+    Returns None when the model has never written one, so the caller can say
+    "not available yet" instead of rendering an empty graph.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT index_name, as_of_date, generated_at, model_version,
+                       graph_layer, graph_window, node_count, stress_score,
+                       stress_label, stress_percentile, nodes, edges,
+                       communities
+                FROM api.v_network_latest
+                WHERE index_name = :index_name
+                """
+            ),
+            {"index_name": index_name},
+        )
+    ).mappings().first()
+    return NetworkSnapshot(**row) if row else None

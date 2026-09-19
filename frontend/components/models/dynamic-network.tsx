@@ -4,12 +4,16 @@ import { useMemo } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
 import { sectorLabel } from "@/lib/sectors";
-import nodesSource from "@/public/research/dynamic-graph-nodes.json";
-import edgesSource from "@/public/research/dynamic-graph-edges.json";
+import { DataState } from "@/components/states/data-state";
+import {
+  useNetworkSnapshot,
+  type NetworkEdge,
+  type NetworkNode,
+} from "@/lib/api/network";
 
 type Locale = "vi" | "en";
 
-type SourceEdge = (typeof edgesSource)[number];
+type SourceEdge = NetworkEdge;
 
 type GraphNode = {
   id: string;
@@ -91,9 +95,17 @@ function formatPercent(value: number, locale: Locale) {
   });
 }
 
-function buildOption(locale: Locale): EChartsCoreOption {
+function buildOption(
+  locale: Locale,
+  nodesSource: NetworkNode[],
+  edgesSource: NetworkEdge[],
+): EChartsCoreOption {
   const text = copy[locale];
-  const maxStrength = Math.max(...nodesSource.map((node) => node.strength));
+  // Math.max() of an empty list is -Infinity, which would size every node
+  // NaN on the first render before the snapshot arrives.
+  const maxStrength = nodesSource.length
+    ? Math.max(...nodesSource.map((node) => node.strength))
+    : 1;
   const graphNodes: GraphNode[] = nodesSource.map((node) => ({
     id: node.id,
     name: node.label,
@@ -246,7 +258,11 @@ function buildOption(locale: Locale): EChartsCoreOption {
 }
 
 export function DynamicNetwork({ locale }: { locale: Locale }) {
-  const option = useMemo(() => buildOption(locale), [locale]);
+  const { data, error, isLoading, mutate } = useNetworkSnapshot();
+  const option = useMemo(
+    () => buildOption(locale, data?.nodes ?? [], data?.edges ?? []),
+    [locale, data],
+  );
   const text = copy[locale];
 
   return (
@@ -267,11 +283,20 @@ export function DynamicNetwork({ locale }: { locale: Locale }) {
           </span>
         </div>
       </div>
-      <EChart
-        option={option}
-        ariaLabel={text.aria}
-        className="h-[32rem] bg-surface/35 sm:h-[38rem]"
-      />
+      <DataState
+        loading={isLoading}
+        error={error}
+        onRetry={() => mutate()}
+        empty={Boolean(data) && (data?.nodes.length ?? 0) === 0}
+        className="m-5"
+        reserve="min-h-[32rem]"
+      >
+        <EChart
+          option={option}
+          ariaLabel={text.aria}
+          className="h-[32rem] bg-surface/35 sm:h-[38rem]"
+        />
+      </DataState>
     </div>
   );
 }

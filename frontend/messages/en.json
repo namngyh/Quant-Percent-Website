@@ -13,6 +13,10 @@
       "title": "Market Models",
       "description": "Models for forecasting, understanding market conditions and measuring risk."
     },
+    "articles": {
+      "title": "Research articles",
+      "description": "Quantitative research and analysis on the Vietnamese market from Quant Percent authors. Members can vote and discuss."
+    },
     "performance": {
       "title": "Performance",
       "description": "Transparent performance reporting: equity curves, drawdowns, risk metrics, with backtest and paper trading clearly separated."
@@ -57,6 +61,22 @@
       "title": "Forgot password",
       "description": "Recover access to your Quant Percent account."
     },
+    "resetPassword": {
+      "title": "Set a new password",
+      "description": "Choose a new password for your Quant Percent account."
+    },
+    "verifyEmail": {
+      "title": "Verify your email",
+      "description": "Confirm the email address on your Quant Percent account."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Manage the personal details and password on your Quant Percent account."
+    },
+    "admin": {
+      "title": "Administration",
+      "description": "Quant Percent administration area."
+    },
     "portfolio": {
       "title": "Quant Portfolio — portfolio risk analysis",
       "description": "Enter a stock portfolio to see its value, profit, volatility, potential loss and which holding contributes most of the risk."
@@ -66,6 +86,7 @@
     "home": "Home",
     "market": "Market Intelligence",
     "models": "Models",
+    "articles": "Articles",
     "performance": "Performance",
     "about": "About",
     "contact": "Contact",
@@ -156,7 +177,15 @@
     "all": "All",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {page} / {total}"
+    "page": "Page {page} / {total}",
+    "networkState": {
+      "calm": "Calm",
+      "normal": "Normal",
+      "elevated": "Elevated",
+      "high_stress": "High stress",
+      "stressed": "Stressed",
+      "extreme": "Extreme stress"
+    }
   },
   "glossary": {
     "regime": "How the model describes the market now: rising, falling, moving sideways or experiencing unusually large moves.",
@@ -327,7 +356,7 @@
   },
   "models": {
     "title": "Models",
-    "description": "Each model answers a different market question. See what it does, how it was tested, what the results support and where its limits remain.",
+    "description": "Where we publish the forecast charts produced by the quantitative models Quant Percent researches and develops in house. Results update after each trading session.",
     "filters": {
       "market": "Market",
       "category": "Purpose",
@@ -367,7 +396,7 @@
       "currentOutput": "Latest result",
       "forecastChart": "Forecast chart",
       "historicalForecasts": "Historical forecasts",
-      "historicalDescription": "Comparing forecasts made at each point in time with the values realized afterwards.",
+      "historicalDescription": "A forecast is only compared once its period has elapsed and the actual outcome is known. This table stays empty until the first forecasts mature.",
       "forecastAt": "Forecast made",
       "predicted": "Predicted",
       "actual": "Actual",
@@ -386,14 +415,22 @@
       "validatedPerformance": "Tested results",
       "validatedPerformanceNote": "Independent tests of the same system, each labeled with its data period and test type.",
       "disclosureNote": "Quant Percent does not disclose specific input data, feature sets, weights, parameters or trading logic.",
-      "notFound": "Model not found."
-    }
+      "notFound": "Model not found.",
+      "currentOutputCaveat": "These are model estimates for the periods ahead, not outcomes that have happened. None of them has reached its horizon yet, so none has been checked against the actual result."
+    },
+    "catalogueTitle": "The full model catalogue",
+    "catalogueLead": "The four models above run daily. The list below also covers models still in development or archived, each with its status."
+  },
+
+  "seal": {
+    "title": "Sealed",
+    "modus": "Model Modus is under re-examination: its hypotheses are being re-verified by experts. The figures below are closed until that concludes."
   },
   "performance": {
     "title": "Test Results",
     "description": "Model Modus is Quant Percent's main trading system, running on VN30F1M futures. This page publishes its 2024–2026 test: the model learned only from earlier years and was then tested on the following one, so the result does not depend on knowing the future.",
     "labelNote": "Every figure on this page comes from simulation on historical data. These are research results, not live trading, and not a commitment about future performance.",
-    "restatementNote": "The order-fill simulation was tightened on 4 July 2026 to treat sessions that open beyond a stop level more conservatively. The reports below were produced under the earlier method and are being rerun to the new standard.",
+    "restatementNote": "Model Modus is under re-examination: its hypotheses are being re-verified by experts. All figures on this page are sealed and will reopen when that concludes.",
     "system": {
       "eyebrow": "System",
       "reportsLead": "The result below comes from a single evaluation spanning the whole 2024–2026 period, tested in chronological order.",
@@ -733,8 +770,7 @@
         "title": "No substitute for professional advice",
         "text": "Information on this website does not replace investment, legal or tax advice from licensed professionals."
       }
-    ],
-    "reviewNote": "This content requires review by qualified legal counsel in Vietnam before the website goes into production."
+    ]
   },
   "privacy": {
     "title": "Privacy Policy",
@@ -772,7 +808,7 @@
   },
   "status": {
     "title": "System Status",
-    "description": "Operational status of data and model services. This page reflects the mock environment during development.",
+    "description": "Operational status of data and model services.",
     "services": "Services",
     "serviceNames": {
       "market_data": "Market data",
@@ -787,6 +823,42 @@
     "degraded": "Degraded",
     "down": "Down",
     "lastChecked": "Last checked"
+  },
+  "admin": {
+    "title": "Administration",
+    "description": "Accounts and the requests waiting for a decision.",
+    "gateTitle": "Administration area",
+    "gateDescription": "This page is for administrators only.",
+    "pendingTitle": "Waiting for a decision",
+    "pendingEmpty": "Nothing is waiting.",
+    "pendingText": "{name} has asked to become an author.",
+    "usersTitle": "Accounts",
+    "approve": "Approve",
+    "reject": "Decline",
+    "working": "Working…",
+    "colEmail": "Email",
+    "colName": "Name",
+    "colRole": "Role",
+    "colVerified": "Verified",
+    "colCreated": "Registered",
+    "colLastLogin": "Last sign-in",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "roleUser": "Member",
+    "roleAuthor": "Author",
+    "roleAdmin": "Administrator",
+    "verifiedYes": "Verified",
+    "verifiedNo": "Not verified",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "makeAuthor": "Grant author",
+    "removeAuthor": "Revoke author",
+    "disable": "Disable",
+    "enable": "Enable",
+    "self": "Your account",
+    "lastLoginNote": "This is the last password sign-in, not the last visit.",
+    "error": "That did not work. Please try again.",
+    "cannotModifySelf": "You cannot demote or disable your own account."
   },
   "auth": {
     "nav": {
@@ -815,15 +887,83 @@
     },
     "forgot": {
       "title": "Forgot password",
-      "description": "Password recovery is a prototype and does not send email yet.",
-      "submit": "Check the Feature",
+      "description": "Enter your account email. We will send you a link to set a new password.",
+      "submit": "Send reset link",
       "submitting": "Processing…",
-      "sent": "This is a prototype, so no recovery email has been sent.",
+      "sent": "If that email has an account, we have sent a password reset link. It is valid for 1 hour.",
       "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Set a new password",
+      "description": "Choose a new password for your account.",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "success": "Your password has been updated. All previous sessions were signed out, so please sign in again with the new password.",
+      "missingToken": "This link is missing its reset code. Open the link from your email again, or request a new one.",
+      "invalidToken": "This link has expired or has already been used. Each link works once and lasts 1 hour.",
+      "rateLimited": "Too many attempts. Please wait about an hour and try again.",
+      "requestNew": "Request a new link",
+      "toLogin": "Sign in"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "description": "We are confirming your email address.",
+      "verifying": "Verifying…",
+      "success": "Your email address has been verified.",
+      "invalidToken": "This verification link has expired or has already been used. If you verified earlier, nothing more is needed.",
+      "missingToken": "This link is missing its verification code. Open the link from your email again.",
+      "toLogin": "Sign in",
+      "continue": "Browse the models",
+      "gateTitle": "Confirm your email to continue",
+      "gateText": "We sent a confirmation link to {email}. Open it to see members-only content. If it has not arrived, check your spam folder.",
+      "gateBadge": "Email not confirmed",
+      "gateCardHint": "Confirm your email to unlock this model",
+      "bannerText": "Confirm your email to see {locked} more models and their detailed results.",
+      "bannerAction": "Confirm email",
+      "resend": "Send a new confirmation link",
+      "resendSending": "Sending…",
+      "resendSent": "Sent. Check your inbox, including the spam folder. The link is valid for 3 days.",
+      "resendRateLimited": "Too many requests. Please wait about an hour and try again.",
+      "resendError": "Could not send it right now. Please try again later."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Manage your personal details and your password.",
+      "profileTitle": "Personal details",
+      "profileDescription": "Your name appears in the navigation bar and in our correspondence with you.",
+      "phoneHint": "Optional. We use it only to reach you about your own enquiry.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Your details have been saved.",
+      "emailLabel": "Sign-in email",
+      "emailNote": "Your email is your sign-in identity, so it cannot be changed here. Contact us if you need it changed.",
+      "passwordTitle": "Change password",
+      "passwordDescription": "Enter your current password to confirm it is you.",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "changePassword": "Change password",
+      "changing": "Changing…",
+      "passwordChanged": "Your password has been changed. This device stays signed in; every other device has been signed out.",
+      "wrongPassword": "That is not your current password.",
+      "rateLimited": "Too many attempts. Please wait about 15 minutes and try again.",
+      "gateTitle": "Sign in required",
+      "gateDescription": "Sign in to view and edit your account details."
+    },
+    "author": {
+      "title": "Author access",
+      "description": "Ask for permission to publish research on Quant Percent. An administrator will review your request.",
+      "request": "Request author access",
+      "requesting": "Sending…",
+      "pending": "Your request is waiting for an administrator.",
+      "rejected": "Your earlier request was not approved. Get in touch if you would like to discuss it.",
+      "granted": "You have author access.",
+      "write": "Write an article",
+      "error": "Could not send the request. Please try again."
     },
     "fields": {
       "name": "Full name",
       "email": "Email",
+      "phone": "Phone number",
       "password": "Password",
       "confirmPassword": "Confirm password",
       "consent": "I agree to Quant Percent's legal terms and privacy policy."
@@ -836,7 +976,9 @@
       "passwordTooShort": "Password must be at least 8 characters",
       "confirmRequired": "Please confirm your password",
       "confirmMismatch": "Passwords do not match",
-      "consentRequired": "You must agree to create an account"
+      "consentRequired": "You must agree to create an account",
+      "passwordTooLong": "Password must be at most 200 characters",
+      "phoneInvalid": "That does not look like a phone number"
     },
     "error": "Could not process your request. Please try again."
   },
@@ -1207,6 +1349,116 @@
       "probabilityNone": "the portfolio does not track the index closely enough to estimate",
       "probabilityModelOnly": "Certus simulation scaled to the portfolio",
       "probabilityWithHistory": "Certus simulation; VN-Index history since 2000: {history} of windows this long"
+    }
+  },
+  "articles": {
+    "title": "Articles",
+    "description": "Research, analysis and notes from Quant Percent authors. Members with a confirmed email can vote and join the discussion.",
+    "write": "Write",
+    "searchPlaceholder": "Search titles…",
+    "sortLabel": "Sort articles",
+    "sort": {
+      "new": "Newest",
+      "top": "Most voted",
+      "comments": "Most discussed",
+      "old": "Oldest"
+    },
+    "resultCount": "{total, plural, one {# article} other {# articles}}",
+    "empty": "No articles yet.",
+    "emptySearch": "No articles match “{q}”.",
+    "unavailable": "Articles are not available in sample-data mode.",
+    "loadError": "Could not load data. Please try again.",
+    "pagination": "Pagination",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {pages}",
+    "commentCount": "{count, plural, =0 {No comments} one {# comment} other {# comments}}",
+    "back": "All articles",
+    "edited": "edited {date}",
+    "readingTime": "{minutes} min read",
+    "authorTag": "Author",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "deleteConfirm": "Delete this article? Readers will no longer see it.",
+    "deleteError": "Could not delete the article. Please try again.",
+    "chartLabel": "Chart in article",
+    "vote": {
+      "label": "Vote",
+      "question": "Was this article useful to you?",
+      "up": "Useful",
+      "down": "Not useful",
+      "upAria": "Vote useful",
+      "downAria": "Vote not useful",
+      "tally": "{up} useful, {down} not useful",
+      "thanks": "Thanks for voting. Press again to take it back.",
+      "toComments": "Go to comments",
+      "dismiss": "Dismiss",
+      "signIn": "Sign in to vote on this article.",
+      "verify": "Confirm your email to vote.",
+      "verifyAction": "Confirm it on your Account page",
+      "own": "You cannot vote on your own article.",
+      "rateLimited": "You are voting too quickly. Please wait a moment.",
+      "error": "Could not record your vote. Please try again."
+    },
+    "comment": {
+      "title": "Comments",
+      "placeholder": "Share your thoughts (100 words max)…",
+      "words": "{count}/{max} words",
+      "tooLong": "Comments are limited to {max} words. Please shorten it.",
+      "submit": "Post comment",
+      "sending": "Posting…",
+      "error": "Could not post your comment. Please try again.",
+      "rateLimited": "You are commenting too quickly. Please wait a moment.",
+      "empty": "No comments yet. Be the first to share your view.",
+      "signIn": "Sign in to join the discussion.",
+      "verify": "Confirm your email to join the discussion.",
+      "verifyAction": "Confirm it on your Account page",
+      "more": "Show more comments",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this comment?",
+      "deleteError": "Could not delete the comment. Please try again."
+    },
+    "editor": {
+      "newTitle": "Write an article",
+      "editTitle": "Edit article",
+      "gateTitle": "Authors only",
+      "gateText": "Publishing needs author access. You can request it on your Account page.",
+      "gateAction": "Go to Account",
+      "notOwner": "This article could not be opened for editing. You can only edit your own articles.",
+      "fieldTitle": "Title",
+      "fieldSummary": "Summary",
+      "summaryHint": "Shown on the article card and in link previews. Optional.",
+      "fieldBody": "Body",
+      "write": "Write",
+      "preview": "Preview",
+      "previewEmpty": "Nothing to preview yet.",
+      "insertImage": "Insert image",
+      "uploading": "Uploading…",
+      "imageTooLarge": "Images are limited to 2 MB.",
+      "imageUnsupported": "Only PNG, JPEG, WebP or GIF images are accepted.",
+      "imageError": "Could not upload the image. Please try again.",
+      "titleLength": "Titles are {min} to {max} characters.",
+      "summaryLength": "Summaries are at most {max} characters.",
+      "bodyLength": "The body needs at least {min} characters.",
+      "bodyTooLong": "The body is limited to {max} characters.",
+      "chars": "{count} characters",
+      "publish": "Publish",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "unsaved": "Unsaved changes",
+      "error": "Could not save the article. Please try again.",
+      "rateLimited": "You have saved too many times this hour. Please try again later.",
+      "helpTitle": "Supported syntax: formulas, tables, images, charts",
+      "helpHeading": "Section heading",
+      "helpEmphasis": "Bold, italic, links",
+      "helpMath": "Inline formula",
+      "helpBlockMath": "Display formula",
+      "helpTable": "Table",
+      "helpImage": "Image (or use Insert image)",
+      "helpChart": "Chart (ECharts option as JSON)",
+      "chartError": "Could not draw the chart: the JSON option is invalid."
     }
   }
 }

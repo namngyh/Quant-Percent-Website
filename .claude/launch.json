@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "D:\\VuaBip123\\Quant-Percent-Website\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "8000", "--app-dir", "D:\\VuaBip123\\Quant-Percent-Website\\backend"],
+      "cwd": "D:\\VuaBip123\\Quant-Percent-Website\\backend",
+      "port": 8000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "D:\\VuaBip123\\Quant-Percent-Website\\frontend"],
+      "cwd": "D:\\VuaBip123\\Quant-Percent-Website\\frontend",
+      "port": 3000
+    }
+  ]
+}

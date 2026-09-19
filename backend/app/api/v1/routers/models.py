@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.core.deps import OptionalUser, SessionDep
+from app.core.deps import OptionalUser, SessionDep, is_verified_member
 from app.schemas.models import (
     ForecastHistory,
     ForecastRecords,
     ModelDetail,
     ModelList,
+    NetworkSnapshot,
 )
 from app.services import models as service
 
@@ -26,16 +27,23 @@ async def _load(session, slug: str):
 def _guard(model, user) -> None:
     """Members-only models return 403 rather than data — the lock lives
     here, not in the browser."""
-    if service.is_locked(model, user is not None):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"error": "members_only"},
-        )
+    if not service.is_locked(model, is_verified_member(user)):
+        return
+    # Two different dead ends need two different answers: a visitor with no
+    # session should sign in, while one who is signed in but unconfirmed can
+    # only get in by confirming. Telling the second to "sign in" sends them
+    # round a loop they are already inside.
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "error": "email_not_verified" if user is not None else "members_only"
+        },
+    )
 
 
 @router.get("", response_model=ModelList)
 async def list_models(session: SessionDep, user: OptionalUser) -> ModelList:
-    return await service.list_models(session, authenticated=user is not None)
+    return await service.list_models(session, verified=is_verified_member(user))
 
 
 @router.get("/{slug}", response_model=ModelDetail)
@@ -47,7 +55,7 @@ async def model_detail(
     # Metadata stays public so the page keeps its context and SEO;
     # the model's output is what requires a session.
     return service.to_detail(
-        model, authenticated=user is not None, last_output_at=last_output
+        model, verified=is_verified_member(user), last_output_at=last_output
     )
 
 
@@ -85,3 +93,26 @@ async def history(
             detail={"error": "not_available"},
         )
     return await service.forecast_history(session, model, symbol)
+
+
+@router.get("/dynamic-graph/network", response_model=NetworkSnapshot)
+async def network(
+    session: SessionDep,
+    user: OptionalUser,
+    index_name: str = Query("VN30"),
+) -> NetworkSnapshot:
+    """The relationship map and per-stock measures for the latest session.
+
+    Kept on the model it belongs to rather than under /market: this is one
+    model's output, and routing it here means the members-only guard is the
+    same one that covers the rest of that model's page.
+    """
+    model = await _load(session, "dynamic-graph")
+    _guard(model, user)
+    snapshot = await service.latest_network(session, index_name)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_available"},
+        )
+    return snapshot

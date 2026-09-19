@@ -240,7 +240,7 @@ export function IndexTab({ symbol }: { symbol: "VNINDEX" | "VN30" }) {
                 modelVersion={first.model_version}
               />
               <Link
-                href={`/models/${modelSlug}`}
+                href="/models"
                 className="shrink-0 text-[13px] font-medium underline-offset-4 hover:underline"
               >
                 {t("viewModel")} →

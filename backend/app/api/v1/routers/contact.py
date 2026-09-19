@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, SessionDep, require_csrf
+from app.core.deps import SessionDep, VerifiedUser, require_csrf
 from app.core.ratelimit import CONTACT, client_ip, enforce
 from app.db.models import Contact, InvestorInterest
 from app.schemas.auth import (
@@ -89,12 +89,15 @@ async def register_interest(
     dependencies=[Depends(require_csrf)],
 )
 async def submit_feedback(
-    payload: FeedbackRequest, request: Request, user: CurrentUser
+    payload: FeedbackRequest, request: Request, user: VerifiedUser
 ) -> SuccessResponse:
-    """Members only — ``CurrentUser`` answers 401 to everyone else.
+    """Confirmed members only — 401 without a session, 403 without a
+    confirmed address.
 
     The website hides the form behind a sign-in panel, but that panel is
-    presentation; this dependency is what actually requires an account.
+    presentation; this dependency is what actually requires an account. It
+    asks for a verified address because feedback arrives as mail we may reply
+    to, and replying to an address nobody proved they own is not worth much.
     """
     # Keyed on the account rather than the IP: an office behind one address
     # would otherwise spend a colleague's quota.

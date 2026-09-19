@@ -46,6 +46,18 @@ EXPECTED_ROUTES = {
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
     "/api/v1/auth/verify-email",
+    "/api/v1/auth/change-password",
+    "/api/v1/auth/resend-verification",
+    "/api/v1/auth/request-author",
+    "/api/v1/admin/users",
+    "/api/v1/admin/users/{user_id}",
+    "/api/v1/articles",
+    "/api/v1/articles/images",
+    "/api/v1/articles/images/{image_id}",
+    "/api/v1/articles/{slug}",
+    "/api/v1/articles/{slug}/vote",
+    "/api/v1/articles/{slug}/comments",
+    "/api/v1/articles/{slug}/comments/{comment_id}",
 }
 
 

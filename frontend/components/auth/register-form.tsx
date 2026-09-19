@@ -97,6 +97,10 @@ export function RegisterForm() {
           {...register("password", {
             required: t("validation.passwordRequired"),
             minLength: { value: 8, message: t("validation.passwordTooShort") },
+            // The backend caps passwords at 200 and answers a longer one with a
+            // validation 400 — the same status a dead token gets. Catching it here
+            // keeps that branch from reporting "this link has expired".
+            maxLength: { value: 200, message: t("validation.passwordTooLong") },
           })}
         />
         <FieldError message={errors.password?.message} />

@@ -40,10 +40,6 @@ export default async function LegalPage({
           </li>
         ))}
       </ol>
-
-      <p className="mt-16 max-w-3xl border-l-2 border-lightgray pl-4 text-sm text-dim">
-        {t("reviewNote")}
-      </p>
     </main>
   );
 }

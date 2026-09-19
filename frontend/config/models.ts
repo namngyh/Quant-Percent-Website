@@ -320,9 +320,6 @@ export const MODELS: ModelConfig[] = [
     },
     horizons: [5, 20, 60],
     show_performance: false,
-    // The only model writing to quant.model_forecasts. The flag was off while
-    // the table was empty; the daily job now fills it, so the forecast panel
-    // has something real to show.
     show_forecast: true,
     show_internal_signal: false,
     tagline: {

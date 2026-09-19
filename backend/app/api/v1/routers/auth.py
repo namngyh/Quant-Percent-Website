@@ -1,25 +1,36 @@
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.core.config import settings
-from app.core.deps import CurrentUser, OptionalUser, SessionDep, require_csrf
+from app.core.deps import (
+    CurrentUser,
+    OptionalUser,
+    SessionDep,
+    VerifiedUser,
+    require_csrf,
+)
+from app.core.security import verify_password
 from app.core.ratelimit import (
     LOGIN,
+    PASSWORD_CHANGE,
     PASSWORD_RESET,
     REGISTER,
+    RESEND_VERIFICATION,
     client_ip,
     enforce,
 )
 from app.schemas.auth import (
     AuthResponse,
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
     SuccessResponse,
+    UpdateProfileRequest,
     UserOut,
     VerifyEmailRequest,
 )
@@ -34,6 +45,9 @@ def _user_out(user) -> UserOut:
         id=str(user.id),
         email=user.email,
         name=user.full_name,
+        phone=user.phone,
+        role=user.role,
+        author_request_status=user.author_request_status,
         locale=user.locale,
         email_verified=user.email_verified_at is not None,
         created_at=user.created_at,
@@ -144,6 +158,78 @@ async def me(user: CurrentUser) -> AuthResponse:
     return AuthResponse(user=_user_out(user))
 
 
+@router.patch(
+    "/me",
+    response_model=AuthResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def update_profile(
+    payload: UpdateProfileRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> AuthResponse:
+    user.full_name = payload.name.strip()
+    user.phone = payload.phone
+    # utcnow_column has no onupdate, so nothing bumps this on its own.
+    user.updated_at = datetime.now(UTC)
+    await auth_service.record_audit(
+        session,
+        "user.profile_update",
+        actor_id=user.id,
+        entity="user",
+        entity_id=str(user.id),
+        ip=client_ip(request),
+    )
+    await session.commit()
+    # Returning the whole user lets the client update its cached copy without
+    # a follow-up GET /me, the same way login and register already do.
+    return AuthResponse(user=_user_out(user))
+
+
+@router.post(
+    "/change-password",
+    response_model=SuccessResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> SuccessResponse:
+    await enforce(f"password-change:{user.id}", PASSWORD_CHANGE)
+
+    # verify_password directly rather than authenticate(): that one looks the
+    # user up by email and stamps last_login_at, neither of which belongs here.
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_current_password"},
+        )
+
+    await auth_service.set_password(session, user, payload.new_password)
+    await auth_service.record_audit(
+        session,
+        "auth.password_change",
+        actor_id=user.id,
+        ip=client_ip(request),
+    )
+    # set_password revoked every refresh token, including this browser's. Issue
+    # a fresh one so the device doing the change stays signed in; every other
+    # device is signed out, which is the point of changing a password.
+    refresh = await auth_service.issue_refresh_token(
+        session,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip=client_ip(request),
+    )
+    await session.commit()
+    auth_service.set_session_cookies(response, user, refresh)
+    return SuccessResponse()
+
+
 @router.post("/forgot-password", response_model=SuccessResponse)
 async def forgot_password(
     payload: ForgotPasswordRequest, request: Request, session: SessionDep
@@ -187,12 +273,80 @@ async def reset_password(
     return SuccessResponse()
 
 
+@router.post(
+    "/request-author",
+    response_model=AuthResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def request_author(
+    request: Request, session: SessionDep, user: VerifiedUser
+) -> AuthResponse:
+    """Ask an admin for permission to publish articles.
+
+    VerifiedUser, not CurrentUser: an unconfirmed address is already blocked
+    from members-only output, so letting it queue up for a stronger role would
+    be a hole in the same wall.
+
+    Idempotent — asking twice while a request is open changes nothing rather
+    than raising, because from the caller's point of view the outcome they
+    wanted is already true.
+    """
+    if user.role != "user":
+        # Already an author or an admin. Nothing to ask for.
+        return AuthResponse(user=_user_out(user))
+
+    if user.author_request_status != "pending":
+        user.author_request_status = "pending"
+        user.author_request_at = datetime.now(UTC)
+        user.updated_at = datetime.now(UTC)
+        await auth_service.record_audit(
+            session,
+            "user.role_request",
+            actor_id=user.id,
+            entity="user",
+            entity_id=str(user.id),
+            ip=client_ip(request),
+            meta={"requested": "author"},
+        )
+        await session.commit()
+    return AuthResponse(user=_user_out(user))
+
+
+@router.post(
+    "/resend-verification",
+    response_model=SuccessResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def resend_verification(
+    request: Request, session: SessionDep, user: CurrentUser
+) -> SuccessResponse:
+    """Send a fresh confirmation link to the signed-in member.
+
+    Without this the three-day VERIFY_TTL is a trapdoor: the only link a
+    member ever received is the one from registration, so letting it lapse
+    used to mean the address could never be confirmed at all. That was
+    tolerable while verification gated nothing. It is not now that it gates
+    members-only output.
+    """
+    await enforce(f"resend-verify:{user.id}", RESEND_VERIFICATION)
+
+    if user.email_verified_at is not None:
+        # Not an error worth alarming anyone with — the address is confirmed,
+        # which is the outcome the caller wanted.
+        return SuccessResponse()
+
+    token = await auth_service.create_one_time_token(
+        session, user, "email_verification", auth_service.VERIFY_TTL
+    )
+    await session.commit()
+    await email_service.send_email_verification(user.email, token, user.locale)
+    return SuccessResponse()
+
+
 @router.post("/verify-email", response_model=SuccessResponse)
 async def verify_email(
     payload: VerifyEmailRequest, session: SessionDep, user: OptionalUser
 ) -> SuccessResponse:
-    from datetime import datetime
-
     verified = await auth_service.consume_one_time_token(
         session, payload.token, "email_verification"
     )

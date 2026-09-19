@@ -3,6 +3,7 @@ import { localeAlternates } from "@/lib/seo";
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DisclosureBanner } from "@/components/layout/disclosure-banner";
+import { usesDatabaseApi } from "@/lib/models/catalogue";
 import { MarketTabs } from "@/components/market/market-tabs";
 import { SkeletonLoader } from "@/components/states/skeleton-loader";
 
@@ -27,7 +28,7 @@ export default async function MarketIntelligencePage({
 
   return (
     <main>
-      <DisclosureBanner variant="mock" />
+      <DisclosureBanner variant={usesDatabaseApi() ? "legal" : "mock"} />
       <div className="page-head">
         <div className="container-qp relative py-14 desk:py-20">
           <h1 className="title-lg">{t("title")}</h1>
