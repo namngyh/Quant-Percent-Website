@@ -439,13 +439,22 @@ export const MarginInputSchema = z.object({
   rate: z.number().min(0).max(1),
   call_ratio: z.number().gt(0).lt(1),
   force_ratio: z.number().gt(0).lt(1),
+  // A loan from outside the brokerage: no thresholds apply.
+  external: z.boolean().optional().default(false),
 });
 export type MarginInput = z.infer<typeof MarginInputSchema>;
+
+export const RiskBudgetInputSchema = z.object({
+  // Largest acceptable loss as a share of the reader's own money.
+  max_loss_pct: z.number().gt(0).lt(1),
+});
+export type RiskBudgetInput = z.infer<typeof RiskBudgetInputSchema>;
 
 export const PortfolioRequestSchema = z.object({
   holdings: z.array(HoldingInputSchema).min(1).max(50),
   cash: z.number().min(0),
   margin: MarginInputSchema.nullable().optional(),
+  risk_budget: RiskBudgetInputSchema.nullable().optional(),
   horizon_days: z.number().int().min(21).max(252),
   lookback_days: z.number().int().min(60).max(1000).optional(),
 });
@@ -465,6 +474,8 @@ export const PositionRiskSchema = z.object({
   risk_contribution: z.number(),
   sector: z.string().nullable(),
   observations: z.number(),
+  adv_20d: z.number().nullable().optional().default(null),
+  days_to_sell: z.number().nullable().optional().default(null),
 });
 export type PositionRisk = z.infer<typeof PositionRiskSchema>;
 
@@ -520,6 +531,7 @@ export const MarginStatusSchema = z.enum([
   "between",
   "below_force",
   "negative_equity",
+  "no_thresholds",
 ]);
 export type MarginStatus = z.infer<typeof MarginStatusSchema>;
 
@@ -556,9 +568,11 @@ export const MarginRiskSchema = z.object({
   rate: z.number(),
   call_ratio: z.number(),
   force_ratio: z.number(),
+  external: z.boolean().optional().default(false),
   leverage: z.number().nullable(),
   margin_ratio: z.number(),
   status: MarginStatusSchema,
+  warnings: z.array(z.string()).optional().default([]),
   distance_to_call: MarginDistanceSchema.nullable(),
   distance_to_force: MarginDistanceSchema.nullable(),
   idle_cash_cost_per_year: z.number().nullable(),
@@ -569,6 +583,146 @@ export const MarginRiskSchema = z.object({
   scenarios: z.array(MarginScenarioSchema),
 });
 export type MarginRisk = z.infer<typeof MarginRiskSchema>;
+
+export const NetworkNodeSchema = z.object({
+  id: z.string(),
+  community: z.number(),
+  strength: z.number(),
+  degree: z.number(),
+  risk_score: z.number(),
+  volatility_20d: z.number().nullable(),
+  in_portfolio: z.boolean(),
+  weight: z.number().nullable(),
+});
+export type NetworkNode = z.infer<typeof NetworkNodeSchema>;
+
+export const NetworkEdgeSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  weight: z.number(),
+  signed_weight: z.number(),
+});
+export type NetworkEdge = z.infer<typeof NetworkEdgeSchema>;
+
+export const NetworkCommunitySchema = z.object({
+  id: z.number(),
+  members: z.array(z.string()),
+  held: z.array(z.string()),
+  portfolio_weight: z.number(),
+});
+
+export const PortfolioNetworkSchema = z.object({
+  as_of: z.string(),
+  window: z.number(),
+  stress_label: z.string().nullable(),
+  stress_score: z.number().nullable(),
+  nodes: z.array(NetworkNodeSchema),
+  edges: z.array(NetworkEdgeSchema),
+  communities: z.array(NetworkCommunitySchema),
+  covered: z.array(z.string()),
+  uncovered: z.array(z.string()),
+  covered_weight: z.number(),
+});
+export type PortfolioNetwork = z.infer<typeof PortfolioNetworkSchema>;
+
+export const OutlookHorizonSchema = z.object({
+  horizon_days: z.number(),
+  index_lower: z.number(),
+  index_upper: z.number(),
+  portfolio_lower: z.number(),
+  portfolio_upper: z.number(),
+  equity_lower: z.number().nullable(),
+  equity_upper: z.number().nullable(),
+  breakeven_return: z.number().nullable(),
+});
+export type OutlookHorizon = z.infer<typeof OutlookHorizonSchema>;
+
+export const PortfolioOutlookSchema = z.object({
+  source_model: z.string(),
+  data_as_of: z.string(),
+  interval_level: z.number(),
+  portfolio_beta: z.number(),
+  call_drop: z.number().nullable(),
+  horizons: z.array(OutlookHorizonSchema),
+});
+export type PortfolioOutlook = z.infer<typeof PortfolioOutlookSchema>;
+
+export const CrisisScenarioSchema = z.object({
+  key: z.string(),
+  start: z.string(),
+  end: z.string(),
+  sessions: z.number(),
+  covered: z.array(z.string()),
+  covered_weight: z.number(),
+  total_return: z.number(),
+  max_drawdown: z.number(),
+  volatility: z.number(),
+  var_95: z.number(),
+  expected_shortfall_95: z.number(),
+  average_correlation: z.number(),
+  index_max_drawdown: z.number(),
+});
+export type CrisisScenario = z.infer<typeof CrisisScenarioSchema>;
+
+export const LiquiditySummarySchema = z.object({
+  participation: z.number(),
+  slow_days: z.number(),
+  slow: z.array(z.string()),
+  slow_weight: z.number(),
+  slowest_symbol: z.string().nullable(),
+  slowest_days: z.number().nullable(),
+  book_days: z.number().nullable(),
+});
+
+export const VarCheckSchema = z.object({
+  window: z.number(),
+  tested: z.number(),
+  breaches: z.number(),
+  breach_rate: z.number(),
+  expected_rate: z.number(),
+});
+export type VarCheck = z.infer<typeof VarCheckSchema>;
+
+export const StressReportSchema = z.object({
+  crises: z.array(CrisisScenarioSchema),
+  no_diversification_volatility: z.number(),
+  liquidity: LiquiditySummarySchema,
+  var_check: VarCheckSchema.nullable(),
+});
+export type StressReport = z.infer<typeof StressReportSchema>;
+
+export const RiskBudgetSchema = z.object({
+  max_loss_pct: z.number(),
+  basis: z.enum(["equity", "portfolio"]),
+  limit_amount: z.number(),
+  drop_to_limit: z.number(),
+  drop_amount: z.number(),
+  realised_max_loss: z.number(),
+  realised_within: z.boolean(),
+  crisis_breaches: z.array(z.string()),
+  hit_probability: z.number().nullable(),
+  historical_frequency: z.number().nullable(),
+  horizon_days: z.number(),
+});
+export type RiskBudget = z.infer<typeof RiskBudgetSchema>;
+
+export const SavedPortfolioSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  holdings: z.array(HoldingInputSchema),
+  cash: z.number(),
+  margin: MarginInputSchema.nullable(),
+  risk_budget: RiskBudgetInputSchema.nullable().optional().default(null),
+  horizon_days: z.number(),
+  updated_at: z.string(),
+});
+export type SavedPortfolio = z.infer<typeof SavedPortfolioSchema>;
+
+export const SavedPortfolioListSchema = z.object({
+  items: z.array(SavedPortfolioSchema),
+  remaining: z.number(),
+});
+export type SavedPortfolioList = z.infer<typeof SavedPortfolioListSchema>;
 
 export const PortfolioAnalysisSchema = FreshnessSchema.extend({
   total_value: z.number(),
@@ -597,6 +751,10 @@ export const PortfolioAnalysisSchema = FreshnessSchema.extend({
   // Only when the request carried a loan. Optional so a backend without the
   // block still parses; the section simply does not render.
   margin: MarginRiskSchema.nullable().optional().default(null),
+  network: PortfolioNetworkSchema.nullable().optional().default(null),
+  outlook: PortfolioOutlookSchema.nullable().optional().default(null),
+  stress: StressReportSchema.nullable().optional().default(null),
+  risk_budget: RiskBudgetSchema.nullable().optional().default(null),
   unmeasured: z.array(UnmeasuredPositionSchema).optional().default([]),
   unpriced: z.array(z.string()),
 }).transform((a) => ({

@@ -64,6 +64,10 @@ function statusTone(status: MarginStatus): "negative" | "caution" | undefined {
   return undefined;
 }
 
+/** Past the warning line already: the odds of reaching it are moot. */
+const pastThreshold = (status: MarginStatus) =>
+  status === "between" || status === "below_force" || status === "negative_equity";
+
 /** A horizontal bar split into labelled segments that sum to `total`. */
 function SplitBar({
   label,
@@ -279,6 +283,11 @@ export function MarginSection({
 
   const canScale = m.by_horizon.some((h) => h.hit_call_probability !== null);
   const hasHistory = m.by_horizon.some((h) => h.historical_frequency !== null);
+  const external = m.external;
+  const past = pastThreshold(m.status);
+  // Probabilities of reaching a line the account is already past, or that
+  // an external lender never drew, are not shown — only the interest.
+  const showOdds = !external && !past && (canScale || hasHistory);
 
   return (
     <section aria-labelledby="pf-margin">
@@ -288,14 +297,13 @@ export function MarginSection({
           wide
           text={[
             t("lead"),
-            t("caveat.selfReported", { asOf: data.data_as_of.slice(0, 10) }),
-            t("caveat.collateral"),
-            t("caveat.rollover"),
+            t("caveat.selfReported"),
+            ...(external ? [] : [t("caveat.collateral"), t("caveat.rollover")]),
           ]}
         />
       </h2>
 
-      {m.status !== "above_call" && (
+      {m.status !== "above_call" && m.status !== "no_thresholds" && (
         <p
           role="alert"
           className={cn(
@@ -308,8 +316,33 @@ export function MarginSection({
             ratio: fmtPercent(m.margin_ratio, locale, 1),
             call: fmtPercent(m.call_ratio, locale, 0),
             force: fmtPercent(m.force_ratio, locale, 0),
+            debt: `${fmtVnd(m.debt, locale)} đ`,
+            assets: `${fmtVnd(m.assets, locale)} đ`,
           })}
         </p>
+      )}
+
+      {/* Plausibility notes on what was typed. The analysis still runs;
+          these say where to look again. `already_past_threshold` is
+          covered by the status banner above and is not repeated. */}
+      {m.warnings.filter((w) => w !== "already_past_threshold").length > 0 && (
+        <ul className="mt-5 max-w-4xl space-y-2">
+          {m.warnings
+            .filter((w) => w !== "already_past_threshold")
+            .map((w) => (
+              <li
+                key={w}
+                className="border-l-4 border-caution bg-caution-soft px-5 py-3 text-sm leading-relaxed text-ink"
+              >
+                {t(`warnings.${w}`, {
+                  debt: `${fmtVnd(m.debt, locale)} đ`,
+                  stocks: `${fmtVnd(stockValue, locale)} đ`,
+                  leverage: m.leverage === null ? "—" : fmtNumber(m.leverage, locale),
+                  rate: fmtPercent(m.rate, locale, 1),
+                })}
+              </li>
+            ))}
+        </ul>
       )}
 
       {/* 1. Where the money is and where it came from, on the same scale. */}
@@ -339,7 +372,7 @@ export function MarginSection({
       </div>
 
       {/* 2. The ratio against the broker's thresholds. */}
-      {m.status !== "negative_equity" && (
+      {m.status !== "negative_equity" && !external && (
         <div className="mt-6 rounded-lg border border-border bg-background p-5 shadow-sm">
           <h3 className="inline-flex items-center gap-2 text-base font-semibold">
             {t("ratioTitle")}
@@ -373,7 +406,9 @@ export function MarginSection({
               : `−${fmtPercent(m.distance_to_call.drop, locale, 1)}`
           }
           note={
-            m.distance_to_call === null || m.distance_to_force === null
+            external
+              ? t("distanceExternal")
+              : m.distance_to_call === null || m.distance_to_force === null
               ? t("distanceNone")
               : t("distanceNote", {
                   amount: `${fmtVnd(m.distance_to_call.amount, locale)} đ`,
@@ -434,7 +469,13 @@ export function MarginSection({
           <InfoTip
             wide
             text={[
-              canScale ? t("horizonNote") : t("horizonNoteNoBeta"),
+              external
+                ? t("horizonNoteExternal")
+                : past
+                  ? t("horizonNotePast")
+                  : canScale
+                    ? t("horizonNote")
+                    : t("horizonNoteNoBeta"),
               ...(hasHistory
                 ? [
                     t("historyNote", {
@@ -447,7 +488,7 @@ export function MarginSection({
           />
         </h3>
 
-        {(canScale || hasHistory) && (
+        {showOdds && (
           <>
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2" aria-hidden="true">
               <span className="inline-flex items-center gap-2 text-xs text-dim">
@@ -467,7 +508,10 @@ export function MarginSection({
           <table className="w-full min-w-[40rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left">
-                {["colHorizon", "colModel", "colHistory", "colInterest", "colInterestPct", "colBreakeven"].map(
+                {(showOdds
+                  ? ["colHorizon", "colModel", "colHistory", "colInterest", "colInterestPct", "colBreakeven"]
+                  : ["colHorizon", "colInterest", "colInterestPct", "colBreakeven"]
+                ).map(
                   (key, i) => (
                     <th
                       key={key}
@@ -494,16 +538,20 @@ export function MarginSection({
                     <th scope="row" className="py-3 pr-4 text-left font-medium">
                       {th(HORIZON_KEY[h.horizon_days] ?? "m3")}
                     </th>
-                    <td className="figure py-3 pr-4 text-right">
-                      {h.hit_call_probability === null
-                        ? "—"
-                        : fmtPercent(h.hit_call_probability, locale, 1)}
-                    </td>
-                    <td className="figure py-3 pr-4 text-right">
-                      {h.historical_frequency === null
-                        ? "—"
-                        : fmtPercent(h.historical_frequency, locale, 1)}
-                    </td>
+                    {showOdds && (
+                      <>
+                        <td className="figure py-3 pr-4 text-right">
+                          {h.hit_call_probability === null
+                            ? "—"
+                            : fmtPercent(h.hit_call_probability, locale, 1)}
+                        </td>
+                        <td className="figure py-3 pr-4 text-right">
+                          {h.historical_frequency === null
+                            ? "—"
+                            : fmtPercent(h.historical_frequency, locale, 1)}
+                        </td>
+                      </>
+                    )}
                     <td className="figure py-3 pr-4 text-right">{fmtVnd(h.interest, locale)}</td>
                     <td className="figure py-3 pr-4 text-right">
                       {h.interest_pct_equity === null
@@ -533,14 +581,17 @@ export function MarginSection({
           <table className="w-full min-w-[40rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left">
-                {["colDrop", "colAssets", "colEquity", "colRatio", "colStatus", "colTopUp"].map(
-                  (key, i) => (
+                {(external
+                  ? ["colDrop", "colAssets", "colEquity", "colRatio"]
+                  : ["colDrop", "colAssets", "colEquity", "colRatio", "colStatus", "colTopUp"]
+                ).map(
+                  (key) => (
                     <th
                       key={key}
                       scope="col"
                       className={cn(
                         "py-2.5 pr-4 text-xs font-medium uppercase tracking-[0.06em] text-dim",
-                        i >= 1 && i !== 4 && "text-right",
+                        key !== "colDrop" && key !== "colStatus" && "text-right",
                       )}
                     >
                       {t(key)}
@@ -569,18 +620,22 @@ export function MarginSection({
                     <td className="figure py-3 pr-4 text-right">
                       {fmtPercent(s.margin_ratio, locale, 1)}
                     </td>
-                    <td
-                      className={cn(
-                        "py-3 pr-4",
-                        st === "caution" && "text-caution",
-                        st === "negative" && "text-negative",
-                      )}
-                    >
-                      {t(`statusShort.${s.status}`)}
-                    </td>
-                    <td className="figure py-3 pr-4 text-right">
-                      {s.top_up > 0 ? `${fmtVnd(s.top_up, locale)} đ` : "—"}
-                    </td>
+                    {!external && (
+                      <>
+                        <td
+                          className={cn(
+                            "py-3 pr-4",
+                            st === "caution" && "text-caution",
+                            st === "negative" && "text-negative",
+                          )}
+                        >
+                          {t(`statusShort.${s.status}`)}
+                        </td>
+                        <td className="figure py-3 pr-4 text-right">
+                          {s.top_up > 0 ? `${fmtVnd(s.top_up, locale)} đ` : "—"}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

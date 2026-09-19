@@ -15,7 +15,8 @@ hidden, and the whole block is absent when that run is unavailable.
 
 from __future__ import annotations
 
-from datetime import date
+import uuid
+from datetime import date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -52,6 +53,11 @@ class MarginInput(BaseModel):
     rate: float = Field(default=0.12, ge=0, le=1)
     call_ratio: float = Field(default=0.30, gt=0, lt=1)
     force_ratio: float = Field(default=0.28, gt=0, lt=1)
+    # A loan from outside the brokerage — a bank loan, a mortgage — put into
+    # stocks. It has leverage and interest but no maintenance ratio and no
+    # forced sale, so everything that depends on the thresholds is omitted
+    # rather than computed against a number the lender never set.
+    external: bool = False
 
     @model_validator(mode="after")
     def _force_below_call(self) -> MarginInput:
@@ -60,12 +66,26 @@ class MarginInput(BaseModel):
         return self
 
 
+class RiskBudgetInput(BaseModel):
+    """The largest loss the reader says they would accept.
+
+    A share of their own money — of equity when there is a loan, of the
+    stock value otherwise — over the horizon chosen on the form. The page
+    compares it with what the book has done and what it did in past crises;
+    it does not say what to change to fit inside it.
+    """
+
+    max_loss_pct: float = Field(gt=0, lt=1)
+
+
 class PortfolioRequest(BaseModel):
     holdings: list[Holding] = Field(min_length=1, max_length=50)
     cash: float = Field(default=0.0, ge=0)
     # Absent when the reader is not borrowing; the response then carries no
     # margin block at all rather than one full of zeros.
     margin: MarginInput | None = None
+    # Absent unless the reader set a limit.
+    risk_budget: RiskBudgetInput | None = None
     # 21 / 63 / 126 / 252 sessions, the trading-day count behind the
     # 1-month, 3-month, 6-month and 1-year choices on the form.
     horizon_days: int = Field(default=63, ge=21, le=252)
@@ -101,6 +121,10 @@ class PositionRisk(ApiModel):
     risk_contribution: float
     sector: str | None
     observations: int
+    # Mean volume over the last 20 sessions, and the sessions needed to sell
+    # this position at the participation share the page states.
+    adv_20d: float | None
+    days_to_sell: float | None
 
 
 class UnmeasuredPosition(ApiModel):
@@ -185,6 +209,8 @@ class MarginStatus(StrEnum):
     below_force = "below_force"
     # Debt exceeds assets. Nothing below is meaningful and the page says so.
     negative_equity = "negative_equity"
+    # An external loan: there are no thresholds to be above or below.
+    no_thresholds = "no_thresholds"
 
 
 class MarginDistance(ApiModel):
@@ -246,9 +272,14 @@ class MarginRisk(ApiModel):
     rate: float
     call_ratio: float
     force_ratio: float
+    external: bool
     leverage: float | None
     margin_ratio: float
     status: MarginStatus
+    # Things about the figures entered that a reader should look at twice.
+    # Codes, not sentences, so the page can phrase and place them; see
+    # `services.margin.WARNINGS` for what each one means and when it fires.
+    warnings: list[str]
     distance_to_call: MarginDistance | None
     distance_to_force: MarginDistance | None
     # Interest paid each year on cash that is sitting next to the loan.
@@ -259,6 +290,179 @@ class MarginRisk(ApiModel):
     equity_max_drawdown: float | None
     by_horizon: list[MarginHorizon]
     scenarios: list[MarginScenario]
+
+
+class NetworkNode(ApiModel):
+    id: str
+    community: int
+    strength: float
+    degree: int
+    risk_score: float
+    volatility_20d: float | None
+    in_portfolio: bool
+    # Share of the measured book, for held nodes; None otherwise.
+    weight: float | None
+
+
+class NetworkEdge(ApiModel):
+    source: str
+    target: str
+    weight: float
+    signed_weight: float
+
+
+class NetworkCommunity(ApiModel):
+    id: int
+    members: list[str]
+    held: list[str]
+    portfolio_weight: float
+
+
+class PortfolioNetwork(ApiModel):
+    """DynamicGraph's VN30 network with this portfolio's holdings marked.
+
+    A descriptive layer: which names move together once the market factor
+    is removed, and the communities that forms. `covered` / `uncovered`
+    split the holdings by whether the map includes them at all — it is a
+    VN30 map, and a mid-cap book is mostly off it.
+    """
+
+    as_of: date
+    window: int
+    stress_label: str | None
+    stress_score: float | None
+    nodes: list[NetworkNode]
+    edges: list[NetworkEdge]
+    communities: list[NetworkCommunity]
+    covered: list[str]
+    uncovered: list[str]
+    covered_weight: float
+
+
+class OutlookHorizon(ApiModel):
+    horizon_days: int
+    index_lower: float
+    index_upper: float
+    portfolio_lower: float
+    portfolio_upper: float
+    equity_lower: float | None
+    equity_upper: float | None
+    breakeven_return: float | None
+
+
+class PortfolioOutlook(ApiModel):
+    """Causa's calibrated return interval, scaled onto the book.
+
+    No median is carried: the model's own report says the point forecast
+    has not beaten a baseline. The interval is what it is validated on.
+    """
+
+    source_model: str
+    data_as_of: date
+    interval_level: float
+    portfolio_beta: float
+    # The fall in the stocks that reaches the warning threshold, as a
+    # negative return, so the chart can draw it against the interval.
+    call_drop: float | None
+    horizons: list[OutlookHorizon]
+
+
+class CrisisScenario(ApiModel):
+    """The book re-measured on the sessions of one past fall.
+
+    Same holdings, same weights, the prices of that time. `covered` lists
+    the holdings that were listed then; the weights are renormalised over
+    them, and `covered_weight` says how much of today's book that is.
+    """
+
+    key: str
+    start: date
+    end: date
+    sessions: int
+    covered: list[str]
+    covered_weight: float
+    total_return: float
+    max_drawdown: float
+    volatility: float
+    var_95: float
+    expected_shortfall_95: float
+    average_correlation: float
+    index_max_drawdown: float
+
+
+class LiquiditySummary(ApiModel):
+    participation: float
+    slow_days: float
+    slow: list[str]
+    slow_weight: float
+    slowest_symbol: str | None
+    slowest_days: float | None
+    book_days: float | None
+
+
+class VarCheck(ApiModel):
+    """Out-of-sample breach count of the one-day 95% VaR."""
+
+    window: int
+    tested: int
+    breaches: int
+    breach_rate: float
+    expected_rate: float
+
+
+class StressReport(ApiModel):
+    crises: list[CrisisScenario]
+    # Volatility with every correlation at one: the diversification ceiling.
+    no_diversification_volatility: float
+    liquidity: LiquiditySummary
+    var_check: VarCheck | None
+
+
+class RiskBudget(ApiModel):
+    max_loss_pct: float
+    basis: str
+    limit_amount: float
+    # The fall in the stocks that spends the budget, and in dong.
+    drop_to_limit: float
+    drop_amount: float
+    # The book's own deepest fall over the lookback, on the same basis.
+    realised_max_loss: float
+    realised_within: bool
+    # Crisis replays whose fall would have exceeded the budget.
+    crisis_breaches: list[str]
+    hit_probability: float | None
+    historical_frequency: float | None
+    horizon_days: int
+
+
+class SavedPortfolioInput(PortfolioRequest):
+    """What a member saves: the request body plus a name for it."""
+
+    name: str = Field(min_length=1, max_length=80)
+
+    @field_validator("name")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("name must not be blank")
+        return v
+
+
+class SavedPortfolio(ApiModel):
+    id: uuid.UUID
+    name: str
+    holdings: list[Holding]
+    cash: float
+    margin: MarginInput | None
+    horizon_days: int
+    updated_at: datetime
+
+
+class SavedPortfolioList(ApiModel):
+    items: list[SavedPortfolio]
+    # How many more the member may save; the page hides Save at zero.
+    remaining: int
 
 
 class PortfolioAnalysis(Freshness):
@@ -294,6 +498,12 @@ class PortfolioAnalysis(Freshness):
     forward: ForwardRisk | None
     # Present only when the request carried a margin loan.
     margin: MarginRisk | None
+    # Model overlays; each is absent when its source has nothing published
+    # or the book cannot be connected to it.
+    network: PortfolioNetwork | None
+    outlook: PortfolioOutlook | None
+    stress: StressReport | None
+    risk_budget: RiskBudget | None
     # Holdings with a price but not enough sessions to measure: in the
     # totals above, absent from every risk figure.
     unmeasured: list[UnmeasuredPosition]

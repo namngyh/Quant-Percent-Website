@@ -253,6 +253,68 @@ class TestRollingDrawdown:
         assert n == 500 - 63 + 1
 
 
+class TestExternalLoan:
+    """A bank loan has leverage and interest, and nothing else."""
+
+    def test_no_thresholds_anywhere(self):
+        m = _example(inp=MarginInput(debt=500 * M, rate=0.12, external=True))
+        assert m.external is True
+        assert m.status is MarginStatus.no_thresholds
+        assert m.distance_to_call is None
+        assert m.distance_to_force is None
+        for h in m.by_horizon:
+            assert h.hit_call_probability is None
+            assert h.historical_frequency is None
+            assert h.interest > 0
+        for s in m.scenarios:
+            assert s.status is MarginStatus.no_thresholds
+            assert s.top_up == 0.0
+
+    def test_leverage_and_equity_risk_still_reported(self):
+        m = _example(inp=MarginInput(debt=500 * M, rate=0.12, external=True))
+        assert m.leverage == pytest.approx(1050 / 550, rel=1e-4)
+        assert m.equity_var_95 is not None
+
+    def test_negative_equity_wins_over_external(self):
+        m = _example(
+            cash=0.0, inp=MarginInput(debt=1_200 * M, rate=0.12, external=True)
+        )
+        assert m.status is MarginStatus.negative_equity
+
+
+class TestWarnings:
+    def test_clean_example_has_none(self):
+        assert _example().warnings == []
+
+    def test_debt_above_stocks_is_flagged_for_broker_loans_only(self):
+        broker = _example(cash=900 * M, inp=_loan(1_100 * M))
+        assert "debt_exceeds_stocks" in broker.warnings
+        external = _example(
+            cash=900 * M, inp=MarginInput(debt=1_100 * M, rate=0.12, external=True)
+        )
+        assert "debt_exceeds_stocks" not in external.warnings
+
+    def test_past_threshold(self):
+        assert "already_past_threshold" in _example(
+            cash=0.0, inp=_loan(680 * M)
+        ).warnings
+        # Negative equity is its own status, not a threshold warning.
+        assert "already_past_threshold" not in _example(
+            cash=0.0, inp=_loan(1_200 * M)
+        ).warnings
+
+    def test_high_leverage(self):
+        assert "high_leverage" in _example(inp=_loan(600 * M)).warnings
+        assert "high_leverage" not in _example(inp=_loan(400 * M)).warnings
+
+    def test_rate_unusual(self):
+        cheap = MarginInput(debt=500 * M, rate=0.02, call_ratio=0.35, force_ratio=0.30)
+        dear = MarginInput(debt=500 * M, rate=0.40, call_ratio=0.35, force_ratio=0.30)
+        assert "rate_unusual" in _example(inp=cheap).warnings
+        assert "rate_unusual" in _example(inp=dear).warnings
+        assert "rate_unusual" not in _example().warnings
+
+
 class TestInput:
     def test_force_must_be_below_call(self):
         with pytest.raises(ValueError):

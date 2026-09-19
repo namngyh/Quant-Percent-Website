@@ -87,7 +87,15 @@ export default async function LocaleLayout({
       suppressHydrationWarning
       className={`${beVietnamPro.variable} ${geist.variable} ${plexMono.variable} antialiased`}
     >
-      <body className="flex min-h-dvh flex-col">
+      {/*
+        Same flag on <body>, for a different intruder: browser extensions
+        (translators, password managers, ad blockers) stamp their own
+        attributes on <body> before React hydrates — `__processed_<uuid>__`
+        is one seen in the wild. The server never rendered them, so every
+        visitor with such an extension logged a mismatch. Scoped to this
+        element's attributes only; the subtree is still checked.
+      */}
+      <body className="flex min-h-dvh flex-col" suppressHydrationWarning>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

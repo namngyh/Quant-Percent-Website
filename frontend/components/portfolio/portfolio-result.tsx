@@ -6,6 +6,10 @@ import type { EChartsCoreOption } from "echarts/core";
 import { EChart, CHART } from "@/components/charts/echart";
 import type { PortfolioAnalysis } from "@/lib/api/types";
 import { MarginSection } from "@/components/portfolio/margin-section";
+import { PortfolioNetwork } from "@/components/portfolio/portfolio-network";
+import { PortfolioOutlookSection } from "@/components/portfolio/portfolio-outlook";
+import { StressSection } from "@/components/portfolio/stress-section";
+import { BudgetSection } from "@/components/portfolio/budget-section";
 import { InfoTip } from "@/components/info-tip";
 import { fmtNumber, fmtPercent, fmtSignedPercent, fmtVnd } from "@/lib/format";
 import { sectorLabel } from "@/lib/sectors";
@@ -423,6 +427,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   "colRisk",
                   "colVol",
                   "colBeta",
+                  "colSell",
                   "colProfit",
                 ].map((key, i) => (
                   <th
@@ -469,6 +474,18 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   </td>
                   <td className="figure py-3 pr-4 text-right">
                     {p.beta === null ? "—" : fmtNumber(p.beta, locale)}
+                  </td>
+                  <td
+                    className={cn(
+                      "figure py-3 pr-4 text-right",
+                      p.days_to_sell !== null && p.days_to_sell > 5 && "text-caution",
+                    )}
+                  >
+                    {p.days_to_sell === null
+                      ? "—"
+                      : p.days_to_sell < 0.5
+                        ? "< 0,5"
+                        : fmtNumber(p.days_to_sell, locale, { maximumFractionDigits: 1 })}
                   </td>
                   <td
                     className={cn(
@@ -554,6 +571,12 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         )}
       </section>
 
+      {/* 3b. The same question as a picture: the holdings on DynamicGraph's
+          VN30 dependency map. */}
+      {data.network && data.network.covered.length > 0 && (
+        <PortfolioNetwork network={data.network} />
+      )}
+
       {/* 4. Loss measured on this book's own history. */}
       <section aria-labelledby="pf-loss">
         <h2 id="pf-loss" className="title-md inline-flex items-center gap-2">
@@ -568,8 +591,8 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
               t("provenance", {
                 days: data.observations,
                 lookback: data.lookback_days,
-                asOf: data.data_as_of.slice(0, 10),
               }),
+              t("varCheckNote"),
             ]}
           />
         </h2>
@@ -577,9 +600,19 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
           <Tile
             label={t("var95")}
             value={fmtPercent(data.var_95, locale)}
-            note={t("var95Note", {
-              amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
-            })}
+            note={
+              t("var95Note", {
+                amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
+              }) +
+              (data.stress?.var_check
+                ? " " +
+                  t("varCheck", {
+                    breaches: data.stress.var_check.breaches,
+                    tested: data.stress.var_check.tested,
+                    rate: fmtPercent(data.stress.var_check.breach_rate, locale, 1),
+                  })
+                : "")
+            }
             tone="caution"
           />
           <Tile
@@ -603,9 +636,15 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         </dl>
       </section>
 
+      {/* 4a. The book replayed through past falls, and how fast it sells. */}
+      {data.stress && <StressSection stress={data.stress} data={data} />}
+
       {/* 4b. The same book seen from the reader's own money, when they
           told us about a loan. */}
       {data.margin && <MarginSection margin={data.margin} data={data} />}
+
+      {/* 4c. The reader's own loss limit against all of the above. */}
+      {data.risk_budget && <BudgetSection budget={data.risk_budget} data={data} />}
 
       {/* Each term defined against this portfolio's own numbers. A generic
           definition of "VaR" tells a reader what the acronym expands to; the
@@ -714,7 +753,6 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                 t("forwardLead", {
                   beta: fmtNumber(data.forward.portfolio_beta, locale),
                   paths: fmtNumber(data.forward.paths, locale),
-                  origin: data.forward.forecast_origin,
                   baseDays: data.forward.base_horizon_days,
                   horizonDays: data.forward.horizon_days,
                 }),
@@ -784,6 +822,13 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             </table>
           </div>
         </section>
+      )}
+
+      {/* 6. Causa's calibrated interval on the book, after the drawdown
+          panel it complements, with the interest and call lines from the
+          margin block when there is one. */}
+      {data.outlook && (
+        <PortfolioOutlookSection outlook={data.outlook} hasLoan={data.margin !== null} />
       )}
     </div>
   );

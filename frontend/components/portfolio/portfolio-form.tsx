@@ -6,6 +6,7 @@ import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useApi } from "@/lib/api/fetcher";
 import type { PortfolioRequestPayload, TradableSymbols } from "@/lib/api/types";
 import { fmtNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /**
  * Portfolio entry.
@@ -81,27 +82,68 @@ export function costBasisVnd(raw: string): number | null {
   return value < COST_BASIS_DONG_FROM ? value * 1_000 : value;
 }
 
+/** Percent fraction → the string the field shows ("0.12" → "12"). */
+const pctString = (v: number) => String(+(v * 100).toFixed(2));
+
 export function PortfolioForm({
   onSubmit,
   pending,
+  initial,
+  signedIn = false,
 }: {
   onSubmit: (payload: PortfolioRequestPayload) => void;
   pending: boolean;
+  /** A saved portfolio to start from. Remount (key) to apply a new one. */
+  initial?: PortfolioRequestPayload | null;
+  /** Changes only the privacy line: a member can choose to save. */
+  signedIn?: boolean;
 }) {
   const t = useTranslations("portfolio.form");
   const locale = useLocale();
-  const [rows, setRows] = useState<Row[]>(() => [blankRow(), blankRow()]);
-  const [cash, setCash] = useState("");
-  const [horizon, setHorizon] = useState<number>(63);
+  const [rows, setRows] = useState<Row[]>(() =>
+    initial && initial.holdings.length > 0
+      ? initial.holdings.map((h) => ({
+          ...blankRow(),
+          symbol: h.symbol,
+          quantity: groupDigits(String(h.quantity)),
+          costBasis:
+            h.cost_basis === null || h.cost_basis === undefined
+              ? ""
+              : String(h.cost_basis / 1_000),
+        }))
+      : [blankRow(), blankRow()],
+  );
+  const [cash, setCash] = useState(
+    initial && initial.cash > 0 ? groupDigits(String(Math.round(initial.cash))) : "",
+  );
+  const [horizon, setHorizon] = useState<number>(initial?.horizon_days ?? 63);
   // The loan block is closed until opened: most readers do not borrow, and
   // an open block of empty fields reads as something they were meant to
   // fill. Defaults are the common Vietnamese figures and the copy says to
   // check them against the broker's own.
-  const [marginOpen, setMarginOpen] = useState(false);
-  const [debt, setDebt] = useState("");
-  const [rate, setRate] = useState("12");
-  const [callRatio, setCallRatio] = useState("30");
-  const [forceRatio, setForceRatio] = useState("28");
+  const loan = initial?.margin ?? null;
+  const [marginOpen, setMarginOpen] = useState(loan !== null);
+  const [debt, setDebt] = useState(
+    loan ? groupDigits(String(Math.round(loan.debt))) : "",
+  );
+  const [rate, setRate] = useState(loan ? pctString(loan.rate) : "12");
+  const [callRatio, setCallRatio] = useState(
+    loan ? pctString(loan.call_ratio) : "30",
+  );
+  const [forceRatio, setForceRatio] = useState(
+    loan ? pctString(loan.force_ratio) : "28",
+  );
+  // A bank loan or a mortgage put into stocks: leverage and interest are
+  // real, but there is no broker threshold, so those fields are hidden and
+  // the analysis omits everything that depends on them.
+  const [external, setExternal] = useState(loan?.external ?? false);
+  // The reader's own limit. Optional: blank means the section stays off.
+  const [budgetOpen, setBudgetOpen] = useState(
+    initial?.risk_budget !== null && initial?.risk_budget !== undefined,
+  );
+  const [maxLoss, setMaxLoss] = useState(
+    initial?.risk_budget ? pctString(initial.risk_budget.max_loss_pct) : "",
+  );
   const [error, setError] = useState<string | null>(null);
 
   // ~390 HOSE tickers: a native datalist gives type-ahead without shipping a
@@ -170,12 +212,13 @@ export function PortfolioForm({
         return;
       }
       if (
-        callValue === null ||
-        forceValue === null ||
-        callValue <= 0 ||
-        forceValue <= 0 ||
-        callValue >= 1 ||
-        forceValue >= callValue
+        !external &&
+        (callValue === null ||
+          forceValue === null ||
+          callValue <= 0 ||
+          forceValue <= 0 ||
+          callValue >= 1 ||
+          forceValue >= callValue)
       ) {
         setError(t("errors.thresholds"));
         return;
@@ -183,15 +226,32 @@ export function PortfolioForm({
       margin = {
         debt: debtValue,
         rate: rateValue,
-        call_ratio: callValue,
-        force_ratio: forceValue,
+        // The backend still wants valid ratios on an external loan; it
+        // ignores them. Keep whatever was typed if valid, else defaults.
+        call_ratio: external && (callValue === null || callValue <= 0 || callValue >= 1) ? 0.3 : (callValue as number),
+        force_ratio:
+          external && (forceValue === null || forceValue <= 0 || forceValue >= 1)
+            ? 0.28
+            : (forceValue as number),
+        external,
       };
+    }
+
+    let risk_budget: PortfolioRequestPayload["risk_budget"] = null;
+    const maxLossValue = parseNumber(maxLoss);
+    if (budgetOpen && maxLossValue !== null) {
+      if (maxLossValue <= 0 || maxLossValue >= 100) {
+        setError(t("errors.budget"));
+        return;
+      }
+      risk_budget = { max_loss_pct: maxLossValue / 100 };
     }
 
     onSubmit({
       holdings,
       cash: parseNumber(cash) ?? 0,
       margin,
+      risk_budget,
       horizon_days: horizon,
     });
   }
@@ -232,7 +292,7 @@ export function PortfolioForm({
           {rows.map((row) => (
             <li
               key={row.id}
-              className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-[1fr_1fr_1fr_2.5rem] sm:items-center sm:rounded-none sm:border-0 sm:border-b sm:border-border/60 sm:p-0 sm:py-2"
+              className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-[1fr_1fr_1fr_2.5rem] sm:items-start sm:rounded-none sm:border-0 sm:border-b sm:border-border/60 sm:p-0 sm:py-2"
             >
               <label className="grid gap-1.5">
                 <span className="text-xs font-medium uppercase tracking-[0.06em] text-dim sm:sr-only">
@@ -247,15 +307,21 @@ export function PortfolioForm({
                   spellCheck={false}
                   className="figure w-full rounded-md border border-border bg-background px-3 py-2 uppercase outline-none focus:border-brand"
                 />
+                {/* Every cell ends with a hint line of the same height,
+                    filled or not, so the three inputs sit level. */}
                 {(() => {
                   const code = row.symbol.trim().toUpperCase();
-                  if (!code) return null;
-                  const hit = known.get(code);
-                  return hit ? (
-                    <span className="truncate text-xs text-dim">{hit.name}</span>
-                  ) : known.size > 0 ? (
-                    <span className="text-xs text-caution">{t("unknownSymbol")}</span>
-                  ) : null;
+                  const hit = code ? known.get(code) : undefined;
+                  return (
+                    <span
+                      className={cn(
+                        "min-h-4 truncate text-xs",
+                        hit || !code || known.size === 0 ? "text-dim" : "text-caution",
+                      )}
+                    >
+                      {hit ? hit.name : code && known.size > 0 ? t("unknownSymbol") : " "}
+                    </span>
+                  );
                 })()}
               </label>
 
@@ -270,6 +336,9 @@ export function PortfolioForm({
                   placeholder="1.000"
                   className="figure w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
                 />
+                <span className="min-h-4 text-xs" aria-hidden="true">
+                  {" "}
+                </span>
               </label>
 
               <label className="grid gap-1.5">
@@ -285,17 +354,19 @@ export function PortfolioForm({
                 />
                 {(() => {
                   const vnd = costBasisVnd(row.costBasis);
-                  return vnd === null ? null : (
-                    <span className="figure text-right text-xs text-dim">
-                      {t("costBasisHint", {
-                        amount: fmtNumber(vnd, locale, { maximumFractionDigits: 0 }),
-                      })}
+                  return (
+                    <span className="figure min-h-4 text-right text-xs text-dim">
+                      {vnd === null
+                        ? " "
+                        : t("costBasisHint", {
+                            amount: fmtNumber(vnd, locale, { maximumFractionDigits: 0 }),
+                          })}
                     </span>
                   );
                 })()}
               </label>
 
-              <div className="justify-self-end">
+              <div className="justify-self-end sm:mt-[3px]">
                 <button
                   type="button"
                   onClick={() => remove(row.id)}
@@ -405,6 +476,18 @@ export function PortfolioForm({
                 className="figure mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
               />
               <p className="mt-1.5 text-xs text-dim">{t("margin.debtNote")}</p>
+              <label className="mt-3 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={external}
+                  onChange={(e) => setExternal(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-border accent-brand"
+                />
+                <span>
+                  <span className="block">{t("margin.external")}</span>
+                  <span className="block text-xs text-dim">{t("margin.externalNote")}</span>
+                </span>
+              </label>
             </div>
 
             <div>
@@ -428,6 +511,7 @@ export function PortfolioForm({
               </div>
             </div>
 
+            {!external && (
             <div>
               <span className="text-xs font-medium uppercase tracking-[0.06em] text-dim">
                 {t("margin.thresholds")}
@@ -460,6 +544,50 @@ export function PortfolioForm({
               </div>
               <p className="mt-1.5 text-xs text-dim">{t("margin.thresholdsNote")}</p>
             </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-border">
+        <button
+          type="button"
+          onClick={() => setBudgetOpen((v) => !v)}
+          aria-expanded={budgetOpen}
+          aria-controls="portfolio-budget"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-semibold">{t("budget.heading")}</span>
+            <span className="mt-0.5 block text-xs text-dim">{t("budget.lead")}</span>
+          </span>
+          <ChevronDown
+            className={budgetOpen ? "h-4 w-4 rotate-180 text-dim" : "h-4 w-4 text-dim"}
+            aria-hidden="true"
+          />
+        </button>
+        {budgetOpen && (
+          <div id="portfolio-budget" className="border-t border-border px-4 py-5">
+            <label
+              htmlFor="portfolio-max-loss"
+              className="text-xs font-medium uppercase tracking-[0.06em] text-dim"
+            >
+              {t("budget.maxLoss")}
+            </label>
+            <div className="relative mt-2 sm:max-w-xs">
+              <input
+                id="portfolio-max-loss"
+                value={maxLoss}
+                onChange={(e) => setMaxLoss(e.target.value)}
+                inputMode="decimal"
+                placeholder="15"
+                className="figure w-full rounded-md border border-border bg-background px-3 py-2 pr-10 text-right outline-none focus:border-brand"
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-dim">
+                %
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs text-dim">{t("budget.note")}</p>
           </div>
         )}
       </div>
@@ -479,7 +607,7 @@ export function PortfolioForm({
       </button>
 
       <p className="mt-4 max-w-2xl text-xs leading-relaxed text-dim">
-        {t("privacy")}
+        {signedIn ? t("privacySignedIn") : t("privacy")}
       </p>
     </form>
   );

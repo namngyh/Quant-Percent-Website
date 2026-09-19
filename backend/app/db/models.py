@@ -179,6 +179,39 @@ class Contact(Base):
     created_at: Mapped[datetime] = utcnow_column()
 
 
+class SavedPortfolio(Base):
+    """A member's Quant Portfolio input, kept so they need not retype it.
+
+    Only the input is stored — holdings, cash, the loan, the horizon — never
+    an analysis. Prices move daily, so a stored result would be a stale
+    number presented as current; the page recomputes on every open.
+
+    Holdings are a reader's own position data. Rows belong to one user, go
+    with the account when it is deleted, and are never read by anything but
+    the endpoint that serves them back to that user.
+    """
+
+    __tablename__ = "portfolios"
+    __table_args__ = (
+        Index("ix_portfolios_user", "user_id", "updated_at"),
+        {"schema": WEB_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(f"{WEB_SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    # The PortfolioRequest body as sent: holdings, cash, margin, horizon_days.
+    # JSON rather than columns because the request shape is the contract and
+    # this table only has to hand it back unchanged.
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = utcnow_column()
+    updated_at: Mapped[datetime] = utcnow_column()
+
+
 class InvestorInterest(Base):
     """Registered interest — explicitly not an investment commitment."""
 

@@ -39,9 +39,20 @@ from app.schemas.portfolio import (
     PortfolioAnalysis,
     PortfolioRequest,
     PositionRisk,
+    StressReport,
     UnmeasuredPosition,
 )
-from app.services.margin import compute_margin, load_index_history
+from app.services.margin import compute_margin, historical_frequency, load_index_history
+from app.services.portfolio_models import load_network, load_outlook
+from app.services.stress import (
+    average_volumes,
+    crisis_scenarios,
+    days_to_sell,
+    liquidity_summary,
+    no_diversification,
+    risk_budget,
+    var_check,
+)
 
 TRADING_DAYS = 252
 BENCHMARK = "VNINDEX"
@@ -232,7 +243,9 @@ def _max_drawdown(series: np.ndarray) -> float:
     """Largest peak-to-trough fall of a cumulative return path."""
     if series.size == 0:
         return 0.0
-    equity = np.exp(np.cumsum(series))
+    # Anchored at the starting value: a fall on the very first session is a
+    # fall from the level the book started at, not from wherever it landed.
+    equity = np.exp(np.concatenate([[0.0], np.cumsum(series)]))
     peak = np.maximum.accumulate(equity)
     return float((equity / peak - 1.0).min())
 
@@ -613,6 +626,9 @@ async def analyze(
                 4,
             )
 
+    adv = await average_volumes(session, priced)
+    sell_days = {s: days_to_sell(by_symbol[s].quantity, adv.get(s)) for s in priced}
+
     positions: list[PositionRisk] = []
     # Profit is reported for the whole valued book or not at all: a total
     # that quietly skips the positions without a cost basis reads as a
@@ -647,6 +663,8 @@ async def analyze(
                 risk_contribution=round(float(risk_shares[i]), 6),
                 sector=sectors.get(s),
                 observations=len(closes[s]),
+                adv_20d=round(adv[s], 0) if s in adv else None,
+                days_to_sell=sell_days[s],
             )
         )
 
@@ -690,6 +708,60 @@ async def analyze(
             ),
         )
 
+    network = await load_network(
+        session, {s: float(weights[i]) for i, s in enumerate(priced)}
+    )
+    outlook = await load_outlook(
+        session,
+        beta=beta if beta is not None and abs(beta) >= MIN_BETA_FOR_SCALING else None,
+        measured_value=measured,
+        equity=margin.equity if margin is not None else None,
+        debt=request.margin.debt if request.margin is not None else None,
+        rate=request.margin.rate if request.margin is not None else None,
+        call_drop=(
+            -margin.distance_to_call.drop
+            if margin is not None and margin.distance_to_call is not None
+            else None
+        ),
+    )
+
+    crises = await crisis_scenarios(session, priced, weights)
+    stress = StressReport(
+        crises=crises,
+        no_diversification_volatility=round(
+            no_diversification(weights, asset_vol), 6
+        ),
+        liquidity=liquidity_summary(priced, weights, sell_days),
+        var_check=var_check(port_returns),
+    )
+
+    budget = None
+    if request.risk_budget is not None:
+        scalable_beta = (
+            beta if beta is not None and abs(beta) >= MIN_BETA_FOR_SCALING else None
+        )
+        budget = risk_budget(
+            request.risk_budget,
+            horizon_days=request.horizon_days,
+            measured_value=measured,
+            equity=margin.equity if margin is not None else None,
+            realised_max_drawdown=max_dd,
+            crises=crises,
+            beta=scalable_beta,
+            exceedance=(
+                (lambda depth: _exceedance_at(run.curve, depth))
+                if run is not None
+                else None
+            ),
+            base_horizon_days=MC_BASE_HORIZON_DAYS,
+            index_closes=(
+                await load_index_history(session)
+                if scalable_beta is not None
+                else np.empty(0)
+            ),
+            history_frequency=historical_frequency,
+        )
+
     return PortfolioAnalysis(
         **build_freshness(last_session).model_dump(),
         total_value=round(total_value, 2),
@@ -717,6 +789,10 @@ async def analyze(
         concentration=concentration,
         forward=_forward_risk(run, beta, request.horizon_days),
         margin=margin,
+        network=network,
+        outlook=outlook,
+        stress=stress,
+        risk_budget=budget,
         unmeasured=unmeasured,
         unpriced=unpriced,
     )

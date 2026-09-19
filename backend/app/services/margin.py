@@ -54,10 +54,37 @@ HORIZONS = (21, 63, 126, 252)
 # book before and after a change, against the same rows.
 SCENARIO_DROPS = (0.05, 0.10, 0.15, 0.20, 0.30)
 
+# Plausibility checks on what was typed. None of these blocks the analysis:
+# a reader who really is here deserves the numbers, and one who mistyped
+# deserves to be told where to look. Each fires on a concrete condition.
+#
+#   debt_exceeds_stocks   A brokerage margin loan cannot exceed the stock it
+#                         is secured on — initial margin is at most 50% — so
+#                         either a zero was added, or the loan is not from
+#                         the broker (see `MarginInput.external`).
+#   already_past_threshold The ratio entered is already below the warning
+#                         level. A broker would have acted; the page shows
+#                         the balance sheet but not the odds of reaching a
+#                         line the account is already past.
+#   high_leverage         Assets above twice equity: beyond what brokerage
+#                         margin normally allows, and worth a second look.
+#   rate_unusual          Below 5% or above 25% a year is outside the range
+#                         Vietnamese brokers charge on margin.
+WARNINGS = (
+    "debt_exceeds_stocks",
+    "already_past_threshold",
+    "high_leverage",
+    "rate_unusual",
+)
+HIGH_LEVERAGE = 2.0
+RATE_RANGE = (0.05, 0.25)
+
 
 def _status(ratio: float, equity: float, inp: MarginInput) -> MarginStatus:
     if equity <= 0:
         return MarginStatus.negative_equity
+    if inp.external:
+        return MarginStatus.no_thresholds
     if ratio <= inp.force_ratio:
         return MarginStatus.below_force
     if ratio <= inp.call_ratio:
@@ -154,8 +181,21 @@ def compute_margin(
     status = _status(ratio, equity, inp)
     leverage = assets / equity if equity > 0 else None
 
-    to_call = _distance(assets, stock_value, inp.debt, inp.call_ratio)
-    to_force = _distance(assets, stock_value, inp.debt, inp.force_ratio)
+    to_call = None
+    to_force = None
+    if not inp.external:
+        to_call = _distance(assets, stock_value, inp.debt, inp.call_ratio)
+        to_force = _distance(assets, stock_value, inp.debt, inp.force_ratio)
+
+    warnings: list[str] = []
+    if not inp.external and inp.debt > stock_value:
+        warnings.append("debt_exceeds_stocks")
+    if status in (MarginStatus.between, MarginStatus.below_force):
+        warnings.append("already_past_threshold")
+    if leverage is not None and leverage > HIGH_LEVERAGE:
+        warnings.append("high_leverage")
+    if not RATE_RANGE[0] <= inp.rate <= RATE_RANGE[1]:
+        warnings.append("rate_unusual")
 
     # Cash held while paying interest on a loan of at least that size is
     # borrowing money to leave it idle. Reported as a yearly cost; the reader
@@ -204,7 +244,9 @@ def compute_margin(
         a = stock_value * (1.0 - drop) + cash
         e = a - inp.debt
         r = e / a if a > 0 else 0.0
-        top_up = max(0.0, inp.debt / (1.0 - inp.call_ratio) - a)
+        top_up = (
+            0.0 if inp.external else max(0.0, inp.debt / (1.0 - inp.call_ratio) - a)
+        )
         scenarios.append(
             MarginScenario(
                 drop=drop,
@@ -230,9 +272,11 @@ def compute_margin(
         rate=inp.rate,
         call_ratio=inp.call_ratio,
         force_ratio=inp.force_ratio,
+        external=inp.external,
         leverage=round(leverage, 4) if leverage is not None else None,
         margin_ratio=round(ratio, 6),
         status=status,
+        warnings=warnings,
         distance_to_call=to_call,
         distance_to_force=to_force,
         idle_cash_cost_per_year=round(idle, 2) if idle is not None else None,

@@ -742,7 +742,11 @@
     "sections": [
       {
         "title": "Dữ liệu chúng tôi thu thập",
-        "text": "Khi bạn gửi biểu mẫu liên hệ, chúng tôi thu thập họ tên, email, số điện thoại và tổ chức (nếu bạn cung cấp), loại yêu cầu và nội dung lời nhắn. Website không yêu cầu tạo tài khoản trong phiên bản hiện tại."
+        "text": "Khi bạn gửi biểu mẫu liên hệ, chúng tôi thu thập họ tên, email, số điện thoại và tổ chức (nếu bạn cung cấp), loại yêu cầu và nội dung lời nhắn. Khi bạn tạo tài khoản, chúng tôi lưu họ tên, email và mật khẩu đã băm."
+      },
+      {
+        "title": "Danh mục đầu tư bạn nhập",
+        "text": "Công cụ Phân tích danh mục tính toán trên các mã, số lượng, tiền mặt và khoản vay bạn nhập. Với người chưa đăng nhập, dữ liệu này chỉ được gửi đi để tính rồi loại bỏ, không ghi vào cơ sở dữ liệu. Thành viên đã đăng nhập có thể chủ động bấm \"Lưu danh mục\"; khi đó chỉ phần bạn nhập được lưu dưới tài khoản của bạn — không lưu kết quả phân tích. Danh mục đã lưu chỉ bạn xem được, có thể xoá bất kỳ lúc nào, và bị xoá cùng tài khoản."
       },
       {
         "title": "Mục đích sử dụng",
@@ -883,7 +887,8 @@
         "duplicate": "{symbol} bị nhập trùng hai lần.",
         "empty": "Cần ít nhất một cổ phiếu để phân tích.",
         "rate": "Lãi suất vay chưa hợp lệ (0–100%/năm).",
-        "thresholds": "Ngưỡng cảnh báo phải lớn hơn ngưỡng giải chấp, và cả hai nằm trong khoảng 0–100%."
+        "thresholds": "Ngưỡng cảnh báo phải lớn hơn ngưỡng giải chấp, và cả hai nằm trong khoảng 0–100%.",
+        "budget": "Mức lỗ tối đa phải nằm trong khoảng 0–100%."
       },
       "unknownSymbol": "chưa có mã này trong dữ liệu",
       "symbolHint": "Gõ mã hoặc chọn từ danh sách gợi ý.",
@@ -898,7 +903,16 @@
         "thresholds": "Ngưỡng của công ty chứng khoán",
         "callRatio": "Cảnh báo (call)",
         "forceRatio": "Giải chấp",
-        "thresholdsNote": "Tỷ lệ ký quỹ duy trì tối thiểu theo quy chế là 30%; mỗi công ty chứng khoán đặt ngưỡng riêng, thường cao hơn. Kiểm tra trong hợp đồng margin của bạn."
+        "thresholdsNote": "Tỷ lệ ký quỹ duy trì tối thiểu theo quy chế là 30%; mỗi công ty chứng khoán đặt ngưỡng riêng, thường cao hơn. Kiểm tra trong hợp đồng margin của bạn.",
+        "external": "Khoản vay này không phải margin của công ty chứng khoán",
+        "externalNote": "Vay ngân hàng, thế chấp, vay người thân… đưa vào chứng khoán. Có đòn bẩy và lãi, nhưng không có ngưỡng cảnh báo hay giải chấp."
+      },
+      "privacySignedIn": "Danh mục chỉ được lưu khi bạn bấm \"Lưu danh mục\" sau khi phân tích. Chỉ lưu các mã, số lượng, tiền mặt và khoản vay bạn nhập — không lưu kết quả. Bạn có thể xoá bất kỳ lúc nào.",
+      "budget": {
+        "heading": "Mức lỗ tối đa bạn chấp nhận (tuỳ chọn)",
+        "lead": "Đặt một giới hạn cho chính bạn; trang sẽ so giới hạn đó với những gì danh mục đã và có thể trải qua.",
+        "maxLoss": "Tôi chấp nhận mất tối đa",
+        "note": "Tính trên vốn tự có nếu có vay, trên giá trị cổ phiếu nếu không. Ví dụ: 15 nghĩa là mất 15% tiền của mình trong kỳ hạn đã chọn ở trên."
       }
     },
     "errors": {
@@ -968,13 +982,13 @@
       "downside": "Biến động chiều giảm",
       "downsideNote": "chỉ tính các phiên giảm, không tính các phiên tăng",
       "forwardHeading": "Khả năng sụt giảm phía trước",
-      "forwardLead": "Phần này lấy phân phối mô phỏng của VN-Index ngày {origin} ({paths} kịch bản, mỗi kịch bản {baseDays} phiên) rồi quy về danh mục: nhân theo beta {beta} cho mức bám chỉ số, và giãn theo căn bậc hai thời gian để trả lời cho {horizonDays} phiên bạn chọn. Các mức giảm bên dưới là cố định — thứ thay đổi theo danh mục và kỳ hạn là khả năng xảy ra.",
+      "forwardLead": "Phần này lấy phân phối mô phỏng của VN-Index ({paths} kịch bản, mỗi kịch bản {baseDays} phiên) rồi quy về danh mục: nhân theo beta {beta} cho mức bám chỉ số, và giãn theo căn bậc hai thời gian để trả lời cho {horizonDays} phiên bạn chọn. Các mức giảm bên dưới là cố định — thứ thay đổi theo danh mục và kỳ hạn là khả năng xảy ra.",
       "colDecline": "Mức giảm",
       "colChance": "Khả năng",
       "declineRow": "giảm quá {pct} (khoảng {amount})",
       "forwardCaveat": "Đây là ước lượng gián tiếp. Nó chuyển rủi ro của chỉ số sang danh mục theo beta nên không phản ánh rủi ro riêng của từng cổ phiếu, và phép giãn theo căn bậc hai thời gian bỏ qua cả xu hướng lẫn hiện tượng biến động dồn cụm — càng xa {baseDays} phiên gốc thì sai số càng lớn. Xác suất mô phỏng không phải điều chắc chắn xảy ra.",
       "provenanceLabel": "Nguồn số liệu",
-      "provenance": "Tính trên {days} phiên có giao dịch chung của tất cả các mã, lấy trong cửa sổ {lookback} phiên gần nhất, cập nhật đến {asOf}. Hiệp phương sai dùng phương pháp co rút Ledoit–Wolf để ổn định ước lượng khi số phiên còn hạn chế.",
+      "provenance": "Tính trên {days} phiên có giao dịch chung của tất cả các mã, lấy trong cửa sổ {lookback} phiên gần nhất. Hiệp phương sai dùng phương pháp co rút Ledoit–Wolf để ổn định ước lượng khi số phiên còn hạn chế.",
       "glossaryHeading": "Cách đọc các chỉ số này",
       "glossaryLead": "Giải thích dựa trên chính số liệu của danh mục vừa nhập.",
       "explain": {
@@ -991,15 +1005,18 @@
       "exceedanceTitle": "Khả năng giảm quá từng mức",
       "exceedanceNote": "Mức sụt giảm càng sâu thì khả năng xảy ra càng thấp. Điểm nằm trên đường 50% là mức có khả năng xảy ra cao hơn không xảy ra. Trục ngang cố định nên có thể đặt hai danh mục, hoặc một danh mục ở hai kỳ hạn, lên cùng một thước.",
       "lossScaleTitle": "Quy ra tiền trên danh mục của bạn",
-      "lossScaleNote": "Các mức sụt giảm tương ứng, quy đổi theo giá trị cổ phiếu đang nắm giữ. Phần tiền mặt không được tính vào."
+      "lossScaleNote": "Các mức sụt giảm tương ứng, quy đổi theo giá trị cổ phiếu đang nắm giữ. Phần tiền mặt không được tính vào.",
+      "colSell": "Phiên để bán",
+      "varCheck": "Kiểm lại trên lịch sử: vượt {breaches}/{tested} phiên ({rate}).",
+      "varCheckNote": "Dòng \"kiểm lại\" dưới VaR: tại mỗi phiên, VaR được tính chỉ từ 126 phiên trước đó rồi so với lỗ thực tế của phiên ấy. Khoảng 1 phiên trong 20 (5%) vượt là bình thường; nhiều hơn rõ rệt nghĩa là con số VaR đang đánh giá thấp rủi ro của danh mục này."
     },
     "margin": {
       "heading": "Cơ cấu vốn và margin",
       "lead": "Cùng danh mục đó, nhìn từ túi tiền của bạn thay vì từ cổ phiếu. Mọi con số là số học trên dư nợ bạn nhập và các chỉ số đã đo ở trên; phần này không nói nên vay bao nhiêu.",
       "status": {
-        "between": "Tỷ lệ ký quỹ {ratio} đang nằm dưới ngưỡng cảnh báo {call} và trên ngưỡng giải chấp {force}. Theo số bạn nhập, tài khoản đã ở vùng công ty chứng khoán yêu cầu bổ sung.",
-        "below_force": "Tỷ lệ ký quỹ {ratio} đang dưới ngưỡng giải chấp {force}. Theo số bạn nhập, công ty chứng khoán có quyền bán tài sản để thu nợ.",
-        "negative_equity": "Dư nợ lớn hơn tổng tài sản: vốn tự có âm. Các chỉ số bên dưới không còn ý nghĩa — kiểm tra lại dư nợ hoặc danh sách mã đã nhập."
+        "between": "Tỷ lệ ký quỹ {ratio} đang nằm dưới ngưỡng cảnh báo {call} và trên ngưỡng giải chấp {force}. Nếu số liệu đúng, công ty chứng khoán đã yêu cầu bổ sung; nếu chưa thấy yêu cầu, kiểm tra lại dư nợ và các mã đã nhập.",
+        "below_force": "Tỷ lệ ký quỹ {ratio} đang dưới ngưỡng giải chấp {force}. Một tài khoản ở mức này thường đã bị công ty chứng khoán bán tài sản để thu nợ — hoặc số liệu chưa đúng. Các con số bên dưới chỉ có nghĩa nếu số liệu đúng.",
+        "negative_equity": "Dư nợ {debt} lớn hơn tổng tài sản {assets}: vốn tự có âm. Với margin của công ty chứng khoán điều này không xảy ra — kiểm tra xem có thừa số 0, hoặc còn mã nào trong tài khoản chưa nhập. Nếu là vay ngoài, chọn ô \"không phải margin của công ty chứng khoán\"."
       },
       "assets": "Tài sản",
       "funding": "Nguồn vốn",
@@ -1056,18 +1073,140 @@
         "above_call": "trên ngưỡng",
         "between": "cảnh báo",
         "below_force": "giải chấp",
-        "negative_equity": "vốn âm"
+        "negative_equity": "vốn âm",
+        "no_thresholds": "—"
       },
       "equityRiskTitle": "Mức lỗ quy về vốn tự có",
       "equityRiskNote": "Cùng các chỉ số đã đo ở phần trên, nhưng chia cho vốn tự có thay vì giá trị cổ phiếu: đây là phần trăm túi tiền của bạn thực sự mất.",
       "equityVsStocks": "trên cổ phiếu là {stocks}",
       "caveat": {
-        "selfReported": "Tính theo dư nợ, lãi suất và ngưỡng bạn nhập, với giá cập nhật đến {asOf}. Số liệu không được xác minh với công ty chứng khoán.",
+        "selfReported": "Tính theo dư nợ, lãi suất và ngưỡng bạn nhập, với giá đóng cửa gần nhất. Số liệu không được xác minh với công ty chứng khoán.",
         "collateral": "Công ty chứng khoán tính tỷ lệ ký quỹ trên tài sản đảm bảo đã chiết khấu theo từng mã; mọi khoảng cách ở đây là ước lượng lạc quan.",
         "model": "Xác suất mô phỏng kế thừa mọi giới hạn của phần \"Khả năng sụt giảm phía trước\": kỳ hạn 1 năm là giãn ×3,5 của mô phỏng 20 phiên.",
         "rollover": "Khoản vay margin thường có kỳ hạn khoảng 3 tháng và phải gia hạn; khi gia hạn công ty chứng khoán có thể đổi tỷ lệ cho vay hoặc rút mã khỏi danh sách margin. Rủi ro này không nằm trong các con số trên."
       },
-      "wipedOut": "> 100% — hết vốn"
+      "wipedOut": "> 100% — hết vốn",
+      "warnings": {
+        "debt_exceeds_stocks": "Dư nợ {debt} lớn hơn giá trị cổ phiếu {stocks}. Công ty chứng khoán không cho vay quá tài sản đảm bảo — có thể thừa số 0, thiếu mã chưa nhập, hoặc đây là vay ngoài (chọn ô tương ứng trong form).",
+        "high_leverage": "Đòn bẩy {leverage}× — cao hơn mức margin thông thường (tối đa khoảng 2×). Nếu đúng, phần lớn tài sản là tiền vay.",
+        "rate_unusual": "Lãi suất {rate}/năm nằm ngoài khoảng phổ biến 5–25% của margin tại Việt Nam. Kiểm tra lại đơn vị (%/năm)."
+      },
+      "distanceExternal": "vay ngoài — không có ngưỡng của công ty chứng khoán",
+      "horizonNoteExternal": "Khoản vay ngoài không có ngưỡng cảnh báo, nên chỉ có phần chi phí lãi. Lợi suất hòa vốn là mức cổ phiếu cần tăng chỉ để trả lãi.",
+      "horizonNotePast": "Tài khoản đã ở dưới ngưỡng cảnh báo, nên \"khả năng chạm ngưỡng\" không còn ý nghĩa và không hiển thị. Chỉ còn phần chi phí lãi theo kỳ hạn."
+    },
+    "saved": {
+      "heading": "Danh mục đã lưu",
+      "meta": "{count} mã · cập nhật {date}",
+      "delete": "Xoá danh mục",
+      "confirmDelete": "Xoá danh mục \"{name}\"? Không khôi phục được.",
+      "nameLabel": "Tên danh mục",
+      "namePlaceholder": "Tài khoản chính",
+      "defaultName": "Danh mục",
+      "save": "Lưu danh mục",
+      "update": "Cập nhật danh mục",
+      "done": "Đã lưu. Lần sau đăng nhập, bạn mở lại từ danh sách phía trên.",
+      "note": "Chỉ lưu các mã, số lượng, tiền mặt và khoản vay đã nhập; kết quả được tính lại mỗi lần mở. Còn lưu được {remaining} danh mục.",
+      "editingNote": "Đang chỉnh danh mục \"{name}\". Bấm cập nhật để ghi đè.",
+      "limit": "Bạn đã lưu tối đa 10 danh mục. Xoá một danh mục cũ để lưu thêm."
+    },
+    "network": {
+      "heading": "Danh mục trên bản đồ liên hệ VN30",
+      "lead": "DynamicGraph đo mã nào biến động cùng nhau sau khi loại bỏ ảnh hưởng chung của thị trường, rồi gom thành các cụm. Các mã bạn nắm giữ được tô đậm; phần còn lại của VN30 làm mờ. Nhiều mã cùng một cụm nghĩa là chúng chịu cùng một yếu tố — đa dạng hoá trên giấy nhưng không trên thực tế.",
+      "source": "Mạng lưới tính trên {window} phiên gần nhất. Đây là tầng mô tả của mô hình, được kiểm định ổn định giữa các phiên; không phải dự báo giá.",
+      "stress": "Trạng thái mạng lưới hiện tại: {label}.",
+      "stressLabel": {
+        "low_stress": "liên hệ thưa",
+        "normal": "bình thường",
+        "elevated_stress": "liên hệ tăng",
+        "high_stress": "liên hệ chặt — các mã biến động cùng nhau nhiều hơn bình thường"
+      },
+      "standout": "{share} giá trị danh mục nằm trong một cụm: {count} mã {members} (cụm {community}) biến động cùng nhau. Khi cụm này giảm, chúng giảm cùng lúc.",
+      "legendHeld": "Mã bạn nắm giữ",
+      "legendOther": "Mã khác trong VN30",
+      "together": "Cùng chiều",
+      "opposite": "Ngược chiều",
+      "weightLabel": "Tỷ trọng",
+      "notHeld": "Không có trong danh mục",
+      "communityLabel": "Cụm",
+      "riskLabel": "Điểm rủi ro",
+      "communitiesTitle": "Danh mục theo cụm",
+      "communityWith": "cụm {community}, cùng với {others}",
+      "uncovered": "Bản đồ chỉ gồm VN30. {symbols} ({share} danh mục) nằm ngoài và không được vẽ.",
+      "allCovered": "Toàn bộ danh mục nằm trong VN30 và có mặt trên bản đồ."
+    },
+    "outlook": {
+      "heading": "Khoảng lợi suất theo mô hình Causa",
+      "lead": "Causa dự báo phân phối lợi suất VN-Index cho 5, 20 và 60 phiên. Cột hiển thị khoảng chứa {level} kết quả theo mô hình, quy về danh mục theo beta {beta} — và về vốn tự có khi có khoản vay. Không vẽ đường giữa: chính báo cáo của mô hình ghi dự báo điểm chưa vượt baseline, chỉ có khoảng là được kiểm định.",
+      "source": "Mô hình chạy trên VN-Index; việc quy về danh mục theo beta bỏ qua rủi ro riêng của từng mã.",
+      "caveat": "Đường lãi vay là mức cổ phiếu cần tăng để trả lãi trong kỳ hạn đó; đường cảnh báo là mức giảm chạm ngưỡng cảnh báo. Cả hai là số học, không phải dự báo.",
+      "sessions": "{n} phiên",
+      "band": "Khoảng {level}",
+      "index": "VN-Index",
+      "breakeven": "Cần tăng để trả lãi",
+      "callLine": "Ngưỡng cảnh báo",
+      "legendEquity": "Khoảng lợi suất trên vốn tự có",
+      "legendStocks": "Khoảng lợi suất trên danh mục"
+    },
+    "stress": {
+      "heading": "Nếu khủng hoảng lặp lại",
+      "lead": "Chính danh mục này, đúng tỷ trọng hiện tại, chạy lại trên giá của những đợt giảm mạnh nhất từ 2008: danh mục sẽ giảm sâu nhất bao nhiêu, so với VN-Index cùng thời điểm. Không có giả định nào — đây là điều đã xảy ra với các mã bạn đang giữ.",
+      "coverageNote": "Mã chưa niêm yết vào thời điểm đó được bỏ ra và tỷ trọng các mã còn lại được chia lại; cột cuối cho biết mỗi kịch bản bao phủ bao nhiêu phần danh mục.",
+      "equityNote": "Cột \"trên vốn tự có\" nhân mức giảm với đòn bẩy hiện tại; \"chạm ngưỡng cảnh báo\" so mức giảm đó với khoảng cách tới ngưỡng của công ty chứng khoán.",
+      "liquidityNote": "Số phiên để bán tính theo giả định mỗi phiên bán được {share} khối lượng giao dịch trung bình 20 phiên của mã đó.",
+      "crisis": {
+        "gfc_2008": "Khủng hoảng 2008",
+        "y2018": "Điều chỉnh 2018",
+        "covid_2020": "Covid — 3/2020",
+        "y2022": "Suy giảm 2022"
+      },
+      "legendIndex": "VN-Index",
+      "legendBook": "Danh mục này",
+      "legendEquity": "Trên vốn tự có",
+      "sessions": "{n} phiên",
+      "colCrisis": "Giai đoạn",
+      "colBook": "Danh mục giảm",
+      "colEquity": "Trên vốn tự có",
+      "colIndex": "VN-Index",
+      "colCorr": "Tương quan TB",
+      "colCall": "Ngưỡng cảnh báo",
+      "colCovered": "Bao phủ",
+      "reachesCall": "chạm ngưỡng",
+      "staysAbove": "chưa chạm",
+      "wipedOut": "> 100% — hết vốn",
+      "coveredAll": "toàn bộ danh mục",
+      "coveredPart": "{share} danh mục ({symbols})",
+      "noCrises": "Chưa đủ mã trong danh mục niêm yết qua các đợt giảm mạnh trước đây để chạy lại.",
+      "noDiv": "Nếu mọi mã cùng chiều hoàn toàn",
+      "noDivNote": "biến động năm sẽ là mức này thay vì {now} hiện tại — mức trần khi đa dạng hoá không còn tác dụng",
+      "liquidity": "Bán hết danh mục mất",
+      "underHalfDay": "< nửa phiên",
+      "days": "{n} phiên",
+      "liquiditySlow": "{symbols} ({share} danh mục) cần hơn {days} phiên để bán hết — nếu bị bán gấp, giá nhận được sẽ kém hơn giá bảng.",
+      "liquidityFine": "mọi mã đều bán xong trong vài phiên ở mức {share} khối lượng trung bình"
+    },
+    "budget": {
+      "heading": "Mức lỗ bạn chấp nhận",
+      "lead": "Giới hạn bạn đặt, tính trên {basis}, đặt cạnh mức giảm sâu nhất danh mục đã trải qua trong năm vừa rồi và trong các đợt khủng hoảng chạy lại ở trên. Trang không nói cần đổi gì để nằm trong giới hạn — đó là quyết định của bạn.",
+      "probabilityNote": "Xác suất chạm giới hạn lấy từ mô phỏng Certus quy về danh mục theo beta, đặt cạnh tần suất VN-Index từng giảm sâu như vậy trong cùng kỳ hạn kể từ năm 2000.",
+      "basis": {
+        "equity": "vốn tự có",
+        "portfolio": "giá trị cổ phiếu"
+      },
+      "summaryWithin": "Giới hạn {limit} {basis} ({amount}). Trong năm qua danh mục giảm sâu nhất {realised} — nằm trong giới hạn; {breaches}/{total} đợt khủng hoảng chạy lại vượt giới hạn.",
+      "summaryOver": "Giới hạn {limit} {basis} ({amount}). Trong năm qua danh mục đã giảm sâu nhất {realised}, và {breaches}/{total} đợt khủng hoảng chạy lại vượt giới hạn này.",
+      "limit": "Giới hạn của bạn",
+      "limitNote": "{pct} {basis}; cổ phiếu giảm {drop} là chạm",
+      "realised": "Giảm sâu nhất năm qua",
+      "realisedWithin": "trên {days} phiên gần nhất, chưa vượt giới hạn",
+      "realisedOver": "trên {days} phiên gần nhất — đã vượt giới hạn",
+      "crises": "Khủng hoảng vượt giới hạn",
+      "crisesOver": "{list}",
+      "crisesWithin": "không đợt nào chạy lại vượt giới hạn",
+      "probability": "Khả năng chạm trong {horizon}",
+      "probabilityNone": "danh mục không đủ bám chỉ số để ước lượng",
+      "probabilityModelOnly": "theo mô phỏng Certus quy về danh mục",
+      "probabilityWithHistory": "mô phỏng Certus; lịch sử VN-Index từ 2000: {history} số cửa sổ cùng kỳ hạn"
     }
   }
 }
