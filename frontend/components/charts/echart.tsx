@@ -5,13 +5,16 @@ import * as echarts from "echarts/core";
 import {
   BarChart,
   CandlestickChart,
+  GaugeChart,
   GraphChart,
   HeatmapChart,
   LineChart,
+  PieChart,
   ScatterChart,
 } from "echarts/charts";
 import {
   DataZoomComponent,
+  GraphicComponent,
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
@@ -27,10 +30,13 @@ echarts.use([
   LineChart,
   BarChart,
   CandlestickChart,
+  GaugeChart,
   GraphChart,
   HeatmapChart,
+  PieChart,
   ScatterChart,
   GridComponent,
+  GraphicComponent,
   TooltipComponent,
   LegendComponent,
   MarkLineComponent,
@@ -88,10 +94,18 @@ export function EChart({
   option,
   className,
   ariaLabel,
+  replaceMerge,
 }: {
   option: EChartsCoreOption;
   className?: string;
   ariaLabel: string;
+  /**
+   * Update by merging, replacing only these component types (by `id`). A
+   * series that keeps its id is left alone — no re-animation — while a new
+   * id draws in from scratch and a dropped id is removed. Default: replace
+   * the whole option.
+   */
+  replaceMerge?: ("series" | "xAxis" | "yAxis")[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -151,8 +165,11 @@ export function EChart({
 
   // Update options when data changes
   useEffect(() => {
-    chartRef.current?.setOption({ ...BASE, ...option }, { notMerge: true });
-  }, [option]);
+    chartRef.current?.setOption(
+      { ...BASE, ...option },
+      replaceMerge ? { replaceMerge } : { notMerge: true },
+    );
+  }, [option, replaceMerge]);
 
   return (
     <div

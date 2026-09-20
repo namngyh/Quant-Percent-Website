@@ -44,9 +44,6 @@ export default async function QuantPortfolioPage({
         <div className="container-qp relative py-14 desk:py-20">
           <p className="eyebrow">{t("eyebrow")}</p>
           <h1 className="title-lg mt-5">{t("title")}</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-dim">
-            {t("description")}
-          </p>
           <p className="mt-5 max-w-3xl rounded-lg border border-signal/25 bg-signal-soft/60 px-4 py-3 text-sm leading-relaxed text-signal-strong">
             {t("scopeNote")}
           </p>

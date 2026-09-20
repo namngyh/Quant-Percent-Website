@@ -44,13 +44,12 @@ export function InfoTip({
 
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = 12;
-      const tooltipHalfWidth = Math.min(wide ? 176 : 120, (window.innerWidth - 24) / 2);
-      const left = Math.min(
-        window.innerWidth - viewportPadding - tooltipHalfWidth,
-        Math.max(
-          viewportPadding + tooltipHalfWidth,
-          rect.left + rect.width / 2
-        )
+      // Open to the right of the icon, so the box never runs under the
+      // heading it explains; only slide back when the viewport is short.
+      const tooltipWidth = Math.min(wide ? 352 : 240, window.innerWidth - 2 * viewportPadding);
+      const left = Math.max(
+        viewportPadding,
+        Math.min(window.innerWidth - viewportPadding - tooltipWidth, rect.left)
       );
       const placement = rect.top >= 128 ? "top" : "bottom";
 
@@ -127,16 +126,13 @@ export function InfoTip({
             id={id}
             role="tooltip"
             className={cn(
-              "pointer-events-none fixed z-[100] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-lg border border-border bg-background p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-ink shadow-lg",
+              "pointer-events-none fixed z-[100] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-background p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-ink shadow-lg",
               wide ? "w-[22rem] space-y-2 text-left" : "w-60",
             )}
             style={{
               left: position.left,
               top: position.top,
-              transform:
-                position.placement === "top"
-                  ? "translate(-50%, -100%)"
-                  : "translate(-50%, 0)",
+              transform: position.placement === "top" ? "translate(0, -100%)" : "none",
             }}
           >
             {paragraphs.map((p, i) => (

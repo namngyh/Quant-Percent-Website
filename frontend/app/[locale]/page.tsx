@@ -7,7 +7,6 @@ import { WeAre } from "@/components/home/we-are";
 import { PercentMark } from "@/components/percent-mark";
 import { DistributionCurve } from "@/components/decor/distribution-curve";
 import { MarketPulse } from "@/components/home/market-pulse";
-import { QuoteTicker } from "@/components/home/quote-ticker";
 import { PortfolioInvite } from "@/components/home/portfolio-invite";
 import { ModusComparison } from "@/components/home/modus-comparison";
 import { Sealed } from "@/components/sealed";
@@ -135,7 +134,6 @@ export default async function HomePage({
           itself without being decoration — every figure in it is real. It is
           inside the first-screen wrapper so it closes the fold rather than
           starting the scroll. */}
-      <QuoteTicker />
       </div>
 
       {/*

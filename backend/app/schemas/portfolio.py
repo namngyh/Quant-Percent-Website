@@ -388,6 +388,30 @@ class CrisisScenario(ApiModel):
     expected_shortfall_95: float
     average_correlation: float
     index_max_drawdown: float
+    # Cumulative return of the book and of the index through the window,
+    # from 0 at the first session, thinned to at most PATH_POINTS values so
+    # the page can draw the fall rather than only state its depth.
+    path: list[float]
+    index_path: list[float]
+
+
+class HistogramBin(ApiModel):
+    lower: float
+    upper: float
+    count: int
+
+
+class ReturnHistogram(ApiModel):
+    """The book's own daily returns over the lookback, binned.
+
+    What VaR and ES are percentiles of. Drawn, the 5% tail is a shape a
+    reader can see rather than a threshold they have to trust.
+    """
+
+    bins: list[HistogramBin]
+    observations: int
+    var_95: float
+    expected_shortfall_95: float
 
 
 class LiquiditySummary(ApiModel):
@@ -412,6 +436,7 @@ class VarCheck(ApiModel):
 
 class StressReport(ApiModel):
     crises: list[CrisisScenario]
+    histogram: ReturnHistogram
     # Volatility with every correlation at one: the diversification ceiling.
     no_diversification_volatility: float
     liquidity: LiquiditySummary

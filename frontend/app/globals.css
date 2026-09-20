@@ -507,36 +507,6 @@ html[lang="en"] {
     background-size: 76px 76px;
   }
 
-  /*
-   * A horizontal band of live quotes that scrolls continuously.
-   *
-   * The list is rendered twice inside the track and the animation translates
-   * by exactly -50%, so the second copy is in the first copy's place at the
-   * moment it restarts and the loop has no seam. Duplicating in markup rather
-   * than cloning in JavaScript keeps it working before hydration.
-   *
-   * It pauses under the pointer — a reader who wants to read a number should
-   * not have to chase it.
-   */
-  .ticker {
-    display: flex;
-    width: max-content;
-    animation: qp-ticker 42s linear infinite;
-    will-change: transform;
-  }
-
-  .ticker:hover {
-    animation-play-state: paused;
-  }
-
-  @keyframes qp-ticker {
-    from {
-      transform: translate3d(0, 0, 0);
-    }
-    to {
-      transform: translate3d(-50%, 0, 0);
-    }
-  }
 
   /*
    * The band at the top of an interior page. The same idea as the hero wash at

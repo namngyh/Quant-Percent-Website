@@ -132,12 +132,11 @@ export function PortfolioNetwork({ network: n }: { network: PortfolioNetwork }) 
     };
   }, [n, locale, t]);
 
-  const top = n.communities.find((c) => c.held.length > 0);
   const multi = n.communities.filter((c) => c.held.length > 0);
 
   return (
     <section aria-labelledby="pf-network">
-      <h2 id="pf-network" className="title-md inline-flex items-center gap-2">
+      <h2 id="pf-network" className="inline-flex items-center gap-2 text-lg font-semibold">
         {t("heading")}
         <InfoTip
           wide
@@ -149,18 +148,8 @@ export function PortfolioNetwork({ network: n }: { network: PortfolioNetwork }) 
         />
       </h2>
 
-      {top && top.held.length >= 2 && (
-        <p className="mt-5 max-w-4xl border-l-4 border-signal bg-signal-soft px-5 py-4 leading-relaxed text-ink">
-          {t("standout", {
-            share: fmtPercent(top.portfolio_weight, locale, 0),
-            count: top.held.length,
-            members: top.held.join(", "),
-            community: top.id + 1,
-          })}
-        </p>
-      )}
 
-      <div className="mt-6 grid gap-6 desk:grid-cols-[3fr_2fr]">
+      <div className="mt-4 grid gap-4">
         <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
           <div className="flex flex-wrap gap-x-5 gap-y-2 border-b border-border px-4 py-3 text-xs text-dim">
             <span className="inline-flex items-center gap-2">
@@ -180,7 +169,7 @@ export function PortfolioNetwork({ network: n }: { network: PortfolioNetwork }) 
               {t("opposite")}
             </span>
           </div>
-          <EChart option={option} ariaLabel={t("heading")} className="h-[26rem] bg-surface/35" />
+          <EChart option={option} ariaLabel={t("heading")} className="h-[20rem] bg-surface/35" />
         </div>
 
         <div className="rounded-lg border border-border bg-background p-5 shadow-sm">

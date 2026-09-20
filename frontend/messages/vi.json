@@ -421,7 +421,6 @@
     "catalogueTitle": "Toàn bộ danh mục mô hình",
     "catalogueLead": "Bốn mô hình phía trên đang chạy hằng ngày. Danh sách dưới đây gồm cả những mô hình đang phát triển hoặc đã lưu trữ, kèm trạng thái của từng cái."
   },
-
   "seal": {
     "title": "Niêm phong",
     "modus": "Model Modus đang được giám định lại và kiểm định lại các giả thuyết bởi các chuyên gia. Số liệu dưới đây tạm đóng cho tới khi có kết luận."
@@ -1001,7 +1000,6 @@
     "scopeNote": "Đây là công cụ đo lường, không phải khuyến nghị đầu tư. Hệ thống không đề xuất mua hay bán cổ phiếu nào. Mọi con số được tính từ dữ liệu giá đã xảy ra, không phải dự đoán, trừ phần được ghi rõ nguồn mô hình.",
     "form": {
       "heading": "Danh mục đang nắm giữ",
-      "lead": "Nhập mã và số lượng cổ phiếu. Hỗ trợ toàn bộ mã đang niêm yết trên HOSE. Giá vốn nhập theo nghìn đồng như trên bảng giá (25.5 nghĩa là 25.500 đ) hoặc nhập thẳng bằng đồng — ô sẽ hiện lại số tiền hệ thống hiểu. Có thể bỏ trống nếu chỉ cần phân tích một danh mục giả định; khi đó phần lãi lỗ sẽ để trống thay vì hiển thị số liệu không chính xác.",
       "symbol": "Mã",
       "symbolPlaceholder": "FPT",
       "quantity": "Số lượng",
@@ -1012,7 +1010,6 @@
       "remove": "Xóa dòng",
       "addRow": "Thêm cổ phiếu",
       "cash": "Tiền mặt trong danh mục (đồng)",
-      "cashNote": "Tiền mặt được tính vào giá trị danh mục nhưng không tạo ra rủi ro.",
       "horizon": "Thời gian đầu tư",
       "horizonNote": "Đổi kỳ hạn sẽ đổi toàn bộ xác suất ở phần ước lượng sụt giảm phía trước.",
       "horizons": {
@@ -1023,7 +1020,6 @@
       },
       "analyse": "Phân tích danh mục",
       "analysing": "Đang phân tích…",
-      "privacy": "Danh mục của bạn không được lưu lại. Dữ liệu chỉ được gửi đi để tính toán rồi loại bỏ, không ghi vào cơ sở dữ liệu và không xuất hiện trên đường dẫn trang.",
       "errors": {
         "quantity": "Số lượng của {symbol} chưa hợp lệ.",
         "duplicate": "{symbol} bị nhập trùng hai lần.",
@@ -1049,7 +1045,6 @@
         "external": "Khoản vay này không phải margin của công ty chứng khoán",
         "externalNote": "Vay ngân hàng, thế chấp, vay người thân… đưa vào chứng khoán. Có đòn bẩy và lãi, nhưng không có ngưỡng cảnh báo hay giải chấp."
       },
-      "privacySignedIn": "Danh mục chỉ được lưu khi bạn bấm \"Lưu danh mục\" sau khi phân tích. Chỉ lưu các mã, số lượng, tiền mặt và khoản vay bạn nhập — không lưu kết quả. Bạn có thể xoá bất kỳ lúc nào.",
       "budget": {
         "heading": "Mức lỗ tối đa bạn chấp nhận (tuỳ chọn)",
         "lead": "Đặt một giới hạn cho chính bạn; trang sẽ so giới hạn đó với những gì danh mục đã và có thể trải qua.",
@@ -1069,7 +1064,6 @@
       "unmeasuredRow": "{symbol}: {value}, mới có {sessions} phiên",
       "overviewHeading": "Tổng quan danh mục",
       "totalValue": "Giá trị danh mục",
-      "totalValueNote": "cổ phiếu {invested}, tiền mặt {cash}",
       "profit": "Lãi lỗ hiện tại",
       "profitNote": "tương đương {amount}",
       "noCostBasis": "Chưa có",
@@ -1087,14 +1081,13 @@
       "betaBelow": "biến động nhẹ hơn thị trường khoảng {pct}",
       "betaMissing": "chưa đủ dữ liệu chỉ số để so sánh",
       "notAvailable": "Chưa có",
-      "standout": "{symbol} chiếm {weight} giá trị danh mục nhưng đóng góp {risk} tổng rủi ro, do mức biến động cao ({vol} mỗi năm) và xu hướng biến động cùng chiều với phần còn lại của danh mục.",
       "contributionHeading": "Rủi ro tập trung ở cổ phiếu nào?",
       "contributionLead": "Tỷ trọng vốn phản ánh số vốn phân bổ cho mỗi mã. Đóng góp rủi ro phản ánh phần trách nhiệm của mã đó trong mức dao động của toàn danh mục. Hai tỷ lệ này thường không trùng nhau.",
       "weightSeries": "Tỷ trọng vốn",
       "riskSeries": "Đóng góp rủi ro",
       "colSymbol": "Mã",
       "colSector": "Ngành",
-      "colPrice": "Giá",
+      "colPrice": "Giá thị trường",
       "colValue": "Giá trị",
       "colWeight": "Tỷ trọng",
       "colRisk": "Đóng góp rủi ro",
@@ -1109,20 +1102,10 @@
       "effectiveBetsNote": "sau khi tính đến mức độ biến động cùng chiều giữa các mã",
       "avgCorrelation": "Tương quan trung bình",
       "avgCorrelationNote": "càng gần 1 thì các mã càng biến động cùng chiều",
-      "topSector": "Ngành tập trung nhất",
-      "topSectorNote": "thuộc ngành {sector}",
       "sectorMissing": "chưa có dữ liệu ngành cho các mã này",
-      "closestPair": "Cặp có tương quan cao nhất là {a} và {b}, ở mức {value}. Nắm giữ cả hai gần tương đương với việc tăng gấp đôi cùng một vị thế.",
       "lossHeading": "Mức lỗ danh mục có thể phải chịu",
-      "lossLead": "Các chỉ số dưới đây được đo trên {days} phiên gần nhất (khoảng {months} tháng) của chính danh mục này. Đây là số liệu đã ghi nhận, không phải dự báo.",
-      "var95": "Ngưỡng lỗ 95%",
-      "var95Note": "trong 5% phiên bất lợi nhất, mức lỗ một phiên vượt {amount}",
-      "es95": "Lỗ trung bình khi vượt ngưỡng",
-      "es95Note": "mức lỗ trung bình của chính 5% phiên bất lợi nhất đó, khoảng {amount}",
+      "lossLead": "Mọi con số ở đây đo từ chính lịch sử giá của danh mục này trong {span} qua — là những gì đã xảy ra, không phải dự báo.",
       "maxDrawdown": "Mức giảm sâu nhất",
-      "maxDrawdownNote": "tính từ đỉnh cao nhất trong giai đoạn đo",
-      "downside": "Biến động chiều giảm",
-      "downsideNote": "chỉ tính các phiên giảm, không tính các phiên tăng",
       "forwardHeading": "Khả năng sụt giảm phía trước",
       "forwardLead": "Phần này lấy phân phối mô phỏng của VN-Index ({paths} kịch bản, mỗi kịch bản {baseDays} phiên) rồi quy về danh mục: nhân theo beta {beta} cho mức bám chỉ số, và giãn theo căn bậc hai thời gian để trả lời cho {horizonDays} phiên bạn chọn. Các mức giảm bên dưới là cố định — thứ thay đổi theo danh mục và kỳ hạn là khả năng xảy ra.",
       "colDecline": "Mức giảm",
@@ -1130,14 +1113,12 @@
       "declineRow": "giảm quá {pct} (khoảng {amount})",
       "forwardCaveat": "Đây là ước lượng gián tiếp. Nó chuyển rủi ro của chỉ số sang danh mục theo beta nên không phản ánh rủi ro riêng của từng cổ phiếu, và phép giãn theo căn bậc hai thời gian bỏ qua cả xu hướng lẫn hiện tượng biến động dồn cụm — càng xa {baseDays} phiên gốc thì sai số càng lớn. Xác suất mô phỏng không phải điều chắc chắn xảy ra.",
       "provenanceLabel": "Nguồn số liệu",
-      "provenance": "Tính trên {days} phiên có giao dịch chung của tất cả các mã, lấy trong cửa sổ {lookback} phiên gần nhất. Hiệp phương sai dùng phương pháp co rút Ledoit–Wolf để ổn định ước lượng khi số phiên còn hạn chế.",
       "glossaryHeading": "Cách đọc các chỉ số này",
       "glossaryLead": "Giải thích dựa trên chính số liệu của danh mục vừa nhập.",
       "explain": {
-        "var95": "Trung bình cứ 20 phiên giao dịch thì có khoảng một phiên bất lợi. Ngưỡng lỗ 95% cho biết ở phiên đó mức lỗ thường từ {pct} trở lên, tương đương khoảng {amount}. Đây là ngưỡng bắt đầu của vùng bất lợi, không phải mức lỗ tối đa.",
-        "es95": "Ngưỡng lỗ chỉ xác định vùng bất lợi bắt đầu từ đâu, không cho biết mức độ nghiêm trọng. Chỉ số này là mức lỗ trung bình của chính những phiên bất lợi đó: khoảng {pct}, tương đương {amount}.",
+        "var95": "Trung bình cứ 20 ngày giao dịch thì có một ngày xấu. Ở ngày đó danh mục thường lỗ từ {pct} trở lên, tương đương khoảng {amount}. Đây là mức bắt đầu của những ngày xấu, không phải mức lỗ tối đa.",
+        "es95": "Con số \"ngày xấu\" chỉ cho biết ngày xấu bắt đầu từ mức lỗ nào, chưa nói lỗ sâu tới đâu. \"Ngày rất xấu\" là mức lỗ trung bình của chính những ngày xấu đó: khoảng {pct}, tương đương {amount}.",
         "maxDrawdown": "Nếu duy trì đúng danh mục này trong suốt giai đoạn đo, đã có thời điểm giá trị tài khoản giảm {pct} so với mức đỉnh từng đạt được, tương đương khoảng {amount}. Đây là mức sụt giảm đã ghi nhận, không phải ước lượng.",
-        "downside": "Biến động tổng thể ({total}) tính cả phiên tăng lẫn phiên giảm. Chỉ số {pct} chỉ tính riêng các phiên giảm, phản ánh sát hơn phần rủi ro mà nhà đầu tư thực sự quan tâm.",
         "riskContribution": "Tỷ trọng vốn là phần vốn phân bổ cho một mã. Đóng góp rủi ro là phần trách nhiệm của mã đó trong mức dao động của toàn danh mục, phụ thuộc vào cả mức biến động riêng lẫn mức độ biến động cùng chiều với các mã còn lại. Một mã chiếm một phần tư vốn hoàn toàn có thể đóng góp quá nửa tổng rủi ro.",
         "effectiveBets": "Danh mục gồm {positions} mã, nhưng nếu các mã biến động cùng chiều thì xét về rủi ro, hiệu quả phân tán tương đương với số mã ít hơn. Sau khi tính đến yếu tố này, danh mục tương đương khoảng {bets} khoản đầu tư độc lập.",
         "beta": "Hệ số {beta} nghĩa là khi VN-Index biến động 10%, danh mục này thường biến động khoảng {move} theo cùng chiều. Trên 1 là nhạy hơn thị trường, dưới 1 là ít nhạy hơn.",
@@ -1150,7 +1131,27 @@
       "lossScaleNote": "Các mức sụt giảm tương ứng, quy đổi theo giá trị cổ phiếu đang nắm giữ. Phần tiền mặt không được tính vào.",
       "colSell": "Phiên để bán",
       "varCheck": "Kiểm lại trên lịch sử: vượt {breaches}/{tested} phiên ({rate}).",
-      "varCheckNote": "Dòng \"kiểm lại\" dưới VaR: tại mỗi phiên, VaR được tính chỉ từ 126 phiên trước đó rồi so với lỗ thực tế của phiên ấy. Khoảng 1 phiên trong 20 (5%) vượt là bình thường; nhiều hơn rõ rệt nghĩa là con số VaR đang đánh giá thấp rủi ro của danh mục này."
+      "sectorChartTitle": "Phân bổ theo ngành",
+      "closestPairLabel": "Cặp gần nhau nhất: {a} – {b}",
+      "closestPairHigh": "gần như cùng một vị thế — giảm là giảm cùng lúc",
+      "closestPairMid": "biến động cùng chiều ở mức vừa",
+      "closestPairLow": "ít biến động cùng chiều — bổ trợ tốt cho nhau",
+      "volatilityLabel": "Biến động năm",
+      "volatilityNote": "trong một năm, danh mục thường dao động lên xuống trong khoảng này",
+      "varCheckLabel": "Con số \"ngày xấu\" có sát thực tế?",
+      "varCheckShort": "ngày lỗ vượt mức đó ({rate}); bình thường khoảng 5%",
+      "sellNow": "ngay",
+      "sectorsWord": "ngành",
+      "histTitle": "Lãi/lỗ mỗi ngày trong {span} qua",
+      "histNote": "Mỗi cột là số ngày danh mục lãi hoặc lỗ ở mức đó. Vùng đỏ là những ngày tệ nhất — khoảng 1 ngày trong 20.",
+      "lossTip2": "\"Ngày xấu\" là mức lỗ mà cứ khoảng 20 ngày giao dịch lại gặp một lần. \"Ngày rất xấu\" là mức lỗ trung bình của chính những ngày xấu đó.",
+      "histVar": "ngày xấu",
+      "histEs": "ngày rất xấu",
+      "badDay": "Ngày xấu",
+      "badDayNote": "cứ khoảng 20 ngày giao dịch có một ngày lỗ từ mức này trở lên ({pct})",
+      "veryBadDay": "Ngày rất xấu",
+      "veryBadDayNote": "mức lỗ trung bình của những ngày xấu đó ({pct})",
+      "histSessions": "{n} ngày"
     },
     "margin": {
       "heading": "Cơ cấu vốn và margin",
@@ -1188,7 +1189,6 @@
       "idleCash": "Tiền mặt nhàn rỗi tốn",
       "idleCashNote": "mỗi năm, vì {cash} tiền mặt nằm cạnh khoản vay đang chịu lãi",
       "idleCashNone": "không có tiền mặt nằm cạnh khoản vay",
-      "realisedVsDistance": "Trong {days} phiên gần nhất, chính danh mục này từng giảm {drawdown} từ đỉnh. Khoảng cách tới ngưỡng cảnh báo hiện là {distance}.",
       "horizonTitle": "Cùng khoản vay này, giữ bao lâu?",
       "horizonNote": "Hai ước lượng độc lập cho khả năng cổ phiếu giảm tới ngưỡng cảnh báo trong kỳ hạn: mô phỏng Certus quy về danh mục theo beta, và tần suất VN-Index từng giảm sâu như vậy trong một cửa sổ cùng độ dài kể từ năm 2000. Lãi và lợi suất hòa vốn là số học.",
       "horizonNoteNoBeta": "Danh mục không đủ bám chỉ số để quy đổi xác suất từ VN-Index, nên chỉ có phần chi phí lãi vay. Lợi suất hòa vốn là mức cổ phiếu cần tăng chỉ để trả lãi.",
@@ -1219,8 +1219,7 @@
         "no_thresholds": "—"
       },
       "equityRiskTitle": "Mức lỗ quy về vốn tự có",
-      "equityRiskNote": "Cùng các chỉ số đã đo ở phần trên, nhưng chia cho vốn tự có thay vì giá trị cổ phiếu: đây là phần trăm túi tiền của bạn thực sự mất.",
-      "equityVsStocks": "trên cổ phiếu là {stocks}",
+      "equityRiskNote": "Cùng ba con số ở khối \"Mức lỗ danh mục có thể phải chịu\", nhưng quy ra tiền và đặt cạnh vốn tự có của bạn. Thanh xám là mức lỗ nếu không vay; thanh đỏ là cùng mức lỗ đó chia cho tiền thật của bạn — dài hơn đúng bằng đòn bẩy. Chạm vạch đen là mất sạch vốn.",
       "caveat": {
         "selfReported": "Tính theo dư nợ, lãi suất và ngưỡng bạn nhập, với giá đóng cửa gần nhất. Số liệu không được xác minh với công ty chứng khoán.",
         "collateral": "Công ty chứng khoán tính tỷ lệ ký quỹ trên tài sản đảm bảo đã chiết khấu theo từng mã; mọi khoảng cách ở đây là ước lượng lạc quan.",
@@ -1235,7 +1234,15 @@
       },
       "distanceExternal": "vay ngoài — không có ngưỡng của công ty chứng khoán",
       "horizonNoteExternal": "Khoản vay ngoài không có ngưỡng cảnh báo, nên chỉ có phần chi phí lãi. Lợi suất hòa vốn là mức cổ phiếu cần tăng chỉ để trả lãi.",
-      "horizonNotePast": "Tài khoản đã ở dưới ngưỡng cảnh báo, nên \"khả năng chạm ngưỡng\" không còn ý nghĩa và không hiển thị. Chỉ còn phần chi phí lãi theo kỳ hạn."
+      "horizonNotePast": "Tài khoản đã ở dưới ngưỡng cảnh báo, nên \"khả năng chạm ngưỡng\" không còn ý nghĩa và không hiển thị. Chỉ còn phần chi phí lãi theo kỳ hạn.",
+      "equityLegendStocks": "Tính trên cổ phiếu",
+      "equityLegendEquity": "Tính trên tiền của bạn",
+      "equityLegendAll": "Vạch đen: toàn bộ vốn tự có ({amount})",
+      "equityRowStocks": "cổ phiếu giảm {pct}",
+      "equityRowEquity": "= {pct} vốn tự có",
+      "balanceTitle": "Tài sản và nguồn vốn",
+      "scenarioExternal": "Vay ngoài không có ngưỡng của công ty chứng khoán, nên không có kịch bản giải chấp.",
+      "dumbbellNote": "Chấm đỏ cách chấm xám đúng bằng đòn bẩy {leverage}×."
     },
     "saved": {
       "heading": "Danh mục đã lưu",
@@ -1248,7 +1255,7 @@
       "save": "Lưu danh mục",
       "update": "Cập nhật danh mục",
       "done": "Đã lưu. Lần sau đăng nhập, bạn mở lại từ danh sách phía trên.",
-      "note": "Chỉ lưu các mã, số lượng, tiền mặt và khoản vay đã nhập; kết quả được tính lại mỗi lần mở. Còn lưu được {remaining} danh mục.",
+      "note": "Chỉ lưu dữ liệu nhập, không lưu kết quả. Còn {remaining} chỗ.",
       "editingNote": "Đang chỉnh danh mục \"{name}\". Bấm cập nhật để ghi đè.",
       "limit": "Bạn đã lưu tối đa 10 danh mục. Xoá một danh mục cũ để lưu thêm."
     },
@@ -1263,7 +1270,6 @@
         "elevated_stress": "liên hệ tăng",
         "high_stress": "liên hệ chặt — các mã biến động cùng nhau nhiều hơn bình thường"
       },
-      "standout": "{share} giá trị danh mục nằm trong một cụm: {count} mã {members} (cụm {community}) biến động cùng nhau. Khi cụm này giảm, chúng giảm cùng lúc.",
       "legendHeld": "Mã bạn nắm giữ",
       "legendOther": "Mã khác trong VN30",
       "together": "Cùng chiều",
@@ -1288,14 +1294,17 @@
       "breakeven": "Cần tăng để trả lãi",
       "callLine": "Ngưỡng cảnh báo",
       "legendEquity": "Khoảng lợi suất trên vốn tự có",
-      "legendStocks": "Khoảng lợi suất trên danh mục"
+      "legendStocks": "Khoảng lợi suất trên danh mục",
+      "compareHeading": "Danh mục so với VN-Index",
+      "compareLead": "Cùng khoảng {level} của Causa cho từng kỳ hạn: hộp xám là VN-Index, hộp xanh là danh mục sau khi quy theo beta {beta}. Hộp xanh rộng hơn hộp xám nghĩa là danh mục dao động mạnh hơn thị trường.",
+      "legendPortfolio": "Danh mục"
     },
     "stress": {
       "heading": "Nếu khủng hoảng lặp lại",
       "lead": "Chính danh mục này, đúng tỷ trọng hiện tại, chạy lại trên giá của những đợt giảm mạnh nhất từ 2008: danh mục sẽ giảm sâu nhất bao nhiêu, so với VN-Index cùng thời điểm. Không có giả định nào — đây là điều đã xảy ra với các mã bạn đang giữ.",
       "coverageNote": "Mã chưa niêm yết vào thời điểm đó được bỏ ra và tỷ trọng các mã còn lại được chia lại; cột cuối cho biết mỗi kịch bản bao phủ bao nhiêu phần danh mục.",
       "equityNote": "Cột \"trên vốn tự có\" nhân mức giảm với đòn bẩy hiện tại; \"chạm ngưỡng cảnh báo\" so mức giảm đó với khoảng cách tới ngưỡng của công ty chứng khoán.",
-      "liquidityNote": "Số phiên để bán tính theo giả định mỗi phiên bán được {share} khối lượng giao dịch trung bình 20 phiên của mã đó.",
+      "liquidityNote": "Thời gian bán hết giả định mỗi ngày chỉ bán được {share} khối lượng giao dịch bình thường của mã đó, để không tự làm giá rơi.",
       "crisis": {
         "gfc_2008": "Khủng hoảng 2008",
         "y2018": "Điều chỉnh 2018",
@@ -1319,13 +1328,18 @@
       "coveredAll": "toàn bộ danh mục",
       "coveredPart": "{share} danh mục ({symbols})",
       "noCrises": "Chưa đủ mã trong danh mục niêm yết qua các đợt giảm mạnh trước đây để chạy lại.",
-      "noDiv": "Nếu mọi mã cùng chiều hoàn toàn",
-      "noDivNote": "biến động năm sẽ là mức này thay vì {now} hiện tại — mức trần khi đa dạng hoá không còn tác dụng",
-      "liquidity": "Bán hết danh mục mất",
-      "underHalfDay": "< nửa phiên",
+      "noDiv": "Nếu mọi mã cùng giảm một lúc",
+      "noDivNote": "biến động năm sẽ lên mức này thay vì {now} — lúc đa dạng hoá không còn giúp gì",
+      "liquidity": "Nếu cần bán hết, mất bao lâu?",
       "days": "{n} phiên",
-      "liquiditySlow": "{symbols} ({share} danh mục) cần hơn {days} phiên để bán hết — nếu bị bán gấp, giá nhận được sẽ kém hơn giá bảng.",
-      "liquidityFine": "mọi mã đều bán xong trong vài phiên ở mức {share} khối lượng trung bình"
+      "liquiditySlow": "{symbols} ({share} danh mục) cần khoảng {days} phiên để bán hết — bị bán gấp thì giá sẽ kém xa bảng điện.",
+      "liquidityFine": "Mọi mã đều thoát được ngay: lượng bạn giữ nhỏ so với khối lượng giao dịch hằng ngày của chúng.",
+      "underOneDay": "Chưa đến một phiên",
+      "sessionsShort": "{n} phiên",
+      "reachesCallLine": "ngưỡng cảnh báo margin",
+      "pickLabel": "Chọn giai đoạn",
+      "pickHint": "Chọn một giai đoạn phía trên để xem danh mục của bạn đi qua giai đoạn đó — chọn thêm để so sánh.",
+      "monthsAxis": "tháng {n}"
     },
     "budget": {
       "heading": "Mức lỗ bạn chấp nhận",
@@ -1335,20 +1349,25 @@
         "equity": "vốn tự có",
         "portfolio": "giá trị cổ phiếu"
       },
-      "summaryWithin": "Giới hạn {limit} {basis} ({amount}). Trong năm qua danh mục giảm sâu nhất {realised} — nằm trong giới hạn; {breaches}/{total} đợt khủng hoảng chạy lại vượt giới hạn.",
-      "summaryOver": "Giới hạn {limit} {basis} ({amount}). Trong năm qua danh mục đã giảm sâu nhất {realised}, và {breaches}/{total} đợt khủng hoảng chạy lại vượt giới hạn này.",
       "limit": "Giới hạn của bạn",
       "limitNote": "{pct} {basis}; cổ phiếu giảm {drop} là chạm",
-      "realised": "Giảm sâu nhất năm qua",
-      "realisedWithin": "trên {days} phiên gần nhất, chưa vượt giới hạn",
-      "realisedOver": "trên {days} phiên gần nhất — đã vượt giới hạn",
-      "crises": "Khủng hoảng vượt giới hạn",
-      "crisesOver": "{list}",
-      "crisesWithin": "không đợt nào chạy lại vượt giới hạn",
       "probability": "Khả năng chạm trong {horizon}",
       "probabilityNone": "danh mục không đủ bám chỉ số để ước lượng",
       "probabilityModelOnly": "theo mô phỏng Certus quy về danh mục",
-      "probabilityWithHistory": "mô phỏng Certus; lịch sử VN-Index từ 2000: {history} số cửa sổ cùng kỳ hạn"
+      "probabilityWithHistory": "mô phỏng Certus; lịch sử VN-Index từ 2000: {history} số cửa sổ cùng kỳ hạn",
+      "axisRealised": "Giảm sâu nhất {span} qua",
+      "axisLimit": "Giới hạn của bạn",
+      "axisCrises": "Từng đợt khủng hoảng chạy lại",
+      "axisLimitShort": "giới hạn"
+    },
+    "gate": {
+      "title": "Đăng nhập để phân tích danh mục",
+      "description": "Công cụ này dành cho thành viên. Tạo tài khoản miễn phí để nhập danh mục, xem rủi ro tập trung ở đâu, và lưu lại để mở lần sau."
+    },
+    "span": {
+      "year": "1 năm",
+      "months": "{n} tháng",
+      "sessions": "{n} phiên"
     }
   },
   "articles": {

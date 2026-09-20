@@ -7,10 +7,14 @@ import { EChart, CHART } from "@/components/charts/echart";
 import type { PortfolioAnalysis } from "@/lib/api/types";
 import { MarginSection } from "@/components/portfolio/margin-section";
 import { PortfolioNetwork } from "@/components/portfolio/portfolio-network";
-import { PortfolioOutlookSection } from "@/components/portfolio/portfolio-outlook";
-import { StressSection } from "@/components/portfolio/stress-section";
+import { OutlookVsIndexSection, PortfolioOutlookSection } from "@/components/portfolio/portfolio-outlook";
+import { StressSection, useStressRows } from "@/components/portfolio/stress-section";
+import { useSpanLabel } from "@/components/portfolio/span";
 import { BudgetSection } from "@/components/portfolio/budget-section";
 import { InfoTip } from "@/components/info-tip";
+import { StatTable } from "@/components/portfolio/stat-table";
+import { ReturnHistogramChart, SectorDonut } from "@/components/portfolio/charts";
+import type { StatRow } from "@/components/portfolio/stat-table";
 import { fmtNumber, fmtPercent, fmtSignedPercent, fmtVnd } from "@/lib/format";
 import { sectorLabel } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
@@ -27,31 +31,36 @@ import { cn } from "@/lib/utils";
  * not left for them to spot in a table.
  */
 
-function Tile({
-  label,
-  value,
-  note,
-  tone,
+/**
+ * One dashboard card. Three tiers, so the eye lands on the right things:
+ * tier 1 is the answer a reader came for (bigger title, stronger frame),
+ * tier 3 is reference (quieter surface, smaller title).
+ */
+function Panel({
+  span,
+  tier = 2,
+  children,
 }: {
-  label: string;
-  value: string;
-  note: string;
-  tone?: "positive" | "negative" | "caution";
+  span: 4 | 5 | 6 | 7 | 8 | 12;
+  tier?: 1 | 2 | 3;
+  children: React.ReactNode;
 }) {
+  const spans = {
+    4: "desk:col-span-4",
+    5: "desk:col-span-5",
+    6: "desk:col-span-6",
+    7: "desk:col-span-7",
+    8: "desk:col-span-8",
+    12: "desk:col-span-12",
+  } as const;
+  const tiers = {
+    1: "border-brand/40 bg-background shadow-md [&>section>h2]:text-xl",
+    2: "border-border bg-background shadow-sm [&>section>h2]:text-lg",
+    3: "border-border bg-surface/50 shadow-none [&>section>h2]:text-base",
+  } as const;
   return (
-    <div className="bg-background p-5">
-      <dt className="text-xs text-dim">{label}</dt>
-      <dd
-        className={cn(
-          "figure mt-2 text-xl font-semibold",
-          tone === "positive" && "text-positive",
-          tone === "negative" && "text-negative",
-          tone === "caution" && "text-caution",
-        )}
-      >
-        {value}
-      </dd>
-      <p className="mt-2 text-xs leading-relaxed text-dim">{note}</p>
+    <div className={cn("min-w-0 rounded-xl border p-5", spans[span], tiers[tier])}>
+      {children}
     </div>
   );
 }
@@ -61,17 +70,9 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const locale = useLocale();
   const c = data.concentration;
+  const stressRows = useStressRows(data.stress, data);
+  const spanLabel = useSpanLabel();
 
-  // The position whose risk share most exceeds its money share. This is the
-  // sentence a reader takes away, so it is computed rather than left implicit.
-  const standout = useMemo(() => {
-    if (data.positions.length === 0) return null;
-    return data.positions.reduce((worst, p) =>
-      p.risk_contribution - p.weight > worst.risk_contribution - worst.weight
-        ? p
-        : worst,
-    );
-  }, [data.positions]);
 
   const riskOption = useMemo<EChartsCoreOption>(() => {
     const symbols = data.positions.map((p) => p.symbol);
@@ -113,7 +114,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             color: CHART.dim,
             fontFamily: CHART.mono,
             fontSize: 11,
-            formatter: (p: { value: number }) => `${p.value}%`,
+            formatter: (p: { value: number }) => fmtPercent(p.value / 100, locale, 1),
           },
           labelLayout: { hideOverlap: true },
         },
@@ -130,7 +131,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             color: CHART.ink,
             fontFamily: CHART.mono,
             fontSize: 11,
-            formatter: (p: { value: number }) => `${p.value}%`,
+            formatter: (p: { value: number }) => fmtPercent(p.value / 100, locale, 1),
           },
           labelLayout: { hideOverlap: true },
         },
@@ -267,11 +268,12 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
   }, [forward, locale, data.measured_value]);
 
   return (
-    <div className="mt-10 space-y-12">
+    <div className="relative left-1/2 mt-10 w-screen -translate-x-1/2 px-4 md:px-6 xl:px-8">
+      <div className="grid grid-cols-1 gap-4 desk:grid-cols-12 desk:items-start">
       {data.unpriced.length > 0 && (
         <p
           role="alert"
-          className="border-l-4 border-caution bg-caution-soft px-5 py-4 text-sm leading-relaxed text-ink"
+          className="border-l-4 border-caution bg-caution-soft px-5 py-4 text-sm leading-relaxed text-ink desk:col-span-12"
         >
           {t("unpriced", {
             symbols: data.unpriced.join(", "),
@@ -287,7 +289,7 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
       {data.unmeasured.length > 0 && (
         <div
           role="alert"
-          className="border-l-4 border-caution bg-caution-soft px-5 py-4 text-sm leading-relaxed text-ink"
+          className="border-l-4 border-caution bg-caution-soft px-5 py-4 text-sm leading-relaxed text-ink desk:col-span-12"
         >
           <p>
             {t("unmeasured", {
@@ -313,80 +315,11 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         </div>
       )}
 
-      {/* 1. What is it worth, and is it up or down. */}
-      <section aria-labelledby="pf-overview">
-        <h2 id="pf-overview" className="title-md">
-          {t("overviewHeading")}
-        </h2>
-        <dl className="mt-6 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
-          <Tile
-            label={t("totalValue")}
-            value={`${fmtVnd(data.total_value, locale)} đ`}
-            note={t("totalValueNote", {
-              invested: `${fmtVnd(data.invested_value, locale)} đ`,
-              cash: `${fmtVnd(data.cash, locale)} đ`,
-            })}
-          />
-          <Tile
-            label={t("profit")}
-            value={
-              data.profit_percent === null
-                ? t("noCostBasis")
-                : fmtSignedPercent(data.profit_percent, locale, 1)
-            }
-            note={
-              data.profit === null
-                ? t("noCostBasisNote")
-                : t("profitNote", { amount: `${fmtVnd(data.profit, locale)} đ` })
-            }
-            tone={
-              data.profit_percent === null
-                ? undefined
-                : data.profit_percent >= 0
-                  ? "positive"
-                  : "negative"
-            }
-          />
-          <Tile
-            label={t("riskLevel")}
-            value={t(`riskState.${data.risk_state}`)}
-            note={t("riskLevelNote", {
-              vol: fmtPercent(data.volatility, locale),
-            })}
-            tone={
-              data.risk_state === "high" || data.risk_state === "elevated"
-                ? "caution"
-                : undefined
-            }
-          />
-          <Tile
-            label={t("beta")}
-            value={data.beta === null ? t("notAvailable") : fmtNumber(data.beta, locale)}
-            note={
-              data.beta === null
-                ? t("betaMissing")
-                : data.beta >= 1
-                  ? t("betaAbove", { pct: fmtPercent(data.beta - 1, locale) })
-                  : t("betaBelow", { pct: fmtPercent(1 - data.beta, locale) })
-            }
-          />
-        </dl>
-
-        {standout && standout.risk_contribution - standout.weight > 0.05 && (
-          <p className="mt-6 max-w-4xl border-l-4 border-signal bg-signal-soft px-5 py-4 leading-relaxed text-ink">
-            {t("standout", {
-              symbol: standout.symbol,
-              weight: fmtPercent(standout.weight, locale),
-              risk: fmtPercent(standout.risk_contribution, locale),
-              vol: fmtPercent(standout.volatility, locale),
-            })}
-          </p>
-        )}
-      </section>
-
-      {/* 2. Where the risk actually sits. */}
+      {/* 2. Where the risk actually sits: the chart in one card, the table in a
+          full-width one below. */}
+      <Panel span={8} tier={1}>
       <section aria-labelledby="pf-risk-contribution">
-        <h2 id="pf-risk-contribution" className="title-md inline-flex items-center gap-2">
+        <h2 id="pf-risk-contribution" className="inline-flex items-center gap-2 text-lg font-semibold">
           {t("contributionHeading")}
           <InfoTip wide text={t("contributionLead")} />
         </h2>
@@ -411,10 +344,74 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
         <EChart
           option={riskOption}
           ariaLabel={t("contributionHeading")}
-          className="mt-2 h-80"
+          className="mt-2 h-[20rem]"
+        />
+      </section>
+      </Panel>
+
+      {/* 1. What is it worth, and is it up or down. */}
+      <Panel span={4} tier={3}>
+      <section aria-labelledby="pf-overview">
+        <h2 id="pf-overview" className="text-lg font-semibold">
+          {t("overviewHeading")}
+        </h2>
+        <StatTable
+          columns={1}
+          className="mt-4"
+          rows={[
+            {
+              label: t("totalValue"),
+              value: `${fmtVnd(data.total_value, locale)} đ`,
+            },
+            {
+              label: t("profit"),
+              value:
+                data.profit_percent === null
+                  ? t("noCostBasis")
+                  : fmtSignedPercent(data.profit_percent, locale, 1),
+              note:
+                data.profit === null
+                  ? t("noCostBasisNote")
+                  : t("profitNote", { amount: `${fmtVnd(data.profit, locale)} đ` }),
+              tone:
+                data.profit_percent === null
+                  ? undefined
+                  : data.profit_percent >= 0
+                    ? "positive"
+                    : "negative",
+            },
+            {
+              label: t("riskLevel"),
+              value: t(`riskState.${data.risk_state}`),
+              note: t("riskLevelNote", { vol: fmtPercent(data.volatility, locale) }),
+              tone:
+                data.risk_state === "high" || data.risk_state === "elevated"
+                  ? "caution"
+                  : undefined,
+            },
+            {
+              label: t("beta"),
+              value: data.beta === null ? t("notAvailable") : fmtNumber(data.beta, locale),
+              note:
+                data.beta === null
+                  ? t("betaMissing")
+                  : data.beta >= 1
+                    ? t("betaAbove", { pct: fmtPercent(data.beta - 1, locale) })
+                    : t("betaBelow", { pct: fmtPercent(1 - data.beta, locale) }),
+            },
+            {
+              label: t("maxDrawdown"),
+              value: fmtPercent(data.max_drawdown, locale, 1),
+              tone: "negative",
+            },
+          ]}
         />
 
-        <div className="mt-6 overflow-x-auto">
+      </section>
+      </Panel>
+
+      <Panel span={12} tier={3}>
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[46rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left">
@@ -483,9 +480,9 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
                   >
                     {p.days_to_sell === null
                       ? "—"
-                      : p.days_to_sell < 0.5
-                        ? "< 0,5"
-                        : fmtNumber(p.days_to_sell, locale, { maximumFractionDigits: 1 })}
+                      : p.days_to_sell < 1
+                        ? t("sellNow")
+                        : fmtNumber(p.days_to_sell, locale, { maximumFractionDigits: 0 })}
                   </td>
                   <td
                     className={cn(
@@ -503,11 +500,12 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
 
       {/* 3. Diversification by risk, not by headcount. */}
+      <Panel span={5} tier={3}>
       <section aria-labelledby="pf-diversification">
-        <h2 id="pf-diversification" className="title-md inline-flex items-center gap-2">
+        <h2 id="pf-diversification" className="inline-flex items-center gap-2 text-lg font-semibold">
           {t("diversificationHeading")}
           <InfoTip
             wide
@@ -520,232 +518,158 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
           />
         </h2>
 
-        <dl className="mt-6 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
-          <Tile
-            label={t("positions")}
-            value={fmtNumber(c.positions, locale)}
-            note={t("positionsNote", {
-              largest: fmtPercent(c.largest_weight, locale),
-            })}
+        <div className="mt-4 grid gap-4">
+          <figure className="min-w-0">
+            <figcaption className="text-sm font-medium">{t("sectorChartTitle")}</figcaption>
+            <SectorDonut data={data} />
+          </figure>
+          <StatTable
+            columns={2}
+            rows={[
+              {
+                label: t("positions"),
+                value: fmtNumber(c.positions, locale),
+                note: t("positionsNote", { largest: fmtPercent(c.largest_weight, locale) }),
+              },
+              {
+                label: t("effectiveBets"),
+                value: fmtNumber(c.effective_bets, locale, { maximumFractionDigits: 1 }),
+                note: t("effectiveBetsNote"),
+                tone: c.effective_bets < c.positions / 2 ? "caution" : undefined,
+              },
+              {
+                label: t("avgCorrelation"),
+                value: fmtNumber(c.average_correlation, locale),
+                note: t("avgCorrelationNote"),
+              },
+              ...(c.max_pair && c.max_pair_correlation !== null
+                ? [
+                    {
+                      label: t("closestPairLabel", { a: c.max_pair[0], b: c.max_pair[1] }),
+                      value: fmtNumber(c.max_pair_correlation, locale),
+                      note:
+                        c.max_pair_correlation >= 0.7
+                          ? t("closestPairHigh")
+                          : c.max_pair_correlation >= 0.4
+                            ? t("closestPairMid")
+                            : t("closestPairLow"),
+                      tone: c.max_pair_correlation >= 0.7 ? ("caution" as const) : undefined,
+                    } satisfies StatRow,
+                  ]
+                : []),
+            ]}
           />
-          <Tile
-            label={t("effectiveBets")}
-            value={fmtNumber(c.effective_bets, locale, {
-              maximumFractionDigits: 1,
-            })}
-            note={t("effectiveBetsNote")}
-            tone={c.effective_bets < c.positions / 2 ? "caution" : undefined}
-          />
-          <Tile
-            label={t("avgCorrelation")}
-            value={fmtNumber(c.average_correlation, locale)}
-            note={t("avgCorrelationNote")}
-          />
-          <Tile
-            label={t("topSector")}
-            value={
-              Object.keys(c.sector_weights)[0]
-                ? `${fmtPercent(Object.values(c.sector_weights)[0], locale)}`
-                : t("notAvailable")
-            }
-            note={
-              Object.keys(c.sector_weights)[0]
-                ? t("topSectorNote", {
-                    sector:
-                      sectorLabel(Object.keys(c.sector_weights)[0], locale) ??
-                      "",
-                  })
-                : t("sectorMissing")
-            }
-          />
-        </dl>
-
-        {c.max_pair && c.max_pair_correlation !== null && (
-          <p className="mt-5 max-w-4xl text-sm leading-relaxed text-dim">
-            {t("closestPair", {
-              a: c.max_pair[0],
-              b: c.max_pair[1],
-              value: fmtNumber(c.max_pair_correlation, locale),
-            })}
-          </p>
-        )}
+        </div>
       </section>
+      </Panel>
 
       {/* 3b. The same question as a picture: the holdings on DynamicGraph's
           VN30 dependency map. */}
       {data.network && data.network.covered.length > 0 && (
-        <PortfolioNetwork network={data.network} />
+        <Panel span={7} tier={2}>
+          <PortfolioNetwork network={data.network} />
+        </Panel>
+      )}
+
+      {/* 4a. The book replayed through past falls, and how fast it sells. */}
+      {data.stress && (
+        <Panel span={8} tier={1}>
+          <StressSection stress={data.stress} data={data} />
+        </Panel>
       )}
 
       {/* 4. Loss measured on this book's own history. */}
+      <Panel span={4} tier={2}>
       <section aria-labelledby="pf-loss">
-        <h2 id="pf-loss" className="title-md inline-flex items-center gap-2">
+        <h2 id="pf-loss" className="inline-flex items-center gap-2 text-lg font-semibold">
           {t("lossHeading")}
           <InfoTip
             wide
             text={[
-              t("lossLead", {
-                days: data.observations,
-                months: Math.round(data.observations / 21),
-              }),
-              t("provenance", {
-                days: data.observations,
-                lookback: data.lookback_days,
-              }),
-              t("varCheckNote"),
-            ]}
+              t("lossLead", { span: spanLabel(data.observations) }),
+              t("lossTip2"),
+              stressRows?.liquidityTip ?? "",
+            ].filter(Boolean)}
           />
         </h2>
-        <dl className="mt-6 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2 desk:grid-cols-4">
-          <Tile
-            label={t("var95")}
-            value={fmtPercent(data.var_95, locale)}
-            note={
-              t("var95Note", {
-                amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
-              }) +
-              (data.stress?.var_check
-                ? " " +
-                  t("varCheck", {
-                    breaches: data.stress.var_check.breaches,
-                    tested: data.stress.var_check.tested,
-                    rate: fmtPercent(data.stress.var_check.breach_rate, locale, 1),
-                  })
-                : "")
-            }
-            tone="caution"
+        <div className="mt-4 grid gap-4">
+          {data.stress?.histogram ? (
+            <ReturnHistogramChart histogram={data.stress.histogram} />
+          ) : null}
+          <StatTable
+            rows={[
+              {
+                label: t("badDay"),
+                value: `−${fmtVnd(Math.abs(data.var_95) * data.measured_value, locale)} đ`,
+                note: t("badDayNote", { pct: fmtPercent(data.var_95, locale, 1) }),
+                tone: "negative",
+              },
+              {
+                label: t("veryBadDay"),
+                value: `−${fmtVnd(Math.abs(data.expected_shortfall_95) * data.measured_value, locale)} đ`,
+                note: t("veryBadDayNote", { pct: fmtPercent(data.expected_shortfall_95, locale, 1) }),
+                tone: "negative",
+              },
+              {
+                label: t("volatilityLabel"),
+                value: fmtPercent(data.volatility, locale),
+                note: t("volatilityNote"),
+              },
+              ...(data.stress?.var_check
+                ? [
+                    {
+                      label: t("varCheckLabel"),
+                      value: `${data.stress.var_check.breaches}/${data.stress.var_check.tested}`,
+                      note: t("varCheckShort", {
+                        rate: fmtPercent(data.stress.var_check.breach_rate, locale, 1),
+                      }),
+                      tone:
+                        data.stress.var_check.breach_rate > 0.08 ? ("caution" as const) : undefined,
+                    } satisfies StatRow,
+                  ]
+                : []),
+              ...(stressRows?.rows ?? []),
+            ]}
           />
-          <Tile
-            label={t("es95")}
-            value={fmtPercent(data.expected_shortfall_95, locale)}
-            note={t("es95Note", {
-              amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.measured_value), locale)} đ`,
-            })}
-            tone="caution"
-          />
-          <Tile
-            label={t("maxDrawdown")}
-            value={fmtPercent(data.max_drawdown, locale)}
-            note={t("maxDrawdownNote")}
-          />
-          <Tile
-            label={t("downside")}
-            value={fmtPercent(data.downside_deviation, locale)}
-            note={t("downsideNote")}
-          />
-        </dl>
+        </div>
       </section>
-
-      {/* 4a. The book replayed through past falls, and how fast it sells. */}
-      {data.stress && <StressSection stress={data.stress} data={data} />}
+      </Panel>
 
       {/* 4b. The same book seen from the reader's own money, when they
           told us about a loan. */}
-      {data.margin && <MarginSection margin={data.margin} data={data} />}
+      {data.margin && (
+        <Panel span={12} tier={1}>
+          <MarginSection margin={data.margin} data={data} />
+        </Panel>
+      )}
 
       {/* 4c. The reader's own loss limit against all of the above. */}
-      {data.risk_budget && <BudgetSection budget={data.risk_budget} data={data} />}
+      {/* 4c. The reader's own loss limit against all of the above. */}
+      {data.risk_budget && (
+        <Panel span={12} tier={2}>
+          <BudgetSection budget={data.risk_budget} data={data} />
+        </Panel>
+      )}
 
-      {/* Each term defined against this portfolio's own numbers. A generic
-          definition of "VaR" tells a reader what the acronym expands to; the
-          version below tells them how much money is at stake in their book,
-          which is the question they actually had. */}
-      <section aria-labelledby="pf-glossary">
-        <button
-          type="button"
-          onClick={() => setGlossaryOpen((v) => !v)}
-          aria-expanded={glossaryOpen}
-          className="flex w-full items-center justify-between gap-4 rounded-lg border border-border bg-surface/60 px-5 py-4 text-left transition-colors hover:border-brand"
-        >
-          <span>
-            <span id="pf-glossary" className="block font-semibold">
-              {t("glossaryHeading")}
-            </span>
-            <span className="mt-1 block text-sm text-dim">
-              {t("glossaryLead")}
-            </span>
-          </span>
-          <span aria-hidden="true" className="figure shrink-0 text-brand">
-            {glossaryOpen ? "−" : "+"}
-          </span>
-        </button>
 
-        {glossaryOpen && (
-          <dl className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2">
-            {[
-              {
-                term: t("var95"),
-                body: t("explain.var95", {
-                  pct: fmtPercent(Math.abs(data.var_95), locale),
-                  amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
-                }),
-              },
-              {
-                term: t("es95"),
-                body: t("explain.es95", {
-                  pct: fmtPercent(Math.abs(data.expected_shortfall_95), locale),
-                  amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.measured_value), locale)} đ`,
-                }),
-              },
-              {
-                term: t("maxDrawdown"),
-                body: t("explain.maxDrawdown", {
-                  pct: fmtPercent(Math.abs(data.max_drawdown), locale),
-                  amount: `${fmtVnd(Math.abs(data.max_drawdown * data.measured_value), locale)} đ`,
-                }),
-              },
-              {
-                term: t("downside"),
-                body: t("explain.downside", {
-                  pct: fmtPercent(data.downside_deviation, locale),
-                  total: fmtPercent(data.volatility, locale),
-                }),
-              },
-              {
-                term: t("riskSeries"),
-                body: t("explain.riskContribution"),
-              },
-              {
-                term: t("effectiveBets"),
-                body: t("explain.effectiveBets", {
-                  positions: c.positions,
-                  bets: fmtNumber(c.effective_bets, locale, {
-                    maximumFractionDigits: 1,
-                  }),
-                }),
-              },
-              {
-                term: t("beta"),
-                body:
-                  data.beta === null
-                    ? t("explain.betaMissing")
-                    : t("explain.beta", {
-                        beta: fmtNumber(data.beta, locale),
-                        move: fmtPercent(Math.abs(data.beta) * 0.1, locale),
-                      }),
-              },
-              {
-                term: t("avgCorrelation"),
-                body: t("explain.correlation", {
-                  value: fmtNumber(c.average_correlation, locale),
-                }),
-              },
-            ].map((item) => (
-              <div key={item.term} className="bg-background p-5">
-                <dt className="font-medium">{item.term}</dt>
-                <dd className="mt-2 text-sm leading-relaxed text-dim">
-                  {item.body}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </section>
+      {/* 4d. Causa's calibrated interval on the book, with the interest and
+          call lines from the margin block when there is one. */}
+      {data.outlook && (
+        <>
+          <Panel span={6} tier={3}>
+            <PortfolioOutlookSection outlook={data.outlook} hasLoan={data.margin !== null} />
+          </Panel>
+          <Panel span={6} tier={3}>
+            <OutlookVsIndexSection outlook={data.outlook} />
+          </Panel>
+        </>
+      )}
 
       {/* 5. The only forward-looking block, and it says where it came from. */}
       {data.forward && (
+        <Panel span={12} tier={2}>
         <section aria-labelledby="pf-forward">
-          <h2 id="pf-forward" className="title-md inline-flex items-center gap-2">
+          <h2 id="pf-forward" className="inline-flex items-center gap-2 text-lg font-semibold">
             {t("forwardHeading")}
             <InfoTip
               wide
@@ -822,14 +746,99 @@ export function PortfolioResult({ data }: { data: PortfolioAnalysis }) {
             </table>
           </div>
         </section>
+        </Panel>
       )}
 
-      {/* 6. Causa's calibrated interval on the book, after the drawdown
-          panel it complements, with the interest and call lines from the
-          margin block when there is one. */}
-      {data.outlook && (
-        <PortfolioOutlookSection outlook={data.outlook} hasLoan={data.margin !== null} />
-      )}
+
+      {/* Each term defined against this portfolio's own numbers. A generic
+          definition of "VaR" tells a reader what the acronym expands to; the
+          version below tells them how much money is at stake in their book,
+          which is the question they actually had. */}
+      <section aria-labelledby="pf-glossary" className="desk:col-span-12">
+        <button
+          type="button"
+          onClick={() => setGlossaryOpen((v) => !v)}
+          aria-expanded={glossaryOpen}
+          className="flex w-full items-center justify-between gap-4 rounded-lg border border-border bg-surface/60 px-5 py-4 text-left transition-colors hover:border-brand"
+        >
+          <span>
+            <span id="pf-glossary" className="block font-semibold">
+              {t("glossaryHeading")}
+            </span>
+            <span className="mt-1 block text-sm text-dim">
+              {t("glossaryLead")}
+            </span>
+          </span>
+          <span aria-hidden="true" className="figure shrink-0 text-brand">
+            {glossaryOpen ? "−" : "+"}
+          </span>
+        </button>
+
+        {glossaryOpen && (
+          <dl className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm sm:grid-cols-2">
+            {[
+              {
+                term: t("badDay"),
+                body: t("explain.var95", {
+                  pct: fmtPercent(Math.abs(data.var_95), locale),
+                  amount: `${fmtVnd(Math.abs(data.var_95 * data.measured_value), locale)} đ`,
+                }),
+              },
+              {
+                term: t("veryBadDay"),
+                body: t("explain.es95", {
+                  pct: fmtPercent(Math.abs(data.expected_shortfall_95), locale),
+                  amount: `${fmtVnd(Math.abs(data.expected_shortfall_95 * data.measured_value), locale)} đ`,
+                }),
+              },
+              {
+                term: t("maxDrawdown"),
+                body: t("explain.maxDrawdown", {
+                  pct: fmtPercent(Math.abs(data.max_drawdown), locale),
+                  amount: `${fmtVnd(Math.abs(data.max_drawdown * data.measured_value), locale)} đ`,
+                }),
+              },
+              {
+                term: t("riskSeries"),
+                body: t("explain.riskContribution"),
+              },
+              {
+                term: t("effectiveBets"),
+                body: t("explain.effectiveBets", {
+                  positions: c.positions,
+                  bets: fmtNumber(c.effective_bets, locale, {
+                    maximumFractionDigits: 1,
+                  }),
+                }),
+              },
+              {
+                term: t("beta"),
+                body:
+                  data.beta === null
+                    ? t("explain.betaMissing")
+                    : t("explain.beta", {
+                        beta: fmtNumber(data.beta, locale),
+                        move: fmtPercent(Math.abs(data.beta) * 0.1, locale),
+                      }),
+              },
+              {
+                term: t("avgCorrelation"),
+                body: t("explain.correlation", {
+                  value: fmtNumber(c.average_correlation, locale),
+                }),
+              },
+            ].map((item) => (
+              <div key={item.term} className="bg-background p-5">
+                <dt className="font-medium">{item.term}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-dim">
+                  {item.body}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </section>
+      </div>
     </div>
   );
 }
