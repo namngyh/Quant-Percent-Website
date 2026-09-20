@@ -26,15 +26,23 @@ MAX_SAVED = 10
 
 @router.post("/analyze", response_model=PortfolioAnalysis)
 async def analyze(
-    request: PortfolioRequest, session: SessionDep
+    request: PortfolioRequest, session: SessionDep, user: CurrentUser
 ) -> PortfolioAnalysis:
     """Measure an entered portfolio against its own price history.
 
+    Signed-in accounts only. The page shows a sign-in panel to everyone
+    else, but that panel is presentation; `CurrentUser` is what actually
+    requires an account, answering 401 itself. A confirmed address is not
+    required: the tool computes on what the reader types and stores
+    nothing until they choose to save.
+
     POST rather than GET: the holdings are the reader's own position data.
     Keeping them out of the URL keeps them out of access logs, browser
-    history and referrer headers. Nothing is stored — the request is
-    analysed and discarded, and the response is not cached.
+    history and referrer headers. Nothing is stored unless the member saves
+    it — the request is analysed and discarded, and the response is not
+    cached.
     """
+    del user  # the dependency is the check; nothing here is per-user
     try:
         return await service.analyze(session, request)
     except ValueError as exc:

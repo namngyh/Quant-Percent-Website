@@ -421,7 +421,6 @@
     "catalogueTitle": "The full model catalogue",
     "catalogueLead": "The four models above run daily. The list below also covers models still in development or archived, each with its status."
   },
-
   "seal": {
     "title": "Sealed",
     "modus": "Model Modus is under re-examination: its hypotheses are being re-verified by experts. The figures below are closed until that concludes."
@@ -1001,7 +1000,6 @@
     "scopeNote": "This is a measurement tool, not investment advice. It does not recommend buying or selling anything. Every figure is computed from prices that have already happened, except the one block that names the model it came from.",
     "form": {
       "heading": "Current holdings",
-      "lead": "Enter tickers and share counts. Every stock listed on HOSE is supported. Cost basis is entered in thousands as a price board shows it (25.5 means 25,500 VND) or directly in dong — the field echoes the figure it understood. Leave it blank to analyse a hypothetical portfolio; the profit figures then stay blank rather than showing a wrong number.",
       "symbol": "Ticker",
       "symbolPlaceholder": "FPT",
       "quantity": "Shares",
@@ -1012,7 +1010,6 @@
       "remove": "Remove row",
       "addRow": "Add a stock",
       "cash": "Cash in the portfolio (VND)",
-      "cashNote": "Cash counts towards portfolio value but carries no risk.",
       "horizon": "Investment period",
       "horizonNote": "Changing the period changes every probability in the forward decline estimate.",
       "horizons": {
@@ -1023,7 +1020,6 @@
       },
       "analyse": "Analyse portfolio",
       "analysing": "Analysing…",
-      "privacy": "Your holdings are not retained. The data is sent for calculation and then discarded, never written to the database and never placed in the page URL.",
       "errors": {
         "quantity": "The share count for {symbol} is not valid.",
         "duplicate": "{symbol} was entered twice.",
@@ -1049,7 +1045,6 @@
         "external": "This loan is not brokerage margin",
         "externalNote": "A bank loan, a mortgage or a personal loan put into stocks. It has leverage and interest, but no warning or forced-sale threshold."
       },
-      "privacySignedIn": "A portfolio is stored only when you press \"Save portfolio\" after analysing. Only what you entered is kept — tickers, quantities, cash and the loan — never the result. You can delete it at any time.",
       "budget": {
         "heading": "The most you would accept losing (optional)",
         "lead": "Set a limit for yourself; the page compares it with what the portfolio has been through and could go through.",
@@ -1069,7 +1064,6 @@
       "unmeasuredRow": "{symbol}: {value}, only {sessions} sessions",
       "overviewHeading": "Portfolio overview",
       "totalValue": "Portfolio value",
-      "totalValueNote": "stocks {invested}, cash {cash}",
       "profit": "Current profit",
       "profitNote": "equal to {amount}",
       "noCostBasis": "Not available",
@@ -1087,14 +1081,13 @@
       "betaBelow": "moves about {pct} less than the market",
       "betaMissing": "not enough index data to compare",
       "notAvailable": "Not available",
-      "standout": "{symbol} represents {weight} of portfolio value but contributes {risk} of total risk, owing to high volatility ({vol} a year) and a tendency to move with the rest of the portfolio.",
       "contributionHeading": "Which holding concentrates the risk?",
       "contributionLead": "Share of capital reflects the money allocated to each holding. Share of risk reflects that holding's responsibility for the movement of the whole portfolio. The two rarely coincide.",
       "weightSeries": "Share of money",
       "riskSeries": "Share of risk",
       "colSymbol": "Ticker",
       "colSector": "Sector",
-      "colPrice": "Price",
+      "colPrice": "Market price",
       "colValue": "Value",
       "colWeight": "Weight",
       "colRisk": "Risk share",
@@ -1109,20 +1102,10 @@
       "effectiveBetsNote": "after accounting for co-movement between holdings",
       "avgCorrelation": "Average correlation",
       "avgCorrelationNote": "the closer to 1, the more the holdings move together",
-      "topSector": "Largest sector",
-      "topSectorNote": "in {sector}",
       "sectorMissing": "no sector data for these tickers",
-      "closestPair": "The most correlated pair is {a} and {b}, at {value}. Holding both is close to doubling a single position.",
       "lossHeading": "Potential loss the portfolio may absorb",
-      "lossLead": "The figures below are measured on this portfolio's own last {days} sessions (about {months} months). They are recorded results, not forecasts.",
-      "var95": "95% loss threshold",
-      "es95": "Average loss beyond it",
-      "var95Note": "on the worst 5% of sessions, the one-day loss exceeds {amount}",
-      "es95Note": "the average loss across those worst 5% of sessions, about {amount}",
+      "lossLead": "Every figure here is measured from this portfolio's own price history over the last {span} — what actually happened, not a forecast.",
       "maxDrawdown": "Deepest fall",
-      "maxDrawdownNote": "measured from the highest point in the period",
-      "downside": "Downside volatility",
-      "downsideNote": "counting declining sessions only",
       "forwardHeading": "Chance of a decline ahead",
       "forwardLead": "This takes the simulated VN-Index distribution ({paths} scenarios, {baseDays} sessions each) and carries it across to the portfolio: scaled by a beta of {beta} for how closely the book tracks the index, then stretched by square-root-of-time to answer for the {horizonDays} sessions you picked. The decline levels below are fixed — what moves with the portfolio and the period is the probability.",
       "colDecline": "Decline",
@@ -1130,14 +1113,12 @@
       "declineRow": "falls more than {pct} (about {amount})",
       "forwardCaveat": "This is an indirect estimate. It carries the index's risk across by beta, so it does not capture risk specific to the individual holdings, and the square-root-of-time stretch ignores both drift and volatility clustering — the further from the {baseDays}-session simulation, the looser it gets. A simulated probability is not a certainty.",
       "provenanceLabel": "Data provenance",
-      "provenance": "Computed on the {days} sessions every holding traded, taken from the last {lookback} sessions. The covariance matrix uses Ledoit-Wolf shrinkage to stay stable when the number of sessions is limited.",
       "glossaryHeading": "How to read these figures",
       "glossaryLead": "Explained using the portfolio just entered.",
       "explain": {
-        "var95": "On average about one session in twenty is adverse. The 95% loss threshold indicates that on such a session the loss is typically {pct} or more, around {amount}. It marks where the adverse range begins, not the maximum loss.",
-        "es95": "A threshold identifies where the adverse range begins but not how severe it becomes. This figure is the average loss across those adverse sessions: about {pct}, or {amount}.",
+        "var95": "About one trading day in 20 is a bad day. On that day the portfolio usually loses {pct} or more, roughly {amount}. It marks where bad days begin, not the worst possible loss.",
+        "es95": "The \"bad day\" figure only says where bad days begin, not how deep they go. \"Very bad day\" is the average loss on those bad days: about {pct}, roughly {amount}.",
         "maxDrawdown": "Had this portfolio been held throughout the measured period, its value at one point stood {pct} below the peak previously reached, around {amount}. This is a recorded decline, not an estimate.",
-        "downside": "Overall volatility ({total}) counts rising and declining sessions alike. The {pct} figure counts declining sessions only, which better reflects the risk that concerns an investor.",
         "riskContribution": "Share of capital is the money allocated to a holding. Share of risk is that holding's responsibility for the movement of the whole portfolio, depending both on its own volatility and on how closely it moves with the others. A holding representing a quarter of capital can contribute more than half of total risk.",
         "effectiveBets": "The portfolio holds {positions} stocks, but if they move together then in risk terms the diversification achieved is equivalent to fewer holdings. Accounting for this, the portfolio is equivalent to about {bets} independent positions.",
         "beta": "A beta of {beta} means that when VN-Index moves 10%, this portfolio typically moves about {move} in the same direction. Above 1 is more sensitive than the market, below 1 less.",
@@ -1150,7 +1131,27 @@
       "lossScaleNote": "The same decline levels, valued against the stocks held. Cash is excluded.",
       "colSell": "Sessions to sell",
       "varCheck": "Checked against history: breached {breaches}/{tested} sessions ({rate}).",
-      "varCheckNote": "The \"checked against history\" line under VaR: at each session the VaR is estimated from the previous 126 sessions only, then compared with that session's actual loss. About 1 session in 20 (5%) breaching is normal; clearly more means the VaR figure understates this portfolio's risk."
+      "sectorChartTitle": "Allocation by sector",
+      "closestPairLabel": "Closest pair: {a} – {b}",
+      "closestPairHigh": "almost one position — they fall together",
+      "closestPairMid": "move together moderately",
+      "closestPairLow": "move together little — they complement each other",
+      "volatilityLabel": "Annual volatility",
+      "volatilityNote": "over a year the portfolio usually swings up and down within this range",
+      "varCheckLabel": "Is the \"bad day\" figure realistic?",
+      "varCheckShort": "days that lost more than it ({rate}); about 5% is normal",
+      "sellNow": "now",
+      "sectorsWord": "sectors",
+      "histTitle": "Daily gain/loss over the last {span}",
+      "histNote": "Each column is the number of days the portfolio gained or lost that much. The red area is the worst days — about 1 day in 20.",
+      "lossTip2": "A \"bad day\" is the loss you meet about once every 20 trading days. A \"very bad day\" is the average loss on those bad days.",
+      "histVar": "bad day",
+      "histEs": "very bad day",
+      "badDay": "Bad day",
+      "badDayNote": "about one day in 20 loses this much or more ({pct})",
+      "veryBadDay": "Very bad day",
+      "veryBadDayNote": "the average loss on those bad days ({pct})",
+      "histSessions": "{n} days"
     },
     "margin": {
       "heading": "Capital structure and margin",
@@ -1188,7 +1189,6 @@
       "idleCash": "Idle cash costs",
       "idleCashNote": "per year, because {cash} of cash sits next to a loan that is charging interest",
       "idleCashNone": "no cash held alongside the loan",
-      "realisedVsDistance": "Over the last {days} sessions this portfolio itself fell {drawdown} from its peak. The distance to the warning threshold is {distance}.",
       "horizonTitle": "The same loan, held for how long?",
       "horizonNote": "Two independent estimates of the stocks falling to the warning threshold within the period: the Certus simulation scaled to the portfolio by beta, and how often VN-Index has fallen that far within a window this long since 2000. Interest and break-even are arithmetic.",
       "horizonNoteNoBeta": "The portfolio does not track the index closely enough to scale a probability from VN-Index, so only the interest cost is shown. Break-even is the rise the stocks need just to cover the interest.",
@@ -1219,8 +1219,7 @@
         "no_thresholds": "—"
       },
       "equityRiskTitle": "Losses on your equity",
-      "equityRiskNote": "The same measures as above, divided by equity instead of by the value of the stocks: the share of your own money actually lost.",
-      "equityVsStocks": "on the stocks it is {stocks}",
+      "equityRiskNote": "The same three figures as in \"Losses the portfolio may take\", turned into money and set against your equity. The grey bar is the loss without a loan; the red bar is that loss divided by your own money — longer by exactly the leverage. Reaching the black line means all equity is gone.",
       "caveat": {
         "selfReported": "Computed from the loan, rate and thresholds you entered, at the latest close. Nothing is verified with the broker.",
         "collateral": "Brokers compute the margin ratio on collateral discounted per stock; every distance here is an optimistic estimate.",
@@ -1235,7 +1234,15 @@
       },
       "distanceExternal": "external loan — no brokerage threshold",
       "horizonNoteExternal": "An external loan has no warning threshold, so only the interest cost is shown. Break-even is the rise the stocks need just to cover the interest.",
-      "horizonNotePast": "The account is already below the warning threshold, so the \"chance of reaching it\" is moot and not shown. Only the interest cost by holding period remains."
+      "horizonNotePast": "The account is already below the warning threshold, so the \"chance of reaching it\" is moot and not shown. Only the interest cost by holding period remains.",
+      "equityLegendStocks": "On the stocks",
+      "equityLegendEquity": "On your own money",
+      "equityLegendAll": "Black line: all of your equity ({amount})",
+      "equityRowStocks": "stocks fall {pct}",
+      "equityRowEquity": "= {pct} of equity",
+      "balanceTitle": "Assets and funding",
+      "scenarioExternal": "An external loan has no brokerage threshold, so there is no forced-sale scenario.",
+      "dumbbellNote": "The red dot sits {leverage}× further than the grey one — the leverage."
     },
     "saved": {
       "heading": "Saved portfolios",
@@ -1248,7 +1255,7 @@
       "save": "Save portfolio",
       "update": "Update portfolio",
       "done": "Saved. Next time you sign in, open it from the list above.",
-      "note": "Only the tickers, quantities, cash and loan you entered are kept; the result is recomputed on every open. {remaining} more can be saved.",
+      "note": "Only the inputs are saved, not the result. {remaining} left.",
       "editingNote": "Editing \"{name}\". Update overwrites it.",
       "limit": "You have saved the maximum of 10 portfolios. Delete an old one to save another."
     },
@@ -1263,7 +1270,6 @@
         "elevated_stress": "links tightening",
         "high_stress": "tight links — stocks are moving together more than usual"
       },
-      "standout": "{share} of the portfolio sits in one community: {count} holdings, {members} (community {community}), move together. When the community falls, they fall at once.",
       "legendHeld": "Your holdings",
       "legendOther": "Other VN30 stocks",
       "together": "Moves together",
@@ -1288,14 +1294,17 @@
       "breakeven": "Rise needed to pay interest",
       "callLine": "Warning threshold",
       "legendEquity": "Return range on equity",
-      "legendStocks": "Return range on the portfolio"
+      "legendStocks": "Return range on the portfolio",
+      "compareHeading": "Portfolio versus VN-Index",
+      "compareLead": "The same {level} Causa interval per horizon: grey box is VN-Index, blue box is the portfolio scaled by beta {beta}. A wider blue box means the portfolio swings more than the market.",
+      "legendPortfolio": "Portfolio"
     },
     "stress": {
       "heading": "If a crisis came back",
       "lead": "This portfolio, at today's weights, run through the prices of the largest falls since 2008: how deep it would have fallen, against VN-Index over the same sessions. No assumptions — this is what happened to the stocks you hold.",
       "coverageNote": "Holdings not yet listed at the time are left out and the rest re-weighted; the last column says how much of the portfolio each replay covers.",
       "equityNote": "The \"on equity\" column multiplies the fall by today's leverage; \"reaches warning\" compares that fall with the distance to the broker's threshold.",
-      "liquidityNote": "Sessions to sell assume {share} of a stock's 20-session average volume can be sold per session.",
+      "liquidityNote": "Time to sell assumes only {share} of a stock's normal daily volume is sold per day, so the sale itself does not push the price down.",
       "crisis": {
         "gfc_2008": "Crisis of 2008",
         "y2018": "Correction of 2018",
@@ -1319,13 +1328,18 @@
       "coveredAll": "whole portfolio",
       "coveredPart": "{share} of portfolio ({symbols})",
       "noCrises": "Too few holdings were listed through past falls to replay them.",
-      "noDiv": "If every holding moved in lockstep",
-      "noDivNote": "annual volatility would be this instead of today's {now} — the ceiling once diversification stops helping",
-      "liquidity": "Selling the whole portfolio takes",
-      "underHalfDay": "< half a session",
+      "noDiv": "If every holding fell at once",
+      "noDivNote": "annual volatility would rise to this instead of {now} — when diversification stops helping",
+      "liquidity": "If you had to sell everything, how long?",
       "days": "{n} sessions",
-      "liquiditySlow": "{symbols} ({share} of the portfolio) need more than {days} sessions to sell — a forced sale gets worse prices than the board shows.",
-      "liquidityFine": "every holding sells within a few sessions at {share} of average volume"
+      "liquiditySlow": "{symbols} ({share} of the portfolio) need about {days} sessions to sell — a forced sale gets prices well below the board.",
+      "liquidityFine": "Every holding can be exited at once: what you hold is small next to its daily volume.",
+      "underOneDay": "Under one session",
+      "sessionsShort": "{n} sessions",
+      "reachesCallLine": "margin warning threshold",
+      "pickLabel": "Pick a period",
+      "pickHint": "Pick a period above to watch your portfolio go through it — pick more to compare.",
+      "monthsAxis": "month {n}"
     },
     "budget": {
       "heading": "The loss you would accept",
@@ -1335,20 +1349,25 @@
         "equity": "equity",
         "portfolio": "stock value"
       },
-      "summaryWithin": "Limit: {limit} of {basis} ({amount}). Over the last year the portfolio fell at most {realised} — within the limit; {breaches}/{total} replayed crises exceed it.",
-      "summaryOver": "Limit: {limit} of {basis} ({amount}). Over the last year the portfolio fell as much as {realised}, and {breaches}/{total} replayed crises exceed this limit.",
       "limit": "Your limit",
       "limitNote": "{pct} of {basis}; a {drop} fall in the stocks reaches it",
-      "realised": "Deepest fall, last year",
-      "realisedWithin": "over the last {days} sessions, within the limit",
-      "realisedOver": "over the last {days} sessions — over the limit",
-      "crises": "Crises over the limit",
-      "crisesOver": "{list}",
-      "crisesWithin": "no replayed crisis exceeds the limit",
       "probability": "Chance within {horizon}",
       "probabilityNone": "the portfolio does not track the index closely enough to estimate",
       "probabilityModelOnly": "Certus simulation scaled to the portfolio",
-      "probabilityWithHistory": "Certus simulation; VN-Index history since 2000: {history} of windows this long"
+      "probabilityWithHistory": "Certus simulation; VN-Index history since 2000: {history} of windows this long",
+      "axisRealised": "Deepest fall, last {span}",
+      "axisLimit": "Your limit",
+      "axisCrises": "Each replayed crisis",
+      "axisLimitShort": "limit"
+    },
+    "gate": {
+      "title": "Sign in to analyse a portfolio",
+      "description": "This tool is for members. Create a free account to enter a portfolio, see where its risk sits, and save it for next time."
+    },
+    "span": {
+      "year": "1 year",
+      "months": "{n} months",
+      "sessions": "{n} sessions"
     }
   },
   "articles": {

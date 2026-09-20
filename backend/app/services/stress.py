@@ -40,7 +40,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.portfolio import (
     CrisisScenario,
+    HistogramBin,
     LiquiditySummary,
+    ReturnHistogram,
     RiskBudget,
     RiskBudgetInput,
     StressReport,
@@ -70,6 +72,47 @@ SLOW_DAYS = 5.0
 
 # VaR check: estimate on this many prior sessions, test on the next.
 VAR_CHECK_WINDOW = 126
+
+# Crisis paths are thinned to this many points: enough to draw the shape of
+# a 277-session fall, small enough not to weigh down the response.
+PATH_POINTS = 80
+HISTOGRAM_BINS = 24
+
+
+def thin(values: np.ndarray, points: int = PATH_POINTS) -> list[float]:
+    """Evenly spaced sample of a series, always keeping both ends."""
+    if values.size <= points:
+        return [round(float(v), 5) for v in values]
+    idx = np.linspace(0, values.size - 1, points).round().astype(int)
+    return [round(float(values[i]), 5) for i in idx]
+
+
+def return_histogram(port_returns: np.ndarray) -> ReturnHistogram:
+    """Daily returns binned on a symmetric axis around zero."""
+    r = port_returns
+    var_95 = float(np.percentile(r, 5))
+    tail = r[r <= var_95]
+    es_95 = float(tail.mean()) if tail.size else var_95
+    # The axis spans the 1st–99th percentile, symmetric about zero, so one
+    # freak session cannot squash the year into three bins; anything beyond
+    # is pooled into the edge bins and still counted.
+    p1, p99 = np.percentile(r, [1, 99])
+    span = float(max(abs(p1), abs(p99), 1e-4))
+    edges = np.linspace(-span, span, HISTOGRAM_BINS + 1)
+    counts, _ = np.histogram(np.clip(r, -span, span), bins=edges)
+    return ReturnHistogram(
+        bins=[
+            HistogramBin(
+                lower=round(float(edges[i]), 6),
+                upper=round(float(edges[i + 1]), 6),
+                count=int(c),
+            )
+            for i, c in enumerate(counts)
+        ],
+        observations=int(r.size),
+        var_95=round(var_95, 6),
+        expected_shortfall_95=round(es_95, 6),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +149,7 @@ def replay(
     symbols: list[str],
     weights: np.ndarray,
     index_closes: dict[date, float],
-) -> tuple[dict[str, float], list[str], int] | None:
+) -> tuple[dict[str, object], list[str], int] | None:
     """Re-measure the book on one window's prices.
 
     Returns (figures, covered symbols, sessions) or None when too little of
@@ -153,8 +196,10 @@ def replay(
         ip = np.array([index_closes[d] for d in idx_dates])
         ipeak = np.maximum.accumulate(ip)
         index_dd = float((ip / ipeak - 1.0).min())
+        index_path = thin(ip / ip[0] - 1.0)
     else:
         index_dd = 0.0
+        index_path = []
 
     return (
         {
@@ -165,6 +210,8 @@ def replay(
             "expected_shortfall_95": round(es_95, 6),
             "average_correlation": round(avg_corr, 4),
             "index_max_drawdown": round(index_dd, 6),
+            "path": thin(equity - 1.0),
+            "index_path": index_path,
         },
         covered,
         int(port.size),

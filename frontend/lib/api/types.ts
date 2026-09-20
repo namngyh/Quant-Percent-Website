@@ -661,8 +661,18 @@ export const CrisisScenarioSchema = z.object({
   expected_shortfall_95: z.number(),
   average_correlation: z.number(),
   index_max_drawdown: z.number(),
+  path: z.array(z.number()).optional().default([]),
+  index_path: z.array(z.number()).optional().default([]),
 });
 export type CrisisScenario = z.infer<typeof CrisisScenarioSchema>;
+
+export const ReturnHistogramSchema = z.object({
+  bins: z.array(z.object({ lower: z.number(), upper: z.number(), count: z.number() })),
+  observations: z.number(),
+  var_95: z.number(),
+  expected_shortfall_95: z.number(),
+});
+export type ReturnHistogram = z.infer<typeof ReturnHistogramSchema>;
 
 export const LiquiditySummarySchema = z.object({
   participation: z.number(),
@@ -685,6 +695,7 @@ export type VarCheck = z.infer<typeof VarCheckSchema>;
 
 export const StressReportSchema = z.object({
   crises: z.array(CrisisScenarioSchema),
+  histogram: ReturnHistogramSchema.nullable().optional().default(null),
   no_diversification_volatility: z.number(),
   liquidity: LiquiditySummarySchema,
   var_check: VarCheckSchema.nullable(),

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Bookmark, FolderOpen, Trash2 } from "lucide-react";
+import { Bookmark, FolderOpen, Lock, Trash2 } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { Button } from "@/components/ui/button";
+import { SkeletonLoader } from "@/components/states/skeleton-loader";
 import { apiRequest, ApiError, useApi } from "@/lib/api/fetcher";
 import {
   PortfolioAnalysisSchema,
@@ -32,9 +35,10 @@ import { useLocale } from "next-intl";
  */
 export function PortfolioWorkspace() {
   const t = useTranslations("portfolio");
+  const tAuth = useTranslations("auth.nav");
   const locale = useLocale();
-  const { status } = useAuth();
-  const signedIn = status === "authenticated";
+  const { user, status } = useAuth();
+  const signedIn = status === "authenticated" && user !== null;
 
   const [result, setResult] = useState<PortfolioAnalysis | null>(null);
   const [pending, setPending] = useState(false);
@@ -147,6 +151,34 @@ export function PortfolioWorkspace() {
       }
     : null;
 
+  // Signed-in accounts only (no email confirmation needed), mirroring the
+  // feedback form's panel. Reading the stored session takes a tick; the
+  // locked panel must not flash at someone who already is signed in.
+  if (status === "loading") {
+    return <SkeletonLoader rows={6} />;
+  }
+  if (!user) {
+    return (
+      <section className="flex flex-col items-center rounded-lg border border-border bg-surface px-6 py-16 text-center shadow-sm">
+        <span className="flex size-12 items-center justify-center rounded-full border border-border bg-background">
+          <Lock className="size-5" aria-hidden="true" />
+        </span>
+        <h2 className="title-md mt-6">{t("gate.title")}</h2>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-ink">
+          {t("gate.description")}
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Button asChild>
+            <Link href="/login?next=/quant-portfolio">{tAuth("signIn")}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/register?next=/quant-portfolio">{tAuth("signUp")}</Link>
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
       {signedIn && saved.length > 0 && (
@@ -199,7 +231,6 @@ export function PortfolioWorkspace() {
         onSubmit={analyse}
         pending={pending}
         initial={initial}
-        signedIn={signedIn}
       />
 
       {error && (

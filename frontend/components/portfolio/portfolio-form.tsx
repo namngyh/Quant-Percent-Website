@@ -89,14 +89,11 @@ export function PortfolioForm({
   onSubmit,
   pending,
   initial,
-  signedIn = false,
 }: {
   onSubmit: (payload: PortfolioRequestPayload) => void;
   pending: boolean;
   /** A saved portfolio to start from. Remount (key) to apply a new one. */
   initial?: PortfolioRequestPayload | null;
-  /** Changes only the privacy line: a member can choose to save. */
-  signedIn?: boolean;
 }) {
   const t = useTranslations("portfolio.form");
   const locale = useLocale();
@@ -259,9 +256,6 @@ export function PortfolioForm({
   return (
     <form onSubmit={submit} className="qp-panel p-6 sm:p-7">
       <h2 className="text-lg font-semibold">{t("heading")}</h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-dim">
-        {t("lead")}
-      </p>
 
       <datalist id="qp-symbols">
         {[...known.entries()].map(([code, info]) => (
@@ -407,7 +401,6 @@ export function PortfolioForm({
             placeholder="50.000.000"
             className="figure mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-right outline-none focus:border-brand"
           />
-          <p className="mt-1.5 text-xs text-dim">{t("cashNote")}</p>
         </div>
 
         <div>
@@ -605,10 +598,6 @@ export function PortfolioForm({
       >
         {pending ? t("analysing") : t("analyse")}
       </button>
-
-      <p className="mt-4 max-w-2xl text-xs leading-relaxed text-dim">
-        {signedIn ? t("privacySignedIn") : t("privacy")}
-      </p>
     </form>
   );
 }

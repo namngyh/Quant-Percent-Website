@@ -18,7 +18,9 @@ from app.services.stress import (
     liquidity_summary,
     no_diversification,
     replay,
+    return_histogram,
     risk_budget,
+    thin,
     var_check,
 )
 
@@ -63,6 +65,40 @@ class TestReplay:
     def test_too_few_sessions(self):
         closes = {"A": _path(5, -0.01, dt.date(2020, 1, 22))}
         assert replay(closes, ["A"], np.array([1.0]), {}) is None
+
+
+class TestPathsAndHistogram:
+    def test_replay_carries_the_path(self):
+        start = dt.date(2020, 1, 22)
+        closes = {"A": _path(40, -0.01, start)}
+        figures, _, _ = replay(closes, ["A"], np.array([1.0]), _path(40, -0.01, start))
+        path = figures["path"]
+        assert path[0] == 0.0
+        assert path[-1] == pytest.approx(figures["total_return"], abs=1e-4)
+        assert len(figures["index_path"]) == len(path)
+
+    def test_thin_keeps_both_ends_and_the_count(self):
+        v = np.arange(1000, dtype=float)
+        out = thin(v, 80)
+        assert len(out) == 80 and out[0] == 0.0 and out[-1] == 999.0
+        assert thin(np.arange(10, dtype=float), 80) == list(range(10))
+
+    def test_histogram_counts_every_return_and_marks_the_tail(self):
+        rng = np.random.default_rng(5)
+        r = rng.standard_normal(500) * 0.01
+        h = return_histogram(r)
+        assert sum(b.count for b in h.bins) == 500 == h.observations
+        assert h.bins[0].lower == pytest.approx(-h.bins[-1].upper)
+        assert h.var_95 == pytest.approx(np.percentile(r, 5), abs=1e-6)
+        assert h.expected_shortfall_95 <= h.var_95
+
+    def test_one_freak_session_does_not_widen_the_axis(self):
+        rng = np.random.default_rng(6)
+        r = rng.standard_normal(300) * 0.01
+        r[10] = -0.25
+        h = return_histogram(r)
+        assert h.bins[0].lower > -0.06
+        assert sum(b.count for b in h.bins) == 300
 
 
 class TestNoDiversification:
@@ -138,6 +174,8 @@ class TestRiskBudget:
             expected_shortfall_95=-0.04,
             average_correlation=0.5,
             index_max_drawdown=dd,
+            path=[0.0, dd],
+            index_path=[0.0, dd],
         )
 
     def _budget(self, **kw):

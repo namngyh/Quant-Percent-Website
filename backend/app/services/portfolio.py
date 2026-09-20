@@ -50,6 +50,7 @@ from app.services.stress import (
     days_to_sell,
     liquidity_summary,
     no_diversification,
+    return_histogram,
     risk_budget,
     var_check,
 )
@@ -728,6 +729,7 @@ async def analyze(
     crises = await crisis_scenarios(session, priced, weights)
     stress = StressReport(
         crises=crises,
+        histogram=return_histogram(port_returns),
         no_diversification_volatility=round(
             no_diversification(weights, asset_vol), 6
         ),

@@ -74,15 +74,15 @@ async function request<T>(
   // expired was rendered as logged out while a valid 30-day refresh cookie sat
   // in the browser unused.
   //
+  // Every method, not only GET: a 401 is rejected before the handler runs, so
+  // replaying a POST after refreshing cannot double-apply anything. Without
+  // this, the first analyse or save after fifteen idle minutes failed with a
+  // generic error while the page still showed the visitor as signed in.
+  //
   // One retry at most, guarded twice: the retry below passes allowRefresh=false,
   // and the refresh call itself uses bare fetch rather than request(), so it
   // cannot recurse.
-  if (
-    response.status === 401 &&
-    allowRefresh &&
-    method === "GET" &&
-    path !== "/api/v1/auth/refresh"
-  ) {
+  if (response.status === 401 && allowRefresh && path !== "/api/v1/auth/refresh") {
     const refreshed = await fetch(`${BASE}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { Accept: "application/json" },
