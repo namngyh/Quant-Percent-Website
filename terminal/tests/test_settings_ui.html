@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>settings</title></head>
+<body>
+<pre id="out">running…</pre>
+<iframe id="app" src="/#trade" style="width:1200px;height:760px;border:1px solid #ccc"></iframe>
+<script>
+/* The settings gear, driven in the running app (Nam 2026-09-16).
+ *
+ * The store and the panel are covered under jsdom by tests/test_render.js.
+ * What only a browser can answer is whether a choice made in the box reaches
+ * the chart: the figure on the entry line, the axis offset, the grid, and the
+ * contract block a run sends. Nothing here touches a paper session or the
+ * server's state — the position drawn on the chart is synthetic.
+ *
+ *   copy beside index.html, then with the app on :8000
+ *   chrome --headless --dump-dom --virtual-time-budget=90000 \
+ *          http://127.0.0.1:8000/static/test_settings_ui.html
+ */
+(async () => {
+  const out = [];
+  const say = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let failed = 0;
+  const check = (name, ok, detail = '') => {
+    say(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -> ${detail}` : ''}`);
+    if (!ok) failed += 1;
+  };
+
+  const frame = document.getElementById('app');
+  const ready = async () => {
+    await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+    const w = frame.contentWindow;
+    for (let i = 0; i < 150; i++) {
+      try {
+        const cm = w.eval('ChartManager');
+        if (cm.priceSeries && cm.priceSeries.data().length > 50) return w;
+      } catch { /* not up yet */ }
+      await wait(200);
+    }
+    return w;
+  };
+
+  let w = await ready();
+  let doc = w.document;
+  let S = w.eval('Settings');
+  S.reset();
+
+  const open = () => { doc.getElementById('settings-open').click(); };
+  const pick = (path, value) => {
+    const control = doc.querySelector(`[data-setting="${path}"]`);
+    if (!control) return false;
+    control.value = String(value);
+    control.dispatchEvent(new w.Event('change', { bubbles: true }));
+    return true;
+  };
+
+  // 1. The box opens, and holds the groups it is meant to.
+  open();
+  await wait(150);
+  check('the gear opens the settings box',
+        doc.getElementById('settings-dialog').hidden === false);
+  const groups = [...doc.querySelectorAll('#settings-body .set-group h3')].map((h) => h.textContent);
+  check('the box holds its six groups', groups.length === 6, groups.join(' | '));
+
+  // 1b. Sections (Nam, 2026-09-17): a list of four, and only the chosen one shown.
+  const tabs = [...doc.querySelectorAll('#settings-body [data-set-section]')];
+  const shown = () => [...doc.querySelectorAll('#settings-body .set-section')].filter((s) => !s.hidden);
+  check('the box lists four sections', tabs.length === 4, tabs.map((t) => t.textContent.trim()).join(' | '));
+  check('one section is shown at a time, Display first',
+        shown().length === 1 && shown()[0].id === 'set-section-display', shown().map((s) => s.id).join(','));
+  doc.querySelector('[data-set-section="trading"]').click();
+  check('choosing Trading shows the futures terms and nothing else',
+        shown().length === 1 && shown()[0].id === 'set-section-trading'
+          && !!shown()[0].querySelector('[data-setting="trading.contract.initial_margin_pct"]')
+          && doc.querySelector('[data-set-section="trading"]').getAttribute('aria-selected') === 'true',
+        shown().map((s) => s.id).join(','));
+  doc.querySelector('[data-set-section="display"]').click();
+
+  // 2. Controls write through: there is no Save to forget.
+  check('a control writes through with no Save',
+        pick('display.profit', 'points') && S.all().display.profit === 'points');
+
+  // 3. What the profit mode does to the figure on the entry line. The position
+  //    is synthetic and the candle is pushed through the live path, so the
+  //    figure is computed exactly as it is for a real one.
+  const cm = w.eval('ChartManager');
+  const bar = cm.priceSeries.data().at(-1);
+  const entry = +(bar.close * 0.998).toFixed(2);
+  const volume = cm.volumeSeries.data().at(-1)?.value ?? 0;
+  const draw = () => cm.setPositionLines({
+    side: 1, entry, quantity: 0.5, unit: 'USDT', label: 'LONG 0.5',
+  });
+  draw();
+  cm.updateCandle({
+    time: bar.time - 7 * 3600, open: bar.open, high: Math.max(bar.high, entry + 10),
+    low: Math.min(bar.low, entry + 10), close: entry + 10, volume,
+  }, cm.seriesKey);
+  const chipIn = (mode) => { pick('display.profit', mode); draw(); return cm.levelZones?.chip?.text || ''; };
+  const asPoints = chipIn('points');
+  const asPercent = chipIn('percent');
+  const asMoney = chipIn('money');
+  // 0.5 x (entry + 10 - entry) = +5.00 USDT, a +10.00 point move, +0.01% of the
+  // notional at entry — three readings of one position.
+  check('points mode shows the price move', asPoints.includes('+10.00'), asPoints);
+  check('percent mode shows the move on the notional at entry',
+        /\+0\.\d\d%/.test(asPercent) && !asPercent.includes('USDT'), asPercent);
+  check('money mode shows the amount with its unit', asMoney.includes('+5.00 USDT'), asMoney);
+
+  // 4. Timezone. The badge, the axis and the series all move together, because
+  //    an axis that changed meaning while the candles did not is two frames of
+  //    reference on one screen.
+  const beforeFirst = cm.priceSeries.data()[0].time;
+  pick('display.timezone', 'utc');
+  await wait(4000);
+  const afterFirst = w.eval('ChartManager').priceSeries.data()[0].time;
+  check('the badge says which timezone the axis reads in',
+        doc.querySelector('.tz-badge').textContent === 'UTC',
+        doc.querySelector('.tz-badge').textContent);
+  check('the series is redrawn exactly seven hours earlier',
+        beforeFirst - afterFirst === 7 * 3600, `${beforeFirst} -> ${afterFirst}`);
+  pick('display.timezone', 'vn');
+  await wait(4000);
+  check('and it comes back', doc.querySelector('.tz-badge').textContent === 'GMT+7');
+
+  // 5. The grid reaches the chart without rebuilding it.
+  check('the grid is off by default', w.eval('ChartManager').gridVisible === false);
+  pick('chart.grid', 'true');
+  check('the grid follows the setting', w.eval('ChartManager').gridVisible === true);
+  pick('chart.grid', 'false');
+
+  // 6. The contract terms default to DNSE's (18.48% / 17.35%), and a rate the
+  //    engine cannot use is named rather than sent.
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const defaults = w.eval('Strategy').execution().contract;
+  check('the default contract block is sent with DNSE\'s rates',
+        defaults && near(defaults.initial_margin_rate, 0.1848)
+          && near(defaults.maintenance_threshold, 17.35 / 18.48), JSON.stringify(defaults));
+  pick('trading.contract.force_sell_pct', '19');
+  const invalid = doc.querySelector('#settings-body .callout.warn')?.textContent || '';
+  check('a force sell above the initial margin is named and not sent',
+        (invalid.includes('force sell') || invalid.includes('force-sell'))
+          && w.eval('Strategy').execution().contract === null, invalid.slice(0, 80));
+  pick('trading.contract.initial_margin_pct', '20');
+  pick('trading.contract.force_sell_pct', '10');
+  pick('trading.contract.fee_per_contract', '20000');
+  const done = doc.querySelector('#settings-body .callout');
+  check('the box says the terms are complete',
+        !!done && !done.className.includes('warn'), done?.textContent.slice(0, 60));
+  const sent = w.eval('Strategy').execution().contract;
+  check('a run now carries the contract terms',
+        sent && near(sent.initial_margin_rate, 0.2) && near(sent.maintenance_threshold, 0.5)
+          && sent.fee_per_contract === 20000 && sent.multiplier === 100000,
+        JSON.stringify(sent));
+
+  // 7. The choices survive a reload: they are this browser's, not this page's.
+  // Same URL with the same hash is not a reload, it is a hash change: the app
+  // would never re-run and this would wait for a load event that never fires.
+  frame.contentWindow.location.reload();
+  w = await ready();
+  doc = w.document;
+  S = w.eval('Settings');
+  check('the settings survive a reload',
+        S.all().trading.contract.fee_per_contract === 20000
+          && S.all().display.profit === 'money');
+
+  // 8. Reset puts everything back, including the contract terms.
+  doc.getElementById('settings-open').click();
+  await wait(150);
+  doc.getElementById('settings-reset').click();
+  check('reset returns every group to its default',
+        S.all().trading.contract.initial_margin_pct === 18.48
+          && S.all().display.timezone === 'vn' && S.all().chart.bars === 180
+          && S.all().data.adjustSplits === true);
+
+  /* 9. The live feed can be ASKED where it stands, not only listened to.
+
+     The socket announces a stream once; a client that missed it — or whose
+     socket never opened — has to be able to ask, which is the whole point of
+     §2.5. This drives the frontend wrapper, so the query it builds and the
+     endpoint that answers stay in step. */
+  const feed = await w.eval('API').liveStatus({ symbol: 'BTCUSDT', timeframe: '1m' });
+  check('the feed status can be asked for over HTTP',
+        Array.isArray(feed?.streams), JSON.stringify(feed).slice(0, 120));
+  check('and asking about one series answers about that series',
+        feed.stream === null || feed.stream?.symbol === 'BTCUSDT',
+        JSON.stringify(feed.stream));
+
+  say(failed ? `\n${failed} failed` : '\nsettings checks hold');
+})();
+</script>
+</body>
+</html>

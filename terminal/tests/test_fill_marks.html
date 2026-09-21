@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>fill marks</title></head>
+<body>
+<pre id="out">running…</pre>
+<iframe id="app" src="/#trade" style="width:1200px;height:760px;border:1px solid #ccc"></iframe>
+<script>
+/* Trade markers, and every fill audited against its bar
+ * (charts.js, Nam 2026-09-16).
+ *
+ * The markers stay the library's (an arrow beside the bar, a circle for the
+ * exit), the look Nam chose after three price-anchored versions. Beside the
+ * bar they cannot show the fill price, so what this page guards is the price
+ * itself: a fill lying outside its own bar is a wrong price and is reported.
+ *
+ *   copy beside index.html, then with the app on :8000
+ *   chrome --headless --dump-dom --virtual-time-budget=60000 \
+ *          http://127.0.0.1:8000/static/test_fill_marks.html
+ */
+(async () => {
+  const out = [];
+  const say = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let failed = 0;
+  const check = (name, ok, detail = '') => {
+    say(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -> ${detail}` : ''}`);
+    if (!ok) failed += 1;
+  };
+
+  const frame = document.getElementById('app');
+  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+  const w = frame.contentWindow;
+  let cm = null;
+  for (let i = 0; i < 150; i++) {
+    try {
+      cm = w.eval('ChartManager');
+      if (cm.priceSeries && cm.priceSeries.data().length > 50 && w.eval('MultiChart').activeCell) break;
+    } catch { /* not ready */ }
+    await wait(200);
+  }
+  // A real tick or a paper update would redraw the markers under the checks.
+  w.eval('Live').setEnabled(false);
+  cm.clearPositionLines();
+  cm.focusRecent();
+  await wait(300);
+
+  const tz = cm.toChartTime(0);                   // the display offset, in seconds
+  const bars = cm.priceSeries.data();
+  const utc = (bar) => bar.time - tz;
+  const tall = bars.slice(-40, -3).reduce((best, b) => (b.high - b.low > best.high - best.low ? b : best));
+  const i = bars.indexOf(tall);
+  const next = bars[i + 1];
+
+  // A short filled at the bar's low, the case from the screenshot, and its
+  // exit at a price inside the following bar.
+  const shortPrice = tall.low * (1 - 0.0002);
+  const exitPrice = (next.high + next.low) / 2;
+  const mismatches = [];
+  cm.onFillMismatch = (list) => mismatches.push(...list);
+  cm.setTradeMarkers([{
+    side: 'short', entry_time: utc(tall) + 39, exit_time: utc(next) + 10,
+    entry_price: shortPrice, exit_price: exitPrice, exit_reason: 'manual',
+  }], null, { tolerance: { fraction: 0.0002 } });
+  await wait(300);
+
+  const markers = cm.priceSeries.markers();
+  check('the library draws the entry arrow over the bar and the exit circle',
+        markers.length === 2 && markers[0].shape === 'arrowDown' && markers[0].position === 'aboveBar'
+        && markers[0].text === 'S' && markers[1].shape === 'circle',
+        JSON.stringify(markers));
+  check('each marker sits on the bar that contains its fill',
+        markers[0].time === tall.time && markers[1].time === next.time,
+        `${markers[0]?.time}/${tall.time}, ${markers[1]?.time}/${next.time}`);
+  check('the fills keep their prices for the audit',
+        cm.tradeFills.length === 2 && cm.tradeFills[0].price === shortPrice && cm.tradeFills[1].price === exitPrice,
+        JSON.stringify(cm.tradeFills.map((f) => f.price)));
+  check('a fill inside its bar, allowing for slippage, is not reported', mismatches.length === 0,
+        JSON.stringify(mismatches));
+
+  // A fill no trade could have had: 150 points under the bar's low.
+  const wrong = tall.low - 150;
+  cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 39, entry_price: wrong },
+                     { tolerance: { fraction: 0.0002 } });
+  await wait(200);
+  check('a fill outside its bar is reported once, with the bar it was measured against',
+        mismatches.length === 1 && mismatches[0].price === wrong && mismatches[0].bar.low === tall.low,
+        JSON.stringify(mismatches));
+  cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 39, entry_price: wrong },
+                     { tolerance: { fraction: 0.0002 } });
+  check('and not again when the same markers are redrawn', mismatches.length === 1, mismatches.length);
+
+  // Slippage is the whole allowance: just past it is wrong, just inside is not.
+  const edge = tall.low * (1 - 0.0002);
+  cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 5, entry_price: edge * 0.9999 },
+                     { tolerance: { fraction: 0.0002 } });
+  const pastSlippage = cm.checkFills().length;
+  cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 5, entry_price: edge * 1.0000001 },
+                     { tolerance: { fraction: 0.0002 } });
+  check('the allowance is the slippage and no more', pastSlippage === 1 && cm.checkFills().length === 0,
+        `past ${pastSlippage}, inside ${cm.checkFills().length}`);
+
+  // The newest bar is still forming, so a fill there is not judged yet.
+  const newest = bars.at(-1);
+  cm.setTradeMarkers([], { side: 1, entry_time: utc(newest) + 1, entry_price: newest.high * 2 },
+                     { tolerance: { fraction: 0.0002 } });
+  check('a fill on the forming bar is not judged until the bar closes', cm.checkFills().length === 0,
+        JSON.stringify(cm.checkFills()));
+  check('without known slippage nothing is judged', (() => {
+    cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 39, entry_price: wrong });
+    return cm.checkFills().length === 0;
+  })());
+
+  // Hidden markers are kept, and come back when shown.
+  cm.setTradeMarkers([], { side: -1, entry_time: utc(tall) + 39, entry_price: shortPrice });
+  cm.setMarkersVisible(false);
+  const hidden = cm.priceSeries.markers().length;
+  cm.setMarkersVisible(true);
+  const shown = cm.priceSeries.markers();
+  check('hiding the markers removes them and showing restores them',
+        hidden === 0 && shown.length === 1 && shown[0].text === 'SHORT ●', `hidden ${hidden}, shown ${JSON.stringify(shown)}`);
+  check('the marker count still counts entries only', cm.markerCount === 1, cm.markerCount);
+
+  cm.clearTradeMarkers();
+  cm.onFillMismatch = null;
+  say('');
+  say(failed ? `${failed} failed` : 'fill marks hold');
+})();
+</script>
+</body>
+</html>

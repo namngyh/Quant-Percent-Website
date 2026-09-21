@@ -1,0 +1,35 @@
+# --- Core numeric stack ---
+numpy>=2.0
+pandas>=2.2
+
+# Technical-analysis catalog (193 indicators).
+# NOTE: the original `pandas-ta` was pulled from PyPI for Python < 3.12;
+# `pandas-ta-classic` is the maintained fork of the 0.3.x line and works
+# on numpy 2.x / pandas 3.x. Verified against numpy 2.4.6 + pandas 3.0.5.
+pandas-ta-classic==0.6.52
+
+# --- Storage ---
+duckdb>=1.1
+pyarrow>=18.0
+
+# --- API / server ---
+fastapi>=0.115
+uvicorn[standard]>=0.34
+httpx>=0.28
+websockets>=14.0
+
+# --- Config ---
+pyyaml>=6.0
+
+# --- Team market database (Vietnam / HOSE) ---
+# TimescaleDB on the team VPS, read-only, reachable over the Tailscale VPN.
+psycopg[binary]>=3.2
+psycopg_pool>=3.2
+python-dotenv>=1.0
+
+# --- Machine-learning indicators (plugins/indicators/ml_*.py) ---
+scikit-learn>=1.5
+
+# --- Statistical tests (ADF, Ljung-Box) ---
+statsmodels>=0.14
+scipy>=1.11

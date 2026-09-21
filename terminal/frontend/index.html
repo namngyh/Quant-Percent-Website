@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quant Percent</title>
+  <!-- One typeface, served from this machine.
+
+       Be Vietnam Pro was drawn for Vietnamese: its stacked marks (ế, ộ, ữ) are
+       designed into the face rather than composed from a Latin one, which is
+       exactly where Trebuchet, Roboto and even Segoe UI fell short. It is
+       vendored under /static/fonts rather than linked from Google Fonts —
+       that link was measured at 319ms on the load path in 2026-09-15, and on
+       a machine with no internet it is a request that has to time out.
+       The two faces the first screen actually draws are preloaded so the
+       chart axis is not measured with a fallback. -->
+  <link rel="preload" href="/static/fonts/be-vietnam-pro-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/static/fonts/be-vietnam-pro-600-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/workspace.css" />
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+  <!-- Opening screen. Three things in a column: the mark, the name, and the
+       one credit this platform owes — the charts are TradingView's Lightweight
+       Charts, and saying so on the way in is both accurate and the licence's
+       expectation. The progress bar is indeterminate on purpose: the boot has
+       two requests and no useful percentage to report, and a fake percentage
+       is worse than an honest sweep. -->
+  <div id="splash" class="splash">
+    <div class="splash-inner">
+      <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="17" y="13" width="25" height="25" />
+        <rect x="58" y="62" width="25" height="25" />
+        <path d="M19 81 L81 19" />
+      </svg>
+      <div class="splash-word">QUANT<strong>PERCENT</strong> TERMINAL</div>
+      <div class="splash-bar" role="progressbar" aria-label="Loading"><span></span></div>
+      <div class="splash-credit">
+        <span data-i18n="splash.charting">Charting powered by</span>
+<!-- The wordmark as text, not a drawn logo.
+
+             The SVG here before was my own approximation of the TradingView
+             mark and it rendered as a garbled shape. Approximating someone
+             else's trademark by hand is the wrong thing to do twice over: it
+             looks broken, and a wrong logo is a worse attribution than none.
+             The Lightweight Charts licence asks for attribution with a link to
+             tradingview.com, which is exactly what this is. -->
+        <a class="splash-tv" href="https://www.tradingview.com/"
+           target="_blank" rel="noopener noreferrer">TradingView</a>
+      </div>
+    </div>
+  </div>
+  <header class="topbar">
+    <div class="brand" title="Quant Percent">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="17" y="13" width="25" height="25" />
+        <rect x="58" y="62" width="25" height="25" />
+        <path d="M19 81 L81 19" stroke-width="16" fill="none" />
+      </svg>
+    </div>
+    <div class="topbar-controls">
+      <button id="star-symbol" class="star star-lg" data-i18n-title="top.starSymbol">☆</button>
+      <select id="symbol" data-i18n-aria="top.symbol"></select>
+      <div id="timeframes" class="tf-group" role="group" data-i18n-aria="top.timeframes"></div>
+      <!-- Chart shape. Beside the timeframes because it is the same kind of
+           choice: how the same data is drawn. -->
+      <div class="ct-picker">
+        <button id="chart-type" class="btn ct-button" type="button"
+                aria-haspopup="menu" aria-expanded="false"
+                data-i18n-title="chart.type"></button>
+        <div id="chart-type-menu" class="ct-menu" role="menu" hidden></div>
+      </div>
+      <!-- How many markets on screen. One is the working chart alone. -->
+      <div class="tf-group layout-switch" role="group" data-i18n-aria="mc.layout">
+        <button class="tf-btn active" data-layout="1" type="button" data-i18n-title="ws.layout1" data-i18n-aria="ws.layout1"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/></svg></button>
+        <button class="tf-btn" data-layout="2" type="button" data-i18n-title="ws.layout2" data-i18n-aria="ws.layout2"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M10 4v12"/></svg></button>
+        <button class="tf-btn" data-layout="4" type="button" data-i18n-title="ws.layout4" data-i18n-aria="ws.layout4"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M10 3v14M3 10h14"/></svg></button>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <span id="price-block" class="price-block" hidden>
+        <span id="price" class="price-ticker"></span>
+        <span id="price-change" class="price-change"></span>
+      </span>
+      <span class="topbar-sep" aria-hidden="true"></span>
+      <span id="status" class="status" title=""></span>
+      <span class="tz-badge" data-i18n-title="top.tz">GMT+7</span>
+      <!-- Realtime and the backfill button used to sit here. Both were
+           controls for things that now simply happen: the stream is on from
+           start-up, and missing bars are fetched when a series loads. A
+           switch for something already handled is one more thing to read and
+           one more way to break it by accident. The status line still says
+           when a catch-up is running. -->
+      <span id="connection-state" class="connection-state" data-state="connecting"><i aria-hidden="true"></i><span data-i18n="live.connecting">Đang nối…</span></span>
+      <button id="command-open" class="icon-button command-trigger" type="button" aria-haspopup="dialog" data-i18n-title="ws.search" data-i18n-aria="ws.search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+      </button>
+      <button id="team-open" class="icon-button" type="button" aria-haspopup="dialog"
+              data-i18n-title="team.title" data-i18n-aria="team.title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="17.5" r="2.4"/><path d="M8.4 7h7.2M7.2 9.1 10.8 15.5M16.8 9.1 13.2 15.5"/></svg>
+      </button>
+      <button id="settings-open" class="icon-button" type="button" aria-haspopup="dialog"
+              data-i18n-title="set.title" data-i18n-aria="set.title">
+        <!-- A cog: teeth standing on a ring around a hub. The first version was a
+             circle with eight straight rays, which reads as a sun, not a setting. -->
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M 17.57 9.28 L 20.93 9.77 L 20.93 14.23 L 17.57 14.72 A 6.20 6.20 0 0 1 17.14 15.47 L 17.14 15.47 L 18.39 18.62 L 14.54 20.84 L 12.43 18.18 A 6.20 6.20 0 0 1 11.57 18.18 L 11.57 18.18 L 9.46 20.84 L 5.61 18.62 L 6.86 15.47 A 6.20 6.20 0 0 1 6.43 14.72 L 6.43 14.72 L 3.07 14.23 L 3.07 9.77 L 6.43 9.28 A 6.20 6.20 0 0 1 6.86 8.53 L 6.86 8.53 L 5.61 5.38 L 9.46 3.16 L 11.57 5.82 A 6.20 6.20 0 0 1 12.43 5.82 L 12.43 5.82 L 14.54 3.16 L 18.39 5.38 L 17.14 8.53 A 6.20 6.20 0 0 1 17.57 9.28 Z"/><circle cx="12" cy="12" r="3.4"/></svg>
+      </button>
+      <div class="lang-switch" role="group" data-i18n-aria="top.lang">
+        <button class="lang-btn" data-lang="vi" type="button">VI</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+      </div>
+      <button id="workspace-fullscreen" class="icon-button" type="button" data-i18n-title="ws.fullscreen" data-i18n-aria="ws.fullscreen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>
+      </button>
+      <button id="mode-toggle" class="btn btn-primary btn-lg" data-i18n="top.trade">Giao dịch</button>
+    </div>
+  </header>
+
+  <main class="layout" id="layout">
+    <!-- ============ Rail: exactly one panel open at a time ============ -->
+    <nav class="rail" role="tablist" data-i18n-aria="rail.panels">
+      <button class="rail-btn" data-panel="indicators" role="tab" data-i18n-title="rail.indicators">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 4 3-4 6 6"/><path d="M3 21h18"/></svg>
+        <span data-i18n="rail.indicators">Chỉ báo</span>
+      </button>
+      <button class="rail-btn" data-panel="strategy" role="tab" data-i18n-title="rail.strategy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>
+        <span data-i18n="rail.strategy">Chiến lược</span>
+      </button>
+      <button class="rail-btn" data-panel="results" role="tab" data-i18n-title="rail.results">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg>
+        <span data-i18n="rail.results">Kết quả</span>
+      </button>
+      <button class="rail-btn" data-panel="portfolio" role="tab" data-i18n-title="rail.portfolio">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/></svg>
+        <span data-i18n="rail.portfolio">Danh mục</span>
+      </button>
+      <button class="rail-btn" data-panel="paper" role="tab" data-i18n-title="rail.paper">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
+        <span data-i18n="rail.paper">Paper</span>
+      </button>
+      <span class="rail-sep" aria-hidden="true"></span>
+      <button class="rail-btn" data-panel="optimize" role="tab" data-i18n-title="rail.optimize">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>
+        <span data-i18n="rail.optimize">Tối ưu</span>
+      </button>
+      <button class="rail-btn" data-panel="montecarlo" role="tab" data-i18n-title="rail.montecarlo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20c3-1 4-5 6-9s4-7 7-7"/><path d="M3 20c4-2 6-4 8-8s5-4 10-4"/><path d="M3 20c5-3 9-3 12-6s4-5 6-9"/></svg>
+        <span data-i18n="rail.montecarlo">Monte Carlo</span>
+      </button>
+      <button class="rail-btn" data-panel="stats" role="tab" data-i18n-title="rail.stats">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 19c2 0 3-2 4.5-6S11 4 12 4s2 5 3.5 9 2.5 6 4.5 6"/></svg>
+        <span data-i18n="rail.stats">Thống kê</span>
+      </button>
+    </nav>
+
+    <!-- ============ The one open panel ============ -->
+    <!-- Starts closed: the chart is what a session opens for, and a panel is
+         something you reach for. The last open panel comes back on reload
+         (session.js) when there was one. -->
+    <aside class="panel-host collapsed" id="panel-host">
+
+      <!-- ---------- Indicators ---------- -->
+      <section class="panel active" data-panel="indicators">
+        <div class="panel-head">
+          <h2 data-i18n="ind.title">Chỉ báo</h2>
+          <div class="panel-head-actions">
+            <span id="catalog-count" class="badge">—</span>
+            <button class="info-btn" data-format-help="indicator" data-i18n-title="ind.format">i</button>
+            <button class="btn btn-quiet btn-sm" data-write="indicator" data-i18n="ed.open">Viết code</button>
+            <button class="btn btn-quiet btn-sm" data-import="indicator" data-i18n="ind.import">Nhập .py</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <input id="search" type="search" data-i18n-placeholder="ind.search" autocomplete="off" />
+          <div id="plugin-errors" class="load-errors" hidden></div>
+          <div id="catalog" class="catalog"></div>
+        </div>
+        <div class="panel-foot">
+          <div class="panel-foot-head">
+            <span data-i18n="ind.active">Đang bật</span>
+            <button id="clear-all" class="btn btn-quiet btn-sm" data-i18n="ind.clearAll">Xóa hết</button>
+          </div>
+          <div id="active" class="active-list">
+            <p class="empty" data-i18n="ind.none">Chưa có chỉ báo nào.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Strategy ---------- -->
+      <section class="panel" data-panel="strategy">
+        <div class="panel-head">
+          <h2 data-i18n="st.title">Chiến lược</h2>
+          <div class="panel-head-actions">
+            <span id="strategy-count" class="badge">—</span>
+            <button class="info-btn" data-format-help="strategy" data-i18n-title="ind.format">i</button>
+            <button class="btn btn-quiet btn-sm" data-write="strategy" data-i18n="ed.open">Viết code</button>
+            <button class="btn btn-quiet btn-sm" data-import="strategy" data-i18n="ind.import">Nhập .py</button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div id="strategy-errors" class="load-errors" hidden></div>
+          <div class="row-with-star">
+            <button id="star-strategy" class="star" data-i18n-title="st.star">☆</button>
+            <select id="strategy-select"></select>
+            <button id="info-strategy" class="info-btn" data-i18n-title="st.explain">i</button>
+          </div>
+          <p id="strategy-desc" class="hint"></p>
+
+          <div class="subtabs" role="tablist">
+            <button class="subtab active" data-subtab="run" role="tab" data-i18n="st.tabRun">Chạy</button>
+            <button class="subtab" data-subtab="check" role="tab" data-i18n="st.tabCheck">Kiểm định</button>
+          </div>
+
+          <div class="subpanel active" data-subpanel="run">
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="st.params">Tham số</div>
+              <div id="strategy-params" class="params"></div>
+            </div>
+
+            <details class="field-group foldable">
+              <summary class="field-group-title" data-i18n="st.period">Khoảng thời gian</summary>
+              <p class="hint" data-i18n="st.periodHint">Bỏ trống là dùng số nến gần nhất.</p>
+              <div class="params">
+                <label class="param-row"><span data-i18n="st.from">Từ ngày</span>
+                  <input id="bt-start" type="date" /></label>
+                <label class="param-row"><span data-i18n="st.to">Đến ngày</span>
+                  <input id="bt-end" type="date" /></label>
+                <label class="param-row"><span><span data-i18n="top.bars">Số nến</span>
+                  <button type="button" class="info-btn" data-explain="st.bars"
+                          data-i18n-title="top.bars" title="Số nến">i</button></span>
+                  <select id="limit">
+                    <option value="500">500</option>
+                    <option value="1000">1 000</option>
+                    <option value="2000" selected>2 000</option>
+                    <option value="5000">5 000</option>
+                    <option value="10000">10 000</option>
+                    <option value="20000">20 000</option>
+                  </select></label>
+              </div>
+              <div id="bt-period-note" class="hint"></div>
+            </details>
+
+            <details class="field-group foldable">
+              <summary class="field-group-title" data-i18n="st.costs">Chi phí &amp; vốn</summary>
+              <div class="params">
+                <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span> <em id="exec-capital-unit" class="unit"></em> <button type="button" class="info-btn" data-explain="exec.capital" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
+                  <input id="exec-capital" type="number" value="10000" min="100" step="100" /></label>
+                <label class="param-row"><span><span data-i18n="st.size">% vốn/lệnh</span> <button type="button" class="info-btn" data-explain="exec.size" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
+                  <input id="exec-size" type="number" value="100" min="1" max="100" step="1" /></label>
+                <label class="param-row"><span><span data-i18n="st.leverage">Đòn bẩy</span> <button type="button" class="info-btn" data-explain="exec.leverage" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
+                  <input id="exec-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
+                <label class="param-row"><span><span data-i18n="st.fee">Phí (%)</span> <button type="button" class="info-btn" data-explain="exec.fee" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
+                  <input id="exec-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
+                <label class="param-row"><span><span data-i18n="st.slippage">Trượt giá (%)</span> <button type="button" class="info-btn" data-explain="exec.slippage" data-i18n-aria="a11y.explain" data-i18n-title="a11y.explain" aria-label="Giải thích" title="Giải thích">i</button></span>
+                  <input id="exec-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
+              </div>
+            </details>
+
+            <button id="run-backtest" class="btn btn-primary btn-block" data-i18n="st.runBacktest">Chạy backtest</button>
+            <button id="start-paper" class="btn btn-block" data-i18n="st.startPaper">Chạy giao dịch mô phỏng</button>
+
+            <!-- The same strategy over several markets at once.
+
+                 Kept in the Run tab rather than given its own, because it is
+                 the same question as the button above it — "does this work" —
+                 asked of more than one instrument. The timeframe is not a
+                 control here: it follows the chart, so what is tested is what
+                 is on screen. -->
+            <div class="field-group">
+              <div class="field-group-title">
+                <span data-i18n="mm.title">Nhiều thị trường</span>
+                <button type="button" class="info-btn" data-explain="mm.about"
+                        data-i18n-title="mm.title">i</button>
+              </div>
+              <p class="hint" id="mm-timeframe-note"></p>
+              <div class="mm-picker">
+                <select id="mm-add" data-i18n-aria="mm.add"></select>
+                <button id="mm-add-current" class="btn btn-quiet btn-sm"
+                        data-i18n="mm.addCurrent">Thêm mã đang xem</button>
+              </div>
+              <div id="mm-chosen" class="mm-chosen"></div>
+              <button id="run-markets" class="btn btn-block" data-i18n="mm.run"
+                      disabled>Chạy trên các thị trường đã chọn</button>
+            </div>
+          </div>
+
+          <!-- Validation -->
+          <div class="subpanel" data-subpanel="check">
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="wf.title">Walk-forward</div>
+              <p class="hint" data-i18n-html="wf.hint"></p>
+              <p class="hint" data-i18n-html="wf.bars"></p>
+              <label class="param-row"><span data-i18n="wf.train">Cửa sổ huấn luyện</span>
+                <input id="wf-train" type="number" value="1000" min="50" step="50" /></label>
+              <label class="param-row"><span data-i18n="wf.test">Cửa sổ kiểm tra</span>
+                <input id="wf-test" type="number" value="250" min="50" step="50" /></label>
+              <label class="param-row"><span><span data-i18n="wf.purge">Nến cách ly</span>
+                <button type="button" class="info-btn" data-explain="wf.purge"
+                        data-i18n-title="wf.purge" title="Nến cách ly">i</button></span>
+                <input id="wf-purge" type="number" value="0" min="0" step="10" /></label>
+              <label class="param-row"><span><span data-i18n="wf.foldMode">Kiểu cửa sổ</span>
+                <button type="button" class="info-btn" data-explain="wf.foldMode"
+                        data-i18n-title="wf.foldMode" title="Kiểu cửa sổ">i</button></span>
+                <select id="wf-fold-mode">
+                  <option value="rolling" data-i18n="wf.rolling">Trượt</option>
+                  <option value="anchored" data-i18n="wf.anchored">Neo gốc</option>
+                </select></label>
+              <button id="run-walkforward" class="btn btn-primary btn-block" data-i18n="wf.run">Chạy walk-forward</button>
+            </div>
+
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="cmp.title">So sánh chiến lược</div>
+              <p class="hint" data-i18n="cmp.hint">Chạy nhiều chiến lược trên cùng dữ liệu, cùng chi phí.</p>
+              <div id="compare-list" class="compare-list"></div>
+              <button id="run-compare" class="btn btn-block" data-i18n="cmp.run">So sánh</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ---------- Results ---------- -->
+      <section class="panel" data-panel="results">
+        <div class="panel-head">
+          <h2 data-i18n="res.title">Kết quả</h2>
+          <div class="subtabs compact" role="tablist">
+            <button class="subtab active" data-restab="summary" role="tab" data-i18n="res.summary">Tổng quan</button>
+            <button class="subtab" data-restab="trades" role="tab" data-i18n="res.trades">Lệnh</button>
+            <button class="subtab" data-restab="markets" role="tab" data-i18n="mm.tab">Thị trường</button>
+            <button class="subtab" data-restab="validation" role="tab" data-i18n="res.validation">Kiểm định</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="subpanel active" data-respanel="summary">
+            <div id="metrics" class="metrics-host">
+              <p class="empty" data-i18n="res.runFirst">Chạy một backtest để xem kết quả.</p>
+            </div>
+            <div class="equity-wrap">
+              <div class="equity-label" data-i18n="res.equity">Đường vốn</div>
+              <div id="equity-chart" class="equity-chart"></div>
+            </div>
+          </div>
+          <div class="subpanel" data-respanel="trades">
+            <!-- Report and CSV live here rather than in the panel header.
+                 Both act on the trade list: the report is built from it and
+                 the CSV is it. In the header they read as actions on whatever
+                 tab happened to be open, which is what they are not. -->
+            <div class="subpanel-actions">
+              <button id="open-report" class="btn btn-sm"
+                      data-i18n-title="res.reportTitle" data-i18n="res.report">Báo cáo</button>
+              <button id="export-csv" class="btn btn-quiet btn-sm"
+                      data-i18n-title="res.csv">CSV</button>
+            </div>
+            <div id="trades" class="scroll-area"><p class="empty" data-i18n="res.noTrades">Chưa có lệnh nào.</p></div>
+          </div>
+          <div class="subpanel" data-respanel="markets">
+            <div id="markets-output" class="scroll-area">
+              <p class="empty" data-i18n="mm.none">Chọn vài thị trường ở tab Chiến lược → Chạy, rồi bấm chạy.</p>
+            </div>
+          </div>
+          <div class="subpanel" data-respanel="validation">
+            <div id="validation-output" class="scroll-area">
+              <p class="empty" data-i18n="res.noValidation">Chạy walk-forward, Monte Carlo hoặc so sánh ở tab Chiến lược → Kiểm định.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Optimise ---------- -->
+      <section class="panel" data-panel="optimize">
+        <div class="panel-head">
+          <h2 data-i18n="rail.optimize">Tối ưu</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+
+            <p class="hint" data-i18n="st.sweepHint">Tích tham số cần quét và đặt dải giá trị.</p>
+            <div id="sweep-ranges" class="sweep-list"></div>
+
+            <div class="field-group">
+              <label class="param-row"><span data-i18n="st.sweepMode">Cách quét</span>
+                <select id="opt-mode">
+                  <option value="grid" data-i18n="st.sweepGrid">Quét cạn</option>
+                  <option value="random" data-i18n="st.sweepRandom">Ngẫu nhiên</option>
+                </select></label>
+              <label class="param-row" id="opt-samples-row" hidden><span data-i18n="st.samples">Số mẫu</span>
+                <input id="opt-samples" type="number" value="500" min="10" max="5000" step="50" /></label>
+              <label class="param-row"><span data-i18n="st.rankBy">Xếp hạng theo</span>
+                <select id="opt-metric"></select></label>
+            </div>
+
+            <div id="sweep-size" class="sweep-size"></div>
+            <button id="run-optimize" class="btn btn-primary btn-block" data-i18n="st.runOptimize">Chạy tối ưu</button>
+          
+          <div class="field-group">
+            <div class="field-group-title" data-i18n="res.optimize">Tối ưu</div>
+            <div id="optimize-results" class="scroll-area"><p class="empty" data-i18n="res.noOpt">Chưa chạy tối ưu.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Monte Carlo ---------- -->
+      <section class="panel" data-panel="montecarlo">
+        <div class="panel-head">
+          <h2 data-i18n="rail.montecarlo">Monte Carlo</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="mc.title">Monte Carlo</div>
+              <p class="hint" data-i18n="mc.hint"></p>
+              <label class="param-row"><span data-i18n="mc.sims">Số mô phỏng</span>
+                <input id="mc-sims" type="number" value="1000" min="100" max="10000" step="100" /></label>
+              <button id="run-montecarlo" class="btn btn-block" data-i18n="mc.run">Chạy Monte Carlo</button>
+            </div>
+
+
+          <div id="mc-output">
+            <p class="empty" data-i18n="mc.none">Chưa chạy Monte Carlo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Statistics ---------- -->
+      <section class="panel" data-panel="stats">
+        <div class="panel-head">
+          <h2 data-i18n="rail.stats">Thống kê</h2>
+        </div>
+        <div class="panel-body">
+          <!-- These tools run the strategy chosen under Strategies, with its
+               parameters and costs; the line says which one, so a sweep is
+               never launched on a strategy nobody is looking at. -->
+          <p class="hint tool-strategy"><span data-i18n="tool.strategy">Chiến lược đang chọn</span>:
+            <strong data-strategy-name>—</strong><br>
+            <span data-i18n="tool.strategyHint">Đổi chiến lược và tham số ở mục Chiến lược.</span></p>
+            <div class="field-group">
+              <div class="field-group-title" data-i18n="stat.title">Kiểm định thống kê</div>
+              <p class="hint" data-i18n="stats.hint"></p>
+              <button id="run-stats-series" class="btn btn-block" data-i18n="stat.series">Phân tích chuỗi giá</button>
+              <button id="run-stats-strategy" class="btn btn-block" data-i18n="stat.strategy">Kiểm định chiến lược</button>
+            </div>
+
+
+          <div id="stats-output" class="scroll-area">
+              <p class="empty" data-i18n="res.noStats">Chạy kiểm định thống kê ở tab Chiến lược → Kiểm định.</p>
+            </div>
+        </div>
+      </section>
+
+      <!-- ---------- Quant Portfolio ---------- -->
+      <section class="panel" data-panel="portfolio">
+        <div class="panel-head">
+          <h2 data-i18n="pf.title">Danh mục</h2>
+          <div class="panel-head-actions">
+            <span id="pf-count" class="badge">—</span>
+            <button class="info-btn" data-explain="pf.about" data-i18n-title="pf.about">i</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <p class="hint" data-i18n="pf.lead"></p>
+
+          <div class="pf-quick-bar">
+            <span class="pf-quick-title" data-i18n="pf.quickAdd">Thêm nhanh:</span>
+            <div class="pf-quick-chips">
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="FPT">FPT</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="HPG">HPG</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="VHM">VHM</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="VIC">VIC</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="VCB">VCB</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="SSI">SSI</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="MWG">MWG</button>
+              <button type="button" class="chip chip-sm pf-quick-chip" data-sym="TCB">TCB</button>
+            </div>
+          </div>
+
+          <datalist id="pf-symbols"></datalist>
+          <div id="pf-rows" class="pf-rows"></div>
+          <button id="pf-add" class="btn btn-quiet btn-sm btn-block" data-i18n="pf.add">+ Thêm mã</button>
+
+          <div class="field-group">
+            <label class="param-row stack"><span data-i18n="pf.cash">Tiền mặt (đồng)</span>
+              <input id="pf-cash" type="text" inputmode="numeric" placeholder="0" /></label>
+            <label class="param-row"><span><span data-i18n="pf.lookback">Cửa sổ đo</span>
+              <button type="button" class="info-btn" data-explain="pf.lookback"
+                      data-i18n-title="a11y.explain" title="Giải thích">i</button></span>
+              <select id="pf-lookback">
+                <option value="126" data-i18n="pf.m6">6 tháng</option>
+                <option value="252" selected data-i18n="pf.y1">1 năm</option>
+                <option value="504" data-i18n="pf.y2">2 năm</option>
+              </select></label>
+            <label class="param-row"><span><span data-i18n="pf.horizon">Kỳ dự phóng</span>
+              <button type="button" class="info-btn" data-explain="pf.horizon"
+                      data-i18n-title="a11y.explain" title="Giải thích">i</button></span>
+              <select id="pf-horizon">
+                <option value="21" data-i18n="pf.m1">1 tháng</option>
+                <option value="63" selected data-i18n="pf.m3">3 tháng</option>
+                <option value="126" data-i18n="pf.m6">6 tháng</option>
+                <option value="252" data-i18n="pf.y1">1 năm</option>
+              </select></label>
+          </div>
+
+          <button id="pf-run" class="btn btn-primary btn-block" data-i18n="pf.run">Phân tích danh mục</button>
+          <!-- Only useful once there is an analysis to carry over, so it stays
+               hidden until one exists. -->
+          <button id="pf-paper" class="btn btn-block" data-i18n="pf.paper" hidden
+            >Mô phỏng giao dịch cả danh mục</button>
+          <p id="pf-message" class="hint"></p>
+        </div>
+      </section>
+
+      <!-- ---------- Simulated trading ---------- -->
+      <section class="panel" data-panel="paper">
+        <div class="panel-head">
+          <h2 data-i18n="paper.title">Giao dịch mô phỏng</h2>
+          <div class="panel-head-actions">
+            <button id="paper-dash" class="btn btn-quiet btn-sm"
+                    data-i18n="paper.account">Tài khoản</button>
+            <button id="notify-open" class="btn btn-quiet btn-sm"
+                    data-i18n-title="tg.title" data-i18n="tg.short">Thông báo</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <p class="hint" data-i18n="paper.lead"></p>
+          <!-- Names the market you are actually looking at. A paper session
+               belongs to a symbol, and choosing the symbol first and the
+               session second is the order a person thinks in; the button
+               labelled just "Manual trading" left it ambiguous which market it
+               would open on. -->
+          <button id="start-manual" class="btn btn-primary btn-block"></button>
+          <div id="paper-sessions" class="paper-list"></div>
+
+        </div>
+      </section>
+    </aside>
+
+    <div id="resize-panel" class="resize-handle resize-x"
+         role="separator" aria-orientation="vertical"
+         data-i18n-title="resize.panel"></div>
+
+    <!-- ============ Charts ============ -->
+    <section class="charts">
+      <!-- Drawing tools get their own column rather than floating over the
+           chart. Absolutely positioned inside the pane, the bar covered the
+           leftmost candles — the data it exists to annotate — and every
+           charting package worth copying puts it beside the plot, not on top
+           of it. Hidden in overview: nothing to annotate on a quote page. -->
+      <div class="draw-bar" id="draw-bar"></div>
+      <div class="charts-stack">
+      <!-- One, two or four cells (multichart.js). Every cell is a full chart:
+           the working chart below lives in whichever cell is active and moves
+           there when another cell is clicked. -->
+      <div id="chart-grid" class="chart-grid" data-layout="1"></div>
+      <div id="work-unit" class="work-unit">
+      <div id="chart-main" class="chart-pane chart-main">
+        <div class="chart-tools" id="chart-tools" hidden>
+          <button id="toggle-markers" class="chip" type="button"></button>
+          <button id="clear-markers" class="chip chip-icon" type="button"
+                  data-i18n-title="chart.clearMarkers"
+                  data-i18n-aria="chart.clearMarkers">✕</button>
+        </div>
+      </div>
+      <div id="resize-panes" class="resize-handle resize-y"
+           role="separator" aria-orientation="horizontal"
+           data-i18n-title="resize.panes"></div>
+      <div id="panes" class="panes"></div>
+      <!-- The loading mark covers the working chart only. It used to cover the
+           whole charts area, so every load of the working chart — including
+           the one that happens when another cell is clicked — dimmed all four
+           cells at once and read as all of them reloading. -->
+      <div id="loading" class="loading" role="status" aria-label="Loading" hidden>
+        <svg class="qp-loader" viewBox="0 0 100 100" aria-hidden="true">
+          <rect x="17" y="13" width="25" height="25" />
+          <rect x="58" y="62" width="25" height="25" />
+          <path d="M19 81 L81 19" />
+        </svg>
+      </div>
+      </div>
+      </div>
+
+    </section>
+  </main>
+
+  <dialog id="command-dialog" class="command-dialog" aria-labelledby="command-title">
+    <div class="command-dialog-head"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="command-search" type="search" autocomplete="off" data-i18n-placeholder="ws.commandPlaceholder" data-i18n-aria="ws.search"><button id="command-close" class="command-escape" type="button" data-i18n-aria="ws.close">Esc</button></div>
+    <div id="command-title" class="command-section-label" data-i18n="ws.quickAccess">Truy cập nhanh</div>
+    <div id="command-results" class="command-results"></div>
+    <div class="command-footer"><span data-i18n="ws.commandHint">↑ ↓ di chuyển · Enter để mở</span><span>QUANT PERCENT</span></div>
+  </dialog>
+
+
+
+  <!-- Telegram notifications.
+
+       Lived inside the Paper trading panel until 2026-09-16, which was the
+       wrong home twice over: it is a global notification setting rather than
+       anything to do with one paper session, and it was most of the 397px
+       that panel had to scroll. A setting you touch once belongs behind a
+       button, not above the sessions you read every day. -->
+  <div id="notify-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="notify-title">
+      <div class="dialog-head">
+        <h2 id="notify-title" data-i18n="tg.title">Thông báo Telegram</h2>
+        <button id="notify-close" class="btn btn-quiet btn-sm">✕</button>
+      </div>
+      <div class="dialog-body">
+            <div class="field-group-title">
+              <span data-i18n="tg.title">Thông báo Telegram</span>
+              <button type="button" class="info-btn" data-explain="notify.telegram"
+                      data-i18n-aria="tg.help" data-i18n-title="tg.help">i</button>
+            </div>
+            <p class="hint" id="notify-status" data-i18n="tg.checking">Đang kiểm tra…</p>
+
+            <label class="param-row stack"><span data-i18n="tg.token">Bot token</span>
+              <input id="notify-token" type="password" autocomplete="off"
+                     spellcheck="false" placeholder="123456789:AA…" /></label>
+            <label class="param-row stack"><span data-i18n="tg.chat">Chat id</span>
+              <input id="notify-chat" type="text" autocomplete="off"
+                     spellcheck="false" inputmode="numeric" placeholder="987654321" /></label>
+
+            <div class="btn-row">
+              <button id="notify-save" class="btn btn-primary" data-i18n="tg.save">Lưu</button>
+              <button id="notify-test" class="btn" data-i18n="tg.test">Gửi tin thử</button>
+              <button id="notify-clear" class="btn btn-quiet" data-i18n-title="tg.clearTitle" data-i18n="tg.clear">Xoá</button>
+            </div>
+            <p class="hint tiny" data-i18n="tg.privacy"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plugin format help -->
+  <div id="format-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="format-title">
+      <div class="dialog-head">
+        <h2 id="format-title" data-i18n="dlg.format">Định dạng file</h2>
+        <button id="format-close" class="btn btn-quiet btn-sm">✕</button>
+      </div>
+      <div class="dialog-body" id="format-body"></div>
+      <div class="dialog-foot">
+        <button id="format-download" class="btn btn-primary" data-i18n="dlg.sample">Tải file mẫu</button>
+        <button id="format-copy" class="btn" data-i18n="dlg.copy">Sao chép mã</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared by every "Nhập .py" button -->
+  <input type="file" id="import-file" accept=".py,text/x-python" hidden />
+
+  <!-- Paper trading settings.
+
+       These used to be the backtest's cost boxes, reused. That made two
+       different things share one control: lowering the fee to see how a
+       backtest would look also silently set the fee for the next live paper
+       session, and once a session was running there was nowhere to see what
+       it had actually been started with. A session freezes its costs at start
+       (the server keeps its own config object), so the settings shown on a
+       running session are the ones it is really trading. -->
+  <!-- One box for every choice about how the platform reads and what a
+       derivative costs. Controls write through as they change; there is no
+       Save, because a settings box with unsaved state is a way to lose a
+       change. Rendered by settings.js. -->
+  <!-- The team's own models. A second opinion from another method, read-only
+       and reached over the VPN, so it fails as its own window rather than
+       taking anything else with it. Rendered by team.js. -->
+  <div id="team-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog dialog-wide" role="dialog" aria-modal="true" aria-labelledby="team-title">
+      <div class="dialog-head">
+        <h2 id="team-title" data-i18n="team.title">Mô hình của team</h2>
+        <button id="team-close" class="btn btn-quiet dialog-close" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body" id="team-body"></div>
+    </div>
+  </div>
+
+  <div id="settings-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="dialog-head">
+        <h2 id="settings-title" data-i18n="set.title">Cài đặt</h2>
+        <button id="settings-close" class="btn btn-quiet dialog-close" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body" id="settings-body"></div>
+      <div class="dialog-foot">
+        <button id="settings-reset" class="btn" data-i18n="set.reset">Về mặc định</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="paper-settings" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true">
+      <div class="dialog-head">
+        <h2 data-i18n="ps.title">Cài đặt giao dịch mô phỏng</h2>
+        <button id="paper-settings-close" class="btn btn-quiet btn-sm" data-i18n-aria="a11y.close" aria-label="Đóng">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="hint" data-i18n="ps.hint">
+          Phiên mô phỏng sẽ khoá các thông số này lúc bắt đầu. Đổi ở đây không ảnh
+          hưởng tới phiên đang chạy, và cũng không ảnh hưởng tới backtest.
+        </p>
+
+        <label class="param-row"><span><span data-i18n="ps.preset">Sàn</span>
+          <button type="button" class="info-btn" data-explain="ps.preset"
+                  data-i18n-title="ps.preset" title="Sàn">i</button></span>
+          <!-- Filled from the symbol when the dialog opens: a VN30F contract
+               has one possible venue and offering Binance beside it is the
+               interface inviting a mistake. See venuesFor() in paper.js. -->
+          <select id="ps-preset"></select></label>
+
+        <div class="params">
+          <label class="param-row"><span><span data-i18n="st.capital">Vốn ban đầu</span>
+            <!-- The currency the account is denominated in. It follows the
+                 venue, and is stated rather than assumed: 10 000 means two
+                 very different accounts on Binance and on HOSE. -->
+            <em id="ps-currency" class="unit"></em></span>
+            <input id="ps-capital" type="number" value="10000" min="100" step="100" /></label>
+          <label class="param-row"><span data-i18n="st.size">% vốn/lệnh</span>
+            <input id="ps-size" type="number" value="100" min="1" max="100" step="1" /></label>
+          <label class="param-row"><span><span data-i18n="st.leverage">Đòn bẩy</span>
+            <em class="unit">×</em></span>
+            <input id="ps-leverage" type="number" value="1" min="1" max="125" step="1" /></label>
+          <label class="param-row"><span data-i18n="st.fee">Phí (%)</span>
+            <input id="ps-fee" type="number" value="0.04" min="0" max="1" step="0.01" /></label>
+          <label class="param-row"><span data-i18n="st.slippage">Trượt giá (%)</span>
+            <input id="ps-slippage" type="number" value="0.02" min="0" max="1" step="0.01" /></label>
+        </div>
+
+        <div id="ps-summary" class="callout"></div>
+        <div id="ps-warning" class="callout warn" hidden></div>
+      </div>
+      <div class="dialog-foot">
+        <button id="ps-copy" class="btn" data-i18n="ps.copy">Lấy từ backtest</button>
+        <button id="ps-start" class="btn btn-primary" data-i18n="ps.start">Bắt đầu phiên</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/vendor/lightweight-charts.js"></script>
+  <script src="/static/js/session.js"></script>
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/settings.js"></script>
+  <script src="/static/js/team.js"></script>
+  <script src="/static/js/explain.js"></script>
+  <script src="/static/js/favourites.js"></script>
+  <script src="/static/js/resize.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/chart-types.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/drawings.js"></script>
+  <script src="/static/js/indicators.js"></script>
+  <script src="/static/js/strategy.js"></script>
+  <script src="/static/js/paper.js"></script>
+  <script src="/static/js/paper-dash.js"></script>
+  <script src="/static/js/report.js"></script>
+  <script src="/static/js/editor.js"></script>
+  <script src="/static/js/multichart.js"></script>
+  <script src="/static/js/markets.js"></script>
+  <script src="/static/js/portfolio.js"></script>
+  <script src="/static/js/validation.js"></script>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/symbol-picker.js"></script>
+  <script src="/static/js/live.js"></script>
+  <script src="/static/js/workspace.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

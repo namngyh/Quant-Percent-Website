@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>level drag</title></head>
+<body>
+<pre id="out">running…</pre>
+<iframe id="app" src="/#trade" style="width:1200px;height:760px;border:1px solid #ccc"></iframe>
+<script>
+/* Working a paper position on the chart (charts.js, Nam 2026-09-15).
+ *
+ * The black entry line carries the open P&L. Pulling away from it creates a
+ * stop or a target; dropping one back on it removes it; a press that does not
+ * move sends nothing. This drives the running app's chart with a synthetic
+ * position and replaces the drag callback, so nothing reaches the server.
+ * (The `paperdrag` group in _probe.html does the same against a real session,
+ * and changes that session's levels while it runs.)
+ *
+ *   copy beside index.html, then with the app on :8000
+ *   chrome --headless --dump-dom --virtual-time-budget=60000 \
+ *          http://127.0.0.1:8000/static/test_level_drag.html
+ */
+(async () => {
+  const out = [];
+  const say = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let failed = 0;
+  const check = (name, ok, detail = '') => {
+    say(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -> ${detail}` : ''}`);
+    if (!ok) failed += 1;
+  };
+
+  const frame = document.getElementById('app');
+  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+  const w = frame.contentWindow;
+  const errors = [];
+  w.addEventListener('error', (e) => errors.push(e.message));
+
+  let cm = null;
+  for (let i = 0; i < 150; i++) {
+    try {
+      cm = w.eval('ChartManager');
+      if (cm.priceSeries && cm.priceSeries.data().length > 50 && w.eval('MultiChart').activeCell) break;
+    } catch { /* not ready */ }
+    await wait(200);
+  }
+  // The checks below inject a fixed price path. A real tick/new candle must
+  // not advance its timestamp and turn those injected bars into stale bars.
+  w.eval('Live').setEnabled(false);
+  const host = w.eval('MultiChart').activeCell.chartMain;
+  const calls = [];
+  cm.onLevelDragged = (key, price) => calls.push([key, price]);
+
+  const last = cm.priceSeries.data().at(-1);
+  const entry = +(last.close * 0.998).toFixed(2);
+  const quantity = 0.5;
+  const position = (extra = {}) => cm.setPositionLines({
+    side: 1, entry, quantity, unit: 'USDT', label: 'LONG 0.5', ...extra,
+  });
+  const rect = () => host.getBoundingClientRect();
+  const yOf = (price) => rect().top + cm.priceSeries.priceToCoordinate(price);
+  const fire = (type, y) => host.dispatchEvent(new w.PointerEvent(type, {
+    bubbles: true, cancelable: true, pointerId: 3, isPrimary: true, button: 0,
+    buttons: type === 'pointerup' ? 0 : 1, clientX: rect().left + rect().width / 2, clientY: y,
+  }));
+  const decimals = (v) => (String(v).split('.')[1] || '').length;
+
+  // 1. The open P&L on the entry line, at a price chosen here.
+  position();
+  const vol = cm.volumeSeries.data().at(-1)?.value ?? 0;
+  const bar = cm.priceSeries.data().at(-1);
+  cm.updateCandle({
+    time: bar.time - 7 * 3600, open: bar.open, high: Math.max(bar.high, entry + 10),
+    low: Math.min(bar.low, entry + 10), close: entry + 10, volume: vol,
+  }, cm.seriesKey);
+  const title = cm.levelZones?.chip?.text || '';
+  check('the chip on the entry line carries the open P&L at the latest price',
+        title.startsWith('LONG 0.5') && title.includes('+5.00 USDT'), title);
+  check('the entry line is the interface blue', cm.levelLines.entry?.color === '#3264e8',
+        cm.levelLines.entry?.color);
+  check('the chart keeps an applied live candle in its own bars',
+        cm.lastClose === entry + 10, `lastClose ${cm.lastClose}, applied ${entry + 10}`);
+
+  // 2. Pull up from a long's entry: a target above it, on the price step.
+  position();
+  calls.length = 0;
+  let ey = yOf(entry);
+  fire('pointerdown', ey);
+  for (let dy = 10; dy <= 50; dy += 10) fire('pointermove', ey - dy);
+  const preview = cm.levelLines.target?.title || '';
+  fire('pointerup', ey - 50);
+  check('pulling up from a long entry sets a target above it',
+        calls.length === 1 && calls[0][0] === 'target' && calls[0][1] > entry, JSON.stringify(calls));
+  check('the price sent is on the price step, not the pointer float',
+        calls.length === 1 && decimals(calls[0][1]) <= 2, String(calls[0]?.[1]));
+  check('while dragging, the target shows what it would book',
+        /^TP \+[\d,]+\.\d\d USDT$/.test(preview), preview);
+
+  // 3. Pull down: a stop below it.
+  position();
+  calls.length = 0;
+  ey = yOf(entry);
+  fire('pointerdown', ey);
+  for (let dy = 10; dy <= 50; dy += 10) fire('pointermove', ey + dy);
+  fire('pointerup', ey + 50);
+  check('pulling down sets a stop below it',
+        calls.length === 1 && calls[0][0] === 'stop' && calls[0][1] < entry, JSON.stringify(calls));
+
+  // 4. Up, then back across the entry: it becomes a stop and the target goes.
+  position();
+  calls.length = 0;
+  ey = yOf(entry);
+  fire('pointerdown', ey);
+  for (let dy = 10; dy <= 50; dy += 10) fire('pointermove', ey - dy);
+  const midTarget = cm.levelLines.target?.price ?? null;
+  for (let dy = 40; dy >= -50; dy -= 10) fire('pointermove', ey - dy);
+  const targetAfterCross = cm.levelLines.target;
+  fire('pointerup', ey + 50);
+  check('crossing back over the entry sets a stop and takes the half-made target off',
+        midTarget > entry && targetAfterCross === null && calls.length === 1 && calls[0][0] === 'stop',
+        JSON.stringify({ midTarget, targetAfterCross, calls }));
+
+  // 5. Drop an existing stop back on the entry: removed.
+  const stop = +(entry * 0.997).toFixed(2);
+  position({ stop });
+  calls.length = 0;
+  ey = yOf(entry);
+  const sy = yOf(stop);
+  fire('pointerdown', sy);
+  for (let i = 1; i <= 8; i++) fire('pointermove', sy + (ey - sy) * i / 8);
+  const dropTitle = cm.levelLines.stop?.title || '';
+  fire('pointerup', ey);
+  check('dropping a stop back on the entry removes it',
+        calls.length === 1 && calls[0][0] === 'stop' && calls[0][1] === null && cm.levelLines.stop === null,
+        JSON.stringify({ calls, dropTitle }));
+  check('and says so while it is over the line', dropTitle === 'SL ✕', dropTitle);
+
+  // 6. A press on the entry that does not move sends nothing.
+  position();
+  calls.length = 0;
+  ey = yOf(entry);
+  fire('pointerdown', ey);
+  fire('pointerup', ey);
+  check('a press on the entry that does not move sends nothing', calls.length === 0, JSON.stringify(calls));
+
+  // 7. A session update arriving mid-drag does not drop the drag.
+  position();
+  calls.length = 0;
+  ey = yOf(entry);
+  fire('pointerdown', ey);
+  for (let dy = 10; dy <= 50; dy += 10) fire('pointermove', ey - dy);
+  position({ stop });
+  const heldTarget = cm.levelLines.target?.price ?? null;
+  fire('pointerup', ey - 50);
+  check('a redraw that arrives mid-drag is held until release',
+        heldTarget > entry && calls.length === 1 && calls[0][0] === 'target',
+        JSON.stringify({ heldTarget, calls }));
+
+  // 8. Bands: green between entry and target, red between entry and stop,
+  //    from the entry bar to the plot's right edge; darker while dragging.
+  const near = (a, b) => Math.abs(a - b) < 0.75;
+  const data = cm.priceSeries.data();
+  const entryIndex = data.length - 40;
+  const target = +(last.close * 1.004).toFixed(2);
+  position({ stop, target, entryTime: data[entryIndex].time - 7 * 3600 });
+  let z = cm.levelZones;
+  const yE = cm.priceSeries.priceToCoordinate(entry);
+  const yT = cm.priceSeries.priceToCoordinate(target);
+  const yS = cm.priceSeries.priceToCoordinate(stop);
+  const xBar = Math.max(0, cm.chart.timeScale().logicalToCoordinate(entryIndex));
+  check('the green band spans entry to target',
+        z?.target && near(z.target.y, Math.min(yE, yT)) && near(z.target.height, Math.abs(yT - yE)),
+        JSON.stringify(z?.target));
+  check('the red band spans entry to stop',
+        z?.stop && near(z.stop.y, Math.min(yE, yS)) && near(z.stop.height, Math.abs(yS - yE)),
+        JSON.stringify(z?.stop));
+  check('the bands start at the entry bar and reach the plot edge',
+        z?.target && near(z.target.x, xBar) && near(z.target.x + z.target.width, z.plotWidth),
+        JSON.stringify({ x: z?.target?.x, xBar, right: z && z.target.x + z.target.width, plot: z?.plotWidth }));
+  check('the bands are light at rest', z?.target?.alpha === 0.08, String(z?.target?.alpha));
+  // Against the price axis, so it never covers the candles between the entry
+  // and now: that stretch is the position's own history, and it is what the
+  // reader is looking at.
+  check('the chip sits against the price axis, inside the plot',
+        z?.chip && near(z.chip.left, z.plotWidth - z.chip.width - 8)
+          && z.chip.left + z.chip.width <= z.plotWidth,
+        JSON.stringify({ chip: z?.chip, xBar, plot: z?.plotWidth }));
+  fire('pointerdown', yOf(target));
+  fire('pointermove', yOf(target) - 5);
+  check('and darker while a level is being dragged', cm.levelZones?.target?.alpha === 0.15,
+        String(cm.levelZones?.target?.alpha));
+  fire('pointercancel', yOf(target) - 5);
+
+  // 9. The chip's close button closes, and a press on the chip is not a pull.
+  position({ stop, target });
+  calls.length = 0;
+  let closes = 0;
+  cm.onPositionClose = () => { closes += 1; };
+  const chip = host.querySelector('.position-chip');
+  const closeButton = chip.querySelector('.position-chip-close');
+  closeButton.dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 4 }));
+  closeButton.dispatchEvent(new w.PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 4 }));
+  closeButton.click();
+  check('the close button on the chip asks to close the position', closes === 1, String(closes));
+  check('a press on the chip does not start a drag', calls.length === 0, JSON.stringify(calls));
+
+  /* 10. Zooming the PRICE axis. The overlay hears a time-range change, a
+     crosshair move over the plot and a resize — a drag or a wheel on the price
+     axis is none of those, so the line moved and its chip stayed put: measured
+     at 131px of drift before this was fixed (Nam, 2026-09-16). Changing the
+     scale margins moves the mapping the same way, with no event at all. */
+  position();
+  await wait(200);
+  const scale = cm.priceSeries.priceScale();
+  const lineY = () => cm.priceSeries.priceToCoordinate(entry);
+  const chipTop = () => cm.levelZones?.chip?.top ?? null;
+  const settled = cm.levelZones?.chip?.top;
+  check('at rest the chip sits on the entry line',
+        Math.abs(lineY() - settled) <= 1, `${lineY()} vs ${settled}`);
+
+  const startedAt = lineY();
+  scale.applyOptions({ scaleMargins: { top: 0.35, bottom: 0.35 } });
+  await wait(400);
+  check('squeezing the price axis actually moved the line',
+        Math.abs(lineY() - startedAt) > 20, `${startedAt} -> ${lineY()}`);
+  check('the chip follows the line when the price axis is zoomed',
+        Math.abs(lineY() - chipTop()) <= 1, `line ${lineY()}, chip ${chipTop()}`);
+
+  // The bands are painted in the same pass, so they must land on the new
+  // coordinates too — a band left at the old scale is a lie about the risk.
+  position({ stop: +(entry * 0.995).toFixed(2), target: +(entry * 1.005).toFixed(2) });
+  await wait(200);
+  scale.applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } });
+  await wait(400);
+  const stopY = cm.priceSeries.priceToCoordinate(+(entry * 0.995).toFixed(2));
+  const band = cm.levelZones?.stop;
+  check('the stop band follows it too',
+        band && Math.abs((band.y + band.height) - Math.max(stopY, lineY())) <= 1,
+        JSON.stringify(band));
+  scale.applyOptions({ scaleMargins: { top: 0.1, bottom: 0.2 } });
+
+  /* 11. A SHORT position, which every check above misses.
+
+     They all build a long, and a long's sign comes out right by accident: the
+     chip multiplies `quantity` by the price move, while the paper snapshot
+     reports `quantity` as a magnitude with the direction in `position`. On a
+     short that read as a profit while the price rose against it (Nam,
+     2026-09-16), and the stop showed a gain. */
+  const shortStop = +(entry + 20).toFixed(2);
+  const shortTarget = +(entry - 20).toFixed(2);
+  cm.setPositionLines({
+    side: -1, entry, quantity: 0.5, unit: 'USDT', label: 'SHORT 0.5',
+    stop: shortStop, target: shortTarget,
+  });
+  // The price moves UP, against the short: 0.5 x 10 = 5 USDT of loss.
+  cm.updateCandle({
+    time: bar.time - 7 * 3600, open: bar.open, high: Math.max(bar.high, entry + 10),
+    low: Math.min(bar.low, entry + 10), close: entry + 10, volume: vol,
+  }, cm.seriesKey);
+  const shortChip = cm.levelZones?.chip?.text || '';
+  check('a short losing money says it is losing',
+        shortChip.includes('-5.00 USDT') && !shortChip.includes('+5.00'), shortChip);
+  check('and its percentage is negative too', /\(-0\.\d\d%\)/.test(shortChip), shortChip);
+  check("a short's stop, above the entry, books a loss",
+        /^SL -[\d,]+\.\d\d USDT$/.test(cm.levelLines.stop?.title || ''),
+        cm.levelLines.stop?.title);
+  check("a short's target, below the entry, books a gain",
+        /^TP \+[\d,]+\.\d\d USDT$/.test(cm.levelLines.target?.title || ''),
+        cm.levelLines.target?.title);
+
+  // And the long case still reads the other way, so the fix is a sign and not
+  // a flip: same prices, other side.
+  cm.setPositionLines({ side: 1, entry, quantity: 0.5, unit: 'USDT', label: 'LONG 0.5' });
+  check('the same move on a long is still a gain',
+        (cm.levelZones?.chip?.text || '').includes('+5.00 USDT'), cm.levelZones?.chip?.text);
+
+  // 11b. Contracts (Nam, 2026-09-17): a point is worth the multiplier, and a
+  // VND account reads in millions. 2 contracts x 10 points x 100 000 dong is
+  // 2 million; without the multiplier the chip read "+20.00".
+  cm.setPositionLines({ side: 1, entry, quantity: 2, multiplier: 100000, moneyScale: 1e6,
+                        unit: 'triệu VND', label: 'LONG 2 HĐ' });
+  const contractChip = cm.levelZones?.chip?.text || '';
+  check('a contract position reads points times multiplier, in millions',
+        contractChip.includes('+2.00 triệu VND'), contractChip);
+
+  // 12. No position: no bands, no chip.
+  cm.clearPositionLines();
+  check('clearing the position removes the bands and the chip',
+        cm.levelZones === null && chip.hidden === true, JSON.stringify(cm.levelZones));
+  check('no page errors', errors.length === 0, errors.join(' | '));
+  say('');
+  say(failed ? `${failed} failed` : 'level drag holds');
+})();
+</script>
+</body>
+</html>
