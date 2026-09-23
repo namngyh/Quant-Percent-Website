@@ -148,6 +148,21 @@ echo "==> 5/9 Khởi động"
 # Compose chỉ tạo lại container nào thật sự thay đổi, nên TimescaleDB và Redis
 # không bị restart và dữ liệu không bị gián đoạn.
 
+# Caddyfile là ngoại lệ của câu trên. Nó được gắn vào container dưới dạng MỘT
+# FILE (./Caddyfile:/etc/caddy/Caddyfile), và Docker giữ đúng inode lúc gắn.
+# `git reset --hard` ở bước 2 ghi ra file mới (inode mới), nên container vẫn
+# thấy bản CŨ — kể cả `caddy reload` bên trong cũng chỉ đọc lại bản cũ. Còn
+# `up -d` không đụng tới caddy vì định nghĩa service không đổi. Hậu quả đã xảy
+# ra: thêm terminal.{$DOMAIN} vào Caddyfile, deploy xanh, mà Caddy vẫn chạy
+# cấu hình cũ và trả 200 rỗng cho host mới.
+#
+# Nên so file trên đĩa với file container đang thấy; khác thì khởi động lại
+# caddy (web chớp khoảng 2 giây). Lần deploy không sửa Caddyfile thì bỏ qua.
+if ! "${COMPOSE[@]}" exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - Caddyfile; then
+  echo "    Caddyfile đổi -> khởi động lại caddy để nạp cấu hình mới"
+  "${COMPOSE[@]}" restart caddy
+fi
+
 echo "==> 6/9 Chờ web trả lời (tối đa 90 giây)"
 DOMAIN="$(awk -F= '/^DOMAIN=/{print $2; exit}' .env.production)"
 if [ -z "$DOMAIN" ]; then
