@@ -1,0 +1,30 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Data store — regenerate with scripts/backfill.py, never commit (GBs of candles)
+data_store/
+*.duckdb
+*.duckdb.wal
+*.parquet
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit. Connection strings live here, not in code.
+.env
+.env.*
+!.env.example
+
+# jsdom, installed on demand for tests/test_render.js
+node_modules/
+tests/render_payloads.json

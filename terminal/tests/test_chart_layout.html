@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Four-chart volume and layout checks</title>
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/vendor/lightweight-charts.js"></script>
+<script>
+const I18n = { lang: 'en', locale: () => 'en-US' };
+const L = (vi, en) => I18n.lang === 'en' ? en : vi;
+</script>
+<script src="/static/js/chart-types.js"></script>
+<script src="/static/js/settings.js"></script>
+<script src="/static/js/charts.js"></script>
+</head>
+<body data-mode="trading" style="display:block;overflow:auto">
+<div id="stage" class="chart-grid" data-layout="4" style="width:1200px;height:650px"></div>
+<div id="equity" style="width:600px;height:220px"></div>
+<pre id="out"></pre>
+<script>
+(async () => {
+  let passed = 0, failed = 0;
+  const out = document.getElementById('out');
+  const check = (name, ok, detail = '') => {
+    if (ok) passed++; else failed++;
+    out.textContent += `${ok ? 'PASS' : 'FAIL'} ${name} ${detail}\n`;
+  };
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const start = 1700000000;
+  const bar = time => ({ time, open: 100, high: 103, low: 99, close: 102 });
+  const candles = Array.from({ length: 100 }, (_, i) => bar(start + i * 3600));
+  const volumes = candles.map(c => ({ time: c.time, value: 100, up: true }));
+  const cells = [];
+  for (let i = 0; i < 4; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = '<div class="cell-head">Market</div><div class="cell-body">'
+      + '<div class="work-unit"><div class="chart-pane chart-main"></div>'
+      + '<div class="resize-handle resize-y"></div><div class="panes"></div></div></div>'
+      + '<div class="cell-caption">Market · 1h</div>';
+    document.getElementById('stage').appendChild(cell);
+    const manager = createChartManager();
+    manager.init(cell.querySelector('.chart-main'));
+    manager.setMode('trading');
+    manager.setCandles(candles, i === 3 ? volumes.map(v => ({ ...v, value: 0 })) : volumes,
+      { timeVisible: true, key: `market-${i}|1h` });
+    cells.push({ cell, manager });
+  }
+  await frame();
+  check('all four charts retain their volume series', cells.every(c => c.manager.volumeSeries.data().length === 100));
+  check('three positive-volume charts show histograms without a warning',
+    cells.slice(0, 3).every(c => c.manager.volumeSeries.options().visible));
+  check('zero volume stays silent without inventing bars', !document.querySelector('.volume-note')
+    && cells[3].manager.volumeSeries.data().every(v => v.value === 0));
+  cells[3].manager.setMode('overview');
+  check('overview hides volume', !cells[3].manager.volumeSeries.options().visible);
+  cells[3].manager.setMode('trading');
+  check('returning to trading restores volume', cells[3].manager.volumeSeries.options().visible);
+
+  const manager = cells[3].manager;
+  const liveTime = start + candles.length * 3600;
+  manager.updateCandle({ ...bar(liveTime), volume: 777 }, 'market-3|1h');
+  check('positive live volume is still rendered', manager.volumeSeries.data().at(-1).value === 777);
+  manager.prependCandles([bar(start - 3600)], [{ time: start - 3600, value: 55, up: true }], 'market-3|1h');
+  check('history paging keeps the appended live volume', manager.volumeSeries.data().length === 102
+    && manager.volumeSeries.data().at(-1).value === 777);
+  manager.updateCandle({ ...bar(liveTime), volume: 888 }, 'market-3|1h');
+  manager.prependCandles([bar(start - 7200)], [{ time: start - 7200, value: 66, up: true }], 'market-3|1h');
+  check('history paging keeps revisions to the latest volume', manager.volumeSeries.data().length === 103
+    && manager.volumeSeries.data().at(-1).value === 888);
+
+  const first = cells[0];
+  for (const name of ['RSI', 'MACD', 'CCI']) {
+    first.manager.draw(name, { name, times: candles.map(c => c.time), values: { value: candles.map(() => 50) },
+      outputs: [{ key: 'value', pane: 'separate', plot_type: 'line' }] }, first.cell.querySelector('.panes'));
+  }
+  await frame(); await frame();
+  const bounded = () => {
+    const body = first.cell.querySelector('.cell-body').getBoundingClientRect();
+    const price = first.cell.querySelector('.chart-main').getBoundingClientRect();
+    const panes = first.cell.querySelector('.panes').getBoundingClientRect();
+    return price.height > 80 && price.bottom <= body.bottom + 1 && panes.bottom <= body.bottom + 1;
+  };
+  const paneHost = first.cell.querySelector('.panes');
+  check('three indicator panes stay inside their own cell', bounded());
+  check('overflowing indicators can be scrolled independently', paneHost.scrollHeight > paneHost.clientHeight
+    && getComputedStyle(paneHost).overflowY === 'auto');
+  paneHost.scrollTop = paneHost.scrollHeight;
+  check('the final indicator can be reached', paneHost.scrollTop > 0);
+  document.getElementById('stage').style.height = '500px';
+  await frame(); await frame();
+  check('shorter rows still contain the price and indicator region', bounded());
+
+  try {
+    EquityChart.render(document.getElementById('equity'), candles.map(c => c.time), candles.map((_, i) => 1000 + i), 1000);
+    check('the backtest equity chart renders with the shared font', document.querySelectorAll('#equity canvas').length > 0);
+  } catch (error) {
+    check('the backtest equity chart renders with the shared font', false, error.message);
+  }
+  const markerManager = cells[1].manager;
+  markerManager.setTradeMarkers([], { side: 1, entry_time: candles.at(-1).time + 25 });
+  check('a manual entry inside the last candle is anchored to that candle',
+    markerManager.tradeFills[0].time === markerManager.toChartTime(candles.at(-1).time));
+  markerManager.setTradeMarkers([{ side: 'long', entry_time: candles.at(-2).time + 20,
+    exit_time: candles.at(-1).time + 30, exit_reason: 'manual' }],
+    { side: -1, entry_time: candles.at(-1).time + 30 });
+  check('manual reversal keeps the closed entry, exit and new entry marks',
+    markerManager.tradeFills.length === 3
+    && markerManager.tradeFills[2].time === markerManager.toChartTime(candles.at(-1).time));
+  cells.forEach(c => c.manager.destroy());
+  check('destroying charts releases every chart instance', cells.every(c => c.manager.chart === null));
+  out.textContent += `\n${passed} passed, ${failed} failed`;
+})();
+</script>
+</body>
+</html>

@@ -9,22 +9,41 @@ import {
   useSpring,
 } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Menu, X } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import {
+  NavDropdown,
+  NavDropdownExternal,
+  NavDropdownLink,
+} from "@/components/layout/nav-dropdown";
 import { AuthNav } from "@/components/auth/auth-nav";
 import { Brand } from "@/components/brand";
 import { cn } from "@/lib/utils";
 import { useHydrated } from "@/lib/use-hydrated";
+import { TERMINAL_ENTRY } from "@/lib/terminal";
 
-const NAV_ITEMS = [
-  { key: "market", href: "/market-intelligence" },
+/*
+ * The bar holds two links and two menus instead of six links, grouped by what a
+ * visitor came to do: read today's market, read the research behind it, join
+ * the members' articles, or use a tool. "About" lives in the footer beside
+ * "Contact", and stays in the mobile drawer where length costs nothing.
+ */
+const MARKET = { key: "market", href: "/market-intelligence" } as const;
+
+const RESEARCH = [
   { key: "models", href: "/models" },
-  { key: "articles", href: "/articles" },
   { key: "performance", href: "/performance" },
-  { key: "portfolio", href: "/quant-portfolio" },
-  { key: "about", href: "/about" },
 ] as const;
+
+// Articles are written, voted on and discussed by members, so they sit on the
+// bar as the community rather than inside the team's own research.
+const COMMUNITY = { key: "community", href: "/articles" } as const;
+
+const TOOLS = [{ key: "portfolio", href: "/quant-portfolio" }] as const;
+
+const ABOUT = { key: "about", href: "/about" } as const;
 
 export function Header() {
   const t = useTranslations("nav");
@@ -43,6 +62,7 @@ export function Header() {
   const [openedAt, setOpenedAt] = useState<string | null>(null);
   const open = openedAt !== null && openedAt === pathname;
   const close = () => setOpenedAt(null);
+  const isActive = (href: string) => pathname.startsWith(href);
 
   const [scrolled, setScrolled] = useState(false);
   const hydrated = useHydrated();
@@ -129,55 +149,87 @@ export function Header() {
           </Link>
 
           {/*
-              Two groups, not one row: the pills sit shoulder to shoulder
-              because they are one control, and the account and language
+              Two groups: the section pills sit shoulder to shoulder because
+              they are one control, and the Terminal, account and language
               controls are pushed off with real space because they are not.
 
-              The breakpoint here is 1180px, not the site-wide `desk` (980px).
-              Five Vietnamese labels, a divider, two account links and the
-              language switcher need close to 1000px beside the brand; below
-              that the pills were wrapping onto two lines each and the bar read
-              as broken. "Liên hệ" moved to the footer, which bought back one
-              label of room — the threshold stays put so the longest label set
-              (English "Market Intelligence" and friends) keeps its margin.
-              `desk` still governs the page layout — only the choice between
-              this nav and the drawer moves, and the drawer covers the gap
-              perfectly well.
+              The bar used to carry six Vietnamese labels, a divider, two
+              account links and a VI / EN pair — close to 1000px beside the
+              brand, which kept the drawer on screen up to 1180px. With the
+              sections folded into two menus, the account links into one
+              control and the language pair into one button, it fits at the
+              site-wide `desk` (980px), English labels included.
           */}
-          <nav
-            className="hidden items-center gap-3 min-[1180px]:flex"
-            aria-label="Main"
-          >
+          <nav className="hidden items-center gap-5 desk:flex" aria-label="Main">
             <span className="flex items-center gap-0.5">
-              {NAV_ITEMS.map((item) => {
-                const active = pathname.startsWith(item.href);
-                return (
-                  <Link
+              <BarLink href={MARKET.href} active={isActive(MARKET.href)}>
+                {t("marketShort")}
+              </BarLink>
+
+              <NavDropdown
+                label={t("research")}
+                active={RESEARCH.some((item) => isActive(item.href))}
+              >
+                {RESEARCH.map((item) => (
+                  <NavDropdownLink
                     key={item.key}
                     href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      // `whitespace-nowrap` so a label can never split
-                      // across two lines inside its own pill.
-                      "nav-link whitespace-nowrap text-[13px] font-medium",
-                      active
-                        ? "text-brand-strong"
-                        : "text-ink hover:text-brand-strong"
-                    )}
+                    active={isActive(item.href)}
                   >
                     {t(item.key)}
-                  </Link>
-                );
-              })}
+                  </NavDropdownLink>
+                ))}
+              </NavDropdown>
+
+              <BarLink href={COMMUNITY.href} active={isActive(COMMUNITY.href)}>
+                {t(COMMUNITY.key)}
+              </BarLink>
+
+              <NavDropdown
+                label={t("tools")}
+                active={TOOLS.some((item) => isActive(item.href))}
+              >
+                {TOOLS.map((item) => (
+                  <NavDropdownLink
+                    key={item.key}
+                    href={item.href}
+                    active={isActive(item.href)}
+                  >
+                    {t(item.key)}
+                  </NavDropdownLink>
+                ))}
+                <NavDropdownExternal
+                  href={TERMINAL_ENTRY}
+                  hint={t("terminalHint")}
+                  newTabLabel={t("opensNewTab")}
+                >
+                  {t("terminal")}
+                </NavDropdownExternal>
+              </NavDropdown>
             </span>
-            <span aria-hidden="true" className="h-5 w-px bg-border" />
-            <AuthNav />
-            <LanguageSwitcher />
+
+            <span className="flex items-center gap-3">
+              {/* The Terminal is the one product here people return to daily,
+                  so it gets a direct button as well as its place in Tools. */}
+              <a
+                href={TERMINAL_ENTRY}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t("terminalHint")}
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-[13px] font-medium text-brand-strong transition-colors hover:border-brand hover:bg-brand-soft"
+              >
+                {t("terminal")}
+                <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                <span className="sr-only">({t("opensNewTab")})</span>
+              </a>
+              <AuthNav />
+              <LanguageSwitcher variant="compact" />
+            </span>
           </nav>
 
           <button
             type="button"
-            className="rounded-full p-2.5 transition-colors hover:bg-surface-2 min-[1180px]:hidden"
+            className="rounded-full p-2.5 transition-colors hover:bg-surface-2 desk:hidden"
             aria-label={open ? t("closeMenu") : t("openMenu")}
             aria-expanded={open}
             aria-controls="mobile-nav"
@@ -201,7 +253,7 @@ export function Header() {
         {open && (
           <motion.nav
             id="mobile-nav"
-            className="fixed inset-x-0 bottom-0 top-16 z-40 flex flex-col overflow-y-auto overscroll-contain bg-background min-[1180px]:hidden"
+            className="fixed inset-x-0 bottom-0 top-16 z-40 flex flex-col overflow-y-auto overscroll-contain bg-background desk:hidden"
             aria-label="Mobile"
             initial={animate ? { opacity: 0, y: -10 } : false}
             animate={{ opacity: 1, y: 0 }}
@@ -209,16 +261,46 @@ export function Header() {
             transition={{ duration: animate ? 0.24 : 0 }}
           >
             <div className="container-qp flex flex-1 flex-col py-6">
-              {[{ key: "home", href: "/" } as const, ...NAV_ITEMS].map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  onClick={close}
-                  className="border-b border-border py-5 text-xl font-medium tracking-normal transition-[color,padding] duration-200 hover:pl-2 hover:text-brand"
-                >
+              {/* The drawer has the room the bar lacks, so the menus open flat
+                  here, each under its own small heading. */}
+              <DrawerLink href="/" onClick={close}>
+                {t("home")}
+              </DrawerLink>
+              <DrawerLink href={MARKET.href} onClick={close}>
+                {t(MARKET.key)}
+              </DrawerLink>
+              {/* Up here with the other ungrouped pages: placed after Tools it
+                  read as one of the tools. */}
+              <DrawerLink href={ABOUT.href} onClick={close}>
+                {t(ABOUT.key)}
+              </DrawerLink>
+              <DrawerHeading>{t("research")}</DrawerHeading>
+              {RESEARCH.map((item) => (
+                <DrawerLink key={item.key} href={item.href} onClick={close}>
                   {t(item.key)}
-                </Link>
+                </DrawerLink>
               ))}
+              <DrawerHeading>{t(COMMUNITY.key)}</DrawerHeading>
+              <DrawerLink href={COMMUNITY.href} onClick={close}>
+                {t("articles")}
+              </DrawerLink>
+              <DrawerHeading>{t("tools")}</DrawerHeading>
+              {TOOLS.map((item) => (
+                <DrawerLink key={item.key} href={item.href} onClick={close}>
+                  {t(item.key)}
+                </DrawerLink>
+              ))}
+              <a
+                href={TERMINAL_ENTRY}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
+                className={cn(drawerLinkClass, "inline-flex items-center gap-2")}
+              >
+                {t("terminal")}
+                <ArrowUpRight aria-hidden="true" className="size-5" />
+                <span className="sr-only">({t("opensNewTab")})</span>
+              </a>
               <AuthNav variant="mobile" onNavigate={close} />
               <div className="py-6">
                 <LanguageSwitcher />
@@ -228,5 +310,57 @@ export function Header() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function BarLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        // `whitespace-nowrap` so a label can never split across two lines
+        // inside its own pill.
+        "nav-link whitespace-nowrap text-[13px] font-medium",
+        active ? "text-brand-strong" : "text-ink hover:text-brand-strong"
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
+const drawerLinkClass =
+  "border-b border-border py-5 text-xl font-medium tracking-normal transition-[color,padding] duration-200 hover:pl-2 hover:text-brand";
+
+function DrawerLink({
+  href,
+  onClick,
+  children,
+}: {
+  href: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Link href={href} onClick={onClick} className={drawerLinkClass}>
+      {children}
+    </Link>
+  );
+}
+
+function DrawerHeading({ children }: { children: ReactNode }) {
+  return (
+    <p className="pb-1 pt-7 text-[12px] font-medium uppercase tracking-[0.12em] text-dim">
+      {children}
+    </p>
   );
 }

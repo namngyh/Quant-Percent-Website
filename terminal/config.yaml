@@ -1,0 +1,26 @@
+# QP-TRACKING configuration
+
+data:
+  # Binance spot symbols to track
+  symbols:
+    - BTCUSDT
+
+  # Timeframes to backfill and serve
+  timeframes: ["1m", "5m", "15m", "1h", "4h", "1d"]
+
+  # Backfill starting point (Binance BTCUSDT spot begins 2017-08-17)
+  start_date: "2017-01-01"
+
+  # Where parquet partitions and the duckdb catalog live
+  store_dir: "data_store"
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+
+chart:
+  # Max candles sent to the browser in one request.
+  # Lightweight Charts stays smooth well past this; the cap protects the payload.
+  max_candles: 20000
+  default_symbol: "BTCUSDT"
+  default_timeframe: "1h"

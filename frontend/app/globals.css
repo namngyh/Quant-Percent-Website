@@ -701,8 +701,16 @@ html[lang="en"] {
     background-color: var(--surface-2);
   }
 
-  .nav-link[aria-current="page"] {
+  /* A menu trigger is "current" when the page is one of its items. It carries
+     data-active instead of aria-current, because the button itself is not a
+     page and a screen reader would announce it as one. */
+  .nav-link[aria-current="page"],
+  .nav-link[data-active] {
     background-color: var(--brand-soft);
+  }
+
+  .nav-link[data-state="open"] {
+    background-color: var(--surface-2);
   }
 
   [data-slot="button"] {

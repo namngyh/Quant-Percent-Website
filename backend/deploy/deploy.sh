@@ -56,6 +56,16 @@ for cert in /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem; do
   fi
 done
 
+# terminal.{$DOMAIN} kiểm tra đăng nhập bằng cookie phiên của website. Cookie
+# chỉ tới được subdomain khi đặt Domain=.<tên miền>; thiếu COOKIE_DOMAIN thì
+# không ai vào được Terminal dù đã đăng nhập, mà triệu chứng chỉ là "bị đẩy về
+# trang đăng nhập mãi" — dừng ở đây cho lỗi tự nói lên nó.
+if ! grep -Eq '^COOKIE_DOMAIN=\..+' .env.production; then
+  echo "LỖI: .env.production cần COOKIE_DOMAIN=.<tên miền> (có dấu chấm đầu)," >&2
+  echo "vd COOKIE_DOMAIN=.quantpercent.com — để QP Terminal nhận được phiên đăng nhập." >&2
+  exit 1
+fi
+
 echo "==> 2/9 Lấy code mới nhất từ GitHub"
 cd "$REPO_DIR"
 git fetch --prune origin
@@ -167,6 +177,17 @@ echo "https://$DOMAIN/healthz OK"
 # web — nhưng phải in ra để bạn thấy.
 echo "Trạng thái phụ thuộc:"
 curl -fsS --max-time 5 "https://$DOMAIN/readyz" || echo "(readyz không xanh — xem lại database/redis)"
+echo
+
+# Không có cookie thì cổng phải từ chối (401) — nghĩa là Terminal đang chạy
+# VÀ đang được khoá bằng đăng nhập. 200 là Terminal mở cho cả Internet. Không
+# fail cả lần deploy vì Terminal không phải website, nhưng in ra thật to.
+terminal_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://terminal.$DOMAIN/" || true)"
+case "$terminal_code" in
+  401|302) echo "https://terminal.$DOMAIN: $terminal_code (đang chạy, cần đăng nhập) OK" ;;
+  200) echo "CẢNH BÁO: terminal.$DOMAIN trả 200 KHÔNG cần đăng nhập — kiểm tra forward_auth trong Caddyfile!" >&2 ;;
+  *)   echo "(terminal.$DOMAIN trả '$terminal_code' — kiểm tra DNS Cloudflare và: docker compose logs terminal api)" ;;
+esac
 echo
 
 # Nội dung trang model (tên, mô tả, số liệu nghiên cứu, báo cáo hiệu suất)

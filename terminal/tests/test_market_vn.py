@@ -1,0 +1,745 @@
+"""Checks for the Vietnam market source.
+
+Run directly:  .venv\\Scripts\\python.exe tests/test_market_vn.py
+
+Routing and frame shaping are tested without a network, so these run whether or
+not the VPN is up. The live checks at the end are skipped — reported, not
+failed — when the database is unreachable, since being off the VPN is a normal
+state for this machine and not a broken build.
+"""
+
+from __future__ import annotations
+
+import sys
+from contextlib import contextmanager
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import pandas as pd  # noqa: E402
+
+from backend.data import market_vn, sources  # noqa: E402
+
+CHECKS = []
+LIVE_CHECKS = []
+
+
+def check(name):
+    def wrap(fn):
+        CHECKS.append((name, fn))
+        return fn
+    return wrap
+
+
+def live(name):
+    def wrap(fn):
+        LIVE_CHECKS.append((name, fn))
+        return fn
+    return wrap
+
+
+# ------------------------------------------------------------ routing (offline)
+
+@check("a VN: prefix routes to the Vietnam market, anything else to crypto")
+def _():
+    assert sources.parse("VN:VN30F1M") == ("vn", "VN30F1M")
+    assert sources.parse("vn:vnindex") == ("vn", "VNINDEX")
+    assert sources.parse("BTCUSDT") == ("crypto", "BTCUSDT")
+    assert sources.is_vietnam("VN:VIC") and not sources.is_vietnam("BTCUSDT")
+
+
+@check("qualify and parse round-trip")
+def _():
+    assert sources.qualify("vn", "VIC") == "VN:VIC"
+    assert sources.qualify("crypto", "BTCUSDT") == "BTCUSDT"
+    assert sources.parse(sources.qualify("vn", "VIC")) == ("vn", "VIC")
+
+
+@check("backfill is refused for Vietnam symbols, but live data is not")
+def _():
+    # The team database is read-only, so there is nothing for us to backfill.
+    assert sources.supports_backfill("BTCUSDT")
+    assert not sources.supports_backfill("VN:VNINDEX")
+
+    # Both markets do go live, by different means: Binance pushes over a
+    # socket, the HOSE database is polled.
+    assert sources.supports_live_stream("BTCUSDT")
+    assert sources.supports_live_stream("VN:VNINDEX")
+    assert sources.live_mode("BTCUSDT") == "push"
+    assert sources.live_mode("VN:VNINDEX") == "poll"
+
+
+@check("each market advertises its own timeframes")
+def _():
+    vn = sources.timeframes_for("VN:VN30F1M")
+    assert "1d" in vn and "1m" in vn and "30m" in vn, vn
+    crypto = sources.timeframes_for("BTCUSDT")
+    assert "1h" in crypto, crypto
+
+
+@check("an unsupported timeframe is refused before any query runs")
+def _():
+    try:
+        market_vn.get_candles("VNINDEX", "3d")
+    except market_vn.MarketUnavailable as exc:
+        assert "không có cho thị trường VN" in str(exc), exc
+    else:
+        raise AssertionError("expected a timeframe check")
+
+
+@check("daily bars are keyed at UTC midnight of the trading date")
+def _():
+    ms = market_vn._to_ms(date(2026, 9, 4))
+    when = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    assert (when.year, when.month, when.day) == (2026, 9, 4), when
+    assert (when.hour, when.minute) == (0, 0), when
+
+
+@check("a naive timestamp is read as UTC, not as local time")
+def _():
+    # ts is documented as UTC; treating a naive value as local would shift the
+    # whole session by seven hours and quietly corrupt every intraday chart.
+    naive = market_vn._to_ms(datetime(2026, 9, 4, 7, 11))
+    aware = market_vn._to_ms(datetime(2026, 9, 4, 7, 11, tzinfo=timezone.utc))
+    assert naive == aware, (naive, aware)
+
+
+@check("an empty result still has the right columns and dtypes")
+def _():
+    frame = market_vn._frame([])
+    assert list(frame.columns) == ["open_time", "open", "high", "low", "close", "volume"]
+    assert frame.empty
+    assert frame["open_time"].dtype == "int64", frame.dtypes
+
+
+@check("rows become the same OHLCV frame the DuckDB store returns")
+def _():
+    rows = [
+        (datetime(2026, 9, 4, 7, 11, tzinfo=timezone.utc), 1979.9, 1980.5, 1978.8, 1980.4, 933),
+        (datetime(2026, 9, 4, 7, 12, tzinfo=timezone.utc), 1980.3, 1982.7, 1979.4, 1982.0, 2119),
+    ]
+    frame = market_vn._frame(rows)
+    assert len(frame) == 2
+    assert frame["open_time"].iloc[0] == 1788505860000, frame["open_time"].iloc[0]
+    assert frame["close"].iloc[1] == 1982.0
+    assert frame["volume"].dtype == "float64"
+    # Same shape as the crypto store, so nothing downstream can tell them apart.
+    assert list(frame.columns) == ["open_time", "open", "high", "low", "close", "volume"]
+
+
+@check("a null volume becomes zero rather than NaN")
+def _():
+    rows = [(datetime(2026, 9, 4, tzinfo=timezone.utc), 1.0, 2.0, 0.5, 1.5, None)]
+    assert market_vn._frame(rows)["volume"].iloc[0] == 0.0
+
+
+@check("every instrument family is classified, and gold is not filed as FX")
+def _():
+    cases = {
+        # Equities: exactly three letters/digits.
+        "VIC": "equity", "ITA": "equity", "SD9": "equity", "S99": "equity",
+        # The international feed. G-XAUUSD and G-EURUSD both end in USD, which
+        # is exactly why the split is a table and not a regex.
+        "G-GOLD": "commodity", "G-XAUUSD": "commodity", "G-XAGUSD": "commodity",
+        "G-OIL": "commodity", "G-COFFEE": "commodity",
+        "G-BTCUSD": "crypto", "G-ETHUSD": "crypto",
+        # A stablecoin pair, which reads like FX and is not.
+        "G-USDTUSD": "crypto",
+        "G-EURUSD": "fx", "G-USDVND": "fx", "G-USDX": "fx",
+        "G-SPX": "index_global", "G-N225": "index_global",
+        # Vietnamese families.
+        "VNINDEX": "index_vn", "HNXINDEX": "index_vn", "UPCOMINDEX": "index_vn",
+        "I1-FIN": "index_sector", "I3-BANK": "index_sector",
+        "VN30F1M": "futures_vn", "VN100F2Q": "futures_vn",
+        "FUESSV50": "fund", "E1VFVN30": "fund",
+        # Covered warrants: offered now, with their own unit and their own
+        # warning (they decay against a strike and then expire).
+        "CVNM2609": "warrant", "CHPG2512": "warrant",
+        # VSD contract codes. These were filed under "bond" on the shape of the
+        # leading digit, and the prices say otherwise: 41I1G9000 is identical
+        # to VN30F1M, close and volume, on every shared session (see the live
+        # check below). They are index futures written the depository's way.
+        "41I1G9000": "futures_vn", "41I1GC000": "futures_vn",
+        "41I2G8000": "futures_vn", "41I1H3000": "futures_vn",
+        # A leading digit that is not a VSD contract stays unrecognised rather
+        # than being promoted into a class on the strength of one character.
+        "9ABCDEFGH": "bond",
+    }
+    for symbol, expected in cases.items():
+        assert market_vn.classify(symbol) == expected, (
+            symbol, market_vn.classify(symbol), expected)
+
+
+@check("an unrecognised symbol is refused rather than guessed at")
+def _():
+    # A new name on the international feed has unknown units; filing it under
+    # a class would put a wrong currency next to a real price.
+    assert market_vn.classify("G-NEWTHING") is None
+    assert market_vn.classify("") is None
+    assert market_vn.classify(None) is None
+
+
+@check("each class states what it is quoted in")
+def _():
+    # An index level is not money, and gold is not đồng. Anything the picker
+    # offers must say which of the three it is.
+    for asset_class in market_vn.TRADABLE_CLASSES:
+        assert market_vn.CLASS_CURRENCY[asset_class] in ("VND", "USD", "point", "rate")
+    assert market_vn.CLASS_CURRENCY["equity"] == "VND"
+    assert market_vn.CLASS_CURRENCY["commodity"] == "USD"
+    assert market_vn.CLASS_CURRENCY["index_vn"] == "point"
+    # A warrant is quoted in the same thousands of dong as its underlying, so
+    # it carries a unit and is offered. What it does not carry is the equity
+    # pricing behaviour, which the interface says out loud instead of hiding
+    # the instrument.
+    assert market_vn.CLASS_CURRENCY["warrant"] == "VND"
+    # "bond" remains a name for "recognised and not offered": no row in this
+    # database has been shown to be one.
+    assert "bond" not in market_vn.TRADABLE_CLASSES
+
+
+@contextmanager
+def _fake_query(*results):
+    """Swap ``market_vn.query`` for the duration of one test, then restore it.
+
+    Several results can be given: they are handed out in call order, and the
+    last one repeats. Functions that read two views (``market_risk`` reads the
+    metrics then the distribution) would otherwise get the first view's rows
+    for both and fail on the unpack rather than on the thing being tested.
+    """
+    original = market_vn.query
+    calls = {"n": 0}
+
+    def fake(sql, params=()):
+        index = min(calls["n"], len(results) - 1)
+        calls["n"] += 1
+        return results[index]
+
+    market_vn.query = fake
+    try:
+        yield
+    finally:
+        market_vn.query = original
+
+
+@check("a symbol with daily history but no live quote is priced off its own closes")
+def _():
+    rows = [
+        # Newest first, as the SQL orders it; two rows is what the query keeps.
+        ("ABC", date(2026, 9, 9), 15.0, 1000),
+        ("ABC", date(2026, 9, 8), 10.0, 2000),
+    ]
+    with _fake_query(rows):
+        out = market_vn._symbols_without_quote(known=set())
+    assert len(out) == 1, out
+    row = out[0]
+    assert row["symbol"] == "ABC"
+    assert row["name"] is None, row  # no name source for these — honestly absent
+    assert row["price"] == 15.0
+    assert abs(row["change_percent"] - 50.0) < 1e-9, row["change_percent"]
+    assert row["volume"] == 1000
+
+
+@check("a symbol already covered by the live quote is not duplicated")
+def _():
+    rows = [("ABC", date(2026, 9, 9), 15.0, 1000)]
+    with _fake_query(rows):
+        out = market_vn._symbols_without_quote(known={"ABC"})
+    assert out == [], out
+
+
+@check("every family reaches the picker carrying its own unit")
+def _():
+    rows = [
+        ("CVNM2609", date(2026, 9, 9), 15.0, 1000),    # a covered warrant
+        ("41I1G8000", date(2026, 9, 9), 100.0, 5),     # a VSD contract code
+        ("9ABCDEFGH", date(2026, 9, 9), 100.0, 5),     # a shape nothing recognises
+        ("VNINDEX", date(2026, 9, 9), 1900.0, 0),      # a legitimate index level
+        ("G-XAUUSD", date(2026, 9, 9), 4418.11, 0),    # gold, priced in USD
+    ]
+    with _fake_query(rows):
+        out = market_vn._symbols_without_quote(known=set())
+
+    got = {row["symbol"]: row for row in out}
+    # A warrant is quoted like the share it is written on, and a VSD code is an
+    # index future — measured, not assumed (see classify).
+    assert got["CVNM2609"]["asset_class"] == "warrant"
+    assert got["CVNM2609"]["currency"] == "VND"
+    assert got["41I1G8000"]["asset_class"] == "futures_vn"
+    assert got["41I1G8000"]["currency"] == "point"
+    # And a shape nothing here recognises stays out rather than being guessed.
+    assert "9ABCDEFGH" not in got, got
+    # And the two that belong come through carrying the right units, so the
+    # interface never prints an index level or an ounce of gold as đồng.
+    assert got["VNINDEX"]["asset_class"] == "index_vn"
+    assert got["VNINDEX"]["currency"] == "point"
+    assert got["G-XAUUSD"]["asset_class"] == "commodity"
+    assert got["G-XAUUSD"]["currency"] == "USD"
+
+
+@check("only one close means no percentage claim, not a fabricated one")
+def _():
+    rows = [("XYZ", date(2026, 9, 9), 15.0, 1000)]
+    with _fake_query(rows):
+        out = market_vn._symbols_without_quote(known=set())
+    assert out[0]["change_percent"] is None, out[0]
+
+
+@check("the merged list has no duplicates and stays sorted by volume, None last")
+def _():
+    quote_rows = [
+        ("VIC", "Vingroup", 45.0, 1.2, 900, None),
+        ("VNM", "Vinamilk", 60.0, -0.5, 300, None),
+    ]
+    daily_rows = [
+        ("ABC", date(2026, 9, 9), 10.0, 5000),  # louder than both quoted names
+        ("ABC", date(2026, 9, 8), 9.0, 4000),
+        ("XYZ", date(2026, 9, 9), 3.0, None),   # no volume at all
+    ]
+    calls = iter([quote_rows, daily_rows])
+    original = market_vn.query
+    market_vn.query = lambda sql, params=(): next(calls)  # v_quote, then history
+    try:
+        out = market_vn.list_symbols()
+    finally:
+        market_vn.query = original
+
+    symbols = [q["symbol"] for q in out]
+    assert len(symbols) == len(set(symbols)), symbols
+    assert symbols[0] == "ABC", symbols  # 5000 beats 900 and 300
+    assert symbols[-1] == "XYZ", symbols  # None volume sorts last
+
+
+# ------------------------------------------------------- data coverage
+
+def _sessions(counts, start=date(2026, 8, 3)):
+    """Daily bar counts as the coverage query returns them (date, isodow, bars)."""
+    from datetime import timedelta as _td
+    rows = []
+    day = start
+    for bars in counts:
+        while day.isoweekday() > 5:          # weekdays only, like the market
+            day += _td(days=1)
+        rows.append((day, day.isoweekday(), bars))
+        day += _td(days=1)
+    return rows
+
+
+@check("an outage on a steady symbol is reported")
+def _():
+    # VN30F1M prints 241 bars every session; 2026-07-27 delivered 167.
+    rows = _sessions([241] * 12 + [167] + [241] * 7)
+    with _fake_query(rows):
+        out = market_vn.data_coverage("VN30F1M")
+    assert not out["thin"], out
+    assert len(out["gaps"]) == 1, out["gaps"]
+    gap = out["gaps"][0]
+    assert gap["bars"] == 167 and gap["expected"] == 241, gap
+    assert abs(gap["missing_pct"] - (1 - 167 / 241) * 100) < 1e-9, gap
+
+
+@check("a symbol that swings by nature is not accused of losing data")
+def _():
+    # AAH ranges 29-62 bars a session with no fault anywhere. A fixed "20%
+    # below median" rule flags seven of these; the spread-aware one flags none.
+    # Thirty sessions, so every weekday clears the minimum sample.
+    rows = _sessions([54, 29, 62, 33, 58, 41, 60, 29, 51, 50,
+                      62, 35, 57, 44, 48, 31, 59, 46, 38, 55,
+                      61, 30, 52, 43, 57, 34, 49, 60, 36, 53])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("AAH")
+    assert not out["thin"], out
+    assert out["session_spread"] > 0.1, out["session_spread"]
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("a weekday seen only a few times is not used to judge anything")
+def _():
+    # Three Mondays cannot say what a normal Monday looks like. A newly listed
+    # symbol would otherwise be measured against two or three of its own
+    # sessions and flagged for ordinary variation.
+    rows = _sessions([240, 120, 241, 238, 130, 239, 241, 125, 240])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("NEW")
+    assert out["gaps"] == [], out["gaps"]
+    assert out["session_spread"] is None, out["session_spread"]
+
+
+@check("a symbol too thin for intraday says so instead of listing gaps")
+def _():
+    # A32 trades about one minute a session. Nothing is missing; there is
+    # simply almost nothing there, and that is the fact worth reporting.
+    rows = _sessions([1, 2, 0, 1, 1, 3, 1, 0, 1, 2])
+    with _fake_query(rows):
+        out = market_vn.data_coverage("A32")
+    assert out["thin"] is True, out
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("a closed market is judged against the same weekday, not against every day")
+def _():
+    # Gold prints a full book Monday to Friday and nothing on Sunday. Sundays
+    # compared with weekdays would read as a 100% outage every week.
+    from datetime import timedelta as _td
+    rows, day = [], date(2026, 8, 3)
+    for _week in range(5):
+        for _ in range(5):
+            rows.append((day, day.isoweekday(), 1380))
+            day += _td(days=1)
+        rows.append((day, 6, 0))             # Saturday
+        rows.append((day + _td(days=1), 7, 4))  # Sunday, a handful of prints
+        day += _td(days=2)
+    with _fake_query(rows):
+        out = market_vn.data_coverage("G-XAUUSD")
+    assert out["gaps"] == [], out["gaps"]
+
+
+@check("the window starts at midnight, so the oldest day is never half-counted")
+def _():
+    # The bug this pins: the window began at `now() - 45 days`, which lands
+    # mid-session, so the boundary day was counted from (say) 03:48 onward and
+    # came back 45% short. Every symbol shares the same boundary, so all of
+    # them reported the same missing day — which read exactly like a
+    # market-wide outage and was reported as one before it was measured.
+    captured = {}
+    original = market_vn.query
+
+    def fake(sql, params=()):
+        captured["params"] = params
+        return []
+
+    market_vn.query = fake
+    try:
+        market_vn.data_coverage("VN30F1M")
+    finally:
+        market_vn.query = original
+
+    since = captured["params"][1]
+    assert (since.hour, since.minute, since.second, since.microsecond) == (0, 0, 0, 0), since
+
+
+@check("no minute history at all is reported as nothing to judge")
+def _():
+    with _fake_query([]):
+        out = market_vn.data_coverage("VIC")
+    assert out["sessions"] == 0 and out["gaps"] == [], out
+    assert out["median_bars"] is None, out
+
+
+# --------------------------------------------------- the team's risk model
+
+def _risk_rows(paths=10_000, downside=0.5139):
+    from datetime import datetime as _dt
+    made = _dt(2026, 9, 9, 8, 17, tzinfo=timezone.utc)
+    return [(
+        _dt(2026, 9, 9, 8, 0, tzinfo=timezone.utc),
+        -0.0523, -0.1115, 0.1797, -0.0935, -0.1180, downside, "moderate",
+        paths, made,
+    )]
+
+
+@check("a simulated probability carries the error its path count implies")
+def _():
+    # sqrt(p(1-p)/N): 51.39% from 10,000 paths is ±0.50 points, so the second
+    # decimal is simulation noise. Printed without it, two runs that differ
+    # only by their seed look like a change in the market.
+    dist = [(-0.03, 0.7526), (-0.10, 0.0677)]
+    with _fake_query(_risk_rows(paths=10_000), dist):
+        coarse = market_vn.market_risk()
+    with _fake_query(_risk_rows(paths=40_000), dist):
+        fine = market_vn.market_risk()
+
+    a = coarse["latest"]["downside_sim_error_pct"]
+    b = fine["latest"]["downside_sim_error_pct"]
+    assert abs(a - 0.4998) < 0.01, a
+    # Four times the paths halves the error, and the payload has to show that
+    # rather than printing both to the same decimals as if they were equal.
+    assert abs(a / b - 2.0) < 1e-6, (a, b)
+
+
+@check("risk figures come back as percentages, not as fractions")
+def _():
+    with _fake_query(_risk_rows(), [(-0.03, 0.7526)]):
+        out = market_vn.market_risk()
+    latest = out["latest"]
+    # -0.0935 in the database is -9.35%, and a screen that prints -0.09% for a
+    # 9% value understates the risk by two orders of magnitude.
+    assert abs(latest["var_95_pct"] + 9.35) < 0.01, latest["var_95_pct"]
+    assert abs(latest["es_95_pct"] + 11.80) < 0.01, latest["es_95_pct"]
+    assert abs(latest["volatility_pct"] - 17.97) < 0.01, latest["volatility_pct"]
+
+
+@check("an empty risk view says so rather than showing zeros")
+def _():
+    with _fake_query([]):
+        out = market_vn.market_risk()
+    assert out["available"] is False, out
+    assert out["snapshots"] == [], out
+
+
+@check("connection errors are translated into something actionable")
+def _():
+    cases = {
+        "connection timed out": "VPN",
+        "could not translate host name": "VPN",
+        "password authentication failed for user": "đăng nhập",
+        "permission denied for view bars_1d": "quản trị",
+    }
+    for raw, expected in cases.items():
+        message = market_vn._friendly(RuntimeError(raw))
+        assert expected.lower() in message.lower(), (raw, message)
+
+
+# ---------------------------------------------------------------- live (VPN)
+
+@live("the database answers and reports our read-only user")
+def _():
+    rows = market_vn.query("SELECT current_user")
+    assert rows[0][0] == "qp_remote", rows
+
+
+@live("minute bars exclude the candle currently being written")
+def _():
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=20)
+    assert not frame.empty, "no minute bars returned"
+    newest = pd.to_datetime(frame["open_time"].iloc[-1], unit="ms", utc=True)
+    now = pd.Timestamp.now(tz="UTC").floor("min")
+    assert newest < now, f"newest bar {newest} is in the current minute {now}"
+
+
+@live("candles come back oldest first")
+def _():
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=30)
+    assert frame["open_time"].is_monotonic_increasing, "not sorted ascending"
+
+
+@live("intraday timestamps land inside the Vietnamese session")
+def _():
+    # 09:00-15:00 in Ho Chi Minh City is 02:00-08:00 UTC. Bars outside that
+    # would mean the timezone handling is wrong somewhere.
+    frame = market_vn.get_candles("VN30F1M", "1m", limit=200)
+    hours = pd.to_datetime(frame["open_time"], unit="ms", utc=True).dt.tz_convert(
+        "Asia/Ho_Chi_Minh"
+    ).dt.hour
+    assert hours.between(9, 15).all(), sorted(hours.unique())
+
+
+@live("wider frames are aggregated from the minute bars, not invented")
+def _():
+    minutes = market_vn.get_candles("VN30F1M", "1m", limit=600)
+    quarters = market_vn.get_candles("VN30F1M", "15m", limit=20)
+    assert not quarters.empty
+
+    # Every 15m bar must sit on a 15-minute boundary and stay within the day's
+    # high/low from the minute data covering it.
+    starts = pd.to_datetime(quarters["open_time"], unit="ms", utc=True)
+    assert (starts.dt.minute % 15 == 0).all(), starts.dt.minute.unique()
+    assert quarters["high"].max() <= minutes["high"].max() * 1.001
+    assert quarters["low"].min() >= minutes["low"].min() * 0.999
+
+
+@live("daily history reaches back further than the minute history")
+def _():
+    daily = market_vn.coverage("VNINDEX", "1d")
+    assert daily and daily["count"] > 4000, daily
+    first = pd.to_datetime(daily["first"], unit="ms", utc=True)
+    assert first.year <= 2010, first
+
+
+@live("the symbol list covers the whole exchange and flags intraday coverage")
+def _():
+    symbols = market_vn.list_symbols()
+    intraday = market_vn.intraday_symbols()
+    # Bounded well below the live-measured 1,529 (389 quoted + ~1,140 folded
+    # in from daily history) so ordinary listings/delistings don't flake this.
+    assert len(symbols) > 1000, len(symbols)
+
+    # `intraday` also covers warrants and bonds this picker deliberately
+    # excludes (§_EQUITY_TICKER_RE), so it is not a subset of `symbols` any
+    # more — comparing sizes directly would compare two different universes.
+    # What must hold is the overlap: some but not all of our equities carry
+    # minute bars.
+    overlap = intraday & {s["symbol"] for s in symbols}
+    assert 0 < len(overlap) < len(symbols), (len(overlap), len(symbols))
+    assert "VN30F1M" in intraday
+
+    # No symbol appears twice: a name in both v_quote and the folded-in daily
+    # history must have been deduplicated, not double-listed.
+    names = [s["symbol"] for s in symbols]
+    assert len(names) == len(set(names)), "duplicate symbol in the merged list"
+
+
+@live("gold, crypto, FX and the index families all reach the list")
+def _():
+    symbols = {s["symbol"]: s for s in market_vn.list_symbols()}
+
+    # These were in the database all along and never reachable from the app.
+    expected = {
+        "G-GOLD": "commodity", "G-XAUUSD": "commodity", "G-BTCUSD": "crypto",
+        "G-USDVND": "fx", "G-SPX": "index_global", "HNXINDEX": "index_vn",
+        "I1-FIN": "index_sector", "E1VFVN30": "fund", "VN30F1M": "futures_vn",
+    }
+    for symbol, asset_class in expected.items():
+        assert symbol in symbols, f"{symbol} missing from the symbol list"
+        assert symbols[symbol]["asset_class"] == asset_class, symbols[symbol]
+
+    # Every listed symbol carries a class and a unit; a price with no stated
+    # unit is the §2.7 failure this whole split exists to avoid.
+    for symbol, row in symbols.items():
+        assert row["asset_class"] in market_vn.TRADABLE_CLASSES, row
+        assert row["currency"], row
+
+    # Warrants are listed now, priced in the same thousand-dong convention as
+    # equities; anything still classed "bond" stays out.
+    assert not [s for s in symbols if market_vn.classify(s) == "bond"], "a bond was listed"
+    warrants = [s for s in symbols if market_vn.classify(s) == "warrant"]
+    assert len(warrants) > 50, len(warrants)
+    assert all(symbols[s]["currency"] == "VND" for s in warrants)
+
+
+@live("VN30F1M is the front VSD contract, and it rolls")
+def _():
+    """The measurement the reclassification rests on.
+
+    If the depository's code and the platform's "continuous" series are the
+    same numbers, then the code is an index future and filing it under "bond"
+    on the strength of a leading digit was a wrong claim about pricing.
+
+    Measured 2026-09-16: VN30F1M is 41I1G8000 on 20/08 — expiry day — and
+    41I1G9000 from 21/08 on, to the cent AND to the lot. So the assertion is
+    not "one contract matches", which the roll breaks by exactly one session,
+    but "every session matches some contract", which is what a front-month
+    series IS.
+    """
+    front = market_vn.get_candles("VN30F1M", "1d", limit=40, adjust=False)
+    assert len(front) >= 10, len(front)
+    # The contract codes lag the continuous series here — 3 sessions when this
+    # was written — so the newest bars of VN30F1M have no contract to match.
+    recent = front.set_index("open_time").tail(15)
+
+    codes = [row[0] for row in market_vn.query(
+        """
+        SELECT DISTINCT symbol FROM api.v_history_1d
+        WHERE symbol LIKE '41I1%%' AND trading_date >= current_date - interval '60 days'
+        """
+    )]
+    assert codes, "no VSD contract codes in the last 60 sessions"
+    assert all(market_vn.classify(code) == "futures_vn" for code in codes), codes
+
+    series = {}
+    for code in codes:
+        frame = market_vn.get_candles(code, "1d", limit=40, adjust=False)
+        if len(frame):
+            series[code] = frame.set_index("open_time")
+
+    holder = {}
+    for when in recent.index:
+        for code, frame in series.items():
+            if when not in frame.index:
+                continue
+            if (abs(frame.loc[when, "close"] - recent.loc[when, "close"]) < 1e-9
+                    and abs(frame.loc[when, "volume"] - recent.loc[when, "volume"]) < 1e-9):
+                holder[when] = code
+                break
+
+    covered = [w for w in recent.index if w in holder]
+    assert len(covered) >= 10, f"only {len(covered)} of {len(recent)} sessions match any contract"
+    rolls = sum(1 for a, b in zip(covered, covered[1:]) if holder[a] != holder[b])
+    print(f"        {len(covered)} sessions matched a contract exactly, {rolls} roll(s) inside them")
+
+
+@live("the account holds no write privileges")
+def _():
+    # Asked of the catalogue rather than attempted. Trying an INSERT to see
+    # whether it fails is both a worse test — a temp-table probe "passes" on a
+    # fetch error, not a refusal — and the wrong thing to do to somebody
+    # else's production database.
+    rows = market_vn.query(
+        """
+        SELECT
+            has_table_privilege(current_user, 'api.v_quote', 'INSERT'),
+            has_table_privilege(current_user, 'api.v_quote', 'UPDATE'),
+            has_table_privilege(current_user, 'api.v_quote', 'DELETE'),
+            has_table_privilege(current_user, 'api.v_quote', 'SELECT'),
+            has_schema_privilege(current_user, 'public', 'CREATE'),
+            (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+        """
+    )
+    insert, update, delete, select, create_public, superuser = rows[0]
+    assert select, "should be able to read api.v_quote"
+    assert not insert and not update and not delete, (insert, update, delete)
+    assert not create_public, "read-only account can create objects in public"
+    assert not superuser, "read-only account is a superuser"
+
+
+@live("only the api schema is reachable")
+def _():
+    # Asked of the catalogue, so this never becomes an attempt to reach what is
+    # documented as off limits. `has_schema_privilege` raises on a schema that
+    # does not exist, so existence is checked first.
+    rows = market_vn.query(
+        """
+        SELECT nspname,
+               has_schema_privilege(current_user, nspname, 'USAGE') AS usable
+        FROM pg_namespace
+        WHERE nspname IN ('api', 'quant', 'web', 'public')
+        ORDER BY nspname
+        """
+    )
+    privileges = {name: usable for name, usable in rows}
+    assert privileges.get("api"), f"the api schema should be readable: {privileges}"
+
+    for restricted in ("quant", "web"):
+        if restricted in privileges:
+            assert not privileges[restricted], (
+                f"schema `{restricted}` is readable but was documented as denied"
+            )
+
+
+# --------------------------------------------------------------------------
+
+def run(items) -> tuple[int, int]:
+    passed = failed = 0
+    for name, fn in items:
+        try:
+            fn()
+            print(f"  PASS  {name}")
+            passed += 1
+        except AssertionError as exc:
+            print(f"  FAIL  {name}")
+            print(f"          {exc}")
+            failed += 1
+        except Exception as exc:
+            print(f"  ERROR {name}")
+            print(f"          {type(exc).__name__}: {exc}")
+            failed += 1
+    return passed, failed
+
+
+def main() -> int:
+    print("Offline checks (routing and shaping):")
+    passed, failed = run(CHECKS)
+
+    print("\nLive checks (need the team VPN):")
+    if not market_vn.configured():
+        print("  SKIP  MARKET_DSN chưa cấu hình")
+        return 1 if failed else 0
+
+    try:
+        market_vn.query("SELECT 1")
+    except market_vn.MarketUnavailable as exc:
+        print(f"  SKIP  không kết nối được: {exc}")
+        print(f"\n{passed} passed, {failed} failed, live checks skipped")
+        return 1 if failed else 0
+
+    live_passed, live_failed = run(LIVE_CHECKS)
+    passed += live_passed
+    failed += live_failed
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

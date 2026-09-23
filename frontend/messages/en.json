@@ -93,7 +93,14 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "language": "Language",
-    "portfolio": "Quant Portfolio"
+    "portfolio": "Quant Portfolio",
+    "marketShort": "Markets",
+    "community": "Community",
+    "research": "Research",
+    "tools": "Tools",
+    "terminal": "QP Terminal",
+    "terminalHint": "Indicator and strategy research platform",
+    "opensNewTab": "opens in a new tab"
   },
   "footer": {
     "tagline": "Quant Percent, One Percent",
@@ -1479,5 +1486,17 @@
       "helpChart": "Chart (ECharts option as JSON)",
       "chartError": "Could not draw the chart: the JSON option is invalid."
     }
+  },
+  "terminalPage": {
+    "title": "QP Terminal",
+    "description": "Quant Percent's indicator and strategy research platform, for members with a confirmed email.",
+    "opening": "Opening QP Terminal…",
+    "openManually": "Open QP Terminal",
+    "unverifiedTitle": "Confirm your email to use QP Terminal",
+    "unverified": "The account {email} has not confirmed its email yet. Open the link we sent you, or send a new one below. Once confirmed, reload this page.",
+    "loopTitle": "Your session did not reach QP Terminal",
+    "loop": "You are signed in here, but QP Terminal could not see it. Sign out and sign in again, then open QP Terminal once more.",
+    "signOutAndIn": "Sign out and sign in again",
+    "sharedNote": "All members share one QP Terminal: paper accounts and saved strategies are common to everyone."
   }
 }

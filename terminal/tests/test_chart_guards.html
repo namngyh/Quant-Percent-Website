@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>chart probe</title></head>
+<body>
+<pre id="out">running…</pre>
+<iframe id="app" src="/#trade" style="width:1200px;height:700px;border:1px solid #ccc"></iframe>
+<script>
+/* Does the chart refuse data that is not its own?
+ *
+ * Two things were reaching the price series and should not have been: a candle
+ * from another instrument, and a candle older than the newest bar. The first
+ * came from a stale socket subscription — `Live.subscribe` used to sit behind
+ * an `await` that could throw — and put a VN index tick near 1 900 into a
+ * Bitcoin series near 79 000. The second makes `series.update()` throw, and
+ * that exception escaped the socket handler and killed the live feed for the
+ * rest of the session.
+ *
+ * Both are now dropped by the chart itself, which is the layer that owns the
+ * data and therefore the only one that can be sure. This drives the running
+ * app rather than a mock, because the bug was in how the real pieces were
+ * wired together and a mock would have been wired the way I imagined it.
+ *
+ *   (with the app running on :8000)
+ *   chrome --headless --dump-dom --virtual-time-budget=20000  *          http://127.0.0.1:8000/static/../tests/test_chart_guards.html
+ *
+ * It needs to be served from the app's own origin to reach into the frame, so
+ * copy it beside index.html to run it.
+ */
+(async () => {
+  const out = [];
+  const say = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let failed = 0;
+  const check = (name, ok, detail = '') => {
+    say(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -> ${detail}` : ''}`);
+    if (!ok) failed += 1;
+  };
+
+  const frame = document.getElementById('app');
+  const errors = [];
+  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+  const w = frame.contentWindow;
+  w.addEventListener('error', (e) => errors.push(`${e.message}`));
+  await wait(6000);
+  const ev = (code) => { try { return w.eval(code); } catch (e) { return `THREW ${e.message}`; } };
+
+  const lastClose = () => ev('(ChartManager.priceSeries.data().slice(-1)[0]||{}).close');
+  const key = ev('ChartManager.seriesKey');
+  say(`series key : ${key}`);
+  say(`last close : ${lastClose()}`);
+  const before = lastClose();
+  const bars = ev('ChartManager.priceSeries.data().length');
+
+  // 1. A candle from a different instrument, at a plausible VN index price.
+  ev(`ChartManager.updateCandle({time: ${ev('(ChartManager.priceSeries.data().slice(-1)[0]||{}).time')} + 3600,
+      open: 1966, high: 1970, low: 1960, close: 1966, volume: 1}, 'VN:VNINDEX|1d')`);
+  await wait(400);
+  check('a candle from another instrument is dropped',
+        lastClose() === before, `last close is now ${lastClose()}`);
+
+  // 2. A candle older than the newest bar. This used to throw out of the
+  //    socket handler and kill the feed for the rest of the session.
+  errors.length = 0;
+  ev(`ChartManager.updateCandle({time: ${ev('(ChartManager.priceSeries.data().slice(-1)[0]||{}).time')} - 86400,
+      open: 1, high: 2, low: 0.5, close: 1, volume: 1}, ${JSON.stringify(key)})`);
+  await wait(400);
+  check('an out-of-order candle is dropped, not thrown on',
+        lastClose() === before && errors.length === 0,
+        errors.length ? errors.join(' | ') : `last close is still ${lastClose()}`);
+
+  // 3. A legitimate newer candle still lands.
+  const t = ev('(ChartManager.priceSeries.data().slice(-1)[0]||{}).time');
+  ev(`ChartManager.updateCandle({time: ${t} + 3600, open: 79000, high: 79100,
+      low: 78900, close: 79050, volume: 1}, ${JSON.stringify(key)})`);
+  await wait(400);
+  check('a genuine newer candle is still applied',
+        lastClose() === 79050, `last close ${lastClose()}`);
+  check('and it was appended, not swallowed',
+        ev('ChartManager.priceSeries.data().length') === bars + 1);
+
+  say('');
+  say(failed ? `${failed} failed` : 'chart guards hold');
+})();
+</script>
+</body>
+</html>

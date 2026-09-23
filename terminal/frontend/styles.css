@@ -1,0 +1,3033 @@
+/* Base component styles. workspace.css is loaded after this file and owns
+ * the current navy/blue visual theme. The design notes below are historical.
+ *
+ * Quant Percent — ink on paper
+ *
+ * A research instrument, drawn the way a good printed chart is: white paper,
+ * black ink, and grey only where something is secondary. Nam asked for black
+ * and white; the interface keeps exactly two exceptions, both of them data
+ * rather than decoration:
+ *
+ *   - green and red mean market direction and P&L, nothing else;
+ *   - indicator lines keep their own palette, because three black EMAs on one
+ *     chart cannot be told apart.
+ *
+ * What made the previous version read as "plastic" was not its colours but
+ * its edges: every control was a bordered box, every group a bordered box
+ * inside a bordered panel, all at slightly different radii. Structure now
+ * comes from space and from filled washes. Borders survive where they carry
+ * information — around a chart, under a table header.
+ *
+ * Motion is reserved for answering an action: a thumb that slides to the
+ * timeframe just chosen, a panel that settles in when it is opened, a dialog
+ * that rises. Nothing moves on its own. `prefers-reduced-motion` turns all of
+ * it off.
+ *
+ * One typeface, Be Vietnam Pro, vendored under /static/fonts. It was drawn
+ * for Vietnamese, so stacked marks (ế, ộ, ữ) sit where they should instead of
+ * falling through to a second face mid-word.
+ */
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/be-vietnam-pro-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* `hidden` must always win.
+
+   The attribute's default `display: none` has the specificity of a type
+   selector, so any class that sets `display` beats it: `.multi-charts` sets
+   `display: grid`, and the comparison band stayed on screen at 321px in the
+   one-chart layout while `el.hidden` read true. Six components had grown
+   their own `[hidden]` rule one bug at a time; this closes the class. */
+[hidden] { display: none !important; }
+
+:root {
+  /* Paper and ink. */
+  --bg:          #ffffff;
+  --surface:     #ffffff;
+  --surface-2:   #f5f5f6;   /* wash: fields, hover, quiet cards */
+  --surface-3:   #ebebed;   /* pressed, a track on a wash */
+  --surface-alt: #f5f5f6;
+  --border:      #e4e4e7;
+  --border-soft: #efeff1;
+
+  --text:        #000000;
+  --text-dim:    #55555d;
+  --text-faint:  #9d9da5;
+
+  /* The accent is the ink itself. */
+  --accent:      #000000;
+  --accent-hover:#2a2a2e;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+  --accent-tint: rgba(0, 0, 0, 0.035);
+  --focus:       #000000;
+
+  /* Market colours. Reserved for direction and P&L. */
+  --up:          #089981;
+  --up-soft:     rgba(8, 153, 129, 0.10);
+  --down:        #f23645;
+  --down-soft:   rgba(242, 54, 69, 0.10);
+  /* Navy is the one colour for notes, cautions and highlights. Nam's rule:
+     black and white are the ground, green and red belong to candles and P&L,
+     and everything that annotates is navy. Amber is gone. `--warn` keeps its
+     name so every caution already in the codebase turns navy in one place. */
+  --note:        #1c2f5e;
+  --note-soft:   rgba(28, 47, 94, 0.08);
+  --warn:        var(--note);
+  --warn-soft:   var(--note-soft);
+
+  /* Radii grow with the size of the thing: a 6px chip, an 8px control, a 12px
+     card, a 16px window. One radius on everything is what makes a kit look
+     like a kit. */
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius:      10px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-pill: 999px;
+  --topbar-h:    56px;
+  --rail-w:      72px;
+  --panel-w:     344px;
+
+  --mono: "Cascadia Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Be Vietnam Pro", "Segoe UI Variable Text", "Segoe UI", system-ui,
+          -apple-system, Roboto, Arial, sans-serif;
+
+  /* Shadow only for things that genuinely float. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow:    0 6px 18px -6px rgba(0, 0, 0, 0.14);
+  --shadow-lg: 0 28px 64px -16px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  /* One curve for everything that responds. Fast out, soft landing. */
+  --ease:   cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --t-fast: 120ms;
+  --t:      220ms;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  /* Vietnamese stacks a tone mark on a vowel mark; 1.6 keeps the marks of one
+     line clear of the descenders above. */
+  line-height: 1.6;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: #000; color: #fff; }
+
+/* Every figure that updates in place uses tabular numerals, so a digit
+   changing does not shift the ones beside it. */
+.metric-value, .data-table, .price-ticker, .price-change, .status, .xp-table,
+.badge, .param-value, .pp-fig dd, .cat-count {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ==================== Top bar ==================== */
+
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px 0 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  position: relative;
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; user-select: none; }
+.brand-mark { width: 20px; height: 20px; flex-shrink: 0; }
+.brand-mark rect { fill: #000; }
+.brand-mark path { stroke: #000; }
+.brand-name {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.brand-name strong { color: var(--text); font-weight: 700; }
+
+.topbar-controls { display: flex; align-items: center; gap: 8px; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+.status { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.status.error { color: var(--down); }
+.status.busy  { color: var(--warn); }
+
+/* ==================== Controls ==================== */
+
+/* Fields are washes, not boxes. A resting field needs to be findable, not
+   outlined; the outline appears when it has something to say — focus. */
+select, input[type="search"], input[type="number"],
+input[type="text"], input[type="password"], input[type="date"] {
+  background-color: var(--surface-2);
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 7px 11px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  outline: none;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+select:hover, input:hover { background-color: var(--surface-3); }
+select:focus, input:focus {
+  background-color: var(--surface);
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+select {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355555d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 6px;
+}
+input::placeholder { color: var(--text-faint); }
+
+/* Segmented control: a wash track with one black thumb.
+
+   The thumb is a real element (ui.js) that slides to whichever child carries
+   `.active`. Without the script the active button still fills itself, so the
+   control never loses its state. */
+.tf-group, .lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius);
+  isolation: isolate;
+}
+.tf-btn, .lang-btn {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: color var(--t) var(--ease), background var(--t-fast) var(--ease);
+}
+.tf-btn:hover, .lang-btn:hover { color: var(--text); }
+.tf-btn.active, .lang-btn.active { color: #fff; background: var(--accent); font-weight: 600; }
+.has-thumb > .tf-btn.active, .has-thumb > .lang-btn.active { background: transparent; }
+
+.seg-thumb {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.seg-ready > .seg-thumb {
+  transition: transform var(--t) var(--ease), width var(--t) var(--ease),
+              opacity var(--t-fast) linear;
+}
+
+/* Buttons. Default is quiet; the primary is solid ink and there is only ever
+   one per panel. A press sinks the button by a hair, which is what makes a
+   click feel received rather than merely registered. */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 14px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.btn:hover:not(:disabled) { background: var(--surface-2); border-color: #d4d4d8; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.btn-quiet, .btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+.btn-ghost:hover:not(:disabled) { background: var(--surface-3); color: var(--text); border-color: transparent; }
+.btn-quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
+
+.btn-sm { padding: 4px 10px; min-height: 30px; font-size: 12.5px; border-radius: 3px; }
+/* The one button that changes the whole mode. */
+.btn-lg { padding: 8px 18px; min-height: 38px; font-size: 13.5px; font-weight: 600; }
+.btn-block { width: 100%; margin-top: 8px; }
+.btn-danger { color: var(--down); }
+.btn-danger:hover:not(:disabled) { background: var(--down-soft); border-color: transparent; }
+
+/* ==================== Layout ==================== */
+
+.layout { display: flex; height: calc(100vh - var(--topbar-h)); }
+
+/* ---- Rail ---- */
+
+.rail {
+  width: var(--rail-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 6px;
+  gap: 6px;
+}
+
+/* The icon carries the state in a filled tile; the label stays put beneath
+   it. The tile goes solid black when its panel is open. */
+.rail-btn {
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  padding: 0 0 2px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
+  transition: color var(--t-fast) var(--ease);
+}
+.rail-btn svg {
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  padding: 8px 13px;
+  box-sizing: content-box;
+  border-radius: var(--radius-sm);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease),
+              transform var(--t-fast) var(--ease);
+}
+.rail-btn:hover { color: var(--text); }
+.rail-btn:hover svg { background: var(--surface-2); }
+.rail-btn:active svg { transform: scale(0.94); }
+.rail-btn.active { color: var(--text); }
+.rail-btn.active svg { background: var(--accent); color: #fff; }
+.rail-btn:focus-visible { outline: none; }
+.rail-btn:focus-visible svg { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---- Panel host: exactly one panel, collapsible ---- */
+
+.panel-host {
+  width: var(--panel-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.panel-host.collapsed { width: 0; border-right: 0; }
+
+.panel { display: none; height: 100%; flex-direction: column; width: var(--panel-w); }
+/* Opening a panel settles it in by a few pixels: enough to show which panel
+   just replaced which, too little to wait for. */
+.panel.active { display: flex; animation: panelIn var(--t) var(--ease); }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* When the title and its actions do not fit on one line, the actions move
+     to their own line as a group. Before, the row split the buttons themselves
+     ("Tài khoản  Thông báo" above, "Làm mới" alone below). */
+  flex-wrap: wrap;
+  row-gap: 6px;
+  gap: 8px;
+  padding: 16px 16px 10px 18px;
+  flex-shrink: 0;
+}
+.panel-head h2 {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.panel-head-actions { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; margin-left: -8px; }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 6px 16px 16px 18px; min-height: 0; }
+.panel-foot {
+  border-top: 1px solid var(--border-soft);
+  padding: 12px 16px 14px 18px;
+  flex: 0 1 auto;
+  min-height: 120px;
+  max-height: 45%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.panel-foot-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 8px;
+}
+
+.badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.hint { color: var(--text-dim); font-size: 12.5px; margin: 0 0 10px; line-height: 1.55; }
+.empty { color: var(--text-faint); font-size: 12.5px; line-height: 1.55; margin: 6px 0; }
+
+/* ---- Sub tabs ----
+
+   In-panel tabs are a wash track with a raised white tab, not black: the
+   panel already has one solid-black thing (its primary action), and a second
+   would split the attention it is meant to hold. */
+
+.subtabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.subtabs.compact { margin-bottom: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.subtabs.compact::-webkit-scrollbar { display: none; }
+.subtab {
+  flex: 1 0 auto;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 6px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+.subtab:hover { color: var(--text); }
+.subtab.active { color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); font-weight: 600; }
+
+.subpanel { display: none; }
+
+.subpanel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.subpanel.active { display: block; animation: fadeIn var(--t) var(--ease); }
+[data-respanel] { height: 100%; }
+[data-respanel].active { display: flex; flex-direction: column; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ==================== Catalog ==================== */
+
+#search { width: 100%; margin-bottom: 8px; }
+
+.cat-group { margin-bottom: 1px; }
+.cat-group > summary { cursor: pointer; list-style: none; user-select: none; }
+.cat-group > summary::-webkit-details-marker { display: none; }
+
+/* A group header is a row, not a label: sentence case, the count set apart,
+   and a chevron that turns when the group opens. The old uppercase tracked
+   label was slower to read and louder than the items under it. */
+.cat-group-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 7px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+  transition: background var(--t-fast) var(--ease);
+}
+.cat-group-name:hover { background: var(--surface-2); }
+/* Raise the first letter only. `text-transform: capitalize` raises every word,
+   which turned the Vietnamese "Của bạn" into "Của Bạn" — wrong in a language
+   that capitalises only the start of a phrase. */
+.cat-group-name > span:first-child { display: inline-block; }
+.cat-group-name > span:first-child::first-letter { text-transform: uppercase; }
+.cat-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-faint); }
+.cat-group > summary::after, .field-group.foldable > summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin: 0 2px 3px 4px;
+  border-right: 1.6px solid var(--text-faint);
+  border-bottom: 1.6px solid var(--text-faint);
+  transform: rotate(45deg);
+  transition: transform var(--t) var(--ease);
+  flex-shrink: 0;
+}
+.cat-group[open] > summary::after, .field-group.foldable[open] > summary::after {
+  transform: translateY(3px) rotate(-135deg);
+}
+.cat-group[open] { padding-bottom: 6px; }
+
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--t-fast) var(--ease);
+}
+.cat-item:hover { background: var(--surface-2); }
+.cat-item.on { background: var(--accent-soft); }
+.cat-item.on .cat-item-name { font-weight: 600; }
+.cat-item-name { font-size: 13px; font-weight: 500; }
+.cat-item-kind { margin-left: auto; font-size: 11.5px; color: var(--text-faint); }
+.cat-item.plugin .cat-item-name::after {
+  content: "py";
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  vertical-align: 1px;
+}
+
+/* ==================== Active indicators ==================== */
+
+.active-list { overflow-y: auto; flex: 1; margin: 0 -4px; padding: 0 4px; }
+
+.active-item {
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  overflow: hidden;
+  animation: fadeIn var(--t) var(--ease);
+}
+.active-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px 12px; }
+.swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.active-name { font-size: 13px; font-weight: 600; }
+.active-kind { font-size: 11.5px; color: var(--text-faint); }
+.active-remove { margin-left: auto; }
+
+.params { display: grid; gap: 9px; }
+.active-item .params { padding: 6px 12px 12px; }
+.param { display: grid; grid-template-columns: 76px 1fr 44px; align-items: center; gap: 10px; }
+.param-label {
+  font-size: 12px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.param-value { font-size: 13px; text-align: right; font-weight: 600; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 3px; background: var(--border); border-radius: 2px; outline: none; padding: 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  border: 2px solid var(--surface); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform var(--t-fast) var(--ease);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="checkbox"] { accent-color: var(--accent); justify-self: start; }
+
+.active-error {
+  padding: 7px 12px;
+  font-size: 11.5px;
+  color: var(--down);
+  background: var(--down-soft);
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+.load-errors {
+  background: var(--warn-soft);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--warn);
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+/* ==================== Field groups ====================
+
+   A group is a titled stretch of the panel separated from the next by a rule,
+   not a grey box. Boxes inside a panel inside a window was the nesting that
+   made the old panels feel like stacked plastic trays. */
+
+.field-group {
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0;
+  padding: 14px 0 12px;
+  background: transparent;
+  margin: 0;
+}
+.panel-body > .field-group:first-child,
+.subpanel > .field-group:first-child { border-top: 0; padding-top: 4px; }
+.field-group-title {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.param-row {
+  display: grid;
+  grid-template-columns: 1fr 104px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.param-row:last-child { margin-bottom: 0; }
+.param-row input, .param-row select { width: 100%; }
+
+#strategy-select { width: 100%; margin-bottom: 8px; }
+
+/* ==================== Sweep ==================== */
+
+.sweep-list { display: grid; gap: 6px; margin-bottom: 12px; }
+.sweep-head, .sweep-item {
+  display: grid;
+  grid-template-columns: 16px 1fr repeat(3, 50px);
+  align-items: center;
+  gap: 5px;
+}
+.sweep-head { font-size: 11.5px; color: var(--text-faint); font-weight: 500; }
+.sweep-head span:nth-child(n+3) { text-align: center; }
+.sweep-item { font-size: 12px; }
+.sweep-item > span { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sweep-item input[type="number"] { width: 100%; padding: 3px 5px; font-size: 11px; }
+.sweep-item input[type="number"]:disabled { opacity: 0.4; background: var(--surface-2); }
+
+.sweep-size {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin: 4px 0 10px;
+  font-family: var(--mono);
+}
+.sweep-size .big { color: var(--text); font-weight: 700; }
+.sweep-size.over { color: var(--warn); }
+.sweep-size.over .big { color: var(--warn); }
+
+/* ==================== Metrics ==================== */
+
+.metrics-host { flex-shrink: 0; }
+
+.metrics {
+  display: grid;
+  /* 132px, not 150px: two 150px tiles and their 8px gap need 308px, and the
+     panel's content box is about 300px — so every metric in a side panel fell
+     to a single full-width column, one number per screen row. */
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+/* `.stat-cards` had no rule at all until 2026-09-18. The multi-market summary
+   and the report's headline row used it, so their tiles fell back to block
+   flow: one full-width column, each tile touching the next, their rounded
+   corners butting into each other. Found by listing every class the scripts
+   emit that the stylesheet never mentions — `.stat-cards` was the one that
+   carried layout. It now lays out exactly like `.metrics`. */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-cards .metric-value { font-size: 20px; }
+
+/* A metric is a wash tile, not an outlined card: the number is what should
+   stand out, and a border around every number competes with it. */
+.metric {
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 12px 14px 13px;
+}
+.metric-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.metric-value {
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+.metric-value.pos { color: var(--up); }
+.metric-value.neg { color: var(--down); }
+.metric-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
+
+.callout {
+  border-radius: var(--radius-sm);
+  border-left: 0;
+  box-shadow: inset 3px 0 0 var(--callout-rule, var(--text));
+  background: var(--surface-2);
+  color: var(--text-dim);
+  padding: 11px 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.callout strong { color: var(--text); font-weight: 600; }
+.callout.warn { background: var(--warn-soft); --callout-rule: var(--warn); }
+.callout.warn strong { color: var(--warn); }
+.callout.bad  { background: var(--down-soft); --callout-rule: var(--down); }
+.callout.bad strong { color: var(--down); }
+.callout.good { background: var(--up-soft);   --callout-rule: var(--up); }
+.callout.good strong { color: var(--up); }
+
+/* ==================== Equity chart ==================== */
+
+.equity-wrap { display: flex; flex-direction: column; flex: 1; min-height: 170px; }
+.equity-label { font-size: 13px; color: var(--text); font-weight: 600; margin-bottom: 8px; }
+.equity-chart {
+  flex: 1; min-height: 150px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* ==================== Tables ==================== */
+
+.scroll-area { flex: 1; overflow: auto; min-height: 0; }
+/* Wide result tables scroll sideways inside a 344px panel rather than
+   squeezing or cutting their last columns. */
+#markets-output .data-table, #validation-output .data-table, #stats-output .data-table,
+#optimize-results .data-table, #mc-output .data-table { min-width: max-content; }
+
+.data-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12.5px; }
+.data-table th {
+  position: sticky; top: 0;
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-align: right; padding: 8px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: right; white-space: nowrap;
+}
+.data-table tbody tr { transition: background var(--t-fast) var(--ease); }
+.data-table tbody tr:hover { background: var(--surface-2); }
+.data-table .pos { color: var(--up); }
+.data-table .neg { color: var(--down); }
+.data-table .muted { color: var(--text-faint); }
+.data-table tbody tr.best { background: var(--accent-soft); }
+
+.table-note { font-size: 11.5px; color: var(--text-faint); margin: 10px 0 0; line-height: 1.55; }
+
+/* ==================== Paper trading ==================== */
+
+
+.pill {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+/* Running is a state, not a direction: navy, like every other annotation.
+   Green stays for long positions and gains. */
+.pill.running { background: var(--note-soft); color: var(--note); }
+.pill.stopped { background: var(--surface-2); color: var(--text-faint); }
+.pill.long    { background: var(--up-soft); color: var(--up); }
+.pill.short   { background: var(--down-soft); color: var(--down); }
+.pill.flat    { background: var(--surface-2); color: var(--text-dim); }
+
+/* ==================== Charts ==================== */
+
+.charts { flex: 1; display: flex; position: relative; min-width: 0; background: var(--surface); }
+.charts-stack { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chart-pane { position: relative; border-bottom: 1px solid var(--border-soft); }
+.chart-main { flex: 1; min-height: 200px; }
+.panes { display: flex; flex-direction: column; flex-shrink: 0; }
+.panes .chart-pane { height: 128px; }
+
+.pane-label {
+  position: absolute; top: 8px; left: 12px; z-index: 3;
+  font-family: var(--sans); font-size: 11.5px; font-weight: 600;
+  color: var(--text); pointer-events: none;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 7px; border-radius: var(--radius-xs);
+}
+
+.loading {
+  position: absolute; inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  display: grid; place-items: center;
+  z-index: 20;
+  animation: fadeIn var(--t) var(--ease);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* The wait is the Quant Percent mark, not a sentence.
+
+   "Đang bù 1 234 nến còn thiếu…" in the status line told the reader about the
+   plumbing — how many bars a backfill was fetching — at the moment they only
+   wanted to see a chart. The mark breathes and its diagonal redraws; nothing
+   to read, nothing that implies something is wrong. */
+.qp-loader { width: 46px; height: 46px; overflow: visible; }
+.qp-loader rect {
+  fill: var(--accent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: loaderPulse 1.2s var(--ease) infinite;
+}
+.qp-loader rect:nth-of-type(2) { animation-delay: 0.2s; }
+.qp-loader path {
+  stroke: var(--accent);
+  stroke-width: 16;
+  fill: none;
+  stroke-dasharray: 124;
+  animation: loaderSlash 1.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes loaderPulse {
+  0%, 100% { transform: scale(0.7); opacity: 0.3; }
+  45%      { transform: scale(1);   opacity: 1; }
+}
+@keyframes loaderSlash {
+  0%   { stroke-dashoffset: 124; }
+  55%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -124; }
+}
+.spinner {
+  width: 22px; height: 22px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ==================== Toast ====================
+
+   Always ink. A failure is marked by a red dot rather than by turning the
+   whole message red: a red slab is an alarm, and most of what this says —
+   "restart the server", "data is thin for this symbol" — is advice. */
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-md);
+  padding: 11px 18px 11px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  z-index: 60;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.34s var(--spring);
+  max-width: min(640px, 80vw);
+}
+.toast::before {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+.toast.bad { background: var(--accent); }
+.toast.bad::before { background: var(--down); box-shadow: 0 0 0 3px rgba(242, 54, 69, 0.3); }
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 14px) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ==================== Scrollbars ==================== */
+
+* { scrollbar-width: thin; scrollbar-color: #d6d6da transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #d6d6da; border-radius: 3px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #b9b9bf; background-clip: content-box; }
+
+/* ==================== Top bar fitting ====================
+ *
+ * The symbol picker sizes itself to its widest option, and the Vietnamese
+ * names pushed it to 387px: enough to shove the buttons on the right off a
+ * 1280px screen. Everything in the bar now has a ceiling and is allowed to
+ * shrink, so the bar fits the window instead of the window having to fit it. */
+
+.topbar { gap: 14px; min-width: 0; }
+.topbar-controls { min-width: 0; flex-shrink: 1; }
+.topbar-right { min-width: 0; flex-shrink: 1; }
+
+#symbol {
+  width: 190px;
+  max-width: 190px;
+  flex-shrink: 0;
+  text-overflow: ellipsis;
+}
+
+.tf-group {
+  /* Shrinks and scrolls inside its own border, so a long strip of timeframes
+     never pushes the controls beside it out of the bar. */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tf-group::-webkit-scrollbar { display: none; }
+/* Compact: the strip is a row of short labels, and the padding was doing more
+   work than the text. Narrower buttons also mean fewer symbols need the strip
+   to scroll at all. */
+.tf-btn { padding: 4px 9px; }
+
+.status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.tz-badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+  padding: 2px 4px;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+/* Below this the wordmark is the first thing that can go without losing
+   anything functional. */
+@media (max-width: 1180px) {
+  .brand-name { display: none; }
+}
+@media (max-width: 1040px) {
+  #limit { display: none; }
+}
+
+/* ==================== Dialog ==================== */
+
+.dialog-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid; place-items: center;
+  z-index: 80;
+  padding: 24px;
+  animation: fade var(--t) var(--ease);
+}
+.dialog-backdrop[hidden] { display: none; }
+
+.dialog {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: min(720px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  animation: liftIn 0.28s var(--spring);
+}
+.dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px 12px;
+}
+.dialog-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.dialog-body { padding: 6px 22px 18px; overflow-y: auto; flex: 1; }
+.dialog-foot {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+
+.code-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0 0 14px;
+  white-space: pre;
+}
+
+.format-notes td { text-align: left; vertical-align: top; padding: 6px; font-family: var(--sans); font-size: 12px; }
+.format-notes td:first-child { width: 118px; color: var(--text-dim); }
+.format-notes code {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes liftIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ==================== Compare picker ==================== */
+
+.compare-list { display: grid; gap: 4px; margin-bottom: 10px; }
+.compare-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-dim);
+  padding: 4px 6px; border-radius: 4px; cursor: pointer;
+}
+.compare-item:hover { background: var(--surface); color: var(--text); }
+
+/* ==================== Splash ====================
+ *
+ * The mark draws itself: the two squares settle in, then the diagonal is
+ * stroked from corner to corner. It runs once on load and gets out of the way:
+ * the point is to cover the moment before the chart has data, not to be
+ * looked at. */
+
+.splash {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: grid; place-items: center;
+  z-index: 200;
+  transition: opacity 0.42s ease, visibility 0.42s;
+}
+.splash.done { opacity: 0; visibility: hidden; }
+
+.splash-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+.splash-mark { width: 132px; height: 132px; overflow: visible; }
+.splash-mark rect {
+  fill: #000;
+  opacity: 0;
+  transform-origin: center;
+  animation: markSquare 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+.splash-mark rect:nth-of-type(1) { animation-delay: 0.05s; }
+.splash-mark rect:nth-of-type(2) { animation-delay: 0.52s; }
+.splash-mark path {
+  stroke: #000;
+  stroke-width: 16;
+  fill: none;
+  stroke-dasharray: 124;
+  stroke-dashoffset: 124;
+  animation: markSlash 0.78s cubic-bezier(0.65, 0, 0.35, 1) 0.22s forwards;
+}
+
+@keyframes markSquare {
+  from { opacity: 0; transform: scale(0.55); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes markSlash {
+  to { stroke-dashoffset: 0; }
+}
+
+.splash-word {
+  font-size: 12px;
+  letter-spacing: 3.4px;
+  color: var(--text-faint);
+  font-weight: 500;
+  opacity: 0;
+  animation: fadeUp 0.55s ease-out 1.05s forwards;
+}
+.splash-word strong { color: var(--text); font-weight: 700; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A thin progress line, so a slow first load looks like progress rather than
+   a stalled animation. */
+.splash-bar {
+  width: 172px; height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  animation: fadeUp 0.4s ease-out 0.95s forwards;
+}
+.splash-bar span {
+  display: block; height: 100%; width: 30%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: slide 1.15s ease-in-out infinite;
+}
+@keyframes slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-mark rect, .splash-mark path, .splash-word, .splash-bar,
+  .splash-bar span, .dialog, .dialog-backdrop, .toast {
+    animation: none !important;
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ==================== Star ==================== */
+
+.star {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.star:hover { color: var(--warn); background: var(--surface-2); }
+.star.on { color: var(--note); }
+.star-sm { font-size: 13px; padding: 1px 2px; }
+.star-lg { font-size: 17px; }
+
+.row-with-star { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.row-with-star select { flex: 1; min-width: 0; }
+
+/* ==================== Info button ====================
+ *
+ * The earlier ⓘ glyph was thin and easy to miss at 11px. A filled circle with
+ * a serif-ish "i" reads as a button at any size, and it is the same control
+ * everywhere so it becomes familiar rather than decorative. */
+
+.info-btn {
+  border: 0;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.info-btn:hover,
+.info-btn[aria-expanded="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.info-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Inside a dense table or a metric card the button sits next to a label, so
+   it shrinks a little rather than pushing the row taller. */
+.data-table .info-btn, .metric .info-btn { width: 16px; height: 16px; font-size: 11px; }
+.metric .info-btn { margin-left: 4px; vertical-align: -2px; }
+.cat-item .info-btn { opacity: 0.75; margin-left: 4px; }
+.cat-item:hover .info-btn, .cat-item .info-btn:focus-visible { opacity: 1; }
+.active-head .info-btn { margin-left: auto; }
+.active-head .active-remove { margin-left: 4px; }
+
+/* The header buttons that open the format help sit next to a text button, so
+   they get the same treatment rather than being a bare glyph. */
+.panel-head-actions .info-btn { width: 19px; height: 19px; font-size: 13px; }
+
+/* ==================== Help dialog content ==================== */
+
+.help-section { margin-bottom: 14px; }
+.help-section:last-child { margin-bottom: 0; }
+.help-label { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+.help-text { font-size: 13px; line-height: 1.6; margin: 0; }
+.help-section.watch .help-text {
+  background: var(--warn-soft);
+  border-left: 3px solid var(--warn);
+  padding: 9px 11px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.help-params { margin-top: 4px; }
+.help-params td { text-align: left; font-family: var(--sans); font-size: 12px; padding: 5px 6px; }
+.help-params td:first-child { font-family: var(--mono); color: var(--text-dim); width: 130px; }
+.help-source {
+  font-size: 11px; color: var(--text-faint); margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid var(--border-soft);
+}
+
+/* ==================== Resize handles ====================
+ *
+ * Deliberately thin but with a wider grab area than they look: a 4px target is
+ * hard to hit, so the visible line sits inside a 9px hit zone. */
+
+.resize-handle {
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  z-index: 5;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.resize-x { width: 5px; cursor: col-resize; }
+.resize-x::after { inset: 0 2px; }
+
+.resize-y { height: 5px; cursor: row-resize; margin-top: -3px; }
+.resize-y::after { inset: 2px 0; }
+
+.resize-handle:hover::after,
+.resize-handle.active::after,
+.resize-handle:focus-visible::after { background: var(--accent); }
+.resize-handle:focus-visible { outline: none; }
+
+/* While dragging, stop text selection and pointer events fighting the drag. */
+body.resizing { user-select: none; }
+body.resizing-x, body.resizing-x * { cursor: col-resize !important; }
+body.resizing-y, body.resizing-y * { cursor: row-resize !important; }
+body.resizing .charts, body.resizing .panel-host { pointer-events: none; }
+
+/* Pane height comes from the variable the resizer writes. */
+.panes .chart-pane { height: var(--pane-h, 128px); }
+
+
+/* ==================== Explanation popover ====================
+ *
+ * One floating panel shared by every (i) button. Fixed positioning against the
+ * viewport, so it is never clipped by a scrolling panel (which is what a
+ * plain absolutely-positioned tooltip would be, given every panel here
+ * scrolls). `Explain.place()` flips and clamps it. */
+
+.explain-pop {
+  position: fixed;
+  z-index: 400;
+  width: min(370px, calc(100vw - 20px));
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: popIn 0.18s var(--ease);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.xp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px 9px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.xp-head strong { font-size: 13px; font-weight: 650; line-height: 1.35; }
+.xp-close {
+  border: 0; background: none; color: var(--text-faint);
+  cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px;
+  flex-shrink: 0;
+}
+.xp-close:hover { color: var(--text); }
+
+.xp-body { padding: 12px 14px 14px; overflow-y: auto; }
+
+.xp-section { margin-bottom: 11px; }
+.xp-section:last-child { margin-bottom: 0; }
+.xp-label { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+.xp-text { font-size: 12px; line-height: 1.6; margin: 0; }
+
+/* Assumptions and caveats are the parts people skip, so they are the parts
+   that get a coloured edge rather than the definition at the top. */
+.xp-section.assume .xp-text {
+  background: var(--surface-2);
+  border-left: 3px solid var(--text);
+  padding: 8px 10px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text-dim);
+}
+.xp-section.watch .xp-text {
+  background: var(--warn-soft);
+  border-left: 3px solid var(--warn);
+  padding: 8px 10px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.xp-formula {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.xp-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--mono); font-size: 11px;
+  margin-bottom: 11px;
+}
+.xp-table td { padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+.xp-table td:first-child { color: var(--text-dim); font-family: var(--sans); }
+.xp-table td:last-child { text-align: right; }
+.xp-table tr:last-child td { border-bottom: 0; }
+
+.xp-source {
+  font-size: 11px; color: var(--text-faint);
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explain-pop { transition: none; }
+}
+
+/* The statistics table carries an (i) inside its first column, so that column
+   needs room to breathe and must not wrap the button onto its own line. */
+.stat-table td:first-child { white-space: normal; min-width: 150px; }
+.stat-table td:first-child .info-btn { margin-left: 4px; vertical-align: -3px; }
+.stat-table th:not(:first-child), .stat-table td:not(:first-child) { white-space: nowrap; }
+
+/* A settings row whose control needs the full width: a token does not fit in
+   the narrow value column that numeric parameters use. */
+.param-row.stack { display: block; }
+.param-row.stack > span { display: block; margin-bottom: 4px; }
+.param-row.stack > input { width: 100%; }
+
+.btn-row { display: flex; gap: 6px; margin-top: 8px; }
+.btn-row .btn { flex: 1; }
+.hint.tiny { font-size: 11px; margin-top: 8px; }
+.hint code { font-family: var(--mono); font-size: 11px; background: var(--surface-2);
+  padding: 1px 4px; border-radius: 4px; }
+
+/* ==================== Backtest report window ====================
+ *
+ * Centred over the page rather than docked in the side panel: the monthly grid
+ * alone is thirteen columns wide, and the whole point of this window is to show
+ * things the 344px panel cannot. It is modal because there is nothing useful to
+ * do with the chart behind it while reading a report about it. */
+
+.rp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade var(--t) var(--ease);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.rp-window {
+  width: min(1180px, 100%);
+  height: min(900px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: liftIn 0.32s var(--spring);
+}
+
+.rp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.rp-head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+.rp-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+.rp-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 22px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.rp-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.rp-tab:hover { color: var(--text); background: var(--surface-2); }
+.rp-tab.active { color: #fff; background: var(--accent); }
+
+.rp-body { flex: 1; overflow-y: auto; padding: 18px 22px 26px; }
+.rp-body > * { animation: fadeIn var(--t) var(--ease); }
+.rp-body .field-group-title { margin-top: 18px; }
+.rp-body .field-group-title:first-child { margin-top: 0; }
+.rp-body .metrics { margin-bottom: 4px; }
+
+.rp-table { margin-top: 10px; }
+.rp-table td:first-child, .rp-table th:first-child { min-width: 170px; }
+
+/* Charts are plain SVG stretched to the panel width; `non-scaling-stroke` on
+   the paths keeps the lines 2px however far the viewBox is stretched. */
+.rp-chart { margin: 14px 0 4px; }
+.rp-chart-head { display: flex; gap: 14px; margin-bottom: 6px; }
+.rp-legend { display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-dim); }
+.rp-legend i { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+
+.rp-svg {
+  width: 100%;
+  height: 190px;
+  display: block;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+.rp-svg.tall { height: 260px; }
+/* The fan chart draws two nested percentile bands and two markers on one
+   short row, so it needs far less height than an equity curve. */
+.rp-svg.mc-fan { height: 96px; }
+.rp-axis {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 11px; color: var(--text-faint); margin-top: 5px;
+}
+
+.rp-scroll { overflow-x: auto; }
+.rp-months { min-width: 620px; margin-top: 10px; }
+.rp-months td { text-align: right; padding: 5px 7px; }
+.rp-months td:first-child { text-align: left; font-weight: 600; }
+
+@media (max-width: 720px) {
+  .rp-backdrop { padding: 0; }
+  .rp-window { border-radius: 0; height: 100%; }
+}
+
+/* ==================== Quant Portfolio ==================== */
+
+.pf-quick-bar {
+  margin-bottom: 12px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+}
+.pf-quick-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.pf-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pf-quick-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pf-quick-chip:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-dim);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.pf-quick-chip:active {
+  background: var(--surface-3);
+  transform: translateY(0);
+}
+
+.pf-rows { display: grid; gap: 8px; margin-bottom: 10px; }
+.pf-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.pf-row:hover {
+  border-color: var(--text-faint);
+  box-shadow: var(--shadow);
+}
+.pf-row-head { display: flex; gap: 8px; align-items: center; }
+.pf-row-head .pf-symbol {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--mono);
+}
+.pf-remove {
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 7px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.pf-remove:hover { color: #fff; background: var(--down); }
+
+.pf-name, .pf-warn {
+  display: block; font-size: 11px; margin-top: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pf-name { color: var(--text-dim); }
+.pf-warn { color: var(--warn); font-weight: 500; }
+
+.pf-row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pf-row-fields label { display: grid; gap: 3px; min-width: 0; }
+.pf-row-fields span { font-size: 11.5px; color: var(--text-faint); font-weight: 500; }
+/* Softer than the 6px controls elsewhere. The panel's own shape language is
+   now a 16px card holding rounded rows; a sharp 6px box inside that reads as
+   a leftover from a different design. They also sit on a tinted ground rather
+   than white, so the field reads as a slot in the row instead of a card
+   floating on a card. */
+.pf-row-fields input {
+  width: 100%;
+  text-align: right;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-md);
+  border-color: transparent;
+  background: var(--surface-2);
+  padding: 8px 11px;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.pf-row-fields input:hover {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+.pf-row-fields input:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pf-row-fields input::placeholder { color: var(--text-faint); }
+
+/* --- Asset Allocation Donut Visual --- */
+.pf-visual-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-top: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.pf-donut-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.pf-donut-svg {
+  width: 220px;
+  height: 220px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.04));
+}
+.pf-donut-slice {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s;
+  transform-origin: 110px 110px;
+}
+.pf-donut-slice:hover {
+  transform: scale(1.05);
+  opacity: 0.92;
+}
+.pf-donut-center-title {
+  font-size: 11px;
+  fill: var(--text-dim);
+  font-weight: 500;
+}
+.pf-donut-center-val {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--text);
+  font-family: var(--mono);
+}
+.pf-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+  flex: 1;
+  min-width: 240px;
+}
+.pf-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pf-legend-item:hover {
+  border-color: var(--border);
+  background: var(--surface-3);
+  transform: translateY(-1px);
+}
+.pf-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pf-legend-sym { font-weight: 600; color: var(--text); font-family: var(--mono); }
+.pf-legend-pct { margin-left: auto; font-family: var(--mono); color: var(--text-dim); }
+
+/* --- Paired bars: money on top, risk below --- */
+.pf-bars {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.pf-bar-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 110px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 4px 0;
+}
+.pf-bar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+.pf-bar-label { color: var(--text-dim); font-size: 12px; }
+.pf-bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.pf-bar-track { display: grid; gap: 4px; }
+.pf-bar-track.slim { display: block; }
+.pf-bar { height: 10px; border-radius: 4px; min-width: 2px; transition: width 0.2s ease; }
+.pf-bar.weight { background: var(--text-faint); }
+.pf-bar.risk { background: var(--accent); }
+.pf-bar-gap {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.pf-bar-gap.alert { background: rgba(220, 38, 38, 0.1); color: var(--down); }
+.pf-bar-gap.safe  { background: rgba(22, 163, 74, 0.1); color: var(--up); }
+.pf-bar-gap.neutral { color: var(--text-dim); }
+
+/* --- Correlation Heatmap Matrix --- */
+.pf-heatmap-wrap {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.pf-heatmap-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pf-heatmap-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.pf-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.pf-scale-bar {
+  width: 70px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #10b981, #d97706, #dc2626);
+  display: inline-block;
+}
+.pf-heatmap-table {
+  border-collapse: separate;
+  border-spacing: 6px;
+  margin: 0 auto;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.pf-heatmap-th {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+.pf-heatmap-cell {
+  width: 54px;
+  height: 40px;
+  text-align: center;
+  border-radius: 3px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.pf-heatmap-cell:hover {
+  transform: scale(1.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 5;
+  position: relative;
+}
+
+/* --- Monte Carlo Forward Risk Charts --- */
+.pf-forward-charts {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+.pf-fan-svg {
+  width: 100%;
+  height: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ==================== Live price ticker ====================
+ *
+ * Its own element rather than a phrase inside the status line: the symbol and
+ * timeframe are already two controls to the left, and repeating them buried
+ * the one number that actually changes. Tabular figures so the digits do not
+ * shuffle sideways on every tick. */
+
+.price-ticker {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+/* The number stays ink. Colouring the whole price by the last tick painted it
+   red beside a green session change on the same screen, which reads as a
+   contradiction. The tick's direction is a small arrow instead. */
+.price-ticker::before {
+  content: '';
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  opacity: 0;
+  transition: opacity var(--t-fast) linear;
+}
+.price-ticker.up::before   { border-bottom: 6px solid var(--up); opacity: 1; }
+.price-ticker.down::before { border-top: 6px solid var(--down); opacity: 1; }
+.price-ticker[hidden] { display: none; }
+
+/* ==================== Chart controls ====================
+ *
+ * Floating over the chart's own corner rather than living in a panel: they act
+ * on what is drawn here, and the panel beside it is usually showing something
+ * else entirely. */
+
+.chart-main { position: relative; }
+
+.chart-tools {
+  position: absolute;
+  top: 8px;
+  right: 84px;
+  z-index: 6;
+  display: flex;
+  gap: 4px;
+}
+.chart-tools[hidden] { display: none; }
+
+.chip {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text-dim);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.chip:hover { color: var(--text); border-color: var(--text-faint); }
+.chip.off { color: var(--text-faint); text-decoration: line-through; }
+.chip-icon { padding: 5px 7px; }
+.chip-icon:hover { color: var(--down); border-color: var(--down); }
+
+/* ==================== Language switch ====================
+ *
+ * A two-state segmented control, same shape language as the timeframe group.
+ * Two languages fit as visible options; a dropdown would hide the alternative
+ * behind a click for no gain. */
+
+.lang-switch { flex-shrink: 0; }
+
+/* The annual chart labels one bar per year, so the axis has to wrap rather
+   than push the ends off the card. */
+.rp-axis { flex-wrap: wrap; }
+
+
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+
+/* ---------- Quote block ----------
+
+   A quote reads as one object: the number, then how far it has moved. The
+   number is the largest thing in the bar because it is the thing being looked
+   at, and it is tabular so it does not reflow its own width on every tick. */
+.price-block { display: inline-flex; align-items: center; gap: 10px; }
+.price-block[hidden] { display: none; }
+.price-change {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
+}
+.price-change.up   { color: var(--up); background: var(--up-soft); }
+.price-change.down { color: var(--down); background: var(--down-soft); }
+
+/* ---------- Symbol badge ----------
+
+   The circular mark TradingView puts beside every instrument. It carries no
+   information the row does not already have; what it does is give the eye a
+   fixed anchor down the left edge of a list, which is what makes a long list
+   of quotes scannable rather than a wall of text. */
+.sym-badge {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--text-faint);
+  text-transform: uppercase;
+}
+
+/* ==================== View modes ====================
+ *
+ * The app opens on the overview: the chart, the symbol picker, and nothing
+ * else. Everything a working session needs — the rail, the open panel, the
+ * chart's own toolbar, the timeframe strip — is hidden rather than removed,
+ * so switching back costs a class change and no rebuild.
+ *
+ * Hidden with `display: none` rather than width: 0 because Lightweight Charts
+ * measures its container: a 0-width panel still participates in layout and the
+ * chart would keep a gap where it used to be.
+ */
+body[data-mode="overview"] #resize-panel,
+body[data-mode="overview"] .rail,
+body[data-mode="overview"] .panel-host,
+body[data-mode="overview"] .chart-tools,
+body[data-mode="overview"] #backfill {
+  display: none;
+}
+
+/* Overview gives the chart the whole width and a bit of breathing room, the
+   way a quote page does. */
+/* The chart is the page, edge to edge. It used to sit in a bordered card with
+   a margin, which is the frame-around-a-widget look. */
+body[data-mode="overview"] .charts { padding: 6px 6px 0 10px; }
+body[data-mode="overview"] .chart-pane { border-bottom: 0; }
+
+/* The overview needs the symbol and the quote, not the depth controls. */
+body[data-mode="overview"] #limit,
+body[data-mode="overview"] .tz-badge {
+  display: none;
+}
+
+/* A quieter separator between the two halves of the top bar in overview:
+   there is much less in it, so the group reads better spaced out. */
+body[data-mode="overview"] .topbar { gap: 24px; }
+body[data-mode="overview"] .price-ticker { font-size: 28px; letter-spacing: -0.04em; }
+body[data-mode="overview"] .price-change { font-size: 13px; }
+
+/* ==================== Top bar at narrow widths ====================
+ *
+ * The bug this fixes: `.topbar-controls` is allowed to shrink, but `.tf-group`
+ * inside it is `flex-shrink: 0`. A flex child that refuses to shrink inside a
+ * parent that has shrunk does not get clipped — it overflows and paints over
+ * whatever is beside it. At 1050px the price ticker and the timeframe buttons
+ * were drawn on top of each other, both unreadable.
+ *
+ * Two changes. Nothing may overflow its group any more, and below the width
+ * where one row genuinely stops fitting the bar wraps to two rows rather than
+ * hiding controls the user still needs.
+ */
+.topbar-controls, .topbar-right { min-width: 0; }
+.topbar-controls > *, .topbar-right > * { min-width: 0; }
+
+/* `min-width: 0` alone does not help a child that declares `flex-shrink: 0`:
+   the timeframe strip keeps its full width and spills out of the group. It
+   scrolls sideways instead, at every width rather than only on small screens,
+   because the overlap appeared at 1050px — well above any phone breakpoint. */
+.topbar-controls {
+  /* Shrink but never grow. With `flex: 1 1 auto` this group swallowed all the
+     free space in the bar and squeezed the status line beside the price down
+     to zero width, so the bar count simply vanished. The right-hand group is
+     already pushed over by its own `margin-left: auto`; nothing here needs to
+     grow to make that happen. */
+  flex: 0 1 auto;
+  /* Deliberately NOT scrolling. It used to, and it clipped its own last
+     child: the chart-type button sat 41px past the group's right edge and
+     lost its border and half its arrow, which read as a broken button. The
+     thing that actually needs to scroll is the timeframe strip, so the
+     scrolling moved there — one long child, not the whole bar. */
+  min-width: 0;
+}
+/* The status text is short and matters; it should not be the thing that gives
+   way when the bar is tight. */
+.status { flex-shrink: 0; }
+.topbar-controls::-webkit-scrollbar { display: none; }
+
+/* The quote is the one thing in the bar that must never be squeezed. */
+.price-block { flex-shrink: 0; }
+
+/* Shed the least useful things first, while one row still works. */
+@media (max-width: 1240px) { .brand-name { display: none; } }
+/* The bar-count selector left the top bar for the strategy panel, so this
+   breakpoint no longer has anything to hide here. */
+@media (max-width: 1080px) {
+  .tz-badge { display: none; }
+  #live-label { display: none; }
+}
+
+/* Below this a single row cannot hold the controls at a readable size, so it
+   becomes two. Height stops being fixed; the layout below it already fills
+   whatever is left. */
+@media (max-width: 1000px) {
+  .topbar {
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .topbar-right { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 720px) {
+  #symbol { width: 150px; max-width: 150px; }
+  .btn { padding: 7px 12px; }
+  .btn-lg { padding: 8px 16px; font-size: 13px; }
+}
+
+/* In overview the chart is a link to its own detail, so it says so. */
+body[data-mode="overview"] .chart-main { cursor: pointer; }
+
+/* ---------- Opening screen ----------
+ *
+ * The mark draws, the name fades in, a bar sweeps while the two boot requests
+ * are in flight, and the charting credit sits at the foot. The bar is
+ * indeterminate rather than a percentage: the boot is two requests, there is
+ * no meaningful fraction to report, and inventing one is worse than an honest
+ * sweep.
+ */
+.splash-inner { gap: 18px; }
+
+.splash-word { font-size: 15px; letter-spacing: 4px; }
+
+.splash-bar {
+  width: 168px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+  opacity: 0;
+  animation: fadeUp 0.45s ease-out 1.35s forwards;
+}
+.splash-bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: splashSweep 1.15s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+@keyframes splashSweep {
+  from { transform: translateX(-110%); }
+  to   { transform: translateX(360%); }
+}
+
+.splash-credit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 26px;
+  font-size: 12px;
+  color: var(--text-faint);
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out 1.6s forwards;
+}
+.splash-tv {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.1px;
+  color: var(--text);
+  text-decoration: none;
+}
+.splash-tv:hover { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-bar span { animation: none; width: 100%; }
+}
+
+/* A hairline between the three groups on the right of the top bar: the quote,
+   the feed state, and the actions. Twelve controls in one flat row read as a
+   list of twelve equal things; three groups of three or four read as three. */
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+@media (max-width: 1080px) { .topbar-sep { display: none; } }
+
+/* The bar-count selector now lives in the strategy panel. */
+#limit { width: 100%; }
+
+
+/* ==================== Quant Portfolio ====================
+ *
+ * The positions were eight separate cards, each with its own border, its own
+ * shadow and its own hover lift. Eight floating boxes in a 344px panel is a
+ * lot of edges for very little content, and the shadows were the only ones
+ * left in the interface — everything else separates with a hairline.
+ *
+ * They are now one bordered list with rules between the rows, the shape the
+ * rest of the app uses for a series of like things, and each row leads with
+ * the same coloured badge the paper sessions use so a ticker is recognisable
+ * before it is read.
+ */
+.pf-rows {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.pf-rows:empty { display: none; }
+
+.pf-row {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 12px 14px;
+  background: var(--surface);
+  box-shadow: none;
+  transition: background 0.15s ease;
+}
+.pf-row:last-child { border-bottom: 0; }
+.pf-row:hover { border-color: var(--border-soft); box-shadow: none; background: var(--surface-2); }
+
+/* Two rows: the badge, ticker and remove button across the top, the two
+   number fields underneath spanning the ticker's column.
+
+   Not side by side. The panel is a fixed 344px at every viewport width, so
+   there is no screen on which a ticker, two labelled number fields and a
+   remove button fit on one line — the earlier attempt guarded that layout
+   with a viewport media query, which is the wrong measurement entirely: the
+   panel does not get wider when the window does. */
+.pf-row-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'badge ident remove'
+    '.     fields fields';
+  gap: 8px 10px;
+  align-items: center;
+}
+.pf-row-head > .sym-badge { grid-area: badge; }
+.pf-row-id { grid-area: ident; min-width: 0; display: grid; gap: 1px; }
+.pf-row-head .pf-symbol {
+  width: 100%;
+  min-width: 0;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: inherit;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font-size: 13px;
+}
+.pf-row-head .pf-symbol:hover { border: 0; background: transparent; }
+.pf-row-head .pf-symbol:focus {
+  outline: none;
+  /* The ticker is a heading that happens to be editable, so focus draws a rule
+     under it rather than boxing it in. */
+  box-shadow: 0 2px 0 -0.5px var(--accent);
+}
+
+/* The two number fields sit beside the ticker rather than under it: a row is
+   one position, and a position reads across. */
+.pf-row-fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.pf-row-fields label { display: grid; gap: 3px; }
+.pf-row-fields label span { font-size: 11px; color: var(--text-faint); }
+.pf-row-fields input { font-family: inherit; font-variant-numeric: tabular-nums; }
+
+.sym-badge-empty {
+  background: var(--surface-3);
+  border: 1px dashed var(--border);
+}
+
+.pf-remove {
+  grid-area: remove;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+.pf-remove:hover { background: var(--down-soft); color: var(--down); }
+
+/* Cash, lookback and horizon share the rounder, softer treatment so the whole
+   panel reads as one set of controls rather than two. */
+.panel[data-panel="portfolio"] .param-row input,
+.panel[data-panel="portfolio"] .param-row select {
+  border-radius: var(--radius-md);
+  padding: 8px 11px;
+}
+.panel[data-panel="portfolio"] .field-group {
+  border-radius: var(--radius-lg);
+}
+
+/* Quick-add: chips that look pressable at the new control sizes. */
+.pf-quick-bar { display: grid; gap: 8px; margin-bottom: 12px; }
+.pf-quick-title { font-size: 12px; color: var(--text-dim); }
+.pf-quick-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-quick-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.12s ease;
+}
+.pf-quick-chip:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+
+/* ==================== Chart type picker ====================
+ *
+ * A menu rather than a row of icons: twelve shapes is too many to sit in the
+ * top bar, and eleven of them are not the one you are using. The button shows
+ * the current shape by name, which is also the only label most of these have —
+ * "HLC area" is not something an icon says on its own.
+ */
+.ct-picker { position: relative; flex-shrink: 0; }
+.ct-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-height: 32px;
+  background: var(--surface-2);
+  border-color: transparent;
+  border-radius: var(--radius);
+}
+.ct-button:hover:not(:disabled) { background: var(--surface-3); border-color: transparent; }
+.ct-button[aria-expanded="true"] { background: var(--accent); color: #fff; }
+.ct-button[aria-expanded="true"] .ct-icon { color: #fff; }
+.ct-button::after {
+  content: '';
+  border: 4px solid transparent;
+  border-top-color: var(--text-faint);
+  transform: translateY(2px);
+}
+.ct-button .ct-icon { color: var(--text); }
+
+/* Fixed, not absolute, and positioned from JS.
+
+   `.topbar-controls` scrolls horizontally (added 2026-09-09 to stop the
+   timeframe strip overlapping the price at narrow widths), and an absolutely
+   positioned child of a scrolling box is clipped by it. The menu is 476px
+   tall inside a 56px bar, so it opened correctly and was then cut down to a
+   sliver — the button looked dead because what it opened was invisible, and
+   clicks landed on the chart canvas behind. Taking it out of the flow is the
+   only fix that survives that overflow. */
+.ct-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 232px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: 1px;
+  animation: popIn 0.18s var(--ease);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.ct-menu[hidden] { display: none; }
+
+.ct-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-item:hover { background: var(--surface-2); }
+.ct-item.active { background: var(--accent); color: #fff; }
+.ct-item.active .ct-icon { border-color: currentColor; }
+
+/* The icons are drawn from borders rather than shipped as twelve SVGs: each is
+   a couple of rules, they inherit the row's colour when a row is selected, and
+   there is no asset to keep in step with the palette. */
+.ct-icon {
+  width: 16px;
+  height: 14px;
+  flex-shrink: 0;
+  position: relative;
+  color: var(--text-dim);
+}
+.ct-item.active .ct-icon { color: #fff; }
+.ct-icon::before, .ct-icon::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+}
+/* Two vertical marks with a wick: candles, bars, hollow, high-low, heikin. */
+.ct-icon-candles::before, .ct-icon-hollow::before,
+.ct-icon-heikin::before, .ct-icon-bars::before, .ct-icon-highlow::before {
+  left: 3px; top: 0; width: 3px; height: 100%;
+}
+.ct-icon-candles::after, .ct-icon-hollow::after,
+.ct-icon-heikin::after, .ct-icon-bars::after, .ct-icon-highlow::after {
+  right: 3px; top: 2px; width: 3px; height: 10px;
+}
+.ct-icon-hollow::before { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+.ct-icon-bars::before, .ct-icon-bars::after,
+.ct-icon-highlow::before, .ct-icon-highlow::after { width: 1.5px; }
+/* A rising diagonal: line, markers, step, area, hlc, baseline. */
+.ct-icon-line::before, .ct-icon-line-markers::before, .ct-icon-step::before,
+.ct-icon-area::before, .ct-icon-hlc::before, .ct-icon-baseline::before {
+  left: 1px; bottom: 3px; width: 14px; height: 1.5px;
+  transform: rotate(-22deg); transform-origin: left center;
+}
+.ct-icon-area::after, .ct-icon-hlc::after {
+  left: 1px; bottom: 1px; width: 14px; height: 5px; opacity: 0.3;
+}
+.ct-icon-line-markers::after {
+  left: 6px; top: 4px; width: 4px; height: 4px; border-radius: 50%;
+}
+.ct-icon-step::before { transform: none; height: 1.5px; }
+.ct-icon-step::after {
+  left: 7px; top: 2px; width: 1.5px; height: 8px;
+}
+.ct-icon-baseline::after {
+  left: 0; top: 50%; width: 16px; height: 1px; opacity: 0.55;
+}
+.ct-icon-columns::before { left: 2px; bottom: 0; width: 4px; height: 8px; }
+.ct-icon-columns::after { right: 2px; bottom: 0; width: 4px; height: 13px; }
+
+
+/* ==================== Drawing tools ====================
+ *
+ * The canvas sits over the chart at the same size. It only takes the pointer
+ * while a drawing tool is active or a shape is under the cursor — see
+ * `setTool` in drawings.js — because a permanently clickable overlay would
+ * swallow every pan and zoom and the chart would appear frozen.
+ */
+.draw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+.draw-bar {
+  /* A column of its own, not an overlay: see index.html. Scrolls rather than
+     overflowing when the window is short, since the tool list is fixed length
+     and the chart height is not. */
+  flex-shrink: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 8px 6px;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.draw-bar::-webkit-scrollbar { display: none; }
+.draw-group { display: grid; gap: 2px; }
+.draw-group + .draw-group { border-top: 1px solid var(--border-soft); padding-top: 6px; }
+
+.draw-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.draw-btn svg { width: 18px; height: 18px; }
+.draw-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.draw-btn.active { background: var(--accent); color: #fff; }
+.draw-btn.on { background: var(--accent-soft); color: var(--accent); }
+.draw-btn.danger:hover:not(:disabled) { background: var(--down-soft); color: var(--down); }
+.draw-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* Overview is a quote page: there is nothing there to annotate. */
+body[data-mode="overview"] .draw-bar,
+body[data-mode="overview"] .draw-layer { display: none; }
+
+
+
+
+/* A unit beside a field label: the currency an account settles in, or the
+   multiplier on leverage. Quiet, because it is a fact about the field rather
+   than part of its name. */
+.unit {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-left: 5px;
+  letter-spacing: 0.02em;
+}
+
+/* ==================== Paper trading account ====================
+ *
+ * A window rather than a panel: it spans every session at once, and there is
+ * nowhere in a 344px column to put a combined equity curve and a trade log.
+ */
+.pd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.pd-window {
+  width: min(1080px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: liftIn 0.32s var(--spring);
+}
+.pd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pd-head h2 { margin: 0; font-size: 17px; }
+.pd-head-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.pd-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.pd-tabs .rp-tab { flex: 0 0 auto; }
+.pd-body { padding: 18px 20px 22px; overflow: auto; }
+.pd-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 2px 0 12px;
+}
+.pd-section-head strong { font-size: 14px; font-weight: 600; }
+.pd-section-head .hint { margin: 4px 0 0; }
+.pd-section-head > .pos, .pd-section-head > .neg {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pd-ledger { min-width: 960px; }
+.pd-ledger td:last-child, .pd-ledger th:last-child { text-align: left; }
+.pd-analysis { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+
+/* The equity curve. Stepped, and drawn as SVG so it scales with the window
+   without a resize observer and cannot outlive it. */
+.pd-chart { margin: 16px 0 6px; }
+.pd-chart svg {
+  width: 100%;
+  height: 220px;
+  display: block;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.pd-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A bar per symbol, sized against the largest absolute result so the tails
+   are visible rather than everything being nearly full width. */
+.pd-bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+.pd-bar span { display: block; height: 100%; border-radius: 4px; background: var(--text-faint); }
+.pd-bar span.pos { background: var(--up); }
+.pd-bar span.neg { background: var(--down); }
+
+@media (max-width: 720px) {
+  .pd-backdrop { padding: 8px; }
+  .pd-window { max-height: 94vh; }
+  .pd-head { padding: 13px 14px; }
+  .pd-tabs { padding-left: 12px; padding-right: 12px; }
+  .pd-body { padding: 14px; }
+  .pd-analysis { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+}
+
+
+/* ==================== Many markets ==================== */
+
+.mm-picker { display: flex; gap: 8px; margin-bottom: 8px; }
+.mm-picker select { flex: 1 1 auto; min-width: 0; }
+
+/* The chosen list is a wrap of chips rather than a <select multiple>: with
+   1,700 symbols available, what matters is seeing the handful picked, not
+   scrolling the ones that were not. */
+.mm-chosen { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mm-chosen:empty { display: none; }
+
+.mm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 3px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 12px;
+}
+.mm-chip .sym-badge { width: 20px; height: 20px; font-size: 11px; }
+.mm-chip-name { font-variant-numeric: tabular-nums; }
+.mm-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.mm-chip-x:hover { color: var(--down); background: var(--down-soft); }
+
+/* ==================== Code editor ==================== */
+
+.editor-dialog {
+  width: min(920px, 94vw);
+  height: min(760px, 88vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.editor-bar select { flex: 0 1 200px; min-width: 0; }
+.editor-bar input { flex: 0 1 190px; min-width: 0; font-family: var(--mono); }
+
+.editor-status {
+  margin-left: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor-status.ok  { color: var(--up); }
+.editor-status.bad { color: var(--down); }
+
+/* Gutter and code scroll as one: the gutter mirrors the textarea's scrollTop
+   rather than scrolling itself, so the numbers cannot drift from the lines. */
+.editor-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  background: var(--surface-2);
+}
+.editor-gutter {
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 12px 8px 12px 14px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-faint);
+  background: var(--surface-3);
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+.editor-gutter span { display: block; }
+
+.editor-code {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  resize: none;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+  tab-size: 4;
+  color: var(--text);
+  background: var(--surface-2);
+  white-space: pre;
+  overflow: auto;
+}
+.editor-code:focus { outline: none; }
+
+.editor-dialog .dialog-foot .hint {
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* Settings groups that fold.
+
+   Parameters change every run; costs and the date window are set once and
+   then read occasionally. Leaving all three open made the Strategy panel
+   scroll 236px on a 787px pane — the run button, which is the point of the
+   tab, sat below the fold. Folding what is rarely touched puts it back. */
+.field-group.foldable > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.field-group.foldable > summary::-webkit-details-marker { display: none; }
+.field-group.foldable > summary { margin-bottom: 0; }
+.field-group.foldable > summary::after { margin-left: auto; }
+.field-group.foldable[open] > summary { margin-bottom: 10px; }
+
+/* ==================== Symbol picker ====================
+
+   A searchable list in front of the native <select> (symbol-picker.js). The
+   select stays in the page, hidden, as the source of truth. */
+
+.sp-native { display: none !important; }
+
+.sp-button {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 34px;
+  padding: 0 30px 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355555d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.sp-button:hover { background-color: var(--surface-3); }
+.sp-button[aria-expanded="true"] { background-color: var(--surface); border-color: var(--text); }
+.sp-button.empty { color: var(--text-faint); font-weight: 500; }
+.sp-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#symbol + .sp-button { width: 220px; flex-shrink: 0; }
+#mm-add + .sp-button { flex: 1 1 auto; }
+
+.sp-pop {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: popIn 0.16s var(--ease);
+}
+.sp-search { margin: 8px; width: calc(100% - 16px); }
+.sp-list { overflow-y: auto; padding: 0 6px 6px; min-height: 0; }
+.sp-group {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
+  padding: 8px 8px 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-faint);
+}
+.sp-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 0;
+}
+.sp-item.active { background: var(--surface-2); }
+.sp-item[aria-selected="true"] .sp-code::after {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px;
+  border-radius: 50%; background: var(--note); vertical-align: 2px;
+}
+.sp-code { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.sp-name { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-empty { padding: 16px 10px; font-size: 12.5px; color: var(--text-faint); }
+
+/* ==================== Tool panels ==================== */
+
+.rail-sep { width: 28px; height: 1px; margin: 4px auto; background: var(--border); flex-shrink: 0; }
+.tool-strategy { margin-bottom: 14px; }
+.tool-strategy strong { color: var(--text); font-weight: 600; }
+#mc-output, #stats-output, #optimize-results { margin-top: 4px; }
+
+/* ==================== Chart grid ====================
+
+   One, two or four cells (multichart.js). The working chart lives in the
+   active cell and is outlined; the others show their own market and
+   indicators and become the working chart when clicked. */
+
+.charts-stack { position: relative; }
+.chart-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  position: relative;
+  background: var(--border);
+}
+.chart-grid[data-layout="2"] { grid-template-columns: 1fr 1fr; gap: 1px; }
+.chart-grid[data-layout="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; }
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+.cell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+/* Every cell holds its own complete chart (multichart.js); the loading mark
+   is positioned against it, so a load covers that chart and nothing else. */
+.work-unit {
+  flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column;
+  position: relative; background: var(--surface);
+}
+.work-unit .chart-main { min-height: 0; flex: 1 1 160px; }
+.work-unit .panes {
+  min-height: 0;
+  max-height: 45%;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.work-unit .panes .chart-pane { flex-shrink: 0; }
+.cell-error { padding: 14px; }
+
+/* One chart: no cell chrome, it is simply the chart. */
+.chart-grid[data-layout="1"] .cell-head,
+.chart-grid[data-layout="1"] .cell-caption { display: none; }
+
+.cell-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cell-badge:empty { display: none; }
+.cell-badge .sym-badge { width: 24px; height: 24px; font-size: 9.5px; }
+.cell-pick + .sp-button { flex: 1; height: 30px; font-size: 12.5px; padding-left: 9px; }
+
+.cell-gear {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+              transform var(--t) var(--ease);
+}
+.cell-gear svg { width: 17px; height: 17px; }
+.cell-gear:hover { background: var(--surface-2); color: var(--text); }
+.cell-gear[aria-expanded="true"] { background: var(--accent); color: #fff; transform: rotate(45deg); }
+
+/* The caption under a chart: market, frame, and what is drawn on it. */
+.cell-caption {
+  padding: 4px 10px 5px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The working chart is marked by a navy dot in its caption, not a frame.
+   The ink outline read as a selection box around a chart that had just been
+   clicked (Nam, 2026-09-18). */
+.chart-grid:not([data-layout="1"]) .cell.active .cell-caption { color: var(--text); }
+.chart-grid:not([data-layout="1"]) .cell.active .cell-caption::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--note);
+  vertical-align: 1px;
+}
+
+.grid-handle { position: absolute; z-index: 7; }
+.grid-handle-col { top: 0; bottom: 0; width: 10px; margin-left: -5px; cursor: col-resize; }
+.grid-handle-row { left: 0; right: 0; height: 10px; margin-top: -5px; cursor: row-resize; }
+.grid-handle::after {
+  content: '';
+  position: absolute;
+  background: transparent;
+  transition: background var(--t-fast) var(--ease);
+}
+.grid-handle-col::after { top: 0; bottom: 0; left: 4px; width: 2px; }
+.grid-handle-row::after { left: 0; right: 0; top: 4px; height: 2px; }
+.grid-handle:hover::after, .grid-handle.active::after { background: var(--accent); }
+
+/* Overview is the working chart alone, full screen. The other cells are
+   hidden, not removed, so the working view comes back exactly as it was. */
+body[data-mode="overview"] .chart-grid {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  gap: 0;
+  background: var(--surface);
+}
+body[data-mode="overview"] .cell:not(.active),
+body[data-mode="overview"] .grid-handle,
+body[data-mode="overview"] .cell-head,
+body[data-mode="overview"] .cell-caption { display: none; }
+
+
+/* The gear's menu. */
+.cell-menu {
+  position: fixed;
+  z-index: 95;
+  width: 232px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: popIn 0.16s var(--ease);
+}
+.cell-menu-title { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 2px 8px; }
+.cell-menu-frames { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.cell-menu-tf {
+  height: 30px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.cell-menu-tf:hover { background: var(--surface-3); color: var(--text); }
+.cell-menu-tf.active { background: var(--accent); color: #fff; font-weight: 600; }
+.cell-menu-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--text-faint); line-height: 1.5; }
+.cell-menu-work { margin-top: 10px; }
+
+/* Everything above that moves, stops. Placed last so no later rule can win. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

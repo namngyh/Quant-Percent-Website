@@ -93,7 +93,14 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
     "language": "Ngôn ngữ",
-    "portfolio": "Phân tích danh mục"
+    "portfolio": "Phân tích danh mục",
+    "marketShort": "Thị trường",
+    "community": "Cộng đồng",
+    "research": "Nghiên cứu",
+    "tools": "Công cụ",
+    "terminal": "QP Terminal",
+    "terminalHint": "Nền tảng nghiên cứu chỉ báo và chiến lược",
+    "opensNewTab": "mở tab mới"
   },
   "footer": {
     "tagline": "Quant Percent, One Percent",
@@ -1479,5 +1486,17 @@
       "helpChart": "Biểu đồ (cấu hình ECharts dạng JSON)",
       "chartError": "Không vẽ được biểu đồ: cấu hình JSON không hợp lệ."
     }
+  },
+  "terminalPage": {
+    "title": "QP Terminal",
+    "description": "Nền tảng nghiên cứu chỉ báo và chiến lược của Quant Percent, dành cho thành viên đã xác thực email.",
+    "opening": "Đang mở QP Terminal…",
+    "openManually": "Mở QP Terminal",
+    "unverifiedTitle": "Xác thực email để dùng QP Terminal",
+    "unverified": "Tài khoản {email} chưa xác thực email. Mở link trong email chúng tôi đã gửi, hoặc gửi lại link mới bên dưới. Sau khi xác thực, tải lại trang này.",
+    "loopTitle": "Chưa mang được phiên đăng nhập sang QP Terminal",
+    "loop": "Bạn đã đăng nhập ở đây nhưng QP Terminal chưa nhận ra. Hãy đăng xuất rồi đăng nhập lại, sau đó mở lại QP Terminal.",
+    "signOutAndIn": "Đăng xuất và đăng nhập lại",
+    "sharedNote": "Mọi thành viên dùng chung một QP Terminal: tài khoản paper và chiến lược đã lưu là của chung."
   }
 }

@@ -37,9 +37,34 @@ def _cookie_kwargs() -> dict:
     }
 
 
+_SESSION_COOKIES = (
+    settings.access_cookie_name,
+    settings.refresh_cookie_name,
+    settings.csrf_cookie_name,
+)
+
+
+def _expire_host_only_copies(response: Response) -> None:
+    """Drop session cookies set before COOKIE_DOMAIN was.
+
+    A cookie with no Domain attribute and one with `Domain=.quantpercent.com`
+    are two different cookies to the browser, even under the same name. After
+    the switch that lets the Terminal subdomain see the session, a browser from
+    before it would carry both `qp_refresh` values; whichever the server read
+    first could be the old, already-rotated one, and replaying that is exactly
+    what reuse detection revokes the whole session for. Expiring the host-only
+    copies whenever the shared ones are written leaves one of each.
+    """
+    if not settings.cookie_domain:
+        return
+    for name in _SESSION_COOKIES:
+        response.delete_cookie(name, path="/")
+
+
 def set_session_cookies(response: Response, user: User, refresh_token: str) -> None:
     """Session lives in httpOnly cookies so a script injection cannot read
     it; the CSRF cookie is deliberately readable for double-submit."""
+    _expire_host_only_copies(response)
     response.set_cookie(
         settings.access_cookie_name,
         create_access_token(user.id, user.email),
@@ -63,11 +88,8 @@ def set_session_cookies(response: Response, user: User, refresh_token: str) -> N
 
 
 def clear_session_cookies(response: Response) -> None:
-    for name in (
-        settings.access_cookie_name,
-        settings.refresh_cookie_name,
-        settings.csrf_cookie_name,
-    ):
+    _expire_host_only_copies(response)
+    for name in _SESSION_COOKIES:
         response.delete_cookie(
             name, domain=settings.cookie_domain, path="/"
         )
@@ -274,6 +296,32 @@ async def revoke_refresh_token(session: AsyncSession, raw_token: str) -> None:
         )
         .values(revoked_at=datetime.now(UTC), revoked_reason="logout")
     )
+
+
+def refresh_record_usable(record: RefreshToken | None, now: datetime) -> bool:
+    """Whether a stored refresh token still stands for a live session."""
+    return record is not None and record.revoked_at is None and record.expires_at > now
+
+
+async def peek_refresh_token(session: AsyncSession, raw_token: str) -> User | None:
+    """The user behind a refresh token, without spending it.
+
+    The Terminal gate runs on every Terminal request and cannot set cookies on
+    the page it guards, so it must not rotate: rotating here would hand the new
+    token to nobody, and the browser's next refresh on the website would replay
+    the old one and trip reuse detection — logging the member out everywhere.
+    Reading only is safe because logout revokes the token, so a signed-out
+    session stops passing at once.
+    """
+    record = await session.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == hash_token(raw_token))
+    )
+    if not refresh_record_usable(record, datetime.now(UTC)):
+        return None
+    user = await session.scalar(select(User).where(User.id == record.user_id))
+    if user is None or user.status != "active":
+        return None
+    return user
 
 
 # --- One-time tokens -------------------------------------------------------

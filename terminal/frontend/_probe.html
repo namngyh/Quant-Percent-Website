@@ -1,0 +1,1512 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>browser probes</title>
+<!--
+  Checks that only a real browser can make: they need a live chart, a live API
+  and real layout, which jsdom does not provide and the Python tests cannot
+  reach. Groups, run in order:
+
+    coverage   the data-completeness toasts fire on the right symbols
+    multichart the comparison panes draw candles, not just a chart frame
+    switching  candle pixels after quick and slow symbol/timeframe switches
+    autoscale  whether a drag freezes the price scale across instruments
+    markets    a multi-market run lands on screen, in the Results panel
+    picker     the searchable symbol list finds and loads markets
+    boot       the opening screen leaves only after the data has arrived
+    persist    a reload keeps symbol, frame, panel, indicators, strategy, layout
+    resize     the 2/4-chart dividers change the sizes they claim to
+    history    panning left keeps loading older pages, on every chart
+    pickerflip a picker near the bottom opens upward, inside the window
+    tools      Optimise, Monte Carlo and Statistics run from their own panels
+    stay       clicking charts alternately leaves every other chart untouched
+    async      delayed responses stay with their chart across switches/removal
+    backtest   a delayed backtest keeps its markers and loading in its own cell
+    charttype  the chart-type menu is actually reachable by the pointer
+    timing     where a page load spends its time
+    workspace  quick navigation, keyboard commands and panel dismissal
+    responsive header, chart grid and panels fit desktop, tablet and phone
+
+  Timings under --virtual-time-budget are virtual: the order of events is
+  real, the millisecond counts are not.
+
+  Run (the server must be up):
+    chrome --headless --disable-gpu --window-size=1400,900 \
+           --virtual-time-budget=90000 \
+           --dump-dom http://127.0.0.1:8000/static/_probe.html
+
+  Then read the <pre id="out"> block out of the dumped DOM.
+
+  Three traps this file exists to remember:
+
+  * Toasts delete themselves after 5s. Reading them once at the end finds none
+    and reports a working warning as broken, so they are watched with a
+    MutationObserver from the start.
+  * A fresh iframe begins on about:blank, which already reports readyState
+    "complete", and its load event may fire before this script runs. Neither
+    is a reliable signal, so the frame is polled for a known element instead.
+  * Every module here is a top-level `const`, which makes no window property.
+    Reaching in for `w.MultiChart` gets `undefined` and the probe dies on the
+    first line that uses it, so these groups drive the real controls.
+-->
+<pre id="out">running…</pre>
+<iframe id="app" src="/#trade" style="width:1400px;height:900px"></iframe>
+<script>
+const out = [];
+const log = (m) => { out.push(m); document.getElementById('out').textContent = out.join('\n'); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* Groups can be run one at a time: `?only=editor`. The full sweep drives five
+   features through a live VN database and outgrows any single virtual-time
+   budget, which looks exactly like a hung probe. */
+const ONLY = new URLSearchParams(location.search).get('only');
+const wants = (group) => !ONLY || ONLY === group;
+
+/* Boot timing, watched from the first moment the frame exists.
+
+   The groups below only start after the app is up and six seconds have
+   passed, which is too late to see when the opening screen left relative to
+   the data it is meant to wait for. This runs from script start instead. */
+const bootT0 = performance.now();
+const bootMarks = {};
+(function watchBoot() {
+  const frame = document.getElementById('app');
+  const tick = () => {
+    try {
+      const d = frame.contentDocument;
+      const fw = frame.contentWindow;
+      if (d && d.getElementById('symbol')) {
+        const now = Math.round(performance.now() - bootT0);
+        const splash = d.getElementById('splash');
+        if (!bootMarks.splashGone && (!splash || splash.classList.contains('done'))) bootMarks.splashGone = now;
+        if (!bootMarks.vnList && d.getElementById('symbol').options.length > 1000) bootMarks.vnList = now;
+        if (!bootMarks.chart) {
+          try { if (fw.eval('ChartManager').seriesKey) bootMarks.chart = now; } catch (e) { /* not yet */ }
+        }
+      }
+    } catch (e) { /* frame still on about:blank */ }
+    const done = bootMarks.splashGone && bootMarks.vnList && bootMarks.chart;
+    if (!done && performance.now() - bootT0 < 90000) setTimeout(tick, 50);
+  };
+  tick();
+})();
+
+/** Wait for the app frame to hold a real document (see the note above). */
+async function appDocument(frame) {
+  for (let i = 0; i < 160; i++) {
+    const d = frame.contentDocument;
+    if (d && d.getElementById('chart-type')) return d;
+    await sleep(250);
+  }
+  return null;
+}
+
+/** Collect toasts as they appear; they remove themselves after 5s. */
+function watchToasts(doc) {
+  const seen = [];
+  const obs = new doc.defaultView.MutationObserver((records) => {
+    for (const rec of records) {
+      for (const node of rec.addedNodes) {
+        if (node.classList?.contains('toast')) seen.push(node.textContent);
+      }
+    }
+  });
+  obs.observe(doc.body, { childList: true });
+  return seen;
+}
+
+/* A mounted chart and a chart holding candles look identical from the DOM:
+   both are a <div> of canvases. Counting pixels painted in the up/down candle
+   colours is the only way to tell them apart from out here. */
+function candlePixels(cell) {
+  /* Every chart canvas, and the most candle pixels any one of them holds.
+
+     The first version took "the largest canvas", which in a pane is the price
+     plot — but #chart-main also carries the drawing overlay (.draw-layer), a
+     transparent canvas of exactly the chart's size. It won the size contest
+     and reported 0 candle pixels on a chart full of candles, eight times in a
+     row. The overlay is excluded, and no single canvas is assumed to be the
+     plot. */
+  let best = -1;
+  for (const c of cell.querySelectorAll('canvas')) {
+    if (c.closest('.draw-layer') || c.classList.contains('draw-layer') || c.classList.contains('level-zones') || !c.width || !c.height) continue;
+    let px;
+    try { px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; } catch (e) { continue; }
+    let hits = 0;
+    for (let p = 0; p < px.length; p += 4) {
+      if ((px[p] === 8 && px[p + 1] === 153 && px[p + 2] === 129)
+          || (px[p] === 242 && px[p + 1] === 54 && px[p + 2] === 69)) hits++;
+    }
+    if (hits > best) best = hits;
+  }
+  return best;
+}
+
+/* Wait for the thing being measured, never for a clock.
+
+   The first version of this slept 7s after picking three markets and reported
+   whichever panes had finished. Each pane fetches over the VPN and they do not
+   finish together, so the same code scored 3, then 2, then 1 pane across three
+   runs — it was measuring the probe's patience, not the feature. */
+async function until(label, test, tries = 200) {
+  for (let i = 0; i < tries; i++) {
+    let got = null;
+    try { got = test(); } catch (e) { got = null; }
+    if (got) return got;
+    await sleep(250);
+  }
+  throw new Error('timed out waiting for ' + label);
+}
+
+async function pick(doc, symbol, timeframe) {
+  const sel = doc.getElementById('symbol');
+  sel.value = symbol;
+  sel.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }));
+  await sleep(5000);                        // the VN database is not fast
+  const button = [...doc.querySelectorAll('#timeframes .tf-btn')]
+    .find((b) => b.textContent.trim() === timeframe);
+  if (button) button.click();
+  return !!button;
+}
+
+(async () => {
+  const frame = document.getElementById('app');
+  const doc = await appDocument(frame);
+  if (!doc) { log('KHONG nap duoc app trong frame'); return; }
+  const w = frame.contentWindow;
+  await sleep(6000);
+
+  if (wants('manualticket')) {
+    log('=== manual ticket (isolated UI session; no server orders) ===');
+    const check = (name, ok) => log(`${ok ? 'PASS' : 'FAIL'} ${name}`);
+    const cm = await until('chart', () => w.eval('ChartManager').barCount > 0 && w.eval('ChartManager'));
+    const paper = w.eval('Paper'), api = w.eval('API');
+    const originalOrder = api.paperOrder;
+    const originalSessions = api.paperSessions;
+    const entryTime = cm.priceSeries.data().at(-1).time - w.eval('Settings').tzOffsetSeconds() + 25;
+    let mock = { id: 'ui-ticket-probe', symbol: 'BTCUSDT', timeframe: '1h', strategy_id: 'manual',
+      is_manual: true, active: true, position: 0, quantity: 0, entry_price: 0, entry_time: 0,
+      last_price: cm.lastClose, equity: 10000, unrealized_pnl: 0, realized_pnl: 0, return_pct: 0,
+      num_trades: 0, win_rate_pct: 0, pending_signal: 0, trades: [],
+      config: { initial_capital: 10000, leverage: 1, size_pct: .7, fee: .0004, slippage: .0002 } };
+    try {
+      api.paperSessions = async () => ({ sessions: [mock] });
+      paper.apply(mock);
+      doc.querySelector('.rail-btn[data-panel="paper"]').click();
+      const card = () => doc.querySelector('[data-session-card="ui-ticket-probe"]');
+      const leverage = card().querySelector('[data-leverage]');
+      leverage.value = '4'; leverage.dispatchEvent(new w.Event('input', { bubbles: true }));
+      paper.apply({ ...mock, last_price: mock.last_price + 1 });
+      check('realtime keeps chosen leverage', card().querySelector('[data-leverage]').value === '4');
+      api.paperOrder = async (id, action, size, exits, lev) => {
+        check('ticket sends leverage to the order API', id === mock.id && lev === 4);
+        mock = { ...mock, position: 1, quantity: .35, entry_price: mock.last_price,
+          entry_time: entryTime, pending_signal: 1, config: { ...mock.config, leverage: lev } };
+        return { snapshot: mock, events: [{ type: 'entry', side: 'long', price: mock.entry_price }] };
+      };
+      card().querySelector('[data-order="long"]').click();
+      await until('manual marker', () => cm.priceSeries.markers().some(m => m.text === 'LONG ●'));
+      check('manual fill draws its arrow immediately', cm.priceSeries.markers().some(m =>
+        m.text === 'LONG ●' && m.time === cm.priceSeries.data().at(-1).time));
+      check('account and position show USDT and BTC', card().querySelector('.pp-figures').textContent.includes('USDT')
+        && card().querySelector('.pp-figures').textContent.includes('BTC'));
+      check('entry price line accompanies the marker', !!doc.querySelector('.position-chip') && !doc.querySelector('.position-chip').hidden);
+      for (const width of [1400, 390]) {
+        frame.style.width = `${width}px`; await sleep(500);
+        const fields = [...card().querySelectorAll('.pp-fields input')];
+        const bounds = card().getBoundingClientRect();
+        check(`${width}px: all four order inputs fit`, fields.length === 4 && fields.every(input => {
+          const r = input.getBoundingClientRect(); return r.width > 35 && r.left >= bounds.left && r.right <= bounds.right + 1;
+        }));
+      }
+      frame.style.width = '1400px';
+    } finally { api.paperOrder = originalOrder; api.paperSessions = originalSessions; }
+  }
+
+  if (wants('workspace')) {
+    log('=== workspace ===');
+    const check = (label, condition) => { log(`${condition ? 'PASS' : 'FAIL'} ${label}`); };
+    const dialog = doc.getElementById('command-dialog');
+    const search = doc.getElementById('command-search');
+    doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    check('Ctrl+K opens and focuses search', dialog.open && doc.activeElement === search);
+    search.value = 'thong ke';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('Vietnamese search accepts unaccented text', doc.querySelectorAll('.command-item').length === 1
+      && doc.querySelector('.command-item').textContent.includes('Thống kê'));
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    check('Enter opens the Statistics panel', !dialog.open
+      && doc.querySelector('.rail-btn.active').dataset.panel === 'stats');
+    doc.querySelector('.panel:not([hidden]) .panel-dismiss').click();
+    check('panel close returns space to charts', doc.getElementById('panel-host').classList.contains('collapsed'));
+    doc.getElementById('command-open').click();
+    search.value = 'zzzzzzzz';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('unmatched search has an empty state', !doc.querySelector('.command-item')
+      && !!doc.querySelector('#command-results .empty'));
+    search.value = '';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    check('arrow key selects the next command', doc.querySelectorAll('.command-item')[1].classList.contains('selected'));
+    doc.getElementById('command-close').click();
+    doc.querySelector('[data-lang="en"]').click();
+    doc.getElementById('command-open').click();
+    search.value = 'four charts';
+    search.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check('commands change with language', doc.querySelectorAll('.command-item').length === 1);
+    search.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(500);
+    check('layout command displays four charts', doc.querySelectorAll('.cell').length === 4 && !dialog.open);
+  }
+
+  if (wants('responsive')) {
+    log('=== responsive ===');
+    const check = (label, condition) => log(`${condition ? 'PASS' : 'FAIL'} ${label}`);
+    doc.querySelector('[data-layout="4"]').click();
+    if (doc.querySelector('.rail-btn.active')) doc.querySelector('.rail-btn.active').click();
+    for (const width of [1536, 1024, 768, 390]) {
+      frame.style.width = `${width}px`;
+      await sleep(600);
+      const header = doc.querySelector('.topbar').getBoundingClientRect();
+      const right = doc.querySelector('.topbar-right').getBoundingClientRect();
+      const grid = doc.getElementById('chart-grid');
+      check(`${width}px: no page overflow`, doc.body.scrollWidth === w.innerWidth);
+      // One row since the header was merged (2026-09-15): it must stay one
+      // row and keep its right-hand controls on screen.
+      check(`${width}px: header is one row and fits`, header.height <= 52
+        && right.right <= width + 1 && right.top >= header.top - 1 && right.bottom <= header.bottom + 1);
+      doc.querySelector('[data-panel="indicators"]').click();
+      const panel = doc.getElementById('panel-host').getBoundingClientRect();
+      check(`${width}px: tool panel fits`, panel.left >= 0 && panel.right <= width);
+      doc.querySelector('.panel:not([hidden]) .panel-dismiss').click();
+      if (width === 390) {
+        grid.scrollTop = grid.scrollHeight;
+        const last = [...doc.querySelectorAll('.cell')].at(-1).getBoundingClientRect();
+        const bounds = grid.getBoundingClientRect();
+        check('phone: final chart is reachable by scrolling', grid.scrollHeight > grid.clientHeight
+          && last.bottom <= bounds.bottom + 1 && last.top >= bounds.top);
+        doc.getElementById('command-open').click();
+        const command = doc.getElementById('command-dialog').getBoundingClientRect();
+        check('phone: quick navigation fits', command.left >= 0 && command.right <= width);
+        doc.getElementById('command-close').click();
+      }
+    }
+    frame.style.width = '1400px';
+  }
+
+  if (wants('coverage')) {
+  log('=== coverage ===');
+  const seen = watchToasts(doc);
+
+  await pick(doc, 'VN:A32', '1m');          // a symbol too thin for intraday
+  await sleep(9000);
+  log(`[A32 @ 1m]     ${seen.length} toast`);
+  seen.forEach((t) => log(`  > ${t.slice(0, 120)}`));
+
+  seen.length = 0;
+  await pick(doc, 'VN:A32', '1d');          // daily comes from another table
+  await sleep(7000);
+  log(`[A32 @ 1d]     ${seen.length} toast   (mong doi 0)`);
+
+  }
+
+  if (wants('editor')) {
+  log('');
+  log('=== trinh soan code ===');
+  doc.querySelector('.rail-btn[data-panel="indicators"]')?.click();
+  await sleep(400);
+  const writeBtn = doc.querySelector('[data-write="indicator"]');
+  log(`  nut "Viet code": ${!!writeBtn}`);
+  writeBtn.click();
+  await sleep(2500);
+
+  const dlg = doc.querySelector('.editor-dialog');
+  const code = dlg?.querySelector('[data-ed="code"]');
+  const status = dlg?.querySelector('[data-ed="status"]');
+  const gutter = dlg?.querySelector('[data-ed="gutter"]');
+  log(`  hop thoai mo   : ${!!dlg}`);
+  log(`  co khung mau   : ${code && code.value.includes('INDICATOR')}`);
+  log(`  so dong gutter : ${gutter?.children.length}`);
+  log(`  file co san    : ${dlg.querySelector('[data-ed="file"]').options.length} muc`);
+
+  // Code sai cu phap -> phai bao loi, khong duoc im lang
+  code.value = ['INDICATOR = {', '  "name": broken'].join(String.fromCharCode(10));
+  code.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(2500);
+  log(`  code sai  -> "${status.textContent.slice(0, 70)}" [${status.className}]`);
+
+  // Code dung -> phai nhan ra la chi bao
+  code.value = [
+    'INDICATOR = {',
+    '    "name": "Probe MA",',
+    '    "type": "overlay",',
+    '    "params": {"length": {"type": "int", "default": 10}},',
+    '    "outputs": [{"key": "value", "label": "MA"}],',
+    '}',
+    '',
+    '',
+    'def calculate(df, params):',
+    '    return {"value": df["close"].rolling(int(params["length"])).mean()}',
+    '',
+  ].join(String.fromCharCode(10));
+  code.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(2500);
+  log(`  code dung -> "${status.textContent.slice(0, 70)}" [${status.className}]`);
+  log(`  so dong gutter sau: ${gutter?.children.length}`);
+
+  // Luu that
+  // Not '_probe_ma.py': a leading underscore is refused on purpose (the
+  // loaders skip such files), the save would fail, and the unsaved-changes
+  // confirm() would then hang headless Chrome with no visible reason.
+  dlg.querySelector('[data-ed="name"]').value = 'probe_ma.py';
+  dlg.querySelector('[data-ed="save"]').click();
+  await sleep(6000);
+  log(`  duong dan sau khi luu: "${dlg.querySelector('[data-ed="path"]').textContent}"`);
+  if (!dlg.querySelector('[data-ed="path"]').textContent) log('FAIL editor did not save the file');
+  log(`${[...doc.querySelectorAll('.cat-item-name')].some(el => el.textContent.includes('Probe MA')) ? 'PASS' : 'FAIL'} saved indicator appears in the catalogue`);
+
+  dlg.querySelector('[data-ed="close"]').click();
+  await sleep(600);
+  log(`  da dong: ${!doc.querySelector('.editor-dialog')}`);
+  if (doc.querySelector('.editor-dialog')) log('FAIL editor did not close after saving');
+
+  }
+
+  if (wants('markets')) {
+  log('');
+  log('=== nhieu thi truong ===');
+  doc.querySelector('.rail-btn[data-panel="strategy"]')?.click();
+  await sleep(600);
+  const mmAdd = doc.getElementById('mm-add');
+  const mmRun = doc.getElementById('run-markets');
+  const mmNote = doc.getElementById('mm-timeframe-note');
+  log(`  o chon co ${mmAdd ? mmAdd.options.length : 0} option`);
+  log(`  ghi chu khung: ${JSON.stringify(mmNote?.textContent || '')}`);
+  log(`  nut truoc khi chon: disabled=${mmRun?.disabled}`);
+
+  for (const sym of ['BTCUSDT', 'VN:VNINDEX', 'VN:VIC', 'VN:SHS']) {
+    mmAdd.value = sym;
+    mmAdd.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await sleep(150);
+  }
+  log(`  da chon ${doc.querySelectorAll('#mm-chosen .mm-chip').length} chip`);
+  log(`  nut sau khi chon: disabled=${mmRun?.disabled} "${mmRun?.textContent.trim()}"`);
+
+  mmRun.click();
+  for (let i = 0; i < 90 && doc.getElementById('markets-output')
+       .querySelector('.empty'); i++) await sleep(1000);
+  await sleep(1500);
+
+  const out = doc.getElementById('markets-output');
+  log(`  so dong bang : ${out.querySelectorAll('tbody tr').length}`);
+  log(`  the tom tat  : ${out.querySelectorAll('.metric').length}`);
+  log(`  canh bao     : ${out.querySelectorAll('.callout').length}`);
+  const cards = [...out.querySelectorAll('.metric')].map(
+    (m) => m.querySelector('.metric-label')?.textContent.trim() + '='
+         + m.querySelector('.metric-value')?.textContent.trim());
+  log(`  ${cards.join('  |  ')}`);
+  for (const c of out.querySelectorAll('.callout')) {
+    log(`  > ${c.textContent.trim().slice(0, 130).replace(/\s+/g, ' ')}`);
+  }
+
+  }
+
+  if (wants('panels')) {
+  log('');
+  log('=== panel ben trai ===');
+  for (const [name, sel] of [['Chi bao','indicators'], ['Chien luoc','strategy'],
+                             ['Ket qua','results'], ['Danh muc','portfolio'],
+                             ['Paper','paper']]) {
+    const btn = doc.querySelector(`.rail-btn[data-panel="${sel}"]`);
+    if (btn) btn.click();
+    await sleep(400);
+    const panel = doc.querySelector(`.panel[data-panel="${sel}"]`);
+    const body = panel?.querySelector('.panel-body');
+    if (!body) { log(`  ${name}: khong co`); continue; }
+    const controls = panel.querySelectorAll(
+      'input, select, button:not(.info-btn):not(.subtab)').length;
+    const groups = panel.querySelectorAll('.field-group').length;
+    const over = Math.max(0, body.scrollHeight - body.clientHeight);
+    log(`  ${name.padEnd(11)} cao ${String(body.scrollHeight).padStart(5)}px`
+        + ` / khung ${String(body.clientHeight).padStart(4)}px`
+        + `  phai cuon ${String(over).padStart(5)}px`
+        + `  ${String(controls).padStart(3)} dieu khien, ${groups} nhom`);
+  }
+  doc.querySelector('.rail-btn[data-panel="indicators"]')?.click();
+  await sleep(300);
+
+  }
+
+  if (wants('smooth')) {
+  log('');
+  log('=== do muot cua du lieu ===');
+  async function watchPrice(symbol, seconds) {
+    const sel = doc.getElementById('symbol');
+    sel.value = symbol;
+    sel.dispatchEvent(new doc.defaultView.Event('change', { bubbles: true }));
+    await sleep(6000);
+
+    const priceNode = doc.getElementById('price');
+    const stamps = [];
+    let last = priceNode.textContent;
+    const obs = new doc.defaultView.MutationObserver(() => {
+      const now = priceNode.textContent;
+      if (now !== last) { stamps.push(w.performance.now()); last = now; }
+    });
+    obs.observe(priceNode, { childList: true, characterData: true, subtree: true });
+    await sleep(seconds * 1000);
+    obs.disconnect();
+
+    if (stamps.length < 2) {
+      log(`  ${symbol.padEnd(12)} ${stamps.length} lan doi gia trong ${seconds}s`
+          + '  (ngoai phien hoac khong co tick)');
+      return;
+    }
+    const gaps = stamps.slice(1).map((t, i) => (t - stamps[i]) / 1000);
+    gaps.sort((a, b) => a - b);
+    const med = gaps[Math.floor(gaps.length / 2)];
+    log(`  ${symbol.padEnd(12)} ${stamps.length} lan doi gia / ${seconds}s`
+        + `  khoang cach: min ${gaps[0].toFixed(2)}s`
+        + ` trung vi ${med.toFixed(2)}s max ${gaps[gaps.length - 1].toFixed(2)}s`);
+  }
+  // Truoc khi do gia: luong live co song khong?
+  log(`  Live.enabled      : ${w.Live?.enabled}`);
+  log(`  price-block hidden: ${doc.getElementById('price-block')?.hidden}`);
+  log(`  price text        : ${JSON.stringify(doc.getElementById('price')?.textContent)}`);
+
+  // Nghe thang socket cua app de dem message that su den
+  let frames = 0, kinds = {};
+  const origWS = w.WebSocket;
+  w.WebSocket = function (...args) {
+    const ws = new origWS(...args);
+    ws.addEventListener('message', (ev) => {
+      frames++;
+      try { const k = JSON.parse(ev.data).type || '?'; kinds[k] = (kinds[k] || 0) + 1; }
+      catch { kinds.raw = (kinds.raw || 0) + 1; }
+    });
+    return ws;
+  };
+  w.WebSocket.prototype = origWS.prototype;
+
+  await watchPrice('BTCUSDT', 25);
+  log(`    socket frames: ${frames} ${JSON.stringify(kinds)}`);
+  frames = 0; kinds = {};
+  await watchPrice('VN:VN30F1M', 25);
+  log(`    socket frames: ${frames} ${JSON.stringify(kinds)}`);
+
+  }
+
+  if (wants('topbar')) {
+  log('');
+  log('=== topbar layout ===');
+  const boxes = {};
+  for (const sel of ['#symbol', '#timeframes', '.ct-picker', '#chart-type',
+                     '.topbar-controls', '.topbar-right']) {
+    const n = doc.querySelector(sel);
+    if (!n) { log(`  ${sel}: KHONG co`); continue; }
+    const r = n.getBoundingClientRect();
+    boxes[sel] = r;
+    const cs = w.getComputedStyle(n);
+    log(`  ${sel.padEnd(18)} ${r.width.toFixed(0).padStart(5)}x${r.height.toFixed(0)}`
+        + ` @ ${r.left.toFixed(0)},${r.top.toFixed(0)}`
+        + `  right=${r.right.toFixed(0)} overflow=${cs.overflowX}`);
+  }
+  const tf = boxes['#timeframes'], ct = boxes['.ct-picker'];
+  const controls = boxes['.topbar-controls'];
+  if (tf && ct) {
+    log(`  tf phai=${tf.right.toFixed(0)}  ct trai=${ct.left.toFixed(0)}`
+        + `  -> chong lan: ${tf.right > ct.left + 1}`);
+  }
+  if (ct && controls) {
+    log(`  ct phai=${ct.right.toFixed(0)}  controls phai=${controls.right.toFixed(0)}`
+        + `  -> nut tran ra ngoai: ${ct.right > controls.right + 1}`);
+  }
+  const btn0 = doc.getElementById('chart-type');
+  if (btn0) {
+    const cs = w.getComputedStyle(btn0);
+    log(`  #chart-type border=${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`);
+    log(`  #chart-type background=${cs.backgroundColor}`);
+  }
+
+  }
+
+  if (wants('multichart')) {
+  log('');
+  log('=== multichart (luoi bieu do day du) ===');
+  try {
+    const cm = () => w.eval('ChartManager');
+    const cells = () => [...doc.querySelectorAll('#chart-grid .cell')];
+    const cellOf = (node) => node?.closest('.cell')?.dataset.cell;
+    const caption = (i) => doc.querySelector(`[data-caption="${i}"]`)?.textContent.trim();
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    const grid = doc.getElementById('chart-grid');
+
+    doc.querySelector('[data-layout="4"]').click();
+    await until('four cells', () => cells().length === 4);
+    log(`  4 o, moi o co bieu do rieng: ${[...doc.querySelectorAll('#chart-grid .cell .chart-main')].length}, o dang lam viec ${doc.querySelector('.cell.active')?.dataset.cell}`);
+
+    for (const [i, symbol] of [[1, 'VN:VNINDEX'], [2, 'VN:G-XAUUSD'], [3, 'VN:VIC']]) {
+      const sel = doc.querySelector(`[data-pick="${i}"]`);
+      await until('option ' + symbol, () => [...sel.options].some((o) => o.value === symbol));
+      sel.value = symbol;
+      sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    await until('candles in the three other cells',
+      () => [1, 2, 3].every((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`)) > 0));
+    const box = (i) => { const r = doc.querySelector(`[data-cell="${i}"]`).getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; };
+    log(`  kich thuoc o: ${[0, 1, 2, 3].map(box).join(' / ')}`);
+    log(`  diem nen o 1-3: ${[1, 2, 3].map((i) => candlePixels(doc.querySelector(`[data-body="${i}"]`))).join(', ')}`);
+
+    // Indicators on the working chart, then twice more to test the guard.
+    const seen = watchToasts(doc);
+    const rsi = await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'));
+    rsi.click();
+    await until('RSI on', () => doc.querySelectorAll('#active .active-item').length === 1);
+    rsi.click();
+    await sleep(300);
+    rsi.click();
+    await sleep(300);
+    log(`  bam RSI 3 lan: dang bat ${doc.querySelectorAll('#active .active-item').length}, thong bao ${seen.length}: "${(seen[0] || '').slice(0, 60)}"`);
+    await until('caption 0 names RSI', () => /RSI/.test(caption(0) || ''));
+    log(`  chu thich o 0: ${caption(0)}`);
+
+    // Click cell 2: the working chart and the tools move there.
+    doc.querySelector('[data-body="2"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    await until('cell 2 active', () => w.eval('MultiChart').active === 2);
+    await until('G-XAUUSD is the working series', () => (cm().seriesKey || '').startsWith('VN:G-XAUUSD|'));
+    await sleep(1500);
+    log(`  bam o 2 -> o dang lam viec ${w.eval('MultiChart').active}, series ${cm().seriesKey}, chi bao dang bat ${doc.querySelectorAll('#active .active-item').length}`);
+    log(`  o 0 (vua roi): ${candlePixels(doc.querySelector('[data-body="0"]'))} diem nen, ${doc.querySelectorAll('[data-body="0"] .panes .chart-pane').length} pane RSI van con, chu thich "${caption(0)}"`);
+
+    // A strategy test runs on the active cell.
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    doc.getElementById('run-backtest').click();
+    await until('backtest metrics', () => doc.querySelectorAll('#metrics .metric').length > 0, 400);
+    log(`  backtest tren o dang lam viec: ${doc.querySelectorAll('#metrics .metric').length} chi so, series ${cm().seriesKey}`);
+
+    // The gear of cell 1 changes only cell 1's timeframe.
+    doc.querySelector('[data-gear="1"]').click();
+    await sleep(150);
+    const frames = [...doc.querySelectorAll('.cell-menu [data-tf]')].map((b) => b.dataset.tf);
+    doc.querySelector('.cell-menu [data-tf="1d"]')?.click();
+    await until('cell 1 caption 1d', () => /1d/.test(caption(1) || ''));
+    log(`  banh rang o 1: khung ${frames.join(' ')}, chon 1d -> "${caption(1)}", o dang lam viec van ${cm().seriesKey}`);
+
+    // Overview and back.
+    const before = cells().map((c) => doc.querySelector(`[data-pick="${c.dataset.cell}"]`).value).join(', ');
+    doc.getElementById('mode-toggle').click();
+    await sleep(600);
+    const shown = cells().filter((c) => c.getBoundingClientRect().width > 0).length;
+    const mainWidth = Math.round(doc.querySelector('.cell.active .chart-main').getBoundingClientRect().width);
+    log(`  Tong quan: ${doc.body.dataset.mode}, o hien ${shown}, bieu do rong ${mainWidth}px / grid ${Math.round(grid.getBoundingClientRect().width)}px`);
+    doc.getElementById('mode-toggle').click();
+    await sleep(800);
+    const after = cells().map((c) => doc.querySelector(`[data-pick="${c.dataset.cell}"]`).value).join(', ');
+    log(`  Giao dich lai: ${doc.body.dataset.mode}, ${cells().filter((c) => c.getBoundingClientRect().width > 0).length} o, giong luc truoc: ${before === after} (${after})`);
+
+    doc.querySelector('[data-layout="1"]').click();
+    await sleep(400);
+    log(`  ve 1 khung: ${cells().length} o, bieu do dang lam viec rong ${Math.round(doc.querySelector('.cell.active .chart-main').getBoundingClientRect().width)}px, series ${cm().seriesKey}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('switching')) {
+  log('');
+  log('=== switching ===');
+  // Nam's report: switching symbol or timeframe back and forth leaves the
+  // volume bars and an empty price area. Candle pixels on the main chart are
+  // counted after every switch, quick and slow, because the failure shows up
+  // only between the two requests of a fast switch if it is a race.
+  const main = doc.getElementById('chart-main');
+  const pick1 = async (symbol, tf, wait) => {
+    const sel = doc.getElementById('symbol');
+    if (symbol && sel.value !== symbol) {
+      sel.value = symbol;
+      sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    if (tf) {
+      await sleep(80);
+      const b = [...doc.querySelectorAll('#timeframes .tf-btn')].find((x) => x.textContent.trim() === tf);
+      b?.click();
+    }
+    await sleep(wait);
+  };
+  const report = (label) => log(`  ${label.padEnd(34)} ${String(candlePixels(main)).padStart(6)} diem nen`);
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('[data-layout="1"]')?.click();
+    await pick1('BTCUSDT', '1h', 3000); report('BTCUSDT 1h (cham)');
+    await pick1(null, '15m', 3000);     report('BTCUSDT 15m (cham)');
+    await pick1(null, '1h', 3000);      report('BTCUSDT 1h (cham)');
+    await pick1('VN:VIC', null, 5000);  report('VN:VIC (cham)');
+    await pick1('BTCUSDT', null, 3000); report('BTCUSDT (cham)');
+    // Fast: the next change starts before the previous load finished.
+    await pick1(null, '4h', 150); await pick1(null, '1h', 150); await pick1(null, '15m', 3500);
+    report('4h->1h->15m nhanh');
+    await pick1('VN:VIC', null, 200); await pick1('BTCUSDT', null, 3500);
+    report('VIC->BTC nhanh');
+    await pick1(null, '1d', 200); await pick1(null, '1h', 3500);
+    report('1d->1h nhanh');
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('autoscale')) {
+  log('');
+  log('=== autoscale ===');
+  /* Hypothesis for "candles vanish when switching": a vertical drag turns the
+     price scale's autoScale off, the frozen range carries over to the next
+     instrument, and its candles sit entirely outside the visible prices.
+     Measured directly rather than by pixels: `ChartManager` is a global
+     lexical binding, which indirect eval in the frame can read. */
+  const cm = () => w.eval('ChartManager');
+  const scaleState = () => {
+    const c = cm();
+    const series = c.priceSeries;
+    const h = doc.getElementById('chart-main').clientHeight;
+    const top = series.coordinateToPrice(10);
+    const bottom = series.coordinateToPrice(h - 40);
+    const data = series.data?.() || [];
+    const last = data.length ? (data[data.length - 1].close ?? data[data.length - 1].value) : null;
+    const auto = c.chart.priceScale('right').options().autoScale;
+    const inside = last !== null && top !== null && bottom !== null && last <= top && last >= bottom;
+    return `autoScale=${auto} range=${bottom?.toFixed(2)}..${top?.toFixed(2)} last=${last} ${inside ? 'NEN TRONG KHUNG' : 'NEN NGOAI KHUNG'}`;
+  };
+  const choose = async (symbol) => {
+    const sel = doc.getElementById('symbol');
+    sel.value = symbol;
+    sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await until('candles for ' + symbol, () => cm().seriesKey && cm().seriesKey.startsWith(symbol + '|'));
+    await sleep(1500);
+  };
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    await choose('BTCUSDT');
+    log('  BTC, chua keo:      ' + scaleState());
+
+    // A vertical drag in the plot area, the way a pan that drifts up does.
+    const plot = [...doc.querySelectorAll('#chart-main canvas')]
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const r = plot.getBoundingClientRect();
+    const x = r.left + r.width * 0.5, y = r.top + r.height * 0.5;
+    const fire = (type, dy) => plot.dispatchEvent(new w.MouseEvent(type, {
+      bubbles: true, cancelable: true, clientX: x, clientY: y + dy, button: 0, buttons: 1, view: w,
+    }));
+    fire('mousedown', 0);
+    for (let i = 1; i <= 12; i++) { doc.dispatchEvent(new w.MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y + i * 15, buttons: 1, view: w })); fire('mousemove', i * 15); await sleep(16); }
+    fire('mouseup', 180);
+    doc.dispatchEvent(new w.MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y + 180, view: w }));
+    await sleep(500);
+    log('  BTC, sau khi keo:   ' + scaleState());
+
+    await choose('VN:VIC');
+    log('  doi sang VIC:       ' + scaleState());
+    await choose('BTCUSDT');
+    log('  doi lai BTC:        ' + scaleState());
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('markets')) {
+  log('');
+  log('=== markets (chay nhieu thi truong) ===');
+  // Nam: "run across markets shows nothing". The endpoint answered 200 in 3s
+  // with every market; the table was written into the Results panel while the
+  // button lives in the Strategy panel. Checked here as the user sees it:
+  // which panel is open after the run, and whether its table has rows.
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    const add = doc.getElementById('mm-add');
+    for (const symbol of ['BTCUSDT', 'VN:VIC', 'VN:VNINDEX']) {
+      await until('option ' + symbol, () => [...add.options].some((o) => o.value === symbol));
+      add.value = symbol;
+      add.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    log(`  da chon: ${doc.querySelectorAll('#mm-chosen .mm-chip').length} thi truong`);
+    doc.getElementById('run-markets').click();
+    await until('the markets table', () => doc.querySelectorAll('#markets-output tbody tr').length > 0, 240);
+    const panel = doc.querySelector('.panel.active')?.dataset.panel;
+    const tab = doc.querySelector('[data-respanel].active')?.dataset.respanel;
+    const visible = doc.getElementById('markets-output').getBoundingClientRect().width > 0;
+    log(`  panel dang mo: ${panel}, tab: ${tab}, bang hien tren man hinh: ${visible}`);
+    log(`  so dong: ${doc.querySelectorAll('#markets-output tbody tr').length}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('picker')) {
+  log('');
+  log('=== picker (tim ma) ===');
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    const button = await until('the picker button', () => doc.querySelector('#symbol + .sp-button'));
+    log(`  nut: "${button.textContent.trim()}"  select an: ${getComputedStyle(doc.getElementById('symbol')).display}`);
+    button.click();
+    await sleep(200);
+    const pop = doc.querySelector('.sp-pop');
+    log(`  popup mo: ${!pop.hidden}  so muc khi chua go: ${doc.querySelectorAll('.sp-item').length}`);
+    const input = doc.querySelector('.sp-search');
+    for (const query of ['vic', 'vingroup', 'VN30F', 'vang', 'btc']) {
+      input.value = query;
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+      await sleep(80);
+      const first = [...doc.querySelectorAll('.sp-item')].slice(0, 3)
+        .map((n) => n.querySelector('.sp-code').textContent).join(', ');
+      log(`  "${query}" -> ${doc.querySelectorAll('.sp-item').length} ket qua, dau: ${first || '(khong co)'}`);
+    }
+    input.value = 'vic';
+    input.dispatchEvent(new w.Event('input', { bubbles: true }));
+    await sleep(80);
+    input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await until('the chart to load VIC', () => w.eval('ChartManager').seriesKey?.startsWith('VN:VIC|'));
+    log(`  Enter -> select=${doc.getElementById('symbol').value}, bieu do=${w.eval('ChartManager').seriesKey}, popup dong: ${pop.hidden}`);
+    log(`  nhan nut sau khi chon: "${button.textContent.trim()}"`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('boot')) {
+  log('');
+  log('=== boot (man hinh mo dau cho du lieu) ===');
+  await until('boot marks', () => bootMarks.splashGone && bootMarks.vnList && bootMarks.chart, 400);
+  const dataReady = Math.max(bootMarks.chart, bootMarks.vnList);
+  log(`  bieu do co du lieu:   ${bootMarks.chart} ms`);
+  log(`  danh sach ma VN ve:   ${bootMarks.vnList} ms`);
+  log(`  man hinh mo dau roi:  ${bootMarks.splashGone} ms`);
+  log(`  roi SAU khi du lieu da ve: ${bootMarks.splashGone >= dataReady} (chenh ${bootMarks.splashGone - dataReady} ms)`);
+  }
+
+  if (wants('persist')) {
+  log('');
+  log('=== persist (tai lai trang khong mat viec dang lam) ===');
+  try {
+    const cmOf = (fw) => fw.eval('ChartManager');
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+
+    const sel = doc.getElementById('symbol');
+    sel.value = 'VN:VIC';
+    sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await until('VIC', () => cmOf(w).seriesKey?.startsWith('VN:VIC|'));
+    const tf = await until('15m button', () => [...doc.querySelectorAll('#timeframes .tf-btn')].find((b) => b.textContent.trim() === '15m'));
+    tf.click();
+    await until('VIC 15m', () => cmOf(w).seriesKey === 'VN:VIC|15m');
+
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    const range = await until('a strategy parameter', () => doc.querySelector('#strategy-params input[type="range"]'));
+    range.value = String(Number(range.min) + 3);
+    range.dispatchEvent(new w.Event('input', { bubbles: true }));
+    const tuned = { name: range.dataset.sparam, value: range.value };
+
+    (await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
+    await until('RSI active', () => doc.querySelectorAll('#active .active-item').length === 1);
+
+    doc.querySelector('[data-layout="2"]').click();
+    const pick = await until('cell 1 picker', () => doc.querySelector('[data-pick="1"]'));
+    await until('cell 1 options', () => [...pick.options].some((o) => o.value === 'VN:VNINDEX'));
+    pick.value = 'VN:VNINDEX';
+    pick.dispatchEvent(new w.Event('change', { bubbles: true }));
+    doc.querySelector('[data-gear="1"]').click();
+    await sleep(150);
+    doc.querySelector('.cell-menu [data-tf="1d"]')?.click();
+    await sleep(900);
+    log(`  truoc khi tai lai: VIC 15m + RSI (o 0), ${tuned.name}=${tuned.value}, o 1 VNINDEX 1d`);
+
+    w.location.reload();
+    await until('the old document to go', () => frame.contentDocument !== doc);
+    const d2 = await appDocument(frame);
+    const w2 = frame.contentWindow;
+    await until('restored chart', () => { try { return cmOf(w2).seriesKey; } catch (e) { return null; } }, 400);
+    await sleep(6000);
+
+    const key = cmOf(w2).seriesKey;
+    const panel = d2.querySelector('.rail-btn.active')?.dataset.panel || '(dong)';
+    const indicators = [...d2.querySelectorAll('#active .active-item')].map((n) => n.dataset.instance);
+    const param = d2.querySelector(`#strategy-params [data-sparam="${tuned.name}"]`)?.value;
+    const layout = d2.getElementById('chart-grid')?.dataset.layout;
+    const cell1 = d2.querySelector('[data-caption="1"]')?.textContent.trim();
+    log(`  sau khi tai lai:   ${key}, panel ${panel}, ${tuned.name}=${param}, chi bao [${indicators.join(', ')}], layout ${layout}, o 1 "${cell1}"`);
+    const ok = key === 'VN:VIC|15m' && panel === 'strategy' && String(param) === tuned.value
+      && indicators.length === 1 && indicators[0].startsWith('rsi#') && layout === '2'
+      && /VNINDEX/.test(cell1 || '') && /1d/.test(cell1 || '');
+    log(`  ${ok ? 'GIU NGUYEN TOAN BO' : 'CO THU BI MAT'}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('resize')) {
+  log('');
+  log('=== resize (keo gian luoi 2 va 4) ===');
+  const drag = async (handle, dx, dy) => {
+    const r = handle.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const ev = (type, px, py) => new w.PointerEvent(type, { bubbles: true, cancelable: true, clientX: px, clientY: py, pointerId: 1, button: 0, buttons: 1 });
+    handle.dispatchEvent(ev('pointerdown', x, y));
+    for (let i = 1; i <= 10; i++) { doc.dispatchEvent(ev('pointermove', x + dx * i / 10, y + dy * i / 10)); await sleep(16); }
+    doc.dispatchEvent(ev('pointerup', x + dx, y + dy));
+    await sleep(300);
+  };
+  try {
+    doc.querySelector('[data-layout="4"]').click();
+    await until('four cells', () => doc.querySelectorAll('#chart-grid .cell').length === 4);
+    await sleep(500);
+    const sizes = () => [0, 1, 2, 3].map((i) => {
+      const r = doc.querySelector(`[data-cell="${i}"]`).getBoundingClientRect();
+      return `${Math.round(r.width)}x${Math.round(r.height)}`;
+    }).join(' / ');
+    log(`  truoc:            ${sizes()}`);
+    await drag(doc.querySelector('.grid-handle-col'), 200, 0);
+    log(`  keo cot +200:     ${sizes()}`);
+    await drag(doc.querySelector('.grid-handle-row'), 0, -120);
+    log(`  keo hang -120:    ${sizes()}`);
+    const col = doc.querySelector('.grid-handle-col').getBoundingClientRect();
+    const edge = doc.querySelector('[data-cell="0"]').getBoundingClientRect().right;
+    log(`  tay keo cot o x=${Math.round(col.left + col.width / 2)}, mep o 0 x=${Math.round(edge)}`);
+    doc.querySelector('.grid-handle-col').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    doc.querySelector('.grid-handle-row').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+    await sleep(300);
+    log(`  nhap dup:         ${sizes()}`);
+    doc.querySelector('[data-layout="1"]').click();
+    await sleep(200);
+    log(`  ve 1 khung: tay keo con ${doc.querySelectorAll('.grid-handle').length}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('history')) {
+  log('');
+  log('=== history (khong gioi han nen, keo ve sau la nap) ===');
+  /* Requests are counted from the browser's own Resource Timing, so what is
+     measured is what went over the wire, not what the code meant to send. */
+  const pages = () => w.performance.getEntriesByType('resource')
+    .filter((r) => r.name.includes('/api/candles') && r.name.includes('end=')).length;
+  try {
+    const cm = () => w.eval('ChartManager');
+    const toasts = watchToasts(doc);
+    await until('the chart', () => cm().seriesKey && cm().oldestTime);
+    const start = cm().oldestTime;
+    const fmt = (t) => new Date(t * 1000).toISOString().slice(0, 10);
+    log(`  bieu do chinh luc dau: nen cu nhat ${fmt(start)}`);
+    const lastPage = () => {
+      const list = w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/api/candles') && r.name.includes('end='));
+      const url = list.length ? decodeURIComponent(list[list.length - 1].name.split('end=')[1] || '') : '-';
+      return url.slice(0, 19);
+    };
+    /* Scrolled the way a person does it, with the wheel, rather than by
+       setting the visible range from here. The first version set the range
+       directly; headless Chrome did not repaint in between, the setting never
+       took effect, and the second page was reported as "not loaded" while the
+       app had simply never been asked. */
+    const mainCanvas = () => [...doc.querySelectorAll('#chart-main canvas')]
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    for (let round = 1; round <= 4; round++) {
+      const before = cm().oldestTime;
+      const sent = pages();
+      const canvas = mainCanvas();
+      const r = canvas.getBoundingClientRect();
+      let wheels = 0;
+      for (; wheels < 400 && cm().oldestTime >= before; wheels++) {
+        canvas.dispatchEvent(new w.WheelEvent('wheel', {
+          bubbles: true, cancelable: true, deltaX: -800, deltaY: 0,
+          clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+        }));
+        await sleep(40);
+      }
+      const ok = cm().oldestTime < before;
+      log(`  cuon lan ${round}: ${ok ? 'nap duoc' : 'KHONG nap'} sau ${wheels} lan cuon | nen cu nhat ${fmt(cm().oldestTime)} | request moi ${pages() - sent}`);
+      if (!ok) {
+        log(`  toast: ${toasts.length ? toasts.map((t) => '"' + t.slice(0, 90) + '"').join(' | ') : '(khong co)'}`);
+        break;
+      }
+    }
+
+    // A second cell pages back too.
+    doc.querySelector('button[data-layout="2"]').click();
+    await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
+    const body = doc.querySelector('[data-body="1"]');
+    await until('cell 1 candles', () => candlePixels(body) > 0, 200);
+    // The drawing layer is the largest canvas but sits beside the chart, so a
+    // wheel fired at it never reaches the chart's own listeners.
+    const canvas = [...body.querySelectorAll('canvas')].filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const r = canvas.getBoundingClientRect();
+    const before = pages();
+    const m1 = () => w.eval('MultiChart').managerAt(1);
+    const range1 = () => { const q = m1().chart.timeScale().getVisibleLogicalRange(); return q ? `${Math.round(q.from)}..${Math.round(q.to)}` : '-'; };
+    const oldest1 = m1().oldestTime;
+    log(`  o phu truoc khi cuon: ${m1().seriesKey}, ${m1().barCount} nen, range ${range1()}, active ${w.eval('MultiChart').active}`);
+    let wheels = 0;
+    for (; wheels < 200 && pages() === before; wheels++) {
+      canvas.dispatchEvent(new w.WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaX: -800, deltaY: 0,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+      }));
+      await sleep(40);
+    }
+    const bars1 = m1().barCount;
+    for (let i = 0; i < 100 && m1().barCount === bars1; i++) await sleep(100);
+    // An unchanged bar count is right when the market has nothing older:
+    // ask the server what that page held before calling it a failure.
+    const last = w.performance.getEntriesByType('resource').filter((q) => q.name.includes('/api/candles') && q.name.includes('end=')).pop();
+    const held = last ? (await (await fetch(last.name)).json()).candles?.length ?? 0 : null;
+    log(`  trang cuoi o phu xin: ${decodeURIComponent(last?.name.split('?')[1] || '-')} -> server tra ${held} nen`);
+    log(`  o phu sau ${wheels} lan cuon: range ${range1()}, ${m1().barCount} nen, nen cu nhat doi: ${m1().oldestTime !== oldest1}, trang lich su moi: ${pages() - before}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('pickerflip')) {
+  log('');
+  log('=== pickerflip (o chon thi truong khong bi che) ===');
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    const button = await until('the multi-market picker', () => doc.querySelector('#mm-add + .sp-button'));
+    button.scrollIntoView({ block: 'end' });
+    await sleep(300);
+    button.click();
+    await sleep(300);
+    const pop = doc.querySelector('.sp-pop');
+    const b = button.getBoundingClientRect();
+    const r = pop.getBoundingClientRect();
+    const rows = [...doc.querySelectorAll('.sp-item')].filter((n) => {
+      const q = n.getBoundingClientRect();
+      return q.top >= r.top && q.bottom <= r.bottom;
+    }).length;
+    log(`  cua so cao ${w.innerHeight}px; nut o y=${Math.round(b.top)}..${Math.round(b.bottom)}`);
+    log(`  popup y=${Math.round(r.top)}..${Math.round(r.bottom)} (${r.top < b.top ? 'mo len tren' : 'mo xuong duoi'}), nam trong cua so: ${r.top >= 0 && r.bottom <= w.innerHeight}`);
+    log(`  so dong nhin thay trong popup: ${rows}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('tools')) {
+  log('');
+  log('=== tools (Toi uu, Monte Carlo, Thong ke co nut rieng) ===');
+  const openAndRun = async (panel, button, output, ready) => {
+    doc.querySelector(`.rail-btn[data-panel="${panel}"]`).click();
+    await sleep(300);
+    doc.getElementById(button).click();
+    await until(`${panel} output`, () => ready(doc.getElementById(output)), 400);
+    const active = doc.querySelector('.panel.active')?.dataset.panel;
+    const out = doc.getElementById(output);
+    log(`  ${panel.padEnd(10)} panel mo: ${active}, ket qua trong panel: ${out.closest('.panel')?.dataset.panel}, ${out.textContent.trim().length} ky tu`);
+  };
+  try {
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('.rail-btn[data-panel="strategy"]').click();
+    await until('strategies', () => doc.getElementById('strategy-select').options.length > 0);
+    log(`  ten chien luoc tren panel cong cu: "${doc.querySelector('[data-strategy-name]')?.textContent}"`);
+    await openAndRun('montecarlo', 'run-montecarlo', 'mc-output', (n) => n.querySelector('table, .metric, svg'));
+    await openAndRun('stats', 'run-stats-series', 'stats-output', (n) => n.querySelector('table, .metric'));
+    // The optimiser refuses to run with nothing ticked ("tick at least one
+    // parameter"), which is correct; tick one, over a small range.
+    doc.querySelector('.rail-btn[data-panel="optimize"]').click();
+    await sleep(300);
+    const box = await until('a sweep checkbox', () => doc.querySelector('[data-sweep-on]'));
+    box.checked = true;
+    box.dispatchEvent(new w.Event('change', { bubbles: true }));
+    const name = box.dataset.sweepOn;
+    for (const [key, value] of [['start', 10], ['stop', 30], ['step', 10]]) {
+      const input = doc.querySelector(`[data-sweep="${name}"][data-key="${key}"]`);
+      input.value = String(value);
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+      input.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    await openAndRun('optimize', 'run-optimize', 'optimize-results', (n) => n.querySelector('table'));
+    const tabs = [...doc.querySelectorAll('[data-restab]')].map((b) => b.dataset.restab).join(', ');
+    log(`  tab con lai o Ket qua: ${tabs}`);
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('backtest')) {
+  log('');
+  log('=== backtest (delayed result stays in its own chart) ===');
+  try {
+    await until('strategy catalogue', () => doc.getElementById('strategy-select').options.length);
+    const result = await w.eval(`(async () => {
+      Live.setEnabled(false);
+      MultiChart.setLayout(2);
+      for (let i = 0; i < 200 && !MultiChart.managerAt(1)?.barCount; i++) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      MultiChart.activate(0);
+      const owner = MultiChart.activeCell;
+      const other = MultiChart.managerAt(1);
+      owner.manager.clearTradeMarkers(); other.clearTradeMarkers();
+      const original = API.backtest;
+      let release;
+      const gate = new Promise(r => release = r);
+      API.backtest = async args => {
+        const data = await original(args);
+        await gate;
+        return data;
+      };
+      try {
+        document.getElementById('run-backtest').click();
+        MultiChart.activate(1);
+        release();
+        for (let i = 0; i < 400 && document.getElementById('run-backtest').disabled; i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        return {
+          complete: !document.getElementById('run-backtest').disabled,
+          trades: Strategy.lastResult?.trades.length || 0,
+          ownerMarkers: owner.manager.markerCount,
+          otherMarkers: other.markerCount,
+          loading: !owner.loading.hidden,
+          equity: document.querySelectorAll('#equity-chart canvas').length,
+        };
+      } finally { API.backtest = original; }
+    })()`);
+    const ok = result.complete && result.trades > 0 && result.ownerMarkers === result.trades
+      && result.otherMarkers === 0 && !result.loading && result.equity > 0;
+    log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(result));
+  } catch (e) { log('FAIL backtest: ' + e.message); }
+  }
+
+  if (wants('async')) {
+  log('');
+  log('=== async (responses belong to the requesting cell) ===');
+  try {
+    await until('RSI catalogue', () => doc.querySelector('.cat-item[data-id="rsi"]'), 200);
+    const results = await w.eval(`(async () => {
+      Live.setEnabled(false);
+      MultiChart.setLayout(1);
+      Indicators.clearAll();
+      const originalCandles = API.candles;
+      const originalCompute = API.compute;
+      const results = [];
+      const check = (name, ok, detail) => results.push({name, ok, detail});
+      const wait = () => new Promise(r => setTimeout(r, 30));
+      const until = async (predicate) => {
+        for (let i = 0; i < 200; i++) { if (predicate()) return; await wait(); }
+        throw new Error('Timed out waiting for the delayed request');
+      };
+      const deferred = () => {
+        let resolve;
+        const promise = new Promise(r => resolve = r);
+        return {promise, resolve};
+      };
+      // Synthetic bars isolate request ordering from market/VPN latency.
+      const payload = (price = 100) => {
+        const candles = Array.from({length: 100}, (_, i) => ({
+          time: 1700000000 + i * 3600, open: price, high: price + 2,
+          low: price - 2, close: price + 1,
+        }));
+        return {count: candles.length, candles,
+          volumes: candles.map(c => ({time: c.time, value: 10})),
+          can_backfill: false, bars_behind: 0};
+      };
+      const panes = i => document.querySelectorAll('[data-body="'+i+'"] .panes .chart-pane').length;
+      const reload = () => document.getElementById('limit').dispatchEvent(new Event('change'));
+      try {
+        API.candles = async () => payload();
+        reload();
+        await until(() => MultiChart.activeCell.loading.hidden);
+        MultiChart.setLayout(2);
+        await until(() => MultiChart.managerAt(1)?.barCount === 100);
+        // Let catalogue restoration finish before adding an indicator.
+        await new Promise(r => setTimeout(r, 100));
+        const cell0 = MultiChart.activeCell;
+        const gate = deferred();
+        API.compute = async () => {
+          await gate.promise;
+          return {kind: 'panel', name: 'RSI', outputs: [{key: 'rsi', name: 'RSI',
+            pane: 'separate', plot_type: 'line', color: '#123456'}],
+            times: payload().candles.map(c => c.time), values: {rsi: Array(100).fill(50)}};
+        };
+        document.querySelector('.cat-item[data-id="rsi"]').click();
+        const job = Indicators.recomputeAll();
+        MultiChart.activate(1);
+        gate.resolve();
+        await job;
+        check('late indicator draws only in its original cell', panes(0) === 1 && panes(1) === 0,
+          {panes: [panes(0), panes(1)], activeIndicators: Indicators.snapshot().length});
+
+        // A slider's debounce must still compute when the user leaves at once.
+        MultiChart.activate(0);
+        const sliderRequests = [];
+        const sliderCompute = API.compute;
+        API.compute = args => {
+          sliderRequests.push({ symbol: args.symbol, length: args.params.length });
+          return sliderCompute(args);
+        };
+        const slider = document.querySelector('#active [data-param="length"]');
+        const length = Number(slider.value) + 1;
+        slider.value = String(length);
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+        MultiChart.activate(1);
+        await new Promise(r => setTimeout(r, 220));
+        check('a pending slider change computes in its source cell', sliderRequests.length === 1
+          && sliderRequests[0].symbol === cell0.ws.symbol && sliderRequests[0].length === length,
+          {requests: sliderRequests});
+        API.compute = sliderCompute;
+
+        MultiChart.activate(0);
+        const removed = deferred();
+        const compute = API.compute;
+        API.compute = async args => { await removed.promise; return compute(args); };
+        const removing = Indicators.recomputeAll();
+        Indicators.clearAll();
+        removed.resolve();
+        await removing;
+        check('removed indicator does not return after its response', panes(0) === 0, {panes: panes(0)});
+        API.compute = compute;
+
+        // Change frame, leave before the response, then complete that load.
+        const candleGate = deferred();
+        API.candles = () => candleGate.promise;
+        const frameButtons = [...document.querySelectorAll('#timeframes button')];
+        const nextFrame = frameButtons.find(b => !b.classList.contains('active'));
+        if (!nextFrame) throw new Error('Need two available timeframes');
+        nextFrame.click();
+        const expectedKey = cell0.ws.symbol + '|' + cell0.ws.timeframe;
+        MultiChart.activate(1);
+        candleGate.resolve(payload(200));
+        await until(() => cell0.loading.hidden);
+        check('inactive cell finishes its own timeframe load', cell0.manager.seriesKey === expectedKey
+          && cell0.manager.lastClose === 201, {expectedKey, actualKey: cell0.manager.seriesKey, loading: !cell0.loading.hidden});
+
+        // Identical keys are still distinct requests (e.g. changed bar count).
+        API.candles = async () => payload(200);
+        MultiChart.activate(0);
+        await new Promise(r => setTimeout(r, 100));
+        const first = deferred(), second = deferred();
+        let calls = 0;
+        API.candles = () => (++calls === 1 ? first.promise : second.promise);
+        reload(); reload();
+        first.resolve(payload(300));
+        await new Promise(r => setTimeout(r, 100));
+        check('older response cannot clear the newer loading mark', !cell0.loading.hidden,
+          {loading: !cell0.loading.hidden});
+        second.resolve(payload(400));
+        await until(() => cell0.loading.hidden);
+        check('latest request wins for identical market/frame', cell0.manager.lastClose === 401,
+          {lastClose: cell0.manager.lastClose});
+
+        // The opposite completion order must also keep the newest result.
+        const older = deferred(), newer = deferred(); calls = 0;
+        API.candles = () => (++calls === 1 ? older.promise : newer.promise);
+        reload(); reload();
+        newer.resolve(payload(500));
+        await until(() => cell0.loading.hidden);
+        older.resolve(payload(600));
+        await new Promise(r => setTimeout(r, 100));
+        check('last response cannot overwrite a newer request', cell0.manager.lastClose === 501,
+          {lastClose: cell0.manager.lastClose});
+
+        // Removing a chart while its data is pending must not resurrect it.
+        API.candles = async () => payload();
+        MultiChart.activate(1);
+        await new Promise(r => setTimeout(r, 100));
+        const doomed = MultiChart.activeCell;
+        const gone = deferred(); API.candles = () => gone.promise;
+        reload();
+        MultiChart.activate(0);
+        MultiChart.setLayout(1);
+        gone.resolve(payload(700));
+        await new Promise(r => setTimeout(r, 100));
+        check('removed cell stays destroyed after its response', doomed.manager.chart === null
+          && MultiChart.managerAt(0) === cell0.manager, {cells: MultiChart.cells.length});
+      } finally {
+        API.candles = originalCandles;
+        API.compute = originalCompute;
+      }
+      return results;
+    })()`);
+    for (const result of results) log((result.ok ? 'PASS ' : 'FAIL ') + result.name + ' ' + JSON.stringify(result.detail));
+    log(results.filter(r => r.ok).length + ' passed, ' + results.filter(r => !r.ok).length + ' failed');
+  } catch (e) {
+    log('FAIL async: ' + e.message);
+  }
+  }
+
+  if (wants('stay')) {
+  log('');
+  log('=== stay (bam xen ke: bieu do kia KHONG doi gi) ===');
+  /* Nam, 2026-09-18: clicking chart 1 then chart 2 back and forth made the
+     other chart reset or zoom. Measured on each chart, after every click:
+     its visible bars, its price range, how many bars it holds, how many
+     indicator panes it has, and how many candle requests went out. Nothing
+     may change except which chart is active. */
+  try {
+    const mc = () => w.eval('MultiChart');
+    const reqs = () => w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/api/candles')).length;
+    await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1000);
+    doc.querySelector('button[data-layout="2"]').click();
+    await until('two cells', () => doc.querySelectorAll('#chart-grid .cell').length === 2);
+    await until('cell 1 loaded', () => mc().managerAt(1)?.barCount > 0, 200);
+
+    // An indicator with its own pane on cell 0, so a lost pane would show.
+    (await until('RSI', () => doc.querySelector('.cat-item[data-id="rsi"]'))).click();
+    await until('RSI pane on cell 0', () => doc.querySelectorAll('[data-body="0"] .panes .chart-pane').length === 1, 200);
+
+    /* Zoom each chart the way a person does — wheel on its plot — while it is
+       the active one, then make the other active and zoom that. Ranges set
+       through the API are only read back after a repaint, which headless
+       Chrome may never do; a wheel paints. */
+    const plotCanvas = (i) => [...doc.querySelectorAll(`[data-body="${i}"] .chart-main canvas`)]
+      .filter((c) => !c.classList.contains('draw-layer') && !c.classList.contains('level-zones'))
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    const wheelZoom = async (i, times) => {
+      const c = plotCanvas(i);
+      const r = c.getBoundingClientRect();
+      for (let n = 0; n < times; n++) {
+        c.dispatchEvent(new w.WheelEvent('wheel', {
+          bubbles: true, cancelable: true, deltaY: -240,
+          clientX: r.left + r.width * 0.6, clientY: r.top + r.height / 2,
+        }));
+        await sleep(60);
+      }
+    };
+    const span = (i) => {
+      const q = mc().managerAt(i).chart.timeScale().getVisibleLogicalRange();
+      return q ? q.to - q.from : 0;
+    };
+    const spans0 = [span(0), span(1)];
+    await wheelZoom(0, 8);
+    doc.querySelector('[data-body="1"]').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    await until('active 1', () => mc().active === 1, 100);
+    await sleep(900);
+    await wheelZoom(1, 12);
+    await sleep(900);
+    log(`  zoom bang con lan: o0 ${Math.round(spans0[0])} -> ${Math.round(span(0))} nen, o1 ${Math.round(spans0[1])} -> ${Math.round(span(1))} nen`);
+
+    const state = (i) => {
+      const m = mc().managerAt(i);
+      /* The price axis is fitted when the chart paints, and headless Chrome
+         paints a chart nobody is interacting with late: one run read chart 0's
+         axis as 76574 at the start and 76215 three clicks later, with the same
+         bars in view. takeScreenshot() paints synchronously, so what is read
+         is what a person would see now. */
+      m.chart.takeScreenshot();
+      const r = m.chart.timeScale().getVisibleLogicalRange();
+      const body = doc.querySelector(`[data-body="${i}"]`);
+      const h = body.querySelector('.chart-main').clientHeight;
+      const top = m.priceSeries.coordinateToPrice(10);
+      const bottom = m.priceSeries.coordinateToPrice(h - 40);
+      return {
+        range: r ? `${Math.round(r.from)}..${Math.round(r.to)}` : '-',
+        price: `${Math.round(bottom)}..${Math.round(top)}`,
+        bars: m.barCount,
+        panes: body.querySelectorAll('.panes .chart-pane').length,
+        key: m.seriesKey,
+        h,
+        markers: m.markerCount,
+        last: (() => { const d = m.priceSeries.data(); const b = d[d.length - 1]; return b ? `${b.time}:${b.low}-${b.high}` : '-'; })(),
+        // The lowest low and highest high actually in view, from the data.
+        span: (() => {
+          const d = m.priceSeries.data();
+          const from = Math.max(0, Math.ceil(r?.from ?? 0));
+          const to = Math.min(d.length - 1, Math.floor(r?.to ?? -1));
+          let lo = Infinity, hi = -Infinity;
+          for (let k = from; k <= to; k++) { lo = Math.min(lo, d[k].low); hi = Math.max(hi, d[k].high); }
+          return Number.isFinite(lo) ? `${Math.round(lo)}-${Math.round(hi)}` : '-';
+        })(),
+      };
+    };
+    const text = (x) => `${x.key} nen ${x.range} gia ${x.price} (${x.bars} nen, ${x.panes} pane, cao ${x.h}px, ${x.markers} marker, trong khung ${x.span})`;
+    // A range set from here is only reported back after the chart repaints,
+    // which headless Chrome does lazily; poll until both read the zoom.
+    const before = [state(0), state(1)];
+    log(`  truoc: o0 ${text(before[0])}`);
+    log(`         o1 ${text(before[1])}`);
+
+    let changed = 0;
+    const requests0 = reqs();
+    for (let k = 1; k <= 6; k++) {
+      const target = k % 2;                      // 1, 0, 1, 0, 1, 0
+      doc.querySelector(`[data-body="${target}"]`).dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      await until('active ' + target, () => mc().active === target, 100);
+      await sleep(900);
+      const now = [state(0), state(1)];
+      const diff = [0, 1].filter((i) => {
+        const fields = ['range', 'bars', 'panes', 'key', 'h', 'markers'];
+        // A live candle can extend its high/low while the user switches cells.
+        // Only compare the autoscaled price range when that input stayed put.
+        if (now[i].last === before[i].last) fields.push('price', 'span');
+        return fields.some(key => now[i][key] !== before[i][key]);
+      });
+      changed += diff.length;
+      log(`  bam ${k} -> o ${target} dang lam viec | o doi: ${diff.length ? diff.map((i) => 'o' + i + ' ' + text(now[i])).join(' ; ') : 'khong'} | panel chi bao: ${doc.querySelectorAll('#active .active-item').length}`);
+    }
+    log(`  tong so lan mot bieu do bi doi: ${changed}; request nen trong 6 lan bam: ${reqs() - requests0}`);
+    if (changed) log('FAIL switching cells changed chart state');
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('paperdrag')) {
+  log('');
+  log('=== paperdrag (lai lo tren duong den, keo SL/TP tren bieu do) ===');
+  /* Nam, 2026-09-15: the P&L beside the black entry line, and stops and
+     targets set by dragging on the chart. Uses the paper session already
+     holding a position on the server, and puts its levels back at the end. */
+  try {
+    const cm = () => w.eval('ChartManager');
+    const api = () => w.eval('API');
+    const list = async () => (await (await fetch('/api/paper')).json()).sessions || [];
+    const open = (await list()).find((s) => s.active && s.position !== 0);
+    if (!open) {
+      log('  BO QUA: khong co phien paper nao dang giu vi the');
+    } else {
+      const before = { stop: open.stop_loss ?? null, target: open.take_profit ?? null };
+      log(`  phien ${open.symbol} ${open.timeframe} ${open.position > 0 ? 'LONG' : 'SHORT'} vao ${open.entry_price}, SL ${before.stop}, TP ${before.target}`);
+      await until('the symbol catalogue', () => doc.getElementById('symbol').options.length > 1);
+      if (doc.getElementById('symbol').value !== open.symbol) {
+        doc.getElementById('symbol').value = open.symbol;
+        doc.getElementById('symbol').dispatchEvent(new w.Event('change', { bubbles: true }));
+      }
+      const frameButton = () => [...doc.querySelectorAll('#timeframes button')].find((b) => b.textContent.trim() === open.timeframe);
+      (await until('the session frame', frameButton)).click();
+      await until('the entry line', () => cm().seriesKey === `${open.symbol}|${open.timeframe}` && cm().levelLines.entry, 300);
+      const lines = () => cm().levelLines;
+      const titles = [];
+      for (let i = 0; i < 6; i++) { titles.push((cm().levelZones?.chip?.text ?? '')); await sleep(1500); }
+      log(`  nhan duong den: "${titles[0]}"`);
+      log(`  nhan duong den trong 9s: ${new Set(titles).size} gia tri khac nhau (cuoi: "${titles.at(-1)}")`);
+      /* Headless virtual time may pass those 9s without one real tick, so an
+         unchanged label proves nothing. Apply a candle 100 above the last
+         close through the live path, read the label, then put the real close
+         back. Only this page's chart sees the fake candle. */
+      {
+        const key = `${open.symbol}|${open.timeframe}`;
+        const last = cm().priceSeries.data().at(-1);
+        const vol = cm().volumeSeries.data().at(-1)?.value ?? 0;
+        const utc = last.time - 7 * 3600;
+        const bumped = last.close + 100;
+        cm().updateCandle({ time: utc, open: last.open, high: Math.max(last.high, bumped), low: last.low, close: bumped, volume: vol }, key);
+        const bumpedTitle = (cm().levelZones?.chip?.text ?? '');
+        cm().updateCandle({ time: utc, open: last.open, high: last.high, low: last.low, close: last.close, volume: vol }, key);
+        log(`  nen live gia ${bumped.toFixed(2)}: nhan "${bumpedTitle}" | tinh tay ${(open.quantity * (bumped - open.entry_price)).toFixed(2)} | sau khi tra lai: "${(cm().levelZones?.chip?.text ?? '')}"`);
+        const server = (await list()).find((q) => q.id === open.id);
+        log(`  server: unrealized ${server.unrealized_pnl.toFixed(2)} o gia ${server.last_price} | cong thuc cua bieu do o cung gia: ${(open.quantity * (server.last_price - open.entry_price)).toFixed(2)}`);
+      }
+
+      const host = w.eval('MultiChart').activeCell.chartMain;
+      const rect = host.getBoundingClientRect();
+      const yOf = (price) => rect.top + cm().priceSeries.priceToCoordinate(price);
+      const fire = (type, y) => host.dispatchEvent(new w.PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, button: 0,
+        buttons: type === 'pointerup' ? 0 : 1, clientX: rect.left + rect.width / 2, clientY: y,
+      }));
+      const exits = async () => {
+        const s = (await list()).find((q) => q.id === open.id);
+        return { stop: s.stop_loss ?? null, target: s.take_profit ?? null };
+      };
+      const waitFor = async (test) => {
+        let now = await exits();
+        for (let i = 0; i < 40 && !test(now); i++) { await sleep(250); now = await exits(); }
+        return now;
+      };
+      const exitRequests = () => w.performance.getEntriesByType('resource').filter((r) => r.name.includes('/exits')).length;
+
+      // 1. Pull away from the entry line, upward.
+      const up = open.position > 0 ? 'target' : 'stop';
+      let entryY = yOf(open.entry_price);
+      fire('pointerdown', entryY);
+      for (let dy = 10; dy <= 60; dy += 10) fire('pointermove', entryY - dy);
+      const preview = lines()[up]?.title;
+      fire('pointerup', entryY - 60);
+      let after = await waitFor((e) => e[up] !== before[up]);
+      log(`  keo tu duong den len 60px: ${up} tren server = ${after[up]} | nhan luc keo: "${preview}"`);
+
+      // 2. Drop it back onto the entry line.
+      await until('the redrawn level', () => lines()[up] && Math.abs(lines()[up].price - after[up]) < 1e-6, 100);
+      entryY = yOf(open.entry_price);
+      let y = yOf(after[up]);
+      fire('pointerdown', y);
+      while (Math.abs(y - entryY) > 10) { y += Math.sign(entryY - y) * 10; fire('pointermove', y); }
+      fire('pointermove', entryY);
+      const dropTitle = lines()[up]?.title;
+      fire('pointerup', entryY);
+      after = await waitFor((e) => e[up] === null);
+      log(`  tha lai len duong den: ${up} tren server = ${after[up]} | nhan luc tha: "${dropTitle}"`);
+
+      // 3. Press and release on the entry line without moving: nothing is sent.
+      await sleep(800);
+      const n0 = exitRequests();
+      entryY = yOf(open.entry_price);
+      fire('pointerdown', entryY);
+      fire('pointerup', entryY);
+      await sleep(1500);
+      log(`  bam len duong den khong keo: request /exits moi = ${exitRequests() - n0}`);
+
+      after = await exits();
+      if (after.stop !== before.stop || after.target !== before.target) {
+        await api().paperExits(open.id, { stopLoss: before.stop, takeProfit: before.target });
+      }
+      const restored = await exits();
+      log(`  tra lai nhu cu: SL ${restored.stop}, TP ${restored.target}`);
+    }
+  } catch (e) {
+    log('  LOI: ' + e.message);
+  }
+  }
+
+  if (wants('charttype')) {
+  log('');
+  log('=== chart type menu ===');
+  const btn = doc.getElementById('chart-type');
+  const menu = doc.getElementById('chart-type-menu');
+  btn.click();
+  await sleep(600);
+  const rect = menu.getBoundingClientRect();
+  log(`  menu mo        : ${!menu.hidden}, ${menu.querySelectorAll('[data-chart-type]').length} muc`);
+  log(`  kich thuoc     : ${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+  /* The real question is not whether the menu is open but whether a click
+     reaches it. It lives inside `.topbar-controls`, which scrolls, so an
+     absolutely positioned menu is clipped to the bar and every click lands on
+     the chart canvas behind it. */
+  const hit = doc.elementFromPoint(rect.left + rect.width / 2, rect.top + 12);
+  log(`  duoi con tro   : ${hit ? hit.tagName + '.' + hit.className : 'null'}`);
+  log(`  bam duoc       : ${!!hit?.closest?.('[data-chart-type]')}`);
+  btn.click();
+
+  }
+
+  if (wants('timing')) {
+  log('');
+  log('=== timing ===');
+  const nav = w.performance.getEntriesByType('navigation')[0];
+  if (nav) {
+    log(`  domContentLoaded ${nav.domContentLoadedEventEnd.toFixed(0)}ms`);
+    log(`  loadEventEnd     ${nav.loadEventEnd.toFixed(0)}ms`);
+  }
+  const res = w.performance.getEntriesByType('resource')
+    .map((r) => ({ name: r.name.replace(/^https?:\/\/[^/]+/, ''), dur: r.duration,
+                   sent: r.transferSize, raw: r.decodedBodySize }))
+    .sort((a, b) => b.dur - a.dur);
+  log('  5 tai nguyen cham nhat:');
+  for (const r of res.slice(0, 5)) {
+    log(`    ${r.dur.toFixed(0).padStart(6)}ms ${(r.sent / 1024).toFixed(1).padStart(8)}KB`
+      + ` ${r.name.slice(0, 48)}`);
+  }
+  const sent = res.reduce((s, r) => s + r.sent, 0);
+  const raw = res.reduce((s, r) => s + r.raw, 0);
+  log(`  tong ${res.length} request, gui ${(sent / 1024).toFixed(0)}KB, goc ${(raw / 1024).toFixed(0)}KB`);
+  log(`  picker: ${doc.getElementById('symbol').options.length} option`);
+
+  }
+
+  log('');
+  log('DONE');
+})().catch((e) => log('PROBE ERROR: ' + e.message));
+</script>

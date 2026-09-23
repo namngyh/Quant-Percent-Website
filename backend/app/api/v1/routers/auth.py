@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
@@ -36,6 +37,7 @@ from app.schemas.auth import (
 )
 from app.services import auth as auth_service
 from app.services import email as email_service
+from app.services.terminal_gate import gate_response as terminal_gate_response
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -156,6 +158,32 @@ async def logout(
 @router.get("/me", response_model=AuthResponse)
 async def me(user: CurrentUser) -> AuthResponse:
     return AuthResponse(user=_user_out(user))
+
+
+@router.get("/terminal-gate", include_in_schema=False)
+async def terminal_gate(
+    request: Request,
+    session: SessionDep,
+    user: OptionalUser,
+    level: Literal["member", "admin"] = "member",
+) -> Response:
+    """Caddy's forward_auth check for terminal.quantpercent.com.
+
+    No rate limit: it runs once per Terminal request, chart data included,
+    and it only reads. The access cookie lasts 15 minutes and only the website
+    refreshes it, so when it has lapsed the refresh cookie is accepted too —
+    read, never rotated (see `peek_refresh_token`).
+    """
+    if user is None:
+        raw = request.cookies.get(settings.refresh_cookie_name)
+        if raw:
+            user = await auth_service.peek_refresh_token(session, raw)
+    return terminal_gate_response(
+        user,
+        level=level,
+        navigate=request.headers.get("sec-fetch-mode") == "navigate",
+        site_url=settings.public_site_url,
+    )
 
 
 @router.patch(
