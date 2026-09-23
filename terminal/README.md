@@ -67,7 +67,7 @@ Liên hệ quản trị viên (Admin Quant Percent) để được:
   - **Port**: `5432`
   - **Database**: `market`
   - **User**: `qp_remote` (tài khoản read-only)
-  - **Password**: `dulieuvn30choteam2026`
+  - **Password**: hỏi trưởng nhóm, gửi riêng qua tin nhắn cá nhân (không bao giờ ghi vào Git)
 
 #### Bước 2: Cài đặt và kích hoạt Tailscale VPN
 1. Tải và cài đặt Tailscale: [https://tailscale.com/download](https://tailscale.com/download)
@@ -88,9 +88,9 @@ Liên hệ quản trị viên (Admin Quant Percent) để được:
 2. Mở file `.env` bằng bất kỳ trình soạn thảo nào (VS Code, Notepad...) và cấu hình biến `MARKET_DSN`:
    ```env
    # Định dạng: postgresql://[user]:[password]@[host]:[port]/[database]
-   MARKET_DSN=postgresql://qp_remote:dulieuvn30choteam2026@100.84.96.26:5432/market
+   MARKET_DSN=postgresql://qp_remote:PASSWORD_HERE@100.84.96.26:5432/market
    ```
-   - Mật khẩu chính thức: `dulieuvn30choteam2026`
+   - Thay `PASSWORD_HERE` bằng mật khẩu trưởng nhóm gửi riêng cho bạn. Không dán mật khẩu vào README, issue hay commit nào: repo website là public.
    - IP máy chủ VPS trong mạng Tailscale: `100.84.96.26`
    - *Ghi chú:* File `.env` nằm trong `.gitignore`, không bao giờ bị đưa lên Git, đảm bảo an toàn tuyệt đối cho mật khẩu.
 
