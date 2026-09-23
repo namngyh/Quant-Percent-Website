@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   // dependencies. Runtime server-only env vars remain configurable.
   output: "standalone",
 
+  // Dev only (production ignores it). The local stack that mirrors
+  // production's shared session cookie serves the site as qp.localhost and the
+  // Terminal as terminal.qp.localhost; without this, Next blocks its dev
+  // assets and HMR when reached through those hosts.
+  allowedDevOrigins: ["qp.localhost", "*.qp.localhost"],
+
   async redirects() {
     return [
       // The per-model pages were folded into /models. Anything that still

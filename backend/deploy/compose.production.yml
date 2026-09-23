@@ -145,6 +145,38 @@ services:
     depends_on: [api]
     networks: [private]
 
+  # QP Terminal (terminal.quantpercent.com). Không có đăng nhập riêng —
+  # Caddy hỏi API website (forward_auth) trước mỗi request, và service này
+  # không mở cổng ra ngoài.
+  #
+  # Nến Binance, DuckDB và tài khoản paper nằm trong volume terminal_data, nên
+  # build lại không mất gì. Lần đầu phải nạp nến — và phải DỪNG terminal
+  # trước, vì DuckDB chỉ cho một tiến trình giữ file (chạy lúc đang mở thì báo
+  # "Could not set lock on file"):
+  #   docker compose ... stop terminal
+  #   docker compose ... run --rm terminal python scripts/backfill.py
+  #   docker compose ... start terminal
+  #
+  # TERMINAL_MARKET_DSN trỏ vào timescaledb trong cùng mạng private bằng tài
+  # khoản chỉ-đọc qp_remote, nên không cần Tailscale. Để trống thì phần cổ
+  # phiếu Việt Nam báo "chưa cấu hình", phần Bitcoin vẫn chạy.
+  terminal:
+    build:
+      context: ../../terminal
+    restart: unless-stopped
+    environment:
+      MARKET_DSN: ${TERMINAL_MARKET_DSN:-}
+      TELEGRAM_BOT_TOKEN: ${TERMINAL_TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TERMINAL_TELEGRAM_CHAT_ID:-}
+    volumes:
+      - terminal_data:/app/data_store
+    # Optimize / Monte Carlo có thể ăn hết RAM; giới hạn để website không bị
+    # kéo sập theo trên máy KVM 2.
+    mem_limit: 2g
+    depends_on:
+      timescaledb: { condition: service_healthy }
+    networks: [private]
+
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
@@ -158,7 +190,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [frontend, api]
+    depends_on: [frontend, api, terminal]
     networks: [private]
 
   backup:
@@ -188,3 +220,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  terminal_data:

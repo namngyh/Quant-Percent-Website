@@ -30,6 +30,14 @@ const API = (() => {
         error.detail = detail;
         error.code = detail.code;
       }
+      // On quantpercent.com the proxy asks the website whether the visitor is
+      // signed in before every request. When the session ends mid-use, only
+      // API calls see it, as this 401. A reload is a page load, which the
+      // proxy answers with the website's sign-in page instead of an error
+      // card nobody can act on.
+      if (response.status === 401 && error.code === 'terminal_login_required') {
+        window.location.reload();
+      }
       throw error;
     }
     return payload;

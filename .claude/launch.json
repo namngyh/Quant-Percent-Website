@@ -14,6 +14,20 @@
       "runtimeArgs": ["run", "dev", "--prefix", "D:\\VuaBip123\\Quant-Percent-Website\\frontend"],
       "cwd": "D:\\VuaBip123\\Quant-Percent-Website\\frontend",
       "port": 3000
+    },
+    {
+      "name": "api-qp",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set COOKIE_DOMAIN=.qp.localhost&& set PUBLIC_SITE_URL=http://qp.localhost&& set CORS_ORIGINS=http://qp.localhost&& D:\\VuaBip123\\Quant-Percent-Website\\backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --port 8000 --proxy-headers --forwarded-allow-ips=*"],
+      "cwd": "D:\\VuaBip123\\Quant-Percent-Website\\backend",
+      "port": 8000
+    },
+    {
+      "name": "web-qp",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NEXT_PUBLIC_API_BASE_URL=http://qp.localhost&& set NEXT_PUBLIC_TERMINAL_URL=http://terminal.qp.localhost&& npm run dev"],
+      "cwd": "D:\\VuaBip123\\Quant-Percent-Website\\frontend",
+      "port": 3000
     }
   ]
 }

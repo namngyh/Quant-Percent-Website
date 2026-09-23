@@ -30,6 +30,54 @@
     }
 }
 
+# QP Terminal. App không có tài khoản riêng: ai vào được là do website quyết.
+#
+# forward_auth hỏi API website trước MỌI request tới Terminal — tải trang, gọi
+# API, cả WebSocket — kèm cookie phiên của trình duyệt (cookie đặt trên
+# .quantpercent.com, xem COOKIE_DOMAIN). 2xx thì cho qua; còn lại Caddy trả
+# nguyên câu trả lời của API cho trình duyệt: tải trang thì 302 về
+# quantpercent.com/vi/terminal để đăng nhập, gọi API thì 401/403 dạng JSON.
+#
+# Subdomain riêng thay vì /terminal: frontend của Terminal gọi /api/... và
+# /static/... theo đường dẫn tuyệt đối, đụng /api/* của website ở trên.
+terminal.{$DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
+    encode zstd gzip
+
+    # Chỉ admin. Nạp plugin là chạy file Python người dùng gửi lên — mở cho
+    # mọi thành viên thì ai tự đăng ký cũng chạy được code trên máy chủ. Token
+    # Telegram và backfill cũng là việc của người quản lý, không phải của mọi
+    # người dùng chung một Terminal.
+    @admin_only {
+        path /api/plugins/import /api/plugins/check /api/data/backfill
+    }
+    @notify_write {
+        path /api/notify/settings
+        method PUT DELETE
+    }
+
+    route {
+        forward_auth @admin_only api:8000 {
+            uri /api/v1/auth/terminal-gate?level=admin
+        }
+        forward_auth @notify_write api:8000 {
+            uri /api/v1/auth/terminal-gate?level=admin
+        }
+        forward_auth api:8000 {
+            uri /api/v1/auth/terminal-gate
+        }
+        reverse_proxy terminal:8000
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Robots-Tag "noindex, nofollow"
+        -Server
+    }
+}
+
 www.{$DOMAIN} {
     tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
     redir https://{$DOMAIN}{uri} permanent

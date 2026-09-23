@@ -6,8 +6,20 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
-/** VI / EN switch that keeps the current route when changing language. */
-export function LanguageSwitcher({ className }: { className?: string }) {
+/**
+ * VI / EN switch that keeps the current route when changing language.
+ *
+ * `compact` is the header bar's version: one button naming the language it
+ * switches to, since with two locales the current one is already on screen in
+ * every word of the page. The drawer keeps the full pair.
+ */
+export function LanguageSwitcher({
+  className,
+  variant = "full",
+}: {
+  className?: string;
+  variant?: "full" | "compact";
+}) {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -22,6 +34,24 @@ export function LanguageSwitcher({ className }: { className?: string }) {
       { locale: target }
     );
   };
+
+  if (variant === "compact") {
+    const other = routing.locales.find((l) => l !== locale) ?? locale;
+    return (
+      <button
+        type="button"
+        onClick={() => switchTo(other)}
+        lang={other}
+        aria-label={other === "en" ? "Switch to English" : "Chuyển sang tiếng Việt"}
+        className={cn(
+          "rounded-full px-2 py-1 text-[12px] font-medium uppercase tracking-[0.08em] text-dim transition-colors hover:bg-surface-2 hover:text-foreground",
+          className
+        )}
+      >
+        {other}
+      </button>
+    );
+  }
 
   return (
     <div
