@@ -13,8 +13,10 @@ export type Vote = -1 | 1;
 
 export interface ArticleAuthor {
   id: string;
+  /** The member's public name: their nickname when they have one. */
   name: string;
   role: "user" | "author" | "admin";
+  avatar_url?: string | null;
 }
 
 export interface ArticleSummary {

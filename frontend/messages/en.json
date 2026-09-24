@@ -3,11 +3,7 @@
     "siteName": "Quant Percent",
     "home": {
       "title": "Quant Percent: Understand Vietnam's Markets Through Data",
-      "description": "Quant Percent builds models that help investors understand market direction, risk and possible outcomes in Vietnam."
-    },
-    "market": {
-      "title": "Market Intelligence",
-      "description": "Public dashboard: market state, regime, probabilities, volatility and risk for VN-Index, VN30 and VN30F1M."
+      "description": "A quantitative research community for Vietnam's markets: read and write analysis, measure your portfolio's risk, and test strategies in QP Terminal."
     },
     "models": {
       "title": "Market Models",
@@ -84,7 +80,6 @@
   },
   "nav": {
     "home": "Home",
-    "market": "Market Intelligence",
     "models": "Models",
     "articles": "Articles",
     "performance": "Performance",
@@ -93,8 +88,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "language": "Language",
-    "portfolio": "Quant Portfolio",
-    "marketShort": "Markets",
+    "portfolio": "Quant Portfolio"
+,
     "community": "Community",
     "research": "Research",
     "tools": "Tools",
@@ -116,7 +111,9 @@
     "contactLink": "Contact",
     "feedbackLink": "Feedback",
     "joinLink": "Build with us",
-    "contactEmail": "quantpercent@gmail.com"
+    "contactEmail": "quantpercent@gmail.com",
+    "facebook": "Facebook page",
+    "facebookLabel": "Quant Percent on Facebook (opens in a new tab)"
   },
   "common": {
     "mockNotice": "Market data is updated from Quant Percent's own collection system. Model output and performance figures come from research reports, each stating its data period and scope.",
@@ -241,16 +238,59 @@
       "titleLead": "Understand Vietnam's markets",
       "titleAccent": "through data.",
       "title": "Understand Vietnam's Markets Through Data.",
-      "description": "Every result is published with the data behind it, how it was tested, and what it cannot prove.",
-      "primaryCta": "View Today's Market",
-      "secondaryCta": "Explore the Models"
+      "description": "A community that reads and writes quantitative research, with the tools to check it yourself: measure a portfolio's risk and test strategies on real data.",
+      "primaryCta": "Analyse my portfolio",
+      "secondaryCta": "Open QP Terminal",
+      "opensNewTab": "opens in a new tab"
     },
     "pulse": {
-      "title": "Market pulse",
-      "regime": "Regime",
-      "probabilityUp": "Probability up",
-      "volatility": "Volatility",
-      "riskState": "Risk state"
+      "title": "Market pulse"
+    },
+    "products": {
+      "eyebrow": "Where to start",
+      "title": "Three ways to use Quant Percent",
+      "new": "New",
+      "community": {
+        "title": "Community",
+        "text": "Read analysis from our authors, vote and comment — and write your own when you have something to share.",
+        "cta": "Join the community"
+      },
+      "portfolio": {
+        "title": "Portfolio analysis",
+        "text": "Enter what you hold and see which positions carry most of the risk, and how much the portfolio could lose on a bad day.",
+        "cta": "Analyse now"
+      },
+      "terminal": {
+        "title": "QP Terminal",
+        "text": "A lab for indicators and strategies: chart, backtest with fees and slippage, and test whether a result is real.",
+        "cta": "Open QP Terminal"
+      },
+      "membersNote": "Free for members"
+    },
+    "community": {
+      "eyebrow": "Community",
+      "title": "New in the community",
+      "description": "Research and notes from members. The best pieces are voted to the top.",
+      "viewAll": "See all articles",
+      "write": "Write an article",
+      "empty": "No articles yet. Be the first."
+    },
+    "terminal": {
+      "eyebrow": "QP Terminal",
+      "title": "Test a strategy before you put money on it",
+      "description": "Every trading idea looks good on paper. QP Terminal lets you check it on real data — with fees, with slippage, without peeking ahead — and then ask the next question: was it just luck?",
+      "features": [
+        "Candlestick charts for HOSE stocks and Bitcoin, with close to 200 tunable indicators",
+        "Backtest strategies written in Python, with fees and slippage",
+        "Walk-forward, Monte Carlo and statistical tests to catch overfitting",
+        "Paper trading: run a strategy forward with play money"
+      ],
+      "cta": "Open QP Terminal",
+      "note": "For members with a confirmed email. Free.",
+      "mockTitle": "Backtest · VN30 · SMA cross",
+      "mockReturn": "Return",
+      "mockDrawdown": "Max drawdown",
+      "mockTrades": "Trades"
     },
     "systems": {
       "eyebrow": "Our models",
@@ -268,7 +308,7 @@
       "description": "A broker statement tells you what share of your money each holding is. It does not tell you which holding carries most of the risk — and the two are usually far apart.",
       "example": "An actual result from the tool: “VIC represents 36.2% of portfolio value but contributes 74.0% of total risk.”",
       "cta": "Analyse my portfolio",
-      "noSignup": "No sign-up, nothing stored"
+      "signInHint": "Sign in to try it now — it's free"
     },
     "comparison": {
       "eyebrow": "Against the market",
@@ -788,7 +828,7 @@
       },
       {
         "title": "The portfolio you enter",
-        "text": "The portfolio tool computes on the tickers, quantities, cash and loan you enter. For visitors who are not signed in, this data is sent only to be computed and then discarded, never written to the database. Signed-in members may press \"Save portfolio\"; only what you entered is then stored under your account — never the analysis. A saved portfolio is visible only to you, can be deleted at any time, and is deleted with the account."
+        "text": "The portfolio tool computes on the tickers, quantities, cash and loan you enter. This data is sent only to be computed and then discarded, never written to the database — unless you press \"Save portfolio\"; only what you entered is then stored under your account — never the analysis. A saved portfolio is visible only to you, can be deleted at any time, and is deleted with the account."
       },
       {
         "title": "How we use it",
@@ -880,6 +920,8 @@
       "submit": "Sign in",
       "submitting": "Signing in…",
       "forgot": "Forgot password?",
+      "invalidCredentials": "That email and password do not match.",
+      "rateLimited": "Too many sign-in attempts. Please wait about 15 minutes and try again.",
       "noAccount": "No account yet?",
       "toRegister": "Sign up"
     },
@@ -934,9 +976,28 @@
     },
     "account": {
       "title": "Account",
-      "description": "Manage your personal details and your password.",
+      "description": "Your profile: avatar, nickname, contact details and password.",
       "profileTitle": "Personal details",
-      "profileDescription": "Your name appears in the navigation bar and in our correspondence with you.",
+      "profileDescription": "Your nickname and avatar are what other members see on your articles and comments. Your full name and phone number are seen only by Quant Percent.",
+      "memberSince": "Member since {date}",
+      "verified": "Email confirmed",
+      "unverified": "Email not confirmed",
+      "nickname": "Nickname",
+      "nicknameHint": "Your public name, 2–40 characters: letters, digits, spaces, dots, hyphens. Leave it blank to show your full name.",
+      "nicknameInvalid": "A nickname needs 2–40 characters of letters, digits, spaces, dots, hyphens or underscores, and must start and end with a letter or digit.",
+      "nicknameTaken": "That nickname is taken. Please choose another.",
+      "avatarTitle": "Avatar",
+      "avatarHint": "JPG, PNG or WebP, up to 5 MB. It is cropped to a square around your face.",
+      "avatarChange": "Change photo",
+      "avatarUpload": "Upload a photo",
+      "avatarRemove": "Remove photo",
+      "avatarUploading": "Uploading…",
+      "avatarTooLarge": "That image is larger than 5 MB. Please pick a smaller one.",
+      "avatarWrongType": "Only JPG, PNG or WebP images are accepted.",
+      "avatarFailed": "The photo could not be uploaded. Please try again.",
+      "avatarRateLimited": "You have changed your photo too many times. Please try again later.",
+      "avatarSaved": "Your avatar has been updated.",
+      "avatarUnavailable": "Avatar uploads are not switched on yet. Please try again later.",
       "phoneHint": "Optional. We use it only to reach you about your own enquiry.",
       "save": "Save changes",
       "saving": "Saving…",
@@ -1368,7 +1429,7 @@
       "axisLimitShort": "limit"
     },
     "gate": {
-      "title": "Sign in to analyse a portfolio",
+      "title": "Sign in to try it now",
       "description": "This tool is for members. Create a free account to enter a portfolio, see where its risk sits, and save it for next time."
     },
     "span": {

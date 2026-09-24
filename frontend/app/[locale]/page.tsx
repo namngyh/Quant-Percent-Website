@@ -6,11 +6,13 @@ import { LiveBoard } from "@/components/home/live-board";
 import { WeAre } from "@/components/home/we-are";
 import { PercentMark } from "@/components/percent-mark";
 import { DistributionCurve } from "@/components/decor/distribution-curve";
-import { MarketPulse } from "@/components/home/market-pulse";
+import { ArrowUpRight } from "lucide-react";
 import { PortfolioInvite } from "@/components/home/portfolio-invite";
-import { ModusComparison } from "@/components/home/modus-comparison";
-import { Sealed } from "@/components/sealed";
+import { ProductTrio } from "@/components/home/product-trio";
+import { CommunityLatest } from "@/components/home/community-latest";
+import { TerminalShowcase } from "@/components/home/terminal-showcase";
 import { HomeCta, ResearchSystems } from "@/components/home/sections";
+import { TERMINAL_ENTRY } from "@/lib/terminal";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,6 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home.hero");
-  const seal = await getTranslations("seal");
 
   return (
     <main>
@@ -102,10 +103,14 @@ export default async function HomePage({
               <Reveal delay={0.24}>
                 <div className="mt-11 flex flex-wrap gap-3">
                   <Button asChild>
-                    <Link href="/market-intelligence">{t("primaryCta")}</Link>
+                    <Link href="/quant-portfolio">{t("primaryCta")}</Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link href="/models">{t("secondaryCta")}</Link>
+                    <a href={TERMINAL_ENTRY} target="_blank" rel="noopener noreferrer">
+                      {t("secondaryCta")}
+                      <ArrowUpRight className="ml-1 size-4" aria-hidden="true" />
+                      <span className="sr-only">({t("opensNewTab")})</span>
+                    </a>
                   </Button>
                 </div>
               </Reveal>
@@ -137,34 +142,28 @@ export default async function HomePage({
       </div>
 
       {/*
-        Five sections, down from eight.
+        Built around what a visitor can do here rather than what the team
+        reports: the community, the portfolio tool and QP Terminal, then the
+        research behind them.
 
-        Three were cut rather than restyled. `PerformancePreview` and
-        `ModusComparison` both reported the same 2024-2026 record — one as a
-        grid of six metrics, the other as a chart — so a visitor read the same
-        result twice before reaching anything new; the chart survived because a
-        line against the index is checkable at a glance and a table of ratios is
-        not. `ByTheNumbers` counted models, test years and forecast horizons,
-        which measures the size of the catalogue rather than telling a reader
-        anything they can act on.
-
-        What is left is one claim per screen: the market now, the record, the
-        tool, the models, and how to get in touch.
+        Two sections left in this pass. The market pulse went with the retired
+        market-intelligence page. The Modus comparison is sealed while the
+        system is re-examined, and a sealed panel on the homepage asked a
+        first-time visitor to look at something they were not allowed to see;
+        it stays in components/home/modus-comparison.tsx for when the seal
+        lifts.
       */}
 
-      {/* The model's read on the market. Renders nothing until an inference
-          runner has written to `quant.market_state`, so it costs a visitor
-          nothing on the days it has nothing to say. */}
-      <MarketPulse />
+      {/* All three at a glance, for anyone who stops reading here. */}
+      <ProductTrio />
 
-      {/* The flagship system's record, against the index it trades — sealed
-          while the system is re-examined. Pale ink: the band is dark. */}
-      <Sealed title={seal("title")} note={seal("modus")} tone="dark" sticky>
-        <ModusComparison />
-      </Sealed>
+      {/* The newest articles: proof the community is alive. */}
+      <CommunityLatest locale={locale} />
 
       {/* The one thing a visitor can run against their own holdings. */}
       <PortfolioInvite />
+
+      <TerminalShowcase />
 
       <ResearchSystems />
 

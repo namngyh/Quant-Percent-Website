@@ -25,6 +25,19 @@ const nextConfig: NextConfig = {
         destination: "/:locale/models",
         permanent: true,
       },
+      // The market-intelligence page was retired; the homepage now leads with
+      // what replaced it as the reason to visit. Permanent for the same
+      // reason as above.
+      {
+        source: "/:locale(vi|en)/market-intelligence",
+        destination: "/:locale",
+        permanent: true,
+      },
+      {
+        source: "/market-intelligence",
+        destination: "/",
+        permanent: true,
+      },
     ];
   },
 };

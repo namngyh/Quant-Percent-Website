@@ -67,6 +67,13 @@ class User(Base):
             "author_request_status IN ('pending', 'rejected')",
             name="author_request_status_valid",
         ),
+        # Case-insensitive: "Minh" and "minh" must not both exist, or two
+        # members read as one in a comment thread. Migration 0012.
+        Index(
+            "uq_users_nickname_lower",
+            text("lower(nickname)"),
+            unique=True,
+        ),
         {"schema": WEB_SCHEMA},
     )
 
@@ -77,6 +84,10 @@ class User(Base):
     # Optional, and the same width as contacts.phone so the two agree on what
     # a phone number is. Nobody needs one to hold an account.
     phone: Mapped[str | None] = mapped_column(String(40))
+    # What the public sees in place of full_name, when set. See 0012.
+    nickname: Mapped[str | None] = mapped_column(String(40))
+    # A Cloudinary delivery URL; the API only accepts ones on our cloud.
+    avatar_url: Mapped[str | None] = mapped_column(Text)
     locale: Mapped[str] = mapped_column(String(5), default="vi", nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False
@@ -98,6 +109,11 @@ class User(Base):
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+    @property
+    def display_name(self) -> str:
+        """The name shown to other people: the nickname, else the full name."""
+        return self.nickname or self.full_name
 
 
 class RefreshToken(Base):

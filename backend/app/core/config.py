@@ -67,10 +67,30 @@ class Settings(BaseSettings):
     email_from: str = "Quant Percent <noreply@quantpercent.com>"
     contact_notify_email: str | None = None
     public_site_url: str = "http://localhost:3000"
+    # The address printed in the footer of member-facing mail — the one the
+    # site's own footer shows, not the inbox notifications are delivered to.
+    support_email: str = "quantpercent@gmail.com"
 
     @property
     def smtp_configured(self) -> bool:
         return bool(self.smtp_host and self.smtp_user and self.smtp_password)
+
+    # --- Avatars (optional) -------------------------------------------------
+    # Member avatars live on Cloudinary. The browser uploads straight to it
+    # with a signature this API issues, so image bytes never pass through
+    # here and the secret never leaves the server. Unset, the avatar upload
+    # is simply not offered.
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: str | None = None
+
+    @property
+    def cloudinary_configured(self) -> bool:
+        return bool(
+            self.cloudinary_cloud_name
+            and self.cloudinary_api_key
+            and self.cloudinary_api_secret
+        )
 
     # --- Data --------------------------------------------------------------
     # Publication delay in minutes, reported on every market payload.

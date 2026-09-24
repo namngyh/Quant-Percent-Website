@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
+import re
+
 from pydantic import EmailStr, Field, field_validator
 
 from app.schemas.common import ApiModel
@@ -43,16 +45,59 @@ class VerifyEmailRequest(ApiModel):
     token: str = Field(min_length=10, max_length=200)
 
 
+# Letters in any script (so Vietnamese diacritics), digits, and a few joiners.
+# No leading/trailing separator and no runs of spaces, so two nicknames
+# cannot differ only in whitespace a reader cannot see.
+NICKNAME_PATTERN = re.compile(r"^[^\W_](?:[\w.\- ]*[^\W_])?$")
+
+
 class UpdateProfileRequest(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=40)
+    # Only written when the client sends the field, so an older client that
+    # knows nothing about nicknames cannot clear one by saving its form.
+    nickname: str | None = Field(default=None, max_length=40)
 
-    @field_validator("phone", mode="before")
+    @field_validator("phone", "nickname", mode="before")
     @classmethod
     def _empty_to_none(cls, v: object) -> object:
         # A cleared field arrives as "" from the form; store absence as NULL
         # rather than as an empty string that reads like a real answer.
+        if isinstance(v, str):
+            v = v.strip()
         return None if v == "" else v
+
+    @field_validator("nickname")
+    @classmethod
+    def _nickname_shape(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = re.sub(r"\s+", " ", v)
+        if len(v) < 2 or not NICKNAME_PATTERN.match(v):
+            raise ValueError("nickname_invalid")
+        return v
+
+
+class UpdateAvatarRequest(ApiModel):
+    """A Cloudinary delivery URL, or null to go back to initials. The router
+    checks it points at our own cloud; the shape is checked here."""
+
+    avatar_url: str | None = Field(default=None, max_length=500)
+
+
+class AvatarSignatureOut(ApiModel):
+    """Everything the browser needs for one signed upload to Cloudinary.
+
+    Every field except ``api_key`` and ``cloud_name`` went into the
+    signature, so the browser must send them back unchanged."""
+
+    cloud_name: str
+    api_key: str
+    timestamp: int
+    signature: str
+    public_id: str
+    overwrite: bool
+    allowed_formats: str
 
 
 class AdminUserOut(ApiModel):
@@ -99,6 +144,10 @@ class UserOut(ApiModel):
     # Defaulted, not required: every existing _user_out call site predates the
     # column, and members who registered before it have nothing to report.
     phone: str | None = None
+    nickname: str | None = None
+    avatar_url: str | None = None
+    # nickname if set, else name — what everyone else sees.
+    display_name: str = ""
     role: UserRole = "user"
     author_request_status: Literal["pending", "rejected"] | None = None
     locale: str

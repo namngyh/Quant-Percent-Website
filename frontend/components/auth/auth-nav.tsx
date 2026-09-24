@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { useAuth } from "@/lib/auth/auth-context";
+import { displayName, useAuth } from "@/lib/auth/auth-context";
+import { AuthorAvatar } from "@/components/articles/author-avatar";
 import { isAdmin } from "@/lib/auth/verified";
 import {
   NavDropdown,
@@ -39,10 +40,11 @@ export function AuthNav({
             <Link
               href="/account"
               onClick={onNavigate}
-              className="border-b border-border py-5 text-xl font-medium tracking-normal text-brand"
+              className="flex items-center gap-3 border-b border-border py-5 text-xl font-medium tracking-normal text-brand"
               title={user.email}
             >
-              {user.name}
+              <AuthorAvatar name={displayName(user)} src={user.avatar_url} size="sm" />
+              {displayName(user)}
             </Link>
             {admin && (
               <Link
@@ -97,7 +99,12 @@ export function AuthNav({
     return (
       <NavDropdown
         align="end"
-        label={<span className="max-w-[8rem] truncate">{user.name}</span>}
+        label={
+          <span className="flex items-center gap-2">
+            <AuthorAvatar name={displayName(user)} src={user.avatar_url} size="xs" />
+            <span className="max-w-[7rem] truncate">{displayName(user)}</span>
+          </span>
+        }
         triggerClassName="text-brand hover:text-brand-strong"
       >
         <p className="truncate px-3 pb-1.5 pt-1 text-[12px] text-dim">{user.email}</p>

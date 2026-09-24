@@ -204,7 +204,7 @@ export function CommentSection({ className }: { className?: string }) {
           <ul className="divide-y divide-border">
             {comments.map((c) => (
               <li key={c.id} className="flex gap-3 py-5">
-                <AuthorAvatar name={c.author.name} size="sm" />
+                <AuthorAvatar name={c.author.name} src={c.author.avatar_url} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="text-sm font-semibold text-ink">

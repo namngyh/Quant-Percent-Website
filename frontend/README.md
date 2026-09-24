@@ -31,8 +31,8 @@ Copy `.env.example` → `.env.local` (mọi biến đều tùy chọn trong mock
 ```
 app/
 ├── [locale]/            # vi | en — mọi trang người dùng
-│   ├── page.tsx         # Trang chủ (hero animation "%", market pulse, …)
-│   ├── market-intelligence/  # 6 tab: Overview, VN-Index, VN30, VN30F1M, Stocks, Risk
+│   ├── page.tsx         # Trang chủ: cộng đồng, phân tích danh mục, QP Terminal, mô hình
+│   ├── articles/ quant-portfolio/ terminal/ account/
 │   ├── models/ + [slug]      # Danh mục & chi tiết mô hình
 │   ├── performance/ + [slug] # Báo cáo hiệu suất (gắn nhãn loại kết quả)
 │   ├── about/ contact/ legal/ privacy/ system-status/

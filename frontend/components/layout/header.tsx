@@ -25,13 +25,15 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { TERMINAL_ENTRY } from "@/lib/terminal";
 
 /*
- * The bar holds two links and two menus instead of six links, grouped by what a
- * visitor came to do: read today's market, read the research behind it, join
- * the members' articles, or use a tool. "About" lives in the footer beside
- * "Contact", and stays in the mobile drawer where length costs nothing.
+ * The bar holds one link and two menus, grouped by what a visitor came to do:
+ * join the members' articles, use a tool, or read the research behind them.
+ * Community leads because it is what changes daily. "About" lives in the
+ * footer beside "Contact", and stays in the mobile drawer where length costs
+ * nothing.
+ *
+ * A "Market" link used to open the bar; the market-intelligence page was
+ * retired and its URL now redirects home (next.config.ts).
  */
-const MARKET = { key: "market", href: "/market-intelligence" } as const;
-
 const RESEARCH = [
   { key: "models", href: "/models" },
   { key: "performance", href: "/performance" },
@@ -162,25 +164,6 @@ export function Header() {
           */}
           <nav className="hidden items-center gap-5 desk:flex" aria-label="Main">
             <span className="flex items-center gap-0.5">
-              <BarLink href={MARKET.href} active={isActive(MARKET.href)}>
-                {t("marketShort")}
-              </BarLink>
-
-              <NavDropdown
-                label={t("research")}
-                active={RESEARCH.some((item) => isActive(item.href))}
-              >
-                {RESEARCH.map((item) => (
-                  <NavDropdownLink
-                    key={item.key}
-                    href={item.href}
-                    active={isActive(item.href)}
-                  >
-                    {t(item.key)}
-                  </NavDropdownLink>
-                ))}
-              </NavDropdown>
-
               <BarLink href={COMMUNITY.href} active={isActive(COMMUNITY.href)}>
                 {t(COMMUNITY.key)}
               </BarLink>
@@ -205,6 +188,21 @@ export function Header() {
                 >
                   {t("terminal")}
                 </NavDropdownExternal>
+              </NavDropdown>
+
+              <NavDropdown
+                label={t("research")}
+                active={RESEARCH.some((item) => isActive(item.href))}
+              >
+                {RESEARCH.map((item) => (
+                  <NavDropdownLink
+                    key={item.key}
+                    href={item.href}
+                    active={isActive(item.href)}
+                  >
+                    {t(item.key)}
+                  </NavDropdownLink>
+                ))}
               </NavDropdown>
             </span>
 
@@ -265,9 +263,6 @@ export function Header() {
                   here, each under its own small heading. */}
               <DrawerLink href="/" onClick={close}>
                 {t("home")}
-              </DrawerLink>
-              <DrawerLink href={MARKET.href} onClick={close}>
-                {t(MARKET.key)}
               </DrawerLink>
               {/* Up here with the other ungrouped pages: placed after Tools it
                   read as one of the tools. */}

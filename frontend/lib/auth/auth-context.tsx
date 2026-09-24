@@ -18,10 +18,27 @@ export interface AuthUser {
   name: string;
   email: string;
   phone?: string | null;
+  /** Shown to other people in place of `name` when set. */
+  nickname?: string | null;
+  avatar_url?: string | null;
+  /** nickname ?? name, computed by the API. Read it through displayName(). */
+  display_name?: string;
   locale?: "vi" | "en";
   email_verified?: boolean;
   role?: "user" | "author" | "admin";
   author_request_status?: "pending" | "rejected" | null;
+  created_at?: string;
+}
+
+export interface ProfileInput {
+  name: string;
+  phone: string | null;
+  nickname?: string | null;
+}
+
+/** The name everyone else sees. Mock sessions carry no display_name. */
+export function displayName(user: AuthUser) {
+  return user.display_name || user.nickname || user.name;
 }
 
 interface AuthResponse {
@@ -42,7 +59,9 @@ interface AuthContextValue {
     locale: "vi" | "en";
   }) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (input: { name: string; phone: string | null }) => Promise<void>;
+  updateProfile: (input: ProfileInput) => Promise<void>;
+  /** Point the account at an uploaded avatar, or clear it with null. */
+  updateAvatar: (avatarUrl: string | null) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -150,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateProfile = useCallback(
-    async (input: { name: string; phone: string | null }) => {
+    async (input: ProfileInput) => {
       if (usesApiAuth()) {
         // PATCH returns the whole user, so the header updates without a
         // follow-up GET /me — the same envelope login and register return.
@@ -165,13 +184,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // next page load reads, so updating state alone would lose the edit.
       setUser((prev) => {
         if (!prev) return prev;
-        const next = { ...prev, name: input.name, phone: input.phone };
+        const next = { ...prev, ...input, display_name: undefined };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         return next;
       });
     },
     []
   );
+
+  const updateAvatar = useCallback(async (avatarUrl: string | null) => {
+    // Only the API mode can reach this: the upload needs a signature from the
+    // backend, and without one the control is never shown.
+    const response = await apiRequest<AuthResponse>("/api/v1/auth/me/avatar", {
+      method: "PUT",
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    });
+    setUser(response.user);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     // Re-read the server's copy. Used after a change the client did not make
@@ -200,8 +229,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, status, signIn, signUp, signOut, updateProfile, refreshUser }),
-    [user, status, signIn, signUp, signOut, updateProfile, refreshUser]
+    () => ({
+      user,
+      status,
+      signIn,
+      signUp,
+      signOut,
+      updateProfile,
+      updateAvatar,
+      refreshUser,
+    }),
+    [user, status, signIn, signUp, signOut, updateProfile, updateAvatar, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

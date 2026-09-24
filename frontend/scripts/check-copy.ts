@@ -18,7 +18,6 @@ const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
 const ROUTES = [
   "/vi",
-  "/vi/market-intelligence",
   "/vi/models",
   "/vi/models/dynamic-graph",
   "/vi/models/rarf-fhe",

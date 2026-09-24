@@ -3,11 +3,7 @@
     "siteName": "Quant Percent",
     "home": {
       "title": "Quant Percent: Hiểu thị trường Việt Nam bằng dữ liệu",
-      "description": "Quant Percent xây dựng các mô hình giúp nhà đầu tư hiểu rõ hơn xu hướng, rủi ro và những kịch bản có thể xảy ra trên thị trường Việt Nam."
-    },
-    "market": {
-      "title": "Phân tích thị trường",
-      "description": "Bảng phân tích công khai về xu hướng, xác suất, biến động và rủi ro của VN-Index, VN30 và VN30F1M."
+      "description": "Cộng đồng nghiên cứu định lượng về thị trường Việt Nam: đọc và viết bài phân tích, đo rủi ro danh mục của bạn, và thử chiến lược trên QP Terminal."
     },
     "models": {
       "title": "Các mô hình phân tích",
@@ -84,7 +80,6 @@
   },
   "nav": {
     "home": "Trang chủ",
-    "market": "Phân tích thị trường",
     "models": "Mô hình",
     "articles": "Bài viết",
     "performance": "Hiệu suất",
@@ -93,8 +88,8 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
     "language": "Ngôn ngữ",
-    "portfolio": "Phân tích danh mục",
-    "marketShort": "Thị trường",
+    "portfolio": "Phân tích danh mục"
+,
     "community": "Cộng đồng",
     "research": "Nghiên cứu",
     "tools": "Công cụ",
@@ -116,7 +111,9 @@
     "contactLink": "Liên hệ",
     "feedbackLink": "Ý kiến đóng góp",
     "joinLink": "Tìm bạn đồng hành",
-    "contactEmail": "quantpercent@gmail.com"
+    "contactEmail": "quantpercent@gmail.com",
+    "facebook": "Fanpage Facebook",
+    "facebookLabel": "Fanpage Quant Percent trên Facebook (mở tab mới)"
   },
   "common": {
     "mockNotice": "Dữ liệu thị trường được cập nhật từ hệ thống thu thập của Quant Percent. Kết quả mô hình và hiệu suất đến từ báo cáo nghiên cứu, có ghi rõ giai đoạn dữ liệu và phạm vi áp dụng.",
@@ -241,16 +238,59 @@
       "titleLead": "Hiểu thị trường Việt Nam",
       "titleAccent": "bằng dữ liệu.",
       "title": "Hiểu thị trường Việt Nam bằng dữ liệu.",
-      "description": "Mỗi kết quả đều công bố kèm dữ liệu đã dùng, cách kiểm tra và giới hạn của nó.",
-      "primaryCta": "Xem thị trường hôm nay",
-      "secondaryCta": "Tìm hiểu các mô hình"
+      "description": "Một cộng đồng đọc và viết nghiên cứu định lượng, cùng những công cụ để bạn tự kiểm chứng: đo rủi ro danh mục và thử chiến lược trên dữ liệu thật.",
+      "primaryCta": "Phân tích danh mục của tôi",
+      "secondaryCta": "Mở QP Terminal",
+      "opensNewTab": "mở tab mới"
     },
     "pulse": {
-      "title": "Tổng quan thị trường",
-      "regime": "Trạng thái thị trường",
-      "probabilityUp": "Xác suất tăng",
-      "volatility": "Biến động",
-      "riskState": "Trạng thái rủi ro"
+      "title": "Tổng quan thị trường"
+    },
+    "products": {
+      "eyebrow": "Bắt đầu từ đâu",
+      "title": "Ba cách dùng Quant Percent",
+      "new": "Mới",
+      "community": {
+        "title": "Cộng đồng",
+        "text": "Đọc bài phân tích từ các tác giả, bình chọn, bình luận — và tự viết bài khi bạn có điều muốn chia sẻ.",
+        "cta": "Vào cộng đồng"
+      },
+      "portfolio": {
+        "title": "Phân tích danh mục",
+        "text": "Nhập các mã bạn đang giữ để xem mã nào đang gánh phần lớn rủi ro, và danh mục có thể mất bao nhiêu trong ngày xấu.",
+        "cta": "Phân tích ngay"
+      },
+      "terminal": {
+        "title": "QP Terminal",
+        "text": "Nền tảng thử nghiệm chỉ báo và chiến lược: vẽ biểu đồ, backtest có phí và trượt giá, kiểm định xem kết quả có thật không.",
+        "cta": "Mở QP Terminal"
+      },
+      "membersNote": "Miễn phí cho thành viên"
+    },
+    "community": {
+      "eyebrow": "Cộng đồng",
+      "title": "Mới trên cộng đồng",
+      "description": "Nghiên cứu và ghi chép từ các thành viên. Bài hay được cộng đồng bình chọn lên đầu.",
+      "viewAll": "Xem tất cả bài viết",
+      "write": "Viết bài",
+      "empty": "Chưa có bài viết nào. Hãy là người mở đầu."
+    },
+    "terminal": {
+      "eyebrow": "QP Terminal",
+      "title": "Thử chiến lược trước khi đặt tiền",
+      "description": "Mọi ý tưởng giao dịch đều trông tốt trên giấy. QP Terminal cho bạn kiểm tra nó trên dữ liệu thật — có phí, có trượt giá, không nhìn trước tương lai — rồi hỏi tiếp: kết quả đó có phải may mắn không?",
+      "features": [
+        "Biểu đồ nến cho cổ phiếu HOSE và Bitcoin, gần 200 chỉ báo chỉnh tham số trực tiếp",
+        "Backtest chiến lược viết bằng Python, tính phí và trượt giá",
+        "Walk-forward, Monte Carlo và kiểm định thống kê để phát hiện overfit",
+        "Paper trading: chạy chiến lược tiến về phía trước bằng tiền ảo"
+      ],
+      "cta": "Mở QP Terminal",
+      "note": "Dành cho thành viên đã xác thực email. Miễn phí.",
+      "mockTitle": "Backtest · VN30 · SMA cross",
+      "mockReturn": "Lợi suất",
+      "mockDrawdown": "Sụt giảm tối đa",
+      "mockTrades": "Số lệnh"
     },
     "systems": {
       "eyebrow": "Các mô hình",
@@ -268,7 +308,7 @@
       "description": "Sao kê cho biết mỗi mã chiếm bao nhiêu phần trăm tiền. Nó không cho biết mã nào mang phần lớn rủi ro — và hai con số đó thường lệch xa nhau.",
       "example": "Kết quả thực tế từ công cụ: “VIC chiếm 36,2% giá trị danh mục nhưng đóng góp 74,0% tổng rủi ro.”",
       "cta": "Phân tích danh mục của tôi",
-      "noSignup": "Không cần đăng ký, không lưu dữ liệu"
+      "signInHint": "Đăng nhập để được trải nghiệm ngay — miễn phí"
     },
     "comparison": {
       "eyebrow": "So sánh với thị trường",
@@ -788,7 +828,7 @@
       },
       {
         "title": "Danh mục đầu tư bạn nhập",
-        "text": "Công cụ Phân tích danh mục tính toán trên các mã, số lượng, tiền mặt và khoản vay bạn nhập. Với người chưa đăng nhập, dữ liệu này chỉ được gửi đi để tính rồi loại bỏ, không ghi vào cơ sở dữ liệu. Thành viên đã đăng nhập có thể chủ động bấm \"Lưu danh mục\"; khi đó chỉ phần bạn nhập được lưu dưới tài khoản của bạn — không lưu kết quả phân tích. Danh mục đã lưu chỉ bạn xem được, có thể xoá bất kỳ lúc nào, và bị xoá cùng tài khoản."
+        "text": "Công cụ Phân tích danh mục tính toán trên các mã, số lượng, tiền mặt và khoản vay bạn nhập. Dữ liệu này chỉ được gửi đi để tính rồi loại bỏ, không ghi vào cơ sở dữ liệu — trừ khi bạn chủ động bấm \"Lưu danh mục\"; khi đó chỉ phần bạn nhập được lưu dưới tài khoản của bạn — không lưu kết quả phân tích. Danh mục đã lưu chỉ bạn xem được, có thể xoá bất kỳ lúc nào, và bị xoá cùng tài khoản."
       },
       {
         "title": "Mục đích sử dụng",
@@ -880,6 +920,8 @@
       "submit": "Đăng nhập",
       "submitting": "Đang đăng nhập…",
       "forgot": "Quên mật khẩu?",
+      "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+      "rateLimited": "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi khoảng 15 phút rồi thử lại.",
       "noAccount": "Chưa có tài khoản?",
       "toRegister": "Đăng ký"
     },
@@ -934,9 +976,28 @@
     },
     "account": {
       "title": "Tài khoản",
-      "description": "Quản lý thông tin cá nhân và mật khẩu của bạn.",
+      "description": "Trang cá nhân của bạn: ảnh đại diện, biệt danh, thông tin liên hệ và mật khẩu.",
       "profileTitle": "Thông tin cá nhân",
-      "profileDescription": "Tên hiển thị trên thanh điều hướng và trong các trao đổi với chúng tôi.",
+      "profileDescription": "Biệt danh và ảnh đại diện là những gì thành viên khác nhìn thấy trên bài viết và bình luận của bạn. Họ tên và số điện thoại chỉ Quant Percent thấy.",
+      "memberSince": "Thành viên từ {date}",
+      "verified": "Đã xác thực email",
+      "unverified": "Chưa xác thực email",
+      "nickname": "Biệt danh",
+      "nicknameHint": "Tên công khai, 2–40 ký tự: chữ, số, dấu cách, dấu chấm, gạch ngang. Để trống thì hiển thị họ tên.",
+      "nicknameInvalid": "Biệt danh cần 2–40 ký tự, chỉ gồm chữ, số, dấu cách, dấu chấm, gạch ngang hoặc gạch dưới, và bắt đầu, kết thúc bằng chữ hoặc số.",
+      "nicknameTaken": "Biệt danh này đã có người dùng. Bạn chọn tên khác nhé.",
+      "avatarTitle": "Ảnh đại diện",
+      "avatarHint": "JPG, PNG hoặc WebP, tối đa 5 MB. Ảnh được cắt vuông quanh khuôn mặt.",
+      "avatarChange": "Đổi ảnh",
+      "avatarUpload": "Tải ảnh lên",
+      "avatarRemove": "Xoá ảnh",
+      "avatarUploading": "Đang tải lên…",
+      "avatarTooLarge": "Ảnh lớn hơn 5 MB. Bạn chọn ảnh nhỏ hơn nhé.",
+      "avatarWrongType": "Chỉ nhận ảnh JPG, PNG hoặc WebP.",
+      "avatarFailed": "Không tải được ảnh lên. Vui lòng thử lại.",
+      "avatarRateLimited": "Bạn đã đổi ảnh quá nhiều lần. Vui lòng thử lại sau.",
+      "avatarSaved": "Đã cập nhật ảnh đại diện.",
+      "avatarUnavailable": "Tính năng tải ảnh đại diện chưa được bật. Vui lòng thử lại sau.",
       "phoneHint": "Không bắt buộc. Chúng tôi chỉ dùng khi cần liên hệ về chính yêu cầu của bạn.",
       "save": "Lưu thay đổi",
       "saving": "Đang lưu…",
@@ -1368,7 +1429,7 @@
       "axisLimitShort": "giới hạn"
     },
     "gate": {
-      "title": "Đăng nhập để phân tích danh mục",
+      "title": "Đăng nhập để được trải nghiệm ngay",
       "description": "Công cụ này dành cho thành viên. Tạo tài khoản miễn phí để nhập danh mục, xem rủi ro tập trung ở đâu, và lưu lại để mở lần sau."
     },
     "span": {

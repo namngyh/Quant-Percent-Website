@@ -73,8 +73,10 @@ class CommentCreate(ApiModel):
 
 class ArticleAuthor(ApiModel):
     id: str
+    # The member's public name: their nickname when they have one.
     name: str
     role: UserRole
+    avatar_url: str | None = None
 
 
 class ArticleSummary(ApiModel):

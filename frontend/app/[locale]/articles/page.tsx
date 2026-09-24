@@ -95,7 +95,7 @@ async function ArticleCard({ article, locale }: { article: ArticleSummary; local
         )}
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-dim">
           <span className="inline-flex items-center gap-2 font-medium text-ink">
-            <AuthorAvatar name={article.author.name} size="sm" />
+            <AuthorAvatar name={article.author.name} src={article.author.avatar_url} size="sm" />
             {article.author.name}
           </span>
           <span aria-hidden="true">·</span>

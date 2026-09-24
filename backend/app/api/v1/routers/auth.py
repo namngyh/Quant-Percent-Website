@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import re
+import time
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -15,6 +18,7 @@ from app.core.deps import (
 )
 from app.core.security import verify_password
 from app.core.ratelimit import (
+    AVATAR_UPLOAD,
     LOGIN,
     PASSWORD_CHANGE,
     PASSWORD_RESET,
@@ -25,12 +29,14 @@ from app.core.ratelimit import (
 )
 from app.schemas.auth import (
     AuthResponse,
+    AvatarSignatureOut,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
     SuccessResponse,
+    UpdateAvatarRequest,
     UpdateProfileRequest,
     UserOut,
     VerifyEmailRequest,
@@ -48,6 +54,9 @@ def _user_out(user) -> UserOut:
         email=user.email,
         name=user.full_name,
         phone=user.phone,
+        nickname=user.nickname,
+        avatar_url=user.avatar_url,
+        display_name=user.display_name,
         role=user.role,
         author_request_status=user.author_request_status,
         locale=user.locale,
@@ -84,7 +93,7 @@ async def register(
 
     if verify_token:
         await email_service.send_email_verification(
-            user.email, verify_token, user.locale
+            user.email, verify_token, user.locale, user.display_name
         )
     auth_service.set_session_cookies(response, user, refresh)
     return AuthResponse(user=_user_out(user))
@@ -197,8 +206,24 @@ async def update_profile(
     session: SessionDep,
     user: CurrentUser,
 ) -> AuthResponse:
+    from sqlalchemy import func, select
+
+    from app.db.models import User
+
+    if "nickname" in payload.model_fields_set and payload.nickname is not None:
+        taken = await session.scalar(
+            select(User.id).where(
+                func.lower(User.nickname) == payload.nickname.lower(),
+                User.id != user.id,
+            )
+        )
+        if taken is not None:
+            raise _nickname_taken()
+
     user.full_name = payload.name.strip()
     user.phone = payload.phone
+    if "nickname" in payload.model_fields_set:
+        user.nickname = payload.nickname
     # utcnow_column has no onupdate, so nothing bumps this on its own.
     user.updated_at = datetime.now(UTC)
     await auth_service.record_audit(
@@ -209,9 +234,152 @@ async def update_profile(
         entity_id=str(user.id),
         ip=client_ip(request),
     )
-    await session.commit()
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Two members claiming the same nickname at the same moment: the
+        # check above passed for both and the unique index caught the second.
+        await session.rollback()
+        raise _nickname_taken() from None
     # Returning the whole user lets the client update its cached copy without
     # a follow-up GET /me, the same way login and register already do.
+    return AuthResponse(user=_user_out(user))
+
+
+def _nickname_taken() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"error": "nickname_taken"},
+    )
+
+
+AVATAR_FOLDER = "qp/avatars"
+AVATAR_FORMATS = "jpg,png,webp"
+# Square, face-centred, sized for the largest place an avatar is drawn (the
+# account page, at 2x), and served in whatever format the browser takes best.
+AVATAR_TRANSFORM = "c_fill,g_face,w_256,h_256,f_auto,q_auto"
+
+
+def cloudinary_signature(params: dict[str, object], secret: str) -> str:
+    """Cloudinary's upload signature: the parameters sorted by name and
+    joined as ``k=v&k=v``, the API secret appended, SHA-1 in hex.
+
+    Written out rather than pulled in with the cloudinary package: this is
+    the only call the site makes, and a dependency is one more thing to pin.
+    """
+    joined = "&".join(f"{k}={params[k]}" for k in sorted(params))
+    return hashlib.sha1((joined + secret).encode()).hexdigest()
+
+
+def _avatar_public_id(user) -> str:
+    # One image per member, overwritten on every change, so an account can
+    # never pile up uploads. The folder is part of the id rather than a
+    # separate `folder` parameter, which behaves differently between
+    # Cloudinary's fixed- and dynamic-folder account modes.
+    return f"{AVATAR_FOLDER}/{user.id}"
+
+
+def _avatar_pattern(user) -> re.Pattern[str]:
+    """What an upload of *this member's* avatar comes back as.
+
+    Anything else is refused. A URL on another host would let a member embed
+    an arbitrary image (or a tracking pixel) on every page they comment on;
+    one on our cloud but under another public id would let them wear somebody
+    else's face.
+    """
+    cloud = re.escape(settings.cloudinary_cloud_name or "")
+    public_id = re.escape(_avatar_public_id(user))
+    return re.compile(
+        rf"^https://res\.cloudinary\.com/{cloud}/image/upload/"
+        rf"(v\d+)/{public_id}\.(?:jpg|jpeg|png|webp)$"
+    )
+
+
+def _avatar_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={"error": "avatar_upload_unavailable"},
+    )
+
+
+@router.post(
+    "/me/avatar-signature",
+    response_model=AvatarSignatureOut,
+    dependencies=[Depends(require_csrf)],
+)
+async def avatar_signature(user: CurrentUser) -> AvatarSignatureOut:
+    """Sign one direct browser-to-Cloudinary upload of this member's avatar.
+
+    The image never passes through this API. The signature pins the public
+    id, the formats and the overwrite flag, so the browser cannot reuse it to
+    put anything else on our cloud.
+    """
+    if not settings.cloudinary_configured:
+        raise _avatar_unavailable()
+    await enforce(f"avatar:{user.id}", AVATAR_UPLOAD)
+    timestamp = int(time.time())
+    public_id = _avatar_public_id(user)
+    params: dict[str, object] = {
+        "allowed_formats": AVATAR_FORMATS,
+        "overwrite": "true",
+        "public_id": public_id,
+        "timestamp": timestamp,
+    }
+    return AvatarSignatureOut(
+        cloud_name=settings.cloudinary_cloud_name,
+        api_key=settings.cloudinary_api_key,
+        timestamp=timestamp,
+        signature=cloudinary_signature(params, settings.cloudinary_api_secret),
+        public_id=public_id,
+        overwrite=True,
+        allowed_formats=AVATAR_FORMATS,
+    )
+
+
+@router.put(
+    "/me/avatar",
+    response_model=AuthResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def update_avatar(
+    payload: UpdateAvatarRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> AuthResponse:
+    """Point the account at a freshly uploaded avatar, or clear it."""
+    if payload.avatar_url is None:
+        user.avatar_url = None
+    else:
+        if not settings.cloudinary_configured:
+            raise _avatar_unavailable()
+        match = _avatar_pattern(user).match(payload.avatar_url)
+        if match is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "avatar_url_invalid"},
+            )
+        # Stored with the transform already in the path, so every page that
+        # draws it gets the small square version without knowing anything
+        # about Cloudinary. The version segment changes on each upload, which
+        # is what busts caches after an overwrite.
+        user.avatar_url = (
+            f"https://res.cloudinary.com/{settings.cloudinary_cloud_name}"
+            f"/image/upload/{AVATAR_TRANSFORM}/{match.group(1)}/"
+            f"{_avatar_public_id(user)}"
+        )
+    user.updated_at = datetime.now(UTC)
+    await auth_service.record_audit(
+        session,
+        "user.avatar_update",
+        actor_id=user.id,
+        entity="user",
+        entity_id=str(user.id),
+        ip=client_ip(request),
+    )
+    await session.commit()
     return AuthResponse(user=_user_out(user))
 
 
@@ -278,7 +446,7 @@ async def forgot_password(
         )
         await session.commit()
         await email_service.send_password_reset(
-            user.email, token, payload.locale
+            user.email, token, payload.locale, user.display_name
         )
     # Always the same answer, so the endpoint cannot be used to discover
     # which addresses have accounts
@@ -367,7 +535,9 @@ async def resend_verification(
         session, user, "email_verification", auth_service.VERIFY_TTL
     )
     await session.commit()
-    await email_service.send_email_verification(user.email, token, user.locale)
+    await email_service.send_email_verification(
+        user.email, token, user.locale, user.display_name
+    )
     return SuccessResponse()
 
 

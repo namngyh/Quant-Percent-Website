@@ -8,6 +8,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiError } from "@/lib/api/fetcher";
 import { useAuth } from "@/lib/auth/auth-context";
 import { FieldError, safeNext } from "@/components/auth/form-utils";
 
@@ -22,7 +23,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   const {
     register,
@@ -31,12 +32,21 @@ export function LoginForm() {
   } = useForm<FormValues>({ defaultValues: { email: "", password: "" } });
 
   const onSubmit = async ({ email, password }: FormValues) => {
-    setFailed(false);
+    setFailed(null);
     try {
       await signIn({ email, password });
       router.replace(next);
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      // A wrong password is the common case and the member can fix it; the
+      // generic "could not process" message made it read like an outage.
+      const code = error instanceof ApiError ? error.status : 0;
+      setFailed(
+        code === 401
+          ? t("login.invalidCredentials")
+          : code === 429
+            ? t("login.rateLimited")
+            : t("error")
+      );
     }
   };
 
@@ -86,7 +96,7 @@ export function LoginForm() {
 
       {failed && (
         <p role="alert" className="text-sm text-negative">
-          {t("error")}
+          {failed}
         </p>
       )}
 
