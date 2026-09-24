@@ -68,7 +68,12 @@ def _forbidden() -> HTTPException:
 
 
 def _author(user: User) -> ArticleAuthor:
-    return ArticleAuthor(id=str(user.id), name=user.full_name, role=user.role)
+    return ArticleAuthor(
+        id=str(user.id),
+        name=user.display_name,
+        role=user.role,
+        avatar_url=user.avatar_url,
+    )
 
 
 def _summary_fields(article: Article) -> dict:

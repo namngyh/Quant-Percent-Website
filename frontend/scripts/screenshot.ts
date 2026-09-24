@@ -29,7 +29,6 @@ const CHROME = [
 const PAGES = [
   "/vi",
   "/en",
-  "/vi/market-intelligence",
   "/vi/models",
   "/vi/models/msdp",
   // The network model carries the ranking table and cluster charts, so it is

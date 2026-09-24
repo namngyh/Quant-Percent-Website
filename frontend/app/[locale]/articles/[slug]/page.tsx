@@ -84,7 +84,7 @@ export default async function ArticlePage({
 
               <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-y border-border py-4">
                 <div className="flex items-center gap-3">
-                  <AuthorAvatar name={article.author.name} />
+                  <AuthorAvatar name={article.author.name} src={article.author.avatar_url} />
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-ink">
                       <span>{article.author.name}</span>

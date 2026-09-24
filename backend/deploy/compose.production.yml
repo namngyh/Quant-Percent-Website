@@ -101,6 +101,10 @@ services:
       SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
       CONTACT_NOTIFY_EMAIL: ${CONTACT_NOTIFY_EMAIL:-}
       EMAIL_FROM: ${EMAIL_FROM:-Quant Percent <noreply@quantpercent.com>}
+      # Member avatars. Blank keeps the upload hidden; nothing else changes.
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       MARKET_DELAY_MINUTES: ${MARKET_DELAY_MINUTES:-0}
       STALE_AFTER_MINUTES: ${STALE_AFTER_MINUTES:-90}
     command:

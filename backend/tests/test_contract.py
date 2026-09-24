@@ -43,6 +43,8 @@ EXPECTED_ROUTES = {
     "/api/v1/auth/logout",
     "/api/v1/auth/refresh",
     "/api/v1/auth/me",
+    "/api/v1/auth/me/avatar",
+    "/api/v1/auth/me/avatar-signature",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
     "/api/v1/auth/verify-email",
@@ -210,3 +212,19 @@ def test_openapi_generates() -> None:
     schema = app.openapi()
     assert schema["info"]["title"]
     assert "/api/v1/market/overview" in schema["paths"]
+
+
+def test_cors_allows_every_method_a_route_uses() -> None:
+    """Local development calls the API cross-origin, so a method missing from
+    the CORS list fails its preflight with a 400 — and only there, because
+    production is same-origin. Saving an avatar (PUT) broke exactly this way."""
+    from fastapi.middleware.cors import CORSMiddleware
+
+    [cors] = [m for m in app.user_middleware if m.cls is CORSMiddleware]
+    allowed = set(cors.kwargs["allow_methods"])
+    used = {
+        method
+        for path in app.openapi()["paths"].values()
+        for method in (m.upper() for m in path)
+    }
+    assert used <= allowed, f"not allowed by CORS: {sorted(used - allowed)}"

@@ -49,7 +49,7 @@ async def test_smtp_used_when_only_smtp_configured(settings, monkeypatch) -> Non
     )
     sent: list[tuple] = []
 
-    def fake_send(to, subject, text):
+    def fake_send(to, subject, text, html=None):
         sent.append((to, subject, text))
 
     monkeypatch.setattr(email_service, "_smtp_send", fake_send)
@@ -66,7 +66,7 @@ async def test_resend_wins_when_both_configured(settings, monkeypatch) -> None:
     )
     calls: list[str] = []
 
-    async def fake_resend(to, subject, text):
+    async def fake_resend(to, subject, text, html=None):
         calls.append("resend")
         return True
 
@@ -83,7 +83,7 @@ async def test_send_failure_returns_false(settings, monkeypatch) -> None:
         smtp_password="app-password",
     )
 
-    def boom(to, subject, text):
+    def boom(to, subject, text, html=None):
         raise OSError("connection refused")
 
     monkeypatch.setattr(email_service, "_smtp_send", boom)

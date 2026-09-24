@@ -12,8 +12,13 @@ import { useAuth } from "@/lib/auth/auth-context";
 
 interface FormValues {
   name: string;
+  nickname: string;
   phone: string;
 }
+
+// Mirrors NICKNAME_PATTERN in backend/app/schemas/auth.py: letters in any
+// script, digits, and . - _ or single spaces between them.
+const NICKNAME = /^[\p{L}\p{N}](?:[\p{L}\p{N}_. -]*[\p{L}\p{N}])?$/u;
 
 export function ProfileForm() {
   const t = useTranslations("auth");
@@ -24,23 +29,38 @@ export function ProfileForm() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    defaultValues: { name: user?.name ?? "", phone: user?.phone ?? "" },
+    defaultValues: {
+      name: user?.name ?? "",
+      nickname: user?.nickname ?? "",
+      phone: user?.phone ?? "",
+    },
   });
 
-  const onSubmit = async ({ name, phone }: FormValues) => {
+  const onSubmit = async ({ name, nickname, phone }: FormValues) => {
     setSaved(false);
     setFailed(null);
     try {
-      await updateProfile({ name: name.trim(), phone: phone.trim() || null });
+      await updateProfile({
+        name: name.trim(),
+        nickname: nickname.trim().replace(/\s+/g, " ") || null,
+        phone: phone.trim() || null,
+      });
       setSaved(true);
     } catch (error) {
-      setFailed(
-        error instanceof ApiError && error.status === 429
-          ? t("account.rateLimited")
-          : t("error")
-      );
+      if (error instanceof ApiError && error.status === 409) {
+        setError("nickname", { message: t("account.nicknameTaken") });
+      } else if (error instanceof ApiError && error.status === 422) {
+        setError("nickname", { message: t("account.nicknameInvalid") });
+      } else {
+        setFailed(
+          error instanceof ApiError && error.status === 429
+            ? t("account.rateLimited")
+            : t("error")
+        );
+      }
     }
   };
 
@@ -56,6 +76,26 @@ export function ProfileForm() {
           {t("account.saved")}
         </p>
       )}
+
+      <div>
+        <Label htmlFor="nickname">{t("account.nickname")}</Label>
+        <Input
+          id="nickname"
+          autoComplete="nickname"
+          aria-invalid={!!errors.nickname}
+          className="mt-2"
+          {...register("nickname", {
+            validate: (value) => {
+              const v = value.trim().replace(/\s+/g, " ");
+              if (!v) return true;
+              return (v.length >= 2 && v.length <= 40 && NICKNAME.test(v)) ||
+                t("account.nicknameInvalid");
+            },
+          })}
+        />
+        <FieldError message={errors.nickname?.message} />
+        <p className="mt-1.5 text-xs text-dim">{t("account.nicknameHint")}</p>
+      </div>
 
       <div>
         <Label htmlFor="name">{t("fields.name")}</Label>

@@ -24,15 +24,15 @@ export async function ResearchSystems() {
   const tc = await getTranslations("common");
   const models = (await getPublishedModels()).filter((model) => model.featured);
   return (
-    <section className="relative overflow-hidden border-b border-border bg-background">
+    <section className="tint relative overflow-hidden border-b border-border">
       <div aria-hidden="true" className="numeral-clip">
-        <span className="section-numeral">03</span>
+        <span className="section-numeral">05</span>
       </div>
       <div className="container-qp section-pad relative">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="eyebrow">
-              <span className="tick text-accent/60">03</span>
+              <span className="tick text-accent/60">05</span>
               {t("eyebrow")}
             </p>
             <h2 className="title-lg mt-5">{t("title")}</h2>
@@ -63,8 +63,8 @@ export async function ResearchSystems() {
 export async function HomeCta() {
   const t = await getTranslations("home.cta");
   return (
-    /* Tinted, closing the alternation that the dark Modus band anchors. */
-    <section className="tint">
+    /* White, closing the alternation before the tinted footer. */
+    <section className="bg-background">
       <div className="container-qp section-pad text-center">
         <h2 className="title-lg mx-auto max-w-3xl">{t("title")}</h2>
         <div className="mt-10 flex flex-wrap justify-center gap-3">

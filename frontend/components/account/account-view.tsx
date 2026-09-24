@@ -1,19 +1,23 @@
 "use client";
 
-import { Lock } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { BadgeCheck, Lock } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { SkeletonLoader } from "@/components/states/skeleton-loader";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { ProfileForm } from "@/components/account/profile-form";
+import { AvatarUpload } from "@/components/account/avatar-upload";
+import { AuthorAvatar } from "@/components/articles/author-avatar";
+import { RoleBadge } from "@/components/admin/role-badge";
 import { AuthorRequest } from "@/components/account/author-request";
 import { ResendVerification } from "@/components/auth/resend-verification";
-import { useAuth } from "@/lib/auth/auth-context";
+import { displayName, useAuth } from "@/lib/auth/auth-context";
 import { isVerifiedMember } from "@/lib/auth/verified";
 
 export function AccountView() {
   const t = useTranslations("auth");
+  const format = useFormatter();
   const { user, status } = useAuth();
 
   // Reading the session takes a tick; showing the locked panel first would
@@ -44,11 +48,42 @@ export function AccountView() {
     );
   }
 
+  const verified = isVerifiedMember(user);
+
   return (
     <div className="max-w-xl space-y-14">
+      {/* How the member looks to everyone else, before the fields that
+          change it. */}
+      <section className="flex items-center gap-5 rounded-lg border border-border bg-surface px-5 py-5 shadow-sm">
+        <AuthorAvatar name={displayName(user)} src={user.avatar_url} size="lg" />
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-lg font-semibold">{displayName(user)}</span>
+            {user.role && user.role !== "user" && <RoleBadge role={user.role} />}
+          </p>
+          <p className="mt-0.5 truncate text-sm text-dim">{user.email}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dim">
+            {user.created_at && (
+              <span>
+                {t("account.memberSince", {
+                  date: format.dateTime(new Date(user.created_at), {
+                    month: "long",
+                    year: "numeric",
+                  }),
+                })}
+              </span>
+            )}
+            <span className={verified ? "inline-flex items-center gap-1 text-brand" : undefined}>
+              {verified && <BadgeCheck className="size-3.5" aria-hidden="true" />}
+              {verified ? t("account.verified") : t("account.unverified")}
+            </span>
+          </p>
+        </div>
+      </section>
+
       {/* The locked model cards and the members banner both send unverified
           members here, so the thing that unblocks them has to be here too. */}
-      {!isVerifiedMember(user) && (
+      {!verified && (
         <section className="rounded-lg border border-border bg-surface-2 px-5 py-5">
           <h2 className="text-sm font-semibold">{t("verify.gateTitle")}</h2>
           <p className="mt-2 text-sm leading-relaxed text-ink">
@@ -64,6 +99,9 @@ export function AccountView() {
           {t("account.profileDescription")}
         </p>
         <div className="mt-7">
+          <AvatarUpload />
+        </div>
+        <div className="mt-8">
           <ProfileForm />
         </div>
       </section>

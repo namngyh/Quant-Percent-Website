@@ -1,9 +1,11 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Brand } from "@/components/brand";
+import { FacebookIcon } from "@/components/social/facebook-icon";
+import { FACEBOOK_URL } from "@/lib/social";
 
 const NAV_LINKS = [
-  { key: "market", href: "/market-intelligence" },
+  { key: "community", href: "/articles" },
   { key: "models", href: "/models" },
   { key: "performance", href: "/performance" },
   { key: "portfolio", href: "/quant-portfolio" },
@@ -45,6 +47,16 @@ export async function Footer() {
             <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-dim">
               {t("tagline")}
             </p>
+            <a
+              href={FACEBOOK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t("facebookLabel")}
+              title={t("facebook")}
+              className="mt-6 inline-flex size-10 items-center justify-center rounded-full border border-border bg-background text-brand-strong transition-colors hover:border-brand hover:bg-brand-soft"
+            >
+              <FacebookIcon className="size-5" />
+            </a>
           </div>
           <nav aria-label={t("nav")}>
             <p className="eyebrow">{t("nav")}</p>
@@ -103,6 +115,18 @@ export async function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <a
+                  href={FACEBOOK_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t("facebookLabel")}
+                  className="inline-flex items-center gap-1.5 text-[13px] text-dim transition-colors hover:text-brand-strong"
+                >
+                  <FacebookIcon className="size-3.5" />
+                  {t("facebook")}
+                </a>
+              </li>
               <li>
                 <a
                   href={`mailto:${t("contactEmail")}`}

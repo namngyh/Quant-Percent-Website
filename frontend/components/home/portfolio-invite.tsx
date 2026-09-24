@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
  * position carries. Everything else on the page is about Quant Percent's own
  * research; this is the part a reader can point at their own holdings.
  *
- * No sign-up, and it says so — asking for an account before showing any value
- * is what makes this kind of tool go unused.
+ * The tool itself is for signed-in members, and the line under the button says
+ * so in the same words as the sign-in panel on the tool's page — a promise of
+ * "no sign-up" here followed by a locked panel there read as a bait and switch.
  *
  * A three-step "how it works" list used to sit beside this, one card per step
  * with an icon. It described the tool to people who had not decided to use it
@@ -24,17 +25,17 @@ export async function PortfolioInvite() {
   const t = await getTranslations("home.portfolio");
 
   return (
-    /* Tinted. The Modus report now ends on a white section of its own — the
-       half its chart panel hangs into — so this one has to take the other
-       surface or the two would run together with only a hairline between. */
+    /* Tinted: it sits between the white community and Terminal sections,
+       and the homepage alternates surfaces so no two neighbours run
+       together with only a hairline between them. */
     <section className="tint relative overflow-hidden border-y border-border">
       <div aria-hidden="true" className="numeral-clip">
-        <span className="section-numeral">02</span>
+        <span className="section-numeral">03</span>
       </div>
       <div className="container-qp section-pad relative">
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">
-            <span className="tick text-accent/60">02</span>
+            <span className="tick text-accent/60">03</span>
             {t("eyebrow")}
           </p>
           <h2 className="title-lg mt-5">{t("title")}</h2>
@@ -55,7 +56,7 @@ export async function PortfolioInvite() {
                 <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
               </Link>
             </Button>
-            <span className="text-sm text-dim">{t("noSignup")}</span>
+            <span className="text-sm text-dim">{t("signInHint")}</span>
           </div>
         </div>
       </div>
